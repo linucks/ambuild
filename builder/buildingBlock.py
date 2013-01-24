@@ -7,6 +7,10 @@ Things to look at:
 http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
 
 http://en.wikipedia.org/wiki/Periodic_boundary_conditions
+
+http://mail.scipy.org/pipermail/scipy-dev/2012-March/017177.html
+https://groups.google.com/forum/?fromgroups=#!topic/scipy-user/P6k8LEo30ws
+https://github.com/patvarilly/periodic_kdtree
 '''
 import os
 import re
@@ -548,9 +552,9 @@ class BuildingBlock():
         self.endGroups = []
         
         # Holds the center of mass of the molecule
-        self._centerOfMass = numpy.array( [0.0, 0.0, 0.0] )
+        self._centerOfMass = numpy.zeros( 3 )
         # Holds the center of geometry of the molecule
-        self._centerOfGeometry = numpy.array( [0.0, 0.0, 0.0] )
+        self._centerOfGeometry = numpy.zeros( 3 )
         
         # The radius of the block assuming it is a circle centered on the COG
         self._radius = 0
@@ -570,43 +574,27 @@ class BuildingBlock():
         
         self.fillMasses()
         self.fillAtomRadii()
+        
+        self.calcCenterOfMassAndGeometry()
+        self.calcRadius()
     
   
     def calcCenterOfMassAndGeometry(self):
         """Calculate the center of mass and geometry
         """
         
-        # Recalculate the center of mass
-        sumX = 0.0
-        sumY = 0.0
-        sumZ = 0.0
-        
-        sumXm = 0.0
-        sumYm = 0.0
-        sumZm = 0.0
+        sumG = numpy.zeros( 3 )
+        sumM = numpy.zeros( 3 )
         
         totalMass = 0.0
-        
         for i, coord in enumerate( self.coords ):
             mass = self.masses[i]
             totalMass += mass
-            
-            sumX += coord[0]
-            sumY += coord[1]
-            sumZ += coord[2]
-            
-            sumXm += mass * coord[0]
-            sumYm += mass * coord[1]
-            sumZm += mass * coord[2]
+            sumG += coord
+            sumM += mass * coord
         
-        n = len(self.coords)
-        self._centerOfGeometry[ 0 ] = sumXm / n
-        self._centerOfGeometry[ 1 ] = sumYm / n
-        self._centerOfGeometry[ 2 ] = sumZm / n
-        
-        self._centerOfMass[ 0 ] = sumXm / totalMass
-        self._centerOfMass[ 1 ] = sumYm / totalMass
-        self._centerOfMass[ 2 ] = sumZm / totalMass
+        self._centerOfGeometry = sumG / (i+1)
+        self._centerOfMass = sumM / totalMass
         
         
     def calcRadius(self,margin=1.0):
@@ -673,7 +661,7 @@ class BuildingBlock():
         for i, c in enumerate( self.coords ):
             i_radius = self.atom_radii[i]
             for j, b in enumerate( block.coords ):
-                j_radius = block.atom_radii[i]
+                j_radius = block.atom_radii[j]
                 if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + MARGIN ):
                     return True
                 
@@ -751,7 +739,50 @@ class BuildingBlock():
                 else:
                     endGroups.append(False)
                     
-                coords.append( numpy.array(fields[1:4]) )
+                coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
+                
+        self.createFromArgs(coords, labels, endGroups)
+
+
+    def fromXyzFile(self, xyzFile):
+        """"Jens did this.
+        """
+        
+        labels = []
+        
+        # numpy array
+        coords = []
+        
+        # array of bools - could change to an array of the indexes
+        endGroups = []
+        
+        natoms = 0
+        with open( xyzFile ) as f:
+            
+            # First line is number of atoms
+            line = f.readline()
+            natoms = int(line.strip())
+            
+            # Skip title
+            line = f.readline()
+            
+            for i in range(natoms):
+                
+                line = f.readline()
+                line = line.strip()
+                fields = line.split()
+                labels.append(fields[0]) 
+                
+                # End groups are denoted by an underscore at the end
+                # of the label name
+                if fields[0].endswith('_'):
+                    endGroups.append(True)
+                else:
+                    endGroups.append(False)
+                    
+                coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
+                
+        self.createFromArgs(coords, labels, endGroups)
                 
     def labelToSymbol( self, name ):
         """ Determine the element type of an atom from its name, e.g. Co_2b -> Co
@@ -824,7 +855,7 @@ class BuildingBlock():
         """Translate the molecule so the center of geometry moves
         to the given position
         """
-        self.translate( self.centerOfGeometry() - position )
+        self.translate( position - self.centerOfGeometry() )
         
         
     def writeXyz(self,name=None):
@@ -851,8 +882,13 @@ class BuildingBlock():
         
         mystr = ""
         for i,c in enumerate(self.coords):
-            mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self.labels[i], c[0], c[1], c[2])
+            #mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self.labels[i], c[0], c[1], c[2])
+            mystr += "{0:5} {1:0< 15} {2:0< 15} {3:0< 15} \n".format( self.labels[i], c[0], c[1], c[2])
             
+        mystr += "radius: {}\n".format( self.radius() )
+        mystr += "COM: {}\n".format( self._centerOfMass )
+        mystr += "COG: {}\n".format( self._centerOfGeometry )
+        
         return mystr
         
         
@@ -861,7 +897,7 @@ class TestBuildingBlock(unittest.TestCase):
     def setUp(self):
         """Create a methane molecule for testing"""
         
-        coords = [ numpy.array([  0.000000,  0.000000,  0.000000 ]),
+        coords = [ numpy.array([  0.000000,  0.000000,  0.000000 ] ),
         numpy.array([  0.000000,  0.000000,  1.089000 ]),
         numpy.array([  1.026719,  0.000000, -0.363000 ]),
         numpy.array([ -0.513360, -0.889165, -0.363000 ]),
@@ -930,7 +966,18 @@ class TestBuildingBlock(unittest.TestCase):
         """
         
         r = self.ch4.radius()
-        self.assertAlmostEqual(r, 2.78900031214, 11, "Incorrect radius: {}".format(str(r)) )
+        self.assertAlmostEqual(r, 2.78900031214, 7, "Incorrect radius: {}".format(str(r)) )
+        
+    def testClash(self):
+        """
+        Test we can spot a clash
+        """
+        
+        block = self.ch4.copy()
+        self.assertTrue( self.ch4.clash( block ) )
+        
+        block.translateCenterOfGeometry( [3,3,3] )
+        self.assertFalse( self.ch4.clash( block ) )
         
 
 if __name__ == '__main__':

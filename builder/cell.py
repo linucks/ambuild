@@ -42,7 +42,7 @@ class Cell():
         
         return numpy.array([x,y,z])
     
-    def getRandomRotation(self):
+    def getRandomRotationAngle(self):
         """Return a random rotation in radians"""
         return random.uniform( 0, 2*numpy.pi)
         
@@ -64,6 +64,7 @@ class Cell():
             newblock = firstBlock.copy()
             tries = 0
             clash = True
+            print "Adding block: "+str(seedCount)
             while clash:
                 # quit on maxTries
                 if tries >= MAXTRIES:
@@ -77,15 +78,15 @@ class Cell():
                 newblock.translateCenterOfGeometry( position )
                 
                 # Rotate by a random number
-                rotation = self.getRandomRotation()
+                rotation = self.getRandomRotationAngle()
                 
-                newblock.rotate(rotation)
+                newblock.rotate( numpy.array([0,0,0],dtype=numpy.float64), rotation )
                 
                 # Test for Clashes with other molecules - always set clash
                 # to False at start so it only becomes true if no clashes
                 clash = False
-                for block in self.blocks():
-                    if block.clashes(newblock):
+                for block in self.blocks:
+                    if block.clash(newblock):
                         clash = True
                 
                 # Break out if no clashes
@@ -103,3 +104,9 @@ class Cell():
                 sys.exit(1)
     
     # End of loop to seed cell
+    
+    def __str__(self):
+        """
+        """
+        for block in self.blocks:
+            print block
