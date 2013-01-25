@@ -622,8 +622,6 @@ class BuildingBlock():
         http://stackoverflow.com/questions/6430091/efficient-distance-calculation-between-n-points-and-a-reference-in-numpy-scipy
         """
         
-        global SYMBOL_TO_NUMBER
-        
         cog = self.centerOfGeometry()
         
         distances = []
@@ -632,15 +630,9 @@ class BuildingBlock():
             
         imax = numpy.argmax( distances )
         dist = distances[ imax ]
+        atomR = self.atom_radii[ imax ]
         
-        z = SYMBOL_TO_NUMBER[ self.labels[imax].upper() ]
-        atomR = COVALENT_RADII[ z ]
-        
-#        print "dmax is "+str(imax)
-#        print 'label is '+self.labels[imax]
-#        print "got z "+str(z)
-#        print "got R "+str(atomR)
-        
+        # Set radius
         self._radius = dist + atomR + margin
         
         
@@ -648,7 +640,6 @@ class BuildingBlock():
         """
         Return or calculate the center of mass for the building block.
         """
-        
         if self._changed:
             self.calcCenterOfMassAndGeometry()
             self._changed = False
