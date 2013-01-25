@@ -531,7 +531,7 @@ class BuildingBlock():
     classdocs
     '''
 
-    def __init__(self):
+    def __init__( self, infile = None ):
         '''
         Constructor
         '''
@@ -563,9 +563,18 @@ class BuildingBlock():
         # need to be changed
         self._changed = True
         
+        if infile:
+            if infile.endswith(".car"):
+                self.fromCarFile( infile )
+            elif infile.endswith(".xyz"):
+                self.fromXyzFile( infile )
+            else:
+                raise RuntimeError("Unrecognised file suffix: {}".format(infile) )
+                
+        
         
     def createFromArgs(self, coords, labels, endGroups ):
-        """ Create from given arguments - for testing
+        """ Create from given arguments
         """
         # could check if numpy array here
         self.coords = coords
@@ -756,7 +765,6 @@ class BuildingBlock():
         # array of bools - could change to an array of the indexes
         endGroups = []
         
-        natoms = 0
         with open( xyzFile ) as f:
             
             # First line is number of atoms

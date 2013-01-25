@@ -6,35 +6,30 @@ Created on Jan 15, 2013
 
 
 '''
-#import numpy
-#import sys
-
 
 import buildingBlock
 import cell
 
-
-FILE = "/Users/jmht/Dropbox/Amorphousbuilder/builder//PAF_bb_typed.car" 
-FILE = "/Users/jmht/Dropbox/Amorphousbuilder/builder/ch4.xyz" 
-nblocks =50
-CELLA = [ 100, 0,   0 ]
-CELLB = [ 0,   100, 0 ]
-CELLC = [ 0,   0,   100 ]
+INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/builder//PAF_bb_typed.car" 
+INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/builder/ch4.xyz"
+OUTFILE = "/Users/jmht/cell.xyz"
+nblocks = 100
+CELLA = [ 50, 0,   0 ]
+CELLB = [ 0,   50, 0 ]
+CELLC = [ 0,   0,   50 ]
 MAXTRIES = 10000
 
 
 
 # Create building block and read in car file
-firstBlock = buildingBlock.BuildingBlock()
-#firstBlock.fromCarFile( CARFILE )
-firstBlock.fromXyzFile( FILE )
-
+firstBlock = buildingBlock.BuildingBlock( infile = INFILE )
 
 # Create Cell and seed it with the blocks
 cell = cell.Cell( CELLA, CELLB, CELLC )
-cell.seed(nblocks, firstBlock)
-print cell
+cell.seed (nblocks, firstBlock )
+#print cell
+cell.write( OUTFILE )
 
 
-if __name__ == '__main__':
-    pass
+#if __name__ == '__main__':
+#    pass

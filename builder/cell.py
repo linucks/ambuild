@@ -5,6 +5,7 @@ Created on Jan 15, 2013
 '''
 
 import sys
+import os
 import random
 
 import numpy
@@ -80,7 +81,7 @@ class Cell():
                 # Rotate by a random number
                 rotation = self.getRandomRotationAngle()
                 
-                newblock.rotate( numpy.array([0,0,0],dtype=numpy.float64), rotation )
+                newblock.rotate( numpy.array([1,0,0],dtype=numpy.float64), rotation )
                 
                 # Test for Clashes with other molecules - always set clash
                 # to False at start so it only becomes true if no clashes
@@ -103,10 +104,34 @@ class Cell():
                 print "ERROR ADDING BLOCK"
                 sys.exit(1)
     
-    # End of loop to seed cell
+        # End of loop to seed cell
+    
+    # End seed
+    
+    def write(self, ofile ):
+        """Write out the cell atoms to an xyz file"""
+        
+        natoms=0
+        xyz = ""
+        for block in self.blocks:
+            for i, c in enumerate( block.coords ):
+                xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.labels[i], c[0], c[1], c[2] )
+                natoms += 1
+        
+        xyz = "{}\nCell Atoms\n".format(natoms) + xyz
+        
+        with open( ofile, 'w' ) as f:
+            fpath = os.path.abspath(f.name)
+            f.writelines( xyz )
+            
+        print "Wrote cell file: {0}".format(fpath)
+            
     
     def __str__(self):
         """
         """
+        s = ""
         for block in self.blocks:
-            print block
+            s+= str(block)
+            
+        return s
