@@ -542,6 +542,9 @@ class BuildingBlock():
         # ordered array of labels
         self.labels = []
         
+        # ordered array of symbols (in upper case)
+        self.symbols = []
+        
         # ordered array of masses
         self.masses = []
         
@@ -581,8 +584,7 @@ class BuildingBlock():
         self.labels = labels
         self.endGroups = endGroups
         
-        self.fillMasses()
-        self.fillAtomRadii()
+        self.fillData()
         
         self.calcCenterOfMassAndGeometry()
         self.calcRadius()
@@ -606,12 +608,10 @@ class BuildingBlock():
         self._centerOfMass = sumM / totalMass
         
         
-    def calcRadius(self,margin=1.0):
+    def calcRadius(self):
         """
         Calculate a simple size metric of the block so that we can screen for whether
         two blocks are within touching distance
-        
-        Buffer is the bit to add beyond the radius - i.e. to exclude the possibility of bonding
         
         First try a simple approach with a loop just to get a feel for things
         - Find the largest distance between any atom and the center of geometry
@@ -633,7 +633,7 @@ class BuildingBlock():
         atomR = self.atom_radii[ imax ]
         
         # Set radius
-        self._radius = dist + atomR + margin
+        self._radius = dist + atomR
         
         
     def centerOfMass(self):
@@ -651,8 +651,7 @@ class BuildingBlock():
         
         # First check if these two molecules are within range assuming they 
         # are circular, centered on the COG and with the given radius
-        dist = numpy.linalg.norm( self.centerOfGeometry() - block.centerOfGeometry() )
-        if ( dist > self.radius() + block.radius() ):
+        if not self.close(block):
             return False
         
         # Within range, so see if any atoms actually do overlap
@@ -666,8 +665,19 @@ class BuildingBlock():
                     return True
                 
         return False
-
-    def copy(self):
+    
+    def close( self, block, margin=1.0 ):
+        """Return true of false depending on whether two blocks are close enough to bond/clash.
+        Works from the overall radii of the two blocks
+        Margin is allowed gap between their respective radii
+        """
+        dist = numpy.linalg.norm( self.centerOfGeometry() - block.centerOfGeometry() )
+        if ( dist < self.radius() + block.radius() + margin ):
+            return True
+        else:
+            return False
+    
+    def copy( self ):
         """Create a copy of ourselves and return it"""
         return copy.deepcopy(self)
 
@@ -681,30 +691,29 @@ class BuildingBlock():
             self._changed = False
         
         return self._centerOfGeometry
-    
-    def fillMasses( self ):
-        """Fill the array with the masses of each atom by determining
-        the element from the atom label
-        """
+
+    def fillData(self):
+        """ Fill the data arrays from the label """
         
-        for i in range( len(self.coords) ):
-            element = self.labelToSymbol( self.labels[i] )
-            self.masses.append( ATOMIC_MASS[ element ] )
-            
-    def fillAtomRadii( self ):
-        """Fill the array with the radus of each atom
-        """
         global SYMBOL_TO_NUMBER, COVALENT_RADII
-        
+
         if len(self.labels) < len(self.coords):
-            raise RuntimeError("fillAtomRadii needs labels filled")
+            raise RuntimeError("fillData needs labels filled!")
         
         for label in self.labels:
-            z = SYMBOL_TO_NUMBER[ self.labelToSymbol( label ) ]
+            # Symbols
+            symbol = self.labelToSymbol( label )
+            self.symbols.append( symbol )
+            
+            # Masses
+            self.masses.append( ATOMIC_MASS[ symbol ] )
+            
+            # Radii
+            z = SYMBOL_TO_NUMBER[ symbol ]
             r = COVALENT_RADII[z]
             self.atom_radii.append(r)
             #print "ADDING R {} for label {}".format(r,label)
-
+            
     
     def fromCarFile(self, carFile):
         """"Abbie did this.
@@ -856,6 +865,28 @@ class BuildingBlock():
         """
         self.translate( position - self.centerOfGeometry() )
         
+    
+#    def tryBond( self, block ):
+#        """See if we can form a bond with the given block.
+#        """
+#        # First see if we are close enough to consider bonding
+#        #jmht- check longest possible bond - possibly precalculate for each molecule?
+#        if not self.close(block, margin=2.0):
+#            return False
+#        
+#        # Might be able to bond so loop through all atoms and check if they can bond
+#        # We only accept the case where just one pair of atoms is close enough to bond
+#        # more than one is considered a failure
+#        for i, c in enumerate( self.coords ):
+#            i_radius = self.atom_radii[i]
+#            i_sym = 
+#            for j, b in enumerate( block.coords ):
+#                j_radius = block.atom_radii[j]
+#                if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + MARGIN ):
+#                    return True
+#                
+        
+        
         
     def writeXyz(self,name=None):
         
@@ -965,7 +996,7 @@ class TestBuildingBlock(unittest.TestCase):
         """
         
         r = self.ch4.radius()
-        self.assertAlmostEqual(r, 2.78900031214, 7, "Incorrect radius: {}".format(str(r)) )
+        self.assertAlmostEqual(r, 1.78900031214, 7, "Incorrect radius: {}".format(str(r)) )
         
     def testClash(self):
         """

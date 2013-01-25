@@ -10,9 +10,9 @@ Created on Jan 15, 2013
 import buildingBlock
 import cell
 
-INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/builder//PAF_bb_typed.car" 
-INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/builder/ch4.xyz"
-OUTFILE = "/Users/jmht/cell.xyz"
+INFILE = "/Users/abbietrewin/Dropbox/Amorphousbuilder/builder/PAF_bb_typed.car" 
+#INFILE = "/Users/abbietrewin/Dropbox/Amorphousbuilder/builder/ch4.xyz"
+OUTFILE = "/Users/abbietrewin/am_builder_test/cell_2.xyz"
 nblocks = 100
 CELLA = [ 50, 0,   0 ]
 CELLB = [ 0,   50, 0 ]

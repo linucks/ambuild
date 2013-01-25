@@ -31,7 +31,13 @@ class Cell():
         self.C = C
         
         self.blocks = []
-
+        
+    def blocks(self):
+        return self.blocks
+    
+    def addBlock( self, block ):
+        self.blocks.append( block )
+        
     def getRandomPosition( self ) :
         '''
         Return a random position in the cell
@@ -46,12 +52,6 @@ class Cell():
     def getRandomRotationAngle(self):
         """Return a random rotation in radians"""
         return random.uniform( 0, 2*numpy.pi)
-        
-    def blocks(self):
-        return self.blocks
-    
-    def addBlock( self, block ):
-        self.blocks.append( block )
         
     def seed( self, nblocks, firstBlock ):
         """ Seed a cell with nblocks based on firstBlock
@@ -108,6 +108,32 @@ class Cell():
     
     # End seed
     
+
+        
+    def shimmy(self, nsteps = 100 ):
+        """ Shuffle the molecules about making bonds where necessary for nsteps"""
+        
+        for step in range( nsteps ):
+            iblock = self.randomBlockIndex()
+            block = self.blocks[iblock]
+             
+            # Make a random move
+            self.randomMove( block )
+             
+             # Check all atoms and 
+            for i, oblock in enumerate( self.blocks ):
+                 
+                # skip the block we are using
+                if i == iblock:
+                    continue
+                
+                # Try to make a bond
+                bond = block.tryBond( oblock )
+                
+                if bond:
+                    print "Bonded block {} with block {}\n".format( iblock, i) 
+
+             
     def write(self, ofile ):
         """Write out the cell atoms to an xyz file"""
         
@@ -125,7 +151,6 @@ class Cell():
             f.writelines( xyz )
             
         print "Wrote cell file: {0}".format(fpath)
-            
     
     def __str__(self):
         """
