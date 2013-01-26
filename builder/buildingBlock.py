@@ -575,6 +575,19 @@ class BuildingBlock():
                 raise RuntimeError("Unrecognised file suffix: {}".format(infile) )
                 
         
+    def bond (self, block, bond):
+        """Bond the two blocks at the given bond - tuple is indices of self and other bond
+        """
+        for i, coord in enumerate(block.coords):
+            self.coords.append( coord )
+            self.atom_radii.append( block.atom_radii[i] )
+            self.labels.append( block.labels[i] )
+            self.symbols.append( block.symbols[i] )
+            self.masses.append( block.masses[i] )
+            self.endGroups.append( block.endGroups[i] )
+            
+        # Now add bond
+        
         
     def createFromArgs(self, coords, labels, endGroups ):
         """ Create from given arguments
@@ -635,6 +648,40 @@ class BuildingBlock():
         # Set radius
         self._radius = dist + atomR
         
+    def canBond( self, block ):
+        """See if we can form a bond with the given block.
+        Return the indicies of the two atoms - self and then other
+        """
+        # First see if we are close enough to consider bonding
+        #jmht- check longest possible bond - possibly precalculate for each molecule?
+        if not self.close(block, margin=2.0):
+            return False
+        
+        # Might be able to bond so loop through all atoms and check
+        # We only accept the case where just one pair of atoms is close enough to bond
+        # more than one is considered a failure
+        global get_bond_lengths
+        MARGIN = 1.0
+        bond = None
+        for i, c in enumerate( self.coords ):
+            i_radius = self.atom_radii[i]
+            i_symbol = self.symbols[i]
+            for j, b in enumerate( block.coords ):
+                j_radius = block.atom_radii[j]
+                j_symbol = block.symbols[j]
+                bond_length = get_bond_length( i_symbol , j_symbol )
+                if ( numpy.linalg.norm( c - b ) < bond_length + MARGIN ):
+                    # Close enough to bond
+                    if bond:
+                        # Already got one so quit
+                        return False
+                    bond = (i,j)
+        
+        if not bond:
+            return False
+        
+        # Got a bond so check the angle
+        return bond
         
     def centerOfMass(self):
         """
@@ -866,26 +913,7 @@ class BuildingBlock():
         self.translate( position - self.centerOfGeometry() )
         
     
-#    def tryBond( self, block ):
-#        """See if we can form a bond with the given block.
-#        """
-#        # First see if we are close enough to consider bonding
-#        #jmht- check longest possible bond - possibly precalculate for each molecule?
-#        if not self.close(block, margin=2.0):
-#            return False
-#        
-#        # Might be able to bond so loop through all atoms and check if they can bond
-#        # We only accept the case where just one pair of atoms is close enough to bond
-#        # more than one is considered a failure
-#        for i, c in enumerate( self.coords ):
-#            i_radius = self.atom_radii[i]
-#            i_sym = 
-#            for j, b in enumerate( block.coords ):
-#                j_radius = block.atom_radii[j]
-#                if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + MARGIN ):
-#                    return True
-#                
-        
+
         
         
     def writeXyz(self,name=None):
@@ -902,6 +930,11 @@ class BuildingBlock():
                 f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( self.labels[i], c[0], c[1], c[2]))
         
         print "Wrote file: {0}".format(fpath)
+    
+    def __add__(self):
+        """Add two blocks - concatenate the coords and recalculate the variables"""
+        
+        
         
 
         

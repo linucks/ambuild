@@ -49,10 +49,35 @@ class Cell():
         
         return numpy.array([x,y,z])
     
-    def getRandomRotationAngle(self):
+    def getRandomRotation(self):
         """Return a random rotation in radians"""
-        return random.uniform( 0, 2*numpy.pi)
         
+        x = random.uniform(0,self.A[0])
+        y = random.uniform(0,self.B[1])
+        z = random.uniform(0,self.C[2])
+        axis = numpy.array( [ x, y, z ], dtype=numpy.float64 )
+        angle = random.uniform( 0, 2*numpy.pi)
+        return axis, angle
+    
+    def getRandomBlockIndex(self):
+        """Return the index of one of the blocks"""
+        return random.randint( 0, len(self.blocks)-1 )
+        
+        
+    def randomMove(self, block):
+        """Randomly move the given block"""
+        
+        # Get coords of random point in the cell
+        position = self.getRandomPosition()
+        
+        # Translate COM of molecule to coords
+        block.translateCenterOfGeometry( position )
+        
+        # Rotate by a random number
+        axis, angle = self.getRandomRotation()
+        
+        block.rotate( axis, angle )
+    
     def seed( self, nblocks, firstBlock ):
         """ Seed a cell with nblocks based on firstBlock
         """
@@ -71,17 +96,9 @@ class Cell():
                 if tries >= MAXTRIES:
                     print "EXCEEDED MAXTRIES WHEN SEEDING"
                     sys.exit(1)
-                    
-                # Get coords of random point in the cell
-                position = self.getRandomPosition()
                 
-                # Translate COM of molecule to coords
-                newblock.translateCenterOfGeometry( position )
-                
-                # Rotate by a random number
-                rotation = self.getRandomRotationAngle()
-                
-                newblock.rotate( numpy.array([1,0,0],dtype=numpy.float64), rotation )
+                # Move the block and rotate it
+                self.randomMove(newblock)
                 
                 # Test for Clashes with other molecules - always set clash
                 # to False at start so it only becomes true if no clashes
@@ -114,24 +131,38 @@ class Cell():
         """ Shuffle the molecules about making bonds where necessary for nsteps"""
         
         for step in range( nsteps ):
-            iblock = self.randomBlockIndex()
+            print "step {}".format(step)
+            iblock = self.getRandomBlockIndex()
             block = self.blocks[iblock]
              
             # Make a random move
             self.randomMove( block )
              
              # Check all atoms and 
-            for i, oblock in enumerate( self.blocks ):
-                 
+            removed = []
+            for i in range( len(self.blocks) ):
+                
                 # skip the block we are using
                 if i == iblock:
+                    i+=1
                     continue
                 
+                oblock = self.blocks[i]
+                 
                 # Try to make a bond
-                bond = block.tryBond( oblock )
-                
+                bond = block.canBond( oblock )
                 if bond:
-                    print "Bonded block {} with block {}\n".format( iblock, i) 
+                    block.bond( oblock, bond )
+                    print "Bonded block {} with block {}\n".format( iblock, i)
+                    # Now delete block
+                    removed.append(i)
+                i+=1
+            
+            for r in removed:
+                print self.blocks
+                self.blocks.pop(r)
+                #r=r-1
+                    
 
              
     def write(self, ofile ):
