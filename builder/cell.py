@@ -38,17 +38,6 @@ class Cell():
     
     def addBlock( self, block ):
         self.blocks.append( block )
-        
-    def getRandomPosition( self ) :
-        '''
-        Return a random position in the cell
-        '''
-        #
-        x = random.uniform(0,self.A[0])
-        y = random.uniform(0,self.B[1])
-        z = random.uniform(0,self.C[2])
-        
-        return numpy.array([x,y,z])
     
     def getRandomRotation(self):
         """Return a random rotation in radians"""
@@ -65,13 +54,38 @@ class Cell():
         return random.randint( 0, len(self.blocks)-1 )
         
         
-    def randomMove(self, block):
-        """Randomly move the given block"""
+    def randomMove(self, block ):
+        """Randomly move the given block
+        If given a prange parameter, only move by at most prange angstroms
+        """
         
         # Get coords of random point in the cell
-        position = self.getRandomPosition()
+        x = random.uniform(0,self.A[0])
+        y = random.uniform(0,self.B[1])
+        z = random.uniform(0,self.C[2])
+        position = numpy.array([x,y,z])
         
         # Translate COM of molecule to coords
+        block.translateCenterOfGeometry( position )
+        
+        # Rotate by a random number
+        axis, angle = self.getRandomRotation()
+        
+        block.rotate( axis, angle )
+        
+    def randomSmallMove(self, block, cog, prange=1.0 ):
+        
+        """Get a random position that moves the COG prange
+        units from its current position, The cog argument is the
+        original centre of geometry so that we sample around it"""
+        
+        x = random.uniform(-prange/2,prange/2)
+        y = random.uniform(-prange/2,prange/2)
+        z = random.uniform(-prange/2,prange/2)
+        xyz = numpy.array( [x,y,z] )
+        
+        position = numpy.add( cog, xyz )
+        
         block.translateCenterOfGeometry( position )
         
         # Rotate by a random number
@@ -133,6 +147,9 @@ class Cell():
         
         for step in range( nsteps ):
             
+            # Number of sub-moves to attempt when the blocks are close
+            minimoves = 20
+            
             if not step % 20:
                 print "step {}".format(step)
                 
@@ -147,7 +164,10 @@ class Cell():
              
             # Make a random move
             self.randomMove( block )
-             
+            
+            # Remeber the original cog of the block 
+            cog = block.centerOfGeometry()
+            
             # Check all atoms and 
             removed = []
             for i in range( len(self.blocks) ):
@@ -158,9 +178,24 @@ class Cell():
                     continue
                 
                 oblock = self.blocks[i]
-                 
-                # Try to make a bond
-                bond = block.canBond( oblock )
+                
+                # First see if we are close enough to consider bonding
+                if not block.close( oblock, margin = 1.0 ):
+                    i+=1
+                    continue
+                
+                # See if we can bond and shimmy minimoves times
+                # Get the original cog so we sample about it
+                for j in range( minimoves ):
+                    # Try to make a bond
+                    bond = block.canBond( oblock )
+                    if not bond or bond == "clash":
+                        # Try a smaller move
+                        print "minimove: {}->{}".format(j,bond)
+                        self.randomSmallMove( block, cog, prange=1.5 )
+                    else:
+                        # Bonding worked so break out of loop
+                        break
                 
                 if bond:
                     if bond == "clash":

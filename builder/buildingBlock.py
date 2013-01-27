@@ -583,13 +583,27 @@ class BuildingBlock():
     def bond (self, block, bond):
         """Bond the two blocks at the given bond - tuple is indices of self and other bond
         """
-        for i, coord in enumerate(block.coords):
-            self.coords.append( coord )
-            self.atom_radii.append( block.atom_radii[i] )
-            self.labels.append( block.labels[i] )
-            self.symbols.append( block.symbols[i] )
-            self.masses.append( block.masses[i] )
-            self.endGroups.append( block.endGroups[i] )
+        
+        self.coords.extend( block.coords )
+        self.atom_radii.extend( block.atom_radii )
+        self.labels.extend( block.labels )
+        self.symbols.extend( block.symbols )
+        self.masses.extend( block.masses )
+        
+        
+        # Need to remove the end groups used in the bond
+        self.endGroups.pop( bond[0] )
+        block.endGroups.pop( bond[1] )
+        self.endGroups.extend( block.endGroups )
+        
+        del self._endGroupContacts[ bond[0] ]
+        del block._endGroupContacts[ bond[1] ]
+        self._endGroupContacts.update( block._endGroupContacts )
+        
+        
+        # Recalculate the data for this new block
+        self.calcCenterOfMassAndGeometry()
+        self.calcRadius()
             
         # Now add bond
         
@@ -662,11 +676,7 @@ class BuildingBlock():
         the string "clash" to indicate a clash and that the move should be
         rejected
         """
-        # First see if we are close enough to consider bonding
-        #jmht- check longest possible bond - possibly precalculate for each molecule?
-        if not self.close(block, margin=2.0):
-            return False
-        
+
         # Might be able to bond so loop through all atoms and check
         # We only accept the case where just one pair of atoms is close enough to bond
         # more than one is considered a failure
@@ -1059,10 +1069,6 @@ class BuildingBlock():
         to the given position
         """
         self.translate( position - self.centerOfGeometry() )
-        
-    
-
-        
         
     def writeXyz(self,name=None):
         
