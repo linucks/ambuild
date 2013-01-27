@@ -6,6 +6,7 @@ Created on Jan 15, 2013
 
 import sys
 import os
+import copy
 import random
 
 import numpy
@@ -127,13 +128,19 @@ class Cell():
     
 
         
-    def shimmy(self, nsteps = 100 ):
+    def shimmy(self, nsteps ):
         """ Shuffle the molecules about making bonds where necessary for nsteps"""
         
         for step in range( nsteps ):
-            print "step {}".format(step)
+            
+            if not step % 20:
+                print "step {}".format(step)
+                
             iblock = self.getRandomBlockIndex()
             block = self.blocks[iblock]
+            
+            # Copy the origianl coordintes so we can reject the move
+            orig_block = copy.deepcopy(block)
              
             # Make a random move
             self.randomMove( block )
@@ -152,14 +159,18 @@ class Cell():
                 # Try to make a bond
                 bond = block.canBond( oblock )
                 if bond:
-                    block.bond( oblock, bond )
-                    print "Bonded block {} with block {}\n".format( iblock, i)
-                    # Now delete block
-                    removed.append(i)
+                    if bond == "clash":
+                        # Reject this move
+                        del(block)
+                        block = orig_block
+                    else:
+                        block.bond( oblock, bond )
+                        print "Bonded block {} with block {}\n".format( iblock, i)
+                        # Now delete block
+                        removed.append(i)
                 i+=1
             
             for r in removed:
-                print self.blocks
                 self.blocks.pop(r)
                 #r=r-1
                     

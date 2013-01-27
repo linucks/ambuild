@@ -650,7 +650,11 @@ class BuildingBlock():
         
     def canBond( self, block ):
         """See if we can form a bond with the given block.
-        Return the indicies of the two atoms - self and then other
+        Return the indicies of the two atoms (self and then other)
+        or False if the molecules cannot bond but do not clash
+        If the blocks clash (are close but cannot bond) we return
+        the string "clash" to indicate a clash and that the move should be
+        rejected
         """
         # First see if we are close enough to consider bonding
         #jmht- check longest possible bond - possibly precalculate for each molecule?
@@ -661,7 +665,7 @@ class BuildingBlock():
         # We only accept the case where just one pair of atoms is close enough to bond
         # more than one is considered a failure
         global get_bond_lengths
-        MARGIN = 1.0
+        MARGIN = 0.2
         bond = None
         for i, c in enumerate( self.coords ):
             i_radius = self.atom_radii[i]
@@ -670,11 +674,17 @@ class BuildingBlock():
                 j_radius = block.atom_radii[j]
                 j_symbol = block.symbols[j]
                 bond_length = get_bond_length( i_symbol , j_symbol )
-                if ( numpy.linalg.norm( c - b ) < bond_length + MARGIN ):
+                if ( numpy.linalg.norm( c - b ) > bond_length - MARGIN and
+                     numpy.linalg.norm( c - b ) < bond_length + MARGIN):
+                    # Check if both atoms are end groups
+                    if not ( self.endGroups[i] and block.endGroups[j] ):
+                        # 2 atoms close enough to bond but they are not end groups
+                        return "clash"
+                        
                     # Close enough to bond
                     if bond:
-                        # Already got one so quit
-                        return False
+                        # Already got one so this is no good
+                        return "clash"
                     bond = (i,j)
         
         if not bond:
@@ -774,19 +784,27 @@ class BuildingBlock():
         # array of bools - could change to an array of the indexes
         endGroups = []
         
+        reading = True
         with open( carFile ) as f:
             
             count = 0
-            for line in f.readlines():
-                
-                # First 4 lines just info - not needed
-                if count < 4:
-                    count+=1
-                    continue
+            # First 4 lines just info - not needed
+            f.readline()
+            f.readline()
+            f.readline()
+            f.readline()
+            
+            while reading:
+                line = f.readline()
                 
                 line = line.strip()
                 fields = line.split()
-                labels.append(fields[0]) 
+                label = fields[0]
+                if label.lower() == "end":
+                    reading=False
+                    break
+                     
+                labels.append(label) 
                 
                 # End groups are denoted by an underscore at the end
                 # of the label name
@@ -794,7 +812,6 @@ class BuildingBlock():
                     endGroups.append(True)
                 else:
                     endGroups.append(False)
-                    
                 coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
                 
         self.createFromArgs(coords, labels, endGroups)
@@ -927,7 +944,7 @@ class BuildingBlock():
             f.write( "id={}\n".format(str(id(self))) )
                              
             for i,c in enumerate(self.coords):
-                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( self.labels[i], c[0], c[1], c[2]))
+                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( self.labelToSymbol(self.labels[i]), c[0], c[1], c[2]))
         
         print "Wrote file: {0}".format(fpath)
     
