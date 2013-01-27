@@ -16,12 +16,12 @@ INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/PAF_bb_typed.car"
 #INFILE = "/Users/abbietrewin/Dropbox/Amorphousbuilder/builder/ch4.xyz"
 OUTFILE1 = "/Users/jmht/cell_1.xyz"
 OUTFILE2 = "/Users/jmht/cell_2.xyz"
-nblocks = 100
+nblocks = 50
 CELLA = [ 50,  0,  0 ]
 CELLB = [ 0, 50,  0 ]
 CELLC = [ 0,  0, 50 ]
 MAXTRIES =5000
-STEPS = 1000
+STEPS = 10000
 
 
 # Create building block and read in car file

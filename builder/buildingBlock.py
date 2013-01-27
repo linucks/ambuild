@@ -15,6 +15,7 @@ https://github.com/patvarilly/periodic_kdtree
 import os
 import re
 import copy
+import math
 import unittest
 
 import numpy
@@ -551,8 +552,12 @@ class BuildingBlock():
         # orderd array of atom radii
         self.atom_radii = []
         
-        # Groups at end that can particpate in bonds
+        # A list of bools indicating if the atom with this index is an endGroup
         self.endGroups = []
+        
+        # Dictionary mapping the index of an endGroup to an atom bonded ato it
+        # Required for finding the angle when we check bonds
+        self._endGroupContacts = {}
         
         # Holds the center of mass of the molecule
         self._centerOfMass = numpy.zeros( 3 )
@@ -601,6 +606,7 @@ class BuildingBlock():
         
         self.calcCenterOfMassAndGeometry()
         self.calcRadius()
+        self.findEndGroupContacts()
     
   
     def calcCenterOfMassAndGeometry(self):
@@ -668,14 +674,13 @@ class BuildingBlock():
         MARGIN = 0.2
         bond = None
         for i, c in enumerate( self.coords ):
-            i_radius = self.atom_radii[i]
+            #i_radius = self.atom_radii[i]
             i_symbol = self.symbols[i]
             for j, b in enumerate( block.coords ):
-                j_radius = block.atom_radii[j]
+                #j_radius = block.atom_radii[j]
                 j_symbol = block.symbols[j]
                 bond_length = get_bond_length( i_symbol , j_symbol )
-                if ( numpy.linalg.norm( c - b ) > bond_length - MARGIN and
-                     numpy.linalg.norm( c - b ) < bond_length + MARGIN):
+                if ( bond_length + MARGIN > numpy.linalg.norm( c - b ) > bond_length - MARGIN):
                     # Check if both atoms are end groups
                     if not ( self.endGroups[i] and block.endGroups[j] ):
                         # 2 atoms close enough to bond but they are not end groups
@@ -691,7 +696,34 @@ class BuildingBlock():
             return False
         
         # Got a bond so check the angle
-        return bond
+        # Get the atom connected to the endGroup we can use to define the angle
+        ig = self._endGroupContacts[ bond[0] ]
+        jg = self._endGroupContacts[ bond[1] ]
+        igcoord = self.coords[ig]
+        ibcoord = self.coords[i]
+        jgcoord = block.coords[jg]
+        jbcoord = block.coords[j]
+        
+        angle = self.getDihedral( ibcoord, igcoord, jgcoord, jbcoord )
+        
+        print "Got bond angle: {}".format(angle)
+        
+        if ( -5 < angle < 5 or 175 < angle < 180 or -175 < angle < -180 ):
+            return bond
+        else:
+            print "Cannot bond due to angle"
+            return False
+        
+    def centerOfGeometry(self):
+        """
+        Return or calculate the center of geometry for the building block.
+        """
+        
+        if self._changed:
+            self.calcCenterOfMassAndGeometry()
+            self._changed = False
+        
+        return self._centerOfGeometry
         
     def centerOfMass(self):
         """
@@ -723,7 +755,7 @@ class BuildingBlock():
                 
         return False
     
-    def close( self, block, margin=1.0 ):
+    def close( self, block, margin=2.0 ):
         """Return true of false depending on whether two blocks are close enough to bond/clash.
         Works from the overall radii of the two blocks
         Margin is allowed gap between their respective radii
@@ -737,17 +769,6 @@ class BuildingBlock():
     def copy( self ):
         """Create a copy of ourselves and return it"""
         return copy.deepcopy(self)
-
-    def centerOfGeometry(self):
-        """
-        Return or calculate the center of geometry for the building block.
-        """
-        
-        if self._changed:
-            self.calcCenterOfMassAndGeometry()
-            self._changed = False
-        
-        return self._centerOfGeometry
 
     def fillData(self):
         """ Fill the data arrays from the label """
@@ -771,6 +792,39 @@ class BuildingBlock():
             self.atom_radii.append(r)
             #print "ADDING R {} for label {}".format(r,label)
             
+    def findEndGroupContacts(self):
+        """
+        work out an atom connected to the endGroup so that we can define the angle 
+        for bonding
+        """
+        
+        MARGIN = 0.1 
+        
+        # Get list of indexes of the endGroups
+        endGroups = [ i for i in range( len(self.endGroups) ) if self.endGroups[i] ]
+        
+        for e in endGroups:
+            e_coord = self.coords[e]
+            e_symbol = self.symbols[e]
+            
+            # Loop through all atoms
+            for i, coord in enumerate( self.coords ):
+                
+                # Ignore self
+                if i == e:
+                    continue
+                
+                i_symbol = self.symbols[i]
+                bond_length = get_bond_length( i_symbol , e_symbol )
+                
+                # See if these are bonded
+                if ( numpy.linalg.norm( coord - e_coord ) > bond_length - MARGIN and
+                     numpy.linalg.norm( coord - e_coord ) < bond_length + MARGIN):
+                    
+                    # Found a bonded atom so add it to the list and move on
+                    self._endGroupContacts[e] = i
+                    continue
+                
     
     def fromCarFile(self, carFile):
         """"Abbie did this.
@@ -787,7 +841,6 @@ class BuildingBlock():
         reading = True
         with open( carFile ) as f:
             
-            count = 0
             # First 4 lines just info - not needed
             f.readline()
             f.readline()
@@ -800,6 +853,8 @@ class BuildingBlock():
                 line = line.strip()
                 fields = line.split()
                 label = fields[0]
+                
+                # Check end of coordinates
                 if label.lower() == "end":
                     reading=False
                     break
@@ -855,6 +910,82 @@ class BuildingBlock():
                 coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
                 
         self.createFromArgs(coords, labels, endGroups)
+    
+    def getAngle(self,c1,c2,c3):
+        """Return the angle in radians c1---c2---c3
+        where c are the coordinates in a numpy array
+        Taken from the CCP1GUI
+        """
+        #p1 = a1.coord
+        #p2 = a2.coord
+        #p3 = a3.coord
+
+        #r1 = cpv.distance(p1,p2)
+        #r2 = cpv.distance(p2,p3)
+        #r3 = cpv.distance(p1,p3)
+        
+        r1 = numpy.linalg.norm( c1 - c2 )
+        r2 = numpy.linalg.norm( c2 - c3 )
+        r3 = numpy.linalg.norm( c1 - c3 )
+
+        small = 1.0e-10
+        cnv   = 57.29577951
+        if r1 + r2 - r3 < small:
+            # printf("trig error %f\n",r3-r1-r2)
+            # This seems to happen occasionally for 180 angles 
+            theta = 180.0
+        else:
+            theta = cnv*math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
+        return theta;
+    
+    def getDihedral(self, p1, p2, p3, p4):
+        """ From the CCP1GUI"""
+
+        cnv=57.29577951
+
+        vec_ij = p1 - p2
+        vec_kj = p3 - p2
+        vec_kl = p3 - p4
+
+        # vec1 is the normal to the plane defined by atoms i, j, and k    
+        vec1 = numpy.cross(vec_ij,vec_kj)
+        magvec1 = numpy.dot(vec1,vec1)
+
+        #  vec2 is the normal to the plane defined by atoms j, k, and l
+        vec2 = numpy.cross(vec_kl,vec_kj)
+        magvec2 = numpy.dot(vec2,vec2)
+
+        # the definition of a dot product is used to find the angle between  
+        # vec1 and vec2 and hence the angle between the planes defined by    
+        # atoms i, j, k and j, k, l                                          
+        #                                                                    
+        # the factor of pi (180.0) is present since when we defined the      
+        # vectors vec1 and vec2, one used the right hand rule while the      
+        # other used the left hand rule                                      
+
+        dotprod = numpy.dot(vec1,vec2)
+        #print magvec1, magvec2
+        #print type(magvec1), type(magvec2)
+        fac = dotprod / math.sqrt(magvec1*magvec2)
+        if(fac > 1.0):
+            fac = 1.0
+        if(fac < -1.0):
+            fac = -1.0
+        dihed = 180.0 - cnv * math.acos(fac )
+
+        # the dot product between the bond between atoms i and j and the     
+        # normal to the plane defined by atoms j, k, and l is used to        
+        # determine whether or not the dihedral angle is clockwise or        
+        # anti_clockwise                                                     
+        #                                                                    
+        # if the dot product is positive, the rotation is clockwise          
+
+        sign_check = numpy.dot(vec_ij,vec2)
+        if( sign_check > 0.0):
+            dihed = dihed * -1.0
+
+        return dihed
+
                 
     def labelToSymbol( self, name ):
         """ Determine the element type of an atom from its name, e.g. Co_2b -> Co

@@ -137,15 +137,18 @@ class Cell():
                 print "step {}".format(step)
                 
             iblock = self.getRandomBlockIndex()
+            
             block = self.blocks[iblock]
             
             # Copy the origianl coordintes so we can reject the move
-            orig_block = copy.deepcopy(block)
+            # we copy the whole block so we don't need to recalculate
+            # anything - not sure if this quicker the saving the coords & updating tho
+            orig_block = copy.deepcopy( block )
              
             # Make a random move
             self.randomMove( block )
              
-             # Check all atoms and 
+            # Check all atoms and 
             removed = []
             for i in range( len(self.blocks) ):
                 
@@ -158,14 +161,14 @@ class Cell():
                  
                 # Try to make a bond
                 bond = block.canBond( oblock )
+                
                 if bond:
                     if bond == "clash":
-                        # Reject this move
-                        del(block)
-                        block = orig_block
+                        # Reject this move and overwrite the changed block with the original one
+                        self.blocks[i] = orig_block
                     else:
                         block.bond( oblock, bond )
-                        print "Bonded block {} with block {}\n".format( iblock, i)
+                        print "Bonded block {} with block {}".format( iblock, i)
                         # Now delete block
                         removed.append(i)
                 i+=1
@@ -183,7 +186,7 @@ class Cell():
         xyz = ""
         for block in self.blocks:
             for i, c in enumerate( block.coords ):
-                xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.labels[i], c[0], c[1], c[2] )
+                xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.labelToSymbol(block.labels[i]), c[0], c[1], c[2] )
                 natoms += 1
         
         xyz = "{}\nCell Atoms\n".format(natoms) + xyz
