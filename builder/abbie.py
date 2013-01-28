@@ -3,114 +3,35 @@ Created on Jan 22, 2013
 
 @author: abbietrewin
 '''
+INCONFIG = "/Applications/DL_MONTE/input_for_DL_MONTE/cage4_n2-DL_MONTE/CONFIG"
+CONFIG = "/Applications/DL_MONTE/input_for_DL_MONTE/cage4_n2-DL_MONTE/CONFIG.out"
+ATOMS = ['n=', 'cp_1', 'cp_2', 'hc_1', 'c=1', 'c1','hc_2', 'c2', 'NQ', 'COM']
 
-# mapping symbols to Z
-SYMBOL_TO_NUMBER = {
-'H'  : 1,
-'HE' : 2,
-'LI' : 3,
-'BE' : 4,
-'B'  : 5,
-'C'  : 6,
-'N'  : 7,
-'O'  : 8,
-'F'  : 9,
-'NE' : 10,
-'NA' : 11,
-'MG' : 12,
-'AL' : 13,
-'SI' : 14,
-'P'  : 15,
-'S'  : 16,
-'CL' : 17,
-'AR' : 18,
-'K'  : 19,
-'CA' : 20,
-'SC' : 21,
-'TI' : 22,
-'V'  : 23,
-'CR' : 24,
-'MN' : 25,
-'FE' : 26,
-'CO' : 27,
-'NI' : 28,
-'CU' : 29,
-'ZN' : 30,
-'GA' : 31,
-'GE' : 32,
-'AS' : 33,
-'SE' : 34,
-'BR' : 35,
-'KR' : 36,
-'RB' : 37,
-'SR' : 38,
-'Y'  : 39,
-'ZR' : 40,
-'NB' : 41,
-'MO' : 42,
-'TC' : 43,
-'RU' : 44,
-'RH' : 45,
-'PD' : 46,
-'AG' : 47,
-'CD' : 48,
-'IN' : 49,
-'SN' : 50,
-'SB' : 51,
-'TE' : 52,
-'I'  : 53,
-'XE' : 54,
-'CS' : 55,
-'BA' : 56,
-'LA' : 57,
-'CE' : 58,
-'PR' : 59,
-'ND' : 60,
-'PM' : 61,
-'SM' : 62,
-'EU' : 63,
-'AD' : 64,
-'TB' : 65,
-'DY' : 66,
-'HO' : 67,
-'ER' : 68,
-'TM' : 69,
-'YB' : 70,
-'LU' : 71,
-'HF' : 72,
-'TA' : 73,
-'W'  : 74,
-'RE' : 75,
-'OS' : 76,
-'IR' : 77,
-'PT' : 78,
-'AU' : 79,
-'HG' : 80,
-'TL' : 81,
-'PB' : 82,
-'BI' : 83,
-'PO' : 84,
-'AT' : 85,
-'RN' : 86,
-'FR' : 87,
-'RA' : 88,
-'AC' : 89,
-'TH' : 90,
-'PA' : 91,
-'U'  : 92,
-'NP' : 93,
-'PU' : 94,
-'AM' : 95,
-'CM' : 96,
-'BK' : 97,
-'CF' : 98,
-'ES' : 99,
-'FM' : 100,
-'MD' : 101,
-'NO' : 102,
-'LR' : 103,
-'UNA' : 104,
-'UNP' : 105,
-'X'  : 0,
-}
+f = open( INCONFIG, "r" )
+o = open( CONFIG, "w" )
 
+            
+# First 7 lines just info - not needed
+for i in range(7):
+    line = f.readline()
+    o.write( line )
+
+line = f.readline()
+while line:
+    #line = line.strip()
+    fields = line.split()
+    label = fields[0]
+    if label in ATOMS:
+        newline = label + "      c\n"
+        o.write( newline )
+    else:
+        o.write( line )
+        
+    line = f.readline()
+
+f.close()
+o.close() 
+        
+
+        
+        

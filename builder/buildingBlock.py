@@ -751,12 +751,12 @@ class BuildingBlock():
         
         return self._centerOfMass
     
-    def clash( self, block, margin=1.0 ):
+    def clash( self, block, closeMargin=2.0, clashMargin=1.0 ):
         """ See if this molecule clashes (overlaps) with the given one """
         
         # First check if these two molecules are within range assuming they 
         # are circular, centered on the COG and with the given radius
-        if not self.close(block, margin=margin):
+        if not self.close(block, margin=closeMargin):
             return False
         
         # Within range, so see if any atoms actually do overlap
@@ -765,7 +765,7 @@ class BuildingBlock():
             i_radius = self.atom_radii[i]
             for j, b in enumerate( block.coords ):
                 j_radius = block.atom_radii[j]
-                if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + margin ):
+                if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + clashMargin ):
                     return True
                 
         return False
@@ -851,7 +851,7 @@ class BuildingBlock():
         endGroups = []
         
         reading = True
-        with open( carFile ) as f:
+        with open( carFile, "r" ) as f:
             
             # First 4 lines just info - not needed
             f.readline()
@@ -1156,35 +1156,7 @@ class TestBuildingBlock(unittest.TestCase):
         
         self.assertTrue( ch4.endGroups == [1,2,4,6,8,9], "Incorrect calculation of endGroups")
         self.assertTrue( ch4._endGroupContacts == { 1:0, 2:0, 4:0, 6:5, 8:5, 9:5 }, "Incorrect calculation of endGroup contacts")
-        
-#        paf = self.makePaf()
-#        #print paf
-#        m = paf.copy()
-#        cog = paf.centerOfGeometry()
-#        radius = paf.radius()
-#        m. translate( numpy.array( [0,0,radius*2] ) )
-#        print paf
-#        print m
-#        print paf.close( m, margin=0 )
-#        print paf.clash( m )
-        
     
-    def testClose(self):
-        """Test we can check if molecules are close"""
-        
-        paf = self.makePaf()
-        cog = paf.centerOfGeometry()
-        
-        m = paf.copy()
-        radius = paf.radius()
-        m. translate( numpy.array( [0,0,radius*2+0.11] ) )
-        
-        self.assertFalse( paf.close( m, margin=0.1 ), "Not close with 0.1 margin")
-        
-        m.translateCenterOfGeometry( cog )
-        m. translate( numpy.array( [0,0,radius*2+0.1] ) )
-        self.assertTrue( paf.close( m, margin=0.1 ), "Close with 0.1 margin")
-        
 
     def testCenterOfGeometry(self):
         """
@@ -1222,12 +1194,28 @@ class TestBuildingBlock(unittest.TestCase):
         Test we can spot a clash
         """
         
-        ch4 = self.makeCh4()
-        block = ch4.copy()
-        self.assertTrue( ch4.clash( block ) )
         
-        block.translateCenterOfGeometry( [3,3,3] )
-        self.assertFalse( ch4.clash( block ) )
+        paf = self.makePaf()
+        
+        block = paf.copy()
+        self.assertTrue( paf.clash( block ) )
+        
+        radius = block.radius()
+        block.translateCenterOfGeometry( [0,0,radius*2+2.0] )
+        self.assertFalse( paf.clash( block ) )
+    
+    def testClose(self):
+        """Test we can check if molecules are close"""
+        
+        paf = self.makePaf()
+        
+        m = paf.copy()
+        radius = paf.radius()
+        m. translate( numpy.array( [0,0,radius*2+1.0] ) )
+        
+        self.assertFalse( paf.close( m, margin=0.9 ), "Not close with 0.1 margin")
+        
+        self.assertTrue( paf.close( m, margin=1.1 ), "Close with 0.1 margin")
         
     def testRadius(self):
         """

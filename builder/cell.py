@@ -147,8 +147,8 @@ class Cell():
         minimoves is number of sub-moves to attempt when the blocks are close
         """
         
-        MARGIN=1.5 # how close 2 blocks are before we consider checking if they can bond
-        PRANGE=3.0 # the range within which to make the smaller minimoves
+        CLOSE_MARGIN=1.5 # how close 2 blocks are before we consider checking if they can bond
+        PRANGE=2.0 # the range within which to make the smaller minimoves
         
         for step in range( nsteps ):
             
@@ -182,23 +182,31 @@ class Cell():
                 oblock = self.blocks[i]
                 
                 # First see if we are close enough to consider bonding
-                if not block.close( oblock, margin = MARGIN ):
+                if not block.close( oblock, margin = CLOSE_MARGIN ):
                     i+=1
                     continue
                 
                 # See if we can bond and shimmy minimoves times
                 # Get the original cog so we sample about it
+                clashmove=0
+                noclashmove=0
                 for j in range( nmoves ):
                     # Try to make a bond
                     bond = block.canBond( oblock )
                     if not bond or bond == "clash":
                         # Try a smaller move
-                        print "minimove: {}->{}".format(j,bond)
                         self.randomSmallMove( block, cog, prange=PRANGE )
+                        # Just for logging
+                        if bond == "clash":
+                            clashmove+=1
+                        else:
+                            noclashmove+=1
+                        
                     else:
                         # Bonding worked so break out of loop
                         break
                 
+                print "Next Block after clash/noclash: {}/{}".format(clashmove,noclashmove)
                 if bond:
                     if bond == "clash":
                         # Reject this move and overwrite the changed block with the original one
