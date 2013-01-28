@@ -34,7 +34,7 @@ cell.seed (nblocks, firstBlock )
 #print cell
 cell.write( OUTFILE1 )
 
-cell.shimmy( STEPS, nsteps=STEPS, nmoves=NMOVES  )
+cell.shimmy( nsteps=STEPS, nmoves=NMOVES  )
 
 cell.write( OUTFILE2 )
 #if __name__ == '__main__':
