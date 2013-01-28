@@ -751,22 +751,21 @@ class BuildingBlock():
         
         return self._centerOfMass
     
-    def clash( self, block ):
+    def clash( self, block, margin=1.0 ):
         """ See if this molecule clashes (overlaps) with the given one """
         
         # First check if these two molecules are within range assuming they 
         # are circular, centered on the COG and with the given radius
-        if not self.close(block):
+        if not self.close(block, margin=margin):
             return False
         
         # Within range, so see if any atoms actually do overlap
         # Do this with scipy and no loops when we optimise
-        MARGIN = 1
         for i, c in enumerate( self.coords ):
             i_radius = self.atom_radii[i]
             for j, b in enumerate( block.coords ):
                 j_radius = block.atom_radii[j]
-                if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + MARGIN ):
+                if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + margin ):
                     return True
                 
         return False
@@ -878,12 +877,12 @@ class BuildingBlock():
                 # End groups are denoted by an underscore at the end
                 # of the label name
                 if fields[0].endswith('_'):
-                    endGroups.append( count)
+                    endGroups.append( count )
                     
                 coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
                 
-            count+=1
-                
+                count+=1
+        
         self.createFromArgs(coords, labels, endGroups)
 
 
@@ -1104,6 +1103,7 @@ class BuildingBlock():
         """
         
         mystr = ""
+        mystr += "{}\n".format(len(self.coords))
         for i,c in enumerate(self.coords):
             #mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self.labels[i], c[0], c[1], c[2])
             mystr += "{0:5} {1:0< 15} {2:0< 15} {3:0< 15} \n".format( self.labels[i], c[0], c[1], c[2])
@@ -1119,8 +1119,8 @@ class BuildingBlock():
         
 class TestBuildingBlock(unittest.TestCase):
 
-    def setUp(self):
-        """Create a methane molecule for testing"""
+    def makeCh4(self):
+        """Create a CH4 molecule for testing"""
         
         coords = [ numpy.array([  0.000000,  0.000000,  0.000000 ] ),
         numpy.array([  0.000000,  0.000000,  1.089000 ]),
@@ -1133,21 +1133,58 @@ class TestBuildingBlock(unittest.TestCase):
         
         endGroups = [ 1,2,3,4 ]
         
-        self.ch4 = BuildingBlock()
-        self.ch4.createFromArgs( coords, labels, endGroups )
+        ch4 = BuildingBlock()
+        ch4.createFromArgs( coords, labels, endGroups )
+        return ch4
+    
+    def makePaf(self):
+        """Return the PAF molecule for testing"""
+        
+        paf = BuildingBlock()
+        paf.fromCarFile("../PAF_bb_typed.car")
+        return paf
         
     def testBond(self):
         """Test we can correctly bond two blocks at the given bond"""
         
-        m2 = self.ch4.copy()
+        ch4 = self.makeCh4()
+        m2 = ch4.copy()
         m2.translate( numpy.array( [2, 2, 2] ) )
         
         bond = (3,2)
-        self.ch4.bond(m2, bond)
+        ch4.bond(m2, bond)
         
-        self.assertTrue( self.ch4.endGroups == [1,2,4,6,8,9], "Incorrect calculation of endGroups")
-        self.assertTrue( self.ch4._endGroupContacts == { 1:0, 2:0, 4:0, 6:5, 8:5, 9:5 }, "Incorrect calculation of endGroup contacts")
-
+        self.assertTrue( ch4.endGroups == [1,2,4,6,8,9], "Incorrect calculation of endGroups")
+        self.assertTrue( ch4._endGroupContacts == { 1:0, 2:0, 4:0, 6:5, 8:5, 9:5 }, "Incorrect calculation of endGroup contacts")
+        
+#        paf = self.makePaf()
+#        #print paf
+#        m = paf.copy()
+#        cog = paf.centerOfGeometry()
+#        radius = paf.radius()
+#        m. translate( numpy.array( [0,0,radius*2] ) )
+#        print paf
+#        print m
+#        print paf.close( m, margin=0 )
+#        print paf.clash( m )
+        
+    
+    def testClose(self):
+        """Test we can check if molecules are close"""
+        
+        paf = self.makePaf()
+        cog = paf.centerOfGeometry()
+        
+        m = paf.copy()
+        radius = paf.radius()
+        m. translate( numpy.array( [0,0,radius*2+0.11] ) )
+        
+        self.assertFalse( paf.close( m, margin=0.1 ), "Not close with 0.1 margin")
+        
+        m.translateCenterOfGeometry( cog )
+        m. translate( numpy.array( [0,0,radius*2+0.1] ) )
+        self.assertTrue( paf.close( m, margin=0.1 ), "Close with 0.1 margin")
+        
 
     def testCenterOfGeometry(self):
         """
@@ -1155,7 +1192,8 @@ class TestBuildingBlock(unittest.TestCase):
         """
         
         correct = numpy.array([  0.000000,  0.000000,  0.000000 ])
-        cog = self.ch4.centerOfGeometry()
+        ch4 = self.makeCh4()
+        cog = ch4.centerOfGeometry()
         self.assertTrue( numpy.allclose( correct, cog, rtol=1e-9, atol=1e-6 ),
                          msg="testCenterOfGeometry incorrect COM.")
 
@@ -1165,7 +1203,8 @@ class TestBuildingBlock(unittest.TestCase):
         """
         
         correct = numpy.array([  0.000000,  0.000000,  0.000000 ])
-        com = self.ch4.centerOfMass()
+        ch4 = self.makeCh4()
+        com = ch4.centerOfMass()
         self.assertTrue( numpy.allclose( correct, com, rtol=1e-9, atol=1e-7 ),
                          msg="testCenterOfMass incorrect COM.")
         
@@ -1183,18 +1222,20 @@ class TestBuildingBlock(unittest.TestCase):
         Test we can spot a clash
         """
         
-        block = self.ch4.copy()
-        self.assertTrue( self.ch4.clash( block ) )
+        ch4 = self.makeCh4()
+        block = ch4.copy()
+        self.assertTrue( ch4.clash( block ) )
         
         block.translateCenterOfGeometry( [3,3,3] )
-        self.assertFalse( self.ch4.clash( block ) )
+        self.assertFalse( ch4.clash( block ) )
         
     def testRadius(self):
         """
         Test calculation of the radius
         """
         
-        r = self.ch4.radius()
+        ch4 = self.makeCh4()
+        r = ch4.radius()
         self.assertAlmostEqual(r, 1.78900031214, 7, "Incorrect radius: {}".format(str(r)) )
         
     def testRotate(self):
@@ -1202,19 +1243,20 @@ class TestBuildingBlock(unittest.TestCase):
         Test the rotation
         """
         
-        array1 = numpy.array([ -0.51336 ,  0.889165, -0.363 ])        
-        self.assertTrue( numpy.array_equal(self.ch4.coords[4], array1 ),
+        ch4 = self.makeCh4()
+        array1 = numpy.array([ -0.51336 ,  0.889165, -0.363 ])
+        self.assertTrue( numpy.array_equal( ch4.coords[4], array1 ),
                          msg="testRotate arrays before rotation incorrect.")
         
         axis = numpy.array([1,2,3])
         angle = 2
-        self.ch4.rotate(axis, angle)
+        ch4.rotate(axis, angle)
         
         array2 = numpy.array([  1.05612011, -0.04836936, -0.26113713 ])
 
         # Need to use assertTrue as we get a numpy.bool returned and need to test this will
         # bool - assertIs fails
-        self.assertTrue( numpy.allclose(self.ch4.coords[4], array2, rtol=1e-9, atol=1e-8 ),
+        self.assertTrue( numpy.allclose( ch4.coords[4], array2, rtol=1e-9, atol=1e-8 ),
                          msg="testRotate arrays after rotation incorrect.")
 
         
