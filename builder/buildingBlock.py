@@ -552,7 +552,7 @@ class BuildingBlock():
         # orderd array of atom radii
         self.atom_radii = []
         
-        # A list of bools indicating if the atom with this index is an endGroup
+        # A list of the indices of the atoms that are endGroups
         self.endGroups = []
         
         # Dictionary mapping the index of an endGroup to an atom bonded ato it
@@ -584,28 +584,34 @@ class BuildingBlock():
         """Bond the two blocks at the given bond - tuple is indices of self and other bond
         """
         
+        # Needed to work out how much to add to the block indices
+        lcoords = len(self.coords)
+        
         self.coords.extend( block.coords )
         self.atom_radii.extend( block.atom_radii )
         self.labels.extend( block.labels )
         self.symbols.extend( block.symbols )
         self.masses.extend( block.masses )
         
-        
         # Need to remove the end groups used in the bond
-        self.endGroups.pop( bond[0] )
-        block.endGroups.pop( bond[1] )
-        self.endGroups.extend( block.endGroups )
+        i = self.endGroups.index( bond[0] )
+        self.endGroups.pop( i )
+        i = block.endGroups.index( bond[1] )
+        block.endGroups.pop( i )
         
+        # Now add block to self, updating index
+        for i in block.endGroups:
+            self.endGroups.append( i+lcoords )
+
         del self._endGroupContacts[ bond[0] ]
         del block._endGroupContacts[ bond[1] ]
-        self._endGroupContacts.update( block._endGroupContacts )
         
+        for k,v in block._endGroupContacts.iteritems():
+            self._endGroupContacts[ k+lcoords ] = v+lcoords
         
         # Recalculate the data for this new block
         self.calcCenterOfMassAndGeometry()
         self.calcRadius()
-            
-        # Now add bond
         
         
     def createFromArgs(self, coords, labels, endGroups ):
@@ -692,7 +698,7 @@ class BuildingBlock():
                 bond_length = get_bond_length( i_symbol , j_symbol )
                 if ( bond_length + MARGIN > numpy.linalg.norm( c - b ) > bond_length - MARGIN):
                     # Check if both atoms are end groups
-                    if not ( self.endGroups[i] and block.endGroups[j] ):
+                    if not ( i in self.endGroups and j in block.endGroups ):
                         # 2 atoms close enough to bond but they are not end groups
                         return "clash"
                         
@@ -810,10 +816,8 @@ class BuildingBlock():
         
         MARGIN = 0.1 
         
-        # Get list of indexes of the endGroups
-        endGroups = [ i for i in range( len(self.endGroups) ) if self.endGroups[i] ]
-        
-        for e in endGroups:
+        # Trundle through all the endGroups
+        for e in self.endGroups:
             e_coord = self.coords[e]
             e_symbol = self.symbols[e]
             
@@ -828,12 +832,11 @@ class BuildingBlock():
                 bond_length = get_bond_length( i_symbol , e_symbol )
                 
                 # See if these are bonded
-                if ( numpy.linalg.norm( coord - e_coord ) > bond_length - MARGIN and
-                     numpy.linalg.norm( coord - e_coord ) < bond_length + MARGIN):
+                if ( bond_length - MARGIN < numpy.linalg.norm( coord - e_coord ) < bond_length + MARGIN ):
                     
                     # Found a bonded atom so add it to the list and move on
                     self._endGroupContacts[e] = i
-                    continue
+                    break
                 
     
     def fromCarFile(self, carFile):
@@ -857,6 +860,7 @@ class BuildingBlock():
             f.readline()
             f.readline()
             
+            count=0
             while reading:
                 line = f.readline()
                 
@@ -874,10 +878,11 @@ class BuildingBlock():
                 # End groups are denoted by an underscore at the end
                 # of the label name
                 if fields[0].endswith('_'):
-                    endGroups.append(True)
-                else:
-                    endGroups.append(False)
+                    endGroups.append( count)
+                    
                 coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
+                
+            count+=1
                 
         self.createFromArgs(coords, labels, endGroups)
 
@@ -903,6 +908,7 @@ class BuildingBlock():
             # Skip title
             line = f.readline()
             
+            count = 0
             for i in range(natoms):
                 
                 line = f.readline()
@@ -913,11 +919,11 @@ class BuildingBlock():
                 # End groups are denoted by an underscore at the end
                 # of the label name
                 if fields[0].endswith('_'):
-                    endGroups.append(True)
-                else:
-                    endGroups.append(False)
+                    endGroups.append( count )
                     
                 coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
+                
+                count += 1
                 
         self.createFromArgs(coords, labels, endGroups)
     
@@ -1105,6 +1111,8 @@ class BuildingBlock():
         mystr += "radius: {}\n".format( self.radius() )
         mystr += "COM: {}\n".format( self._centerOfMass )
         mystr += "COG: {}\n".format( self._centerOfGeometry )
+        mystr += "endGroups: {}\n".format( self.endGroups )
+        mystr += "endGroupContacts: {}\n".format( self._endGroupContacts )
         
         return mystr
         
@@ -1123,10 +1131,71 @@ class TestBuildingBlock(unittest.TestCase):
         #numpy.array([ -0.513360,  0.889165, -0.363000 ]) ]
         labels = [ 'C', 'H', 'H', 'H', 'H' ]
         
-        endGroups = [1,2,3,4]
+        endGroups = [ 1,2,3,4 ]
         
         self.ch4 = BuildingBlock()
         self.ch4.createFromArgs( coords, labels, endGroups )
+        
+    def testBond(self):
+        """Test we can correctly bond two blocks at the given bond"""
+        
+        m2 = self.ch4.copy()
+        m2.translate( numpy.array( [2, 2, 2] ) )
+        
+        bond = (3,2)
+        self.ch4.bond(m2, bond)
+        
+        self.assertTrue( self.ch4.endGroups == [1,2,4,6,8,9], "Incorrect calculation of endGroups")
+        self.assertTrue( self.ch4._endGroupContacts == { 1:0, 2:0, 4:0, 6:5, 8:5, 9:5 }, "Incorrect calculation of endGroup contacts")
+
+
+    def testCenterOfGeometry(self):
+        """
+        Test calculation of Center of Geometry
+        """
+        
+        correct = numpy.array([  0.000000,  0.000000,  0.000000 ])
+        cog = self.ch4.centerOfGeometry()
+        self.assertTrue( numpy.allclose( correct, cog, rtol=1e-9, atol=1e-6 ),
+                         msg="testCenterOfGeometry incorrect COM.")
+
+    def testCenterOfMass(self):
+        """
+        Test calculation of Center of Mass
+        """
+        
+        correct = numpy.array([  0.000000,  0.000000,  0.000000 ])
+        com = self.ch4.centerOfMass()
+        self.assertTrue( numpy.allclose( correct, com, rtol=1e-9, atol=1e-7 ),
+                         msg="testCenterOfMass incorrect COM.")
+        
+#        #m.writeXyz(name="after.xyz")
+#        print m
+#        print m.centerOfMass()
+#        m.translate([1,1,1])
+#        
+#        #m.writeXyz(name="trans.xyz")
+#        print m
+#        print m.centerOfMass()
+
+    def testClash(self):
+        """
+        Test we can spot a clash
+        """
+        
+        block = self.ch4.copy()
+        self.assertTrue( self.ch4.clash( block ) )
+        
+        block.translateCenterOfGeometry( [3,3,3] )
+        self.assertFalse( self.ch4.clash( block ) )
+        
+    def testRadius(self):
+        """
+        Test calculation of the radius
+        """
+        
+        r = self.ch4.radius()
+        self.assertAlmostEqual(r, 1.78900031214, 7, "Incorrect radius: {}".format(str(r)) )
         
     def testRotate(self):
         """
@@ -1148,53 +1217,6 @@ class TestBuildingBlock(unittest.TestCase):
         self.assertTrue( numpy.allclose(self.ch4.coords[4], array2, rtol=1e-9, atol=1e-8 ),
                          msg="testRotate arrays after rotation incorrect.")
 
-    def testCenterOfMass(self):
-        """
-        Test calculation of Center of Mass
-        """
-        
-        correct = numpy.array([  0.000000,  0.000000,  0.000000 ])
-        com = self.ch4.centerOfMass()
-        self.assertTrue( numpy.allclose( correct, com, rtol=1e-9, atol=1e-7 ),
-                         msg="testCenterOfMass incorrect COM.")
-        
-#        #m.writeXyz(name="after.xyz")
-#        print m
-#        print m.centerOfMass()
-#        m.translate([1,1,1])
-#        
-#        #m.writeXyz(name="trans.xyz")
-#        print m
-#        print m.centerOfMass()
-
-    def testCenterOfGeometry(self):
-        """
-        Test calculation of Center of Geometry
-        """
-        
-        correct = numpy.array([  0.000000,  0.000000,  0.000000 ])
-        cog = self.ch4.centerOfGeometry()
-        self.assertTrue( numpy.allclose( correct, cog, rtol=1e-9, atol=1e-6 ),
-                         msg="testCenterOfGeometry incorrect COM.")
-        
-    def testCalcRadius(self):
-        """
-        Test calculation of the radius
-        """
-        
-        r = self.ch4.radius()
-        self.assertAlmostEqual(r, 1.78900031214, 7, "Incorrect radius: {}".format(str(r)) )
-        
-    def testClash(self):
-        """
-        Test we can spot a clash
-        """
-        
-        block = self.ch4.copy()
-        self.assertTrue( self.ch4.clash( block ) )
-        
-        block.translateCenterOfGeometry( [3,3,3] )
-        self.assertFalse( self.ch4.clash( block ) )
         
 
 if __name__ == '__main__':

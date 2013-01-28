@@ -142,13 +142,15 @@ class Cell():
     
 
         
-    def shimmy(self, nsteps ):
-        """ Shuffle the molecules about making bonds where necessary for nsteps"""
+    def shimmy(self, nsteps=100, nmoves=50 ):
+        """ Shuffle the molecules about making bonds where necessary for nsteps
+        minimoves is number of sub-moves to attempt when the blocks are close
+        """
+        
+        MARGIN=1.5 # how close 2 blocks are before we consider checking if they can bond
+        PRANGE=3.0 # the range within which to make the smaller minimoves
         
         for step in range( nsteps ):
-            
-            # Number of sub-moves to attempt when the blocks are close
-            minimoves = 20
             
             if not step % 20:
                 print "step {}".format(step)
@@ -180,19 +182,19 @@ class Cell():
                 oblock = self.blocks[i]
                 
                 # First see if we are close enough to consider bonding
-                if not block.close( oblock, margin = 1.0 ):
+                if not block.close( oblock, margin = MARGIN ):
                     i+=1
                     continue
                 
                 # See if we can bond and shimmy minimoves times
                 # Get the original cog so we sample about it
-                for j in range( minimoves ):
+                for j in range( nmoves ):
                     # Try to make a bond
                     bond = block.canBond( oblock )
                     if not bond or bond == "clash":
                         # Try a smaller move
                         print "minimove: {}->{}".format(j,bond)
-                        self.randomSmallMove( block, cog, prange=1.5 )
+                        self.randomSmallMove( block, cog, prange=PRANGE )
                     else:
                         # Bonding worked so break out of loop
                         break

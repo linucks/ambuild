@@ -21,7 +21,8 @@ CELLA = [ 50,  0,  0 ]
 CELLB = [ 0, 50,  0 ]
 CELLC = [ 0,  0, 50 ]
 MAXTRIES =5000
-STEPS = 10000
+STEPS = 1000
+NMOVES=100
 
 
 # Create building block and read in car file
@@ -33,7 +34,7 @@ cell.seed (nblocks, firstBlock )
 #print cell
 cell.write( OUTFILE1 )
 
-cell.shimmy( STEPS  )
+cell.shimmy( STEPS, nsteps=STEPS, nmoves=NMOVES  )
 
 cell.write( OUTFILE2 )
 #if __name__ == '__main__':
