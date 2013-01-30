@@ -3,9 +3,10 @@ Created on Jan 22, 2013
 
 @author: abbietrewin
 '''
-INCONFIG = "/Applications/DL_MONTE/input_for_DL_MONTE/cage4_n2-DL_MONTE/CONFIG"
+INCONFIG = "/Applications/DL_MONTE/input_for_DL_MONTE/cage4_n2-DL_MONTE/CONFIG_no_c"
 CONFIG = "/Applications/DL_MONTE/input_for_DL_MONTE/cage4_n2-DL_MONTE/CONFIG.out"
-ATOMS = ['n=', 'cp_1', 'cp_2', 'hc_1', 'c=1', 'c1','hc_2', 'c2', 'NQ', 'COM']
+ATOMS = ['n=','c1','hc_2', 'c2', 'NQ' ]
+ATOMS2 = ['cp_1', 'cp_2', 'hc_1', 'c=1','COM' ]
 
 f = open( INCONFIG, "r" )
 o = open( CONFIG, "w" )
@@ -25,7 +26,11 @@ while line:
         newline = label + "      c\n"
         o.write( newline )
     else:
-        o.write( line )
+        if label in ATOMS2:
+            newline = label + "    c\n"
+            o.write( newline )
+        else:
+            o.write( line )
         
     line = f.readline()
 
