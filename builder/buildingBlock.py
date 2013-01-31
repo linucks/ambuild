@@ -661,7 +661,7 @@ class BuildingBlock():
         http://stackoverflow.com/questions/6430091/efficient-distance-calculation-between-n-points-and-a-reference-in-numpy-scipy
         """
         
-        cog = self.centerOfGeometry()
+        cog = self.centroid()
         
         distances = []
         for coord in self.coords:
@@ -724,13 +724,13 @@ class BuildingBlock():
         
         print "Got bond angle: {}".format(angle)
         
-        if ( -5 < angle < 5 or 175 < angle < 180 or -175 < angle < -180 ):
+        if ( -20 < angle < 20 or 160 < angle < 180 or -160 < angle < -180 ):
             return bond
         else:
             print "Cannot bond due to angle"
             return False
         
-    def centerOfGeometry(self):
+    def centroid(self):
         """
         Return or calculate the center of geometry for the building block.
         """
@@ -775,7 +775,7 @@ class BuildingBlock():
         Works from the overall radii of the two blocks
         Margin is allowed gap between their respective radii
         """
-        dist = numpy.linalg.norm( self.centerOfGeometry() - block.centerOfGeometry() )
+        dist = numpy.linalg.norm( self.centroid() - block.centroid() )
         if ( dist < self.radius() + block.radius() + margin ):
             return True
         else:
@@ -1069,11 +1069,11 @@ class BuildingBlock():
         
         self._changed = True
     
-    def translateCenterOfGeometry( self, position ):
+    def translateCentroid( self, position ):
         """Translate the molecule so the center of geometry moves
         to the given position
         """
-        self.translate( position - self.centerOfGeometry() )
+        self.translate( position - self.centroid() )
         
     def writeXyz(self,name=None):
         
@@ -1165,7 +1165,7 @@ class TestBuildingBlock(unittest.TestCase):
         
         correct = numpy.array([  0.000000,  0.000000,  0.000000 ])
         ch4 = self.makeCh4()
-        cog = ch4.centerOfGeometry()
+        cog = ch4.centroid()
         self.assertTrue( numpy.allclose( correct, cog, rtol=1e-9, atol=1e-6 ),
                          msg="testCenterOfGeometry incorrect COM.")
 
@@ -1201,7 +1201,7 @@ class TestBuildingBlock(unittest.TestCase):
         self.assertTrue( paf.clash( block ) )
         
         radius = block.radius()
-        block.translateCenterOfGeometry( [0,0,radius*2+2.0] )
+        block.translateCentroid( [0,0,radius*2+2.0] )
         self.assertFalse( paf.clash( block ) )
     
     def testClose(self):
@@ -1216,6 +1216,19 @@ class TestBuildingBlock(unittest.TestCase):
         self.assertFalse( paf.close( m, margin=0.9 ), "Not close with 0.1 margin")
         
         self.assertTrue( paf.close( m, margin=1.1 ), "Close with 0.1 margin")
+        
+        
+    def testMove(self):
+        """Test we can move correctly"""
+        
+        paf = self.makePaf()
+        m = paf.copy()
+        m.translate( numpy.array( [5,5,5] ) )
+        c = m.centroid()
+        paf.translateCentroid( c )
+        p = paf.centroid()
+        
+        self.assertTrue( numpy.allclose( p, c, rtol=1e-9, atol=1e-9 ), "simple move")
         
     def testRadius(self):
         """

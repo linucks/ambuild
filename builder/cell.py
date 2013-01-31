@@ -65,8 +65,10 @@ class Cell():
         z = random.uniform(0,self.C[2])
         position = numpy.array([x,y,z])
         
+        print "Got random position: {}".format(position)
+        
         # Translate COM of molecule to coords
-        block.translateCenterOfGeometry( position )
+        block.translateCentroid( position )
         
         # Rotate by a random number
         axis, angle = self.getRandomRotation()
@@ -86,7 +88,7 @@ class Cell():
         
         position = numpy.add( cog, xyz )
         
-        block.translateCenterOfGeometry( position )
+        block.translateCentroid( position )
         
         # Rotate by a random number
         axis, angle = self.getRandomRotation()
@@ -121,6 +123,7 @@ class Cell():
                 for block in self.blocks:
                     if block.clash(newblock):
                         clash = True
+                        break
                 
                 # Break out if no clashes
                 if clash == False:
@@ -129,8 +132,9 @@ class Cell():
                 # increment tries counter
                 tries += 1
             
-                # End Seeding loop
+            # End Seeding loop
             if (clash == False):
+                print "ADDED BLOCK AT POS: {}".format( newblock.centroid() )
                 self.addBlock(newblock)
             else:
                 print "ERROR ADDING BLOCK"
@@ -168,7 +172,7 @@ class Cell():
             self.randomMove( block )
             
             # Remeber the original cog of the block 
-            cog = block.centerOfGeometry()
+            cog = block.centroid()
             
             # Check all atoms and 
             removed = []
