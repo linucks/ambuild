@@ -1042,7 +1042,7 @@ class BuildingBlock():
         
         # loop through and change all coords
         for i,coord in enumerate( self.coords ):
-            self.coords[i] = numpy.dot( rmat,coord )
+            self.coords[i] = numpy.dot( rmat, coord )
         
         self._changed = True
 
@@ -1050,7 +1050,7 @@ class BuildingBlock():
         """
         http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector
         """
-        axis = axis/numpy.sqrt(numpy.dot(axis,axis))
+        axis = axis/numpy.sqrt( numpy.dot(axis,axis) )
         a = numpy.cos(angle/2)
         b,c,d = -axis*numpy.sin(angle/2)
         return numpy.array([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],

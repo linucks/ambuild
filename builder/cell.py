@@ -8,6 +8,7 @@ import sys
 import os
 import copy
 import random
+import unittest
 
 import numpy
 
@@ -31,49 +32,50 @@ class Cell():
         self.B = B
         self.C = C
         
-        self.blocks = []
+        self._blocks = []
         
     def blocks(self):
-        return self.blocks
+        return self._blocks
     
     def addBlock( self, block ):
-        self.blocks.append( block )
-    
-    def getRandomRotation(self):
-        """Return a random rotation in radians"""
-        
-        x = random.uniform(0,self.A[0])
-        y = random.uniform(0,self.B[1])
-        z = random.uniform(0,self.C[2])
-        axis = numpy.array( [ x, y, z ], dtype=numpy.float64 )
-        angle = random.uniform( 0, 2*numpy.pi)
-        return axis, angle
+        self._blocks.append( block )
     
     def getRandomBlockIndex(self):
         """Return the index of one of the blocks"""
-        return random.randint( 0, len(self.blocks)-1 )
-        
+        return random.randint( 0, len(self._blocks)-1 )
         
     def randomMove(self, block ):
         """Randomly move the given block
-        If given a prange parameter, only move by at most prange angstroms
+         Defintely needs more work on the rotation
         """
         
         # Get coords of random point in the cell
         x = random.uniform(0,self.A[0])
         y = random.uniform(0,self.B[1])
         z = random.uniform(0,self.C[2])
-        position = numpy.array([x,y,z])
+        position = numpy.array([x,y,z], dtype=numpy.float64 )
         
-        print "Got random position: {}".format(position)
+        #print "Got random position: {}".format(position)
         
-        # Translate COM of molecule to coords
+        # Overklll - move to origin, rotate there and then move to new position
+        # Use the cell axis definitions
+        origin = numpy.array([0,0,0], dtype=numpy.float64 )
+        block.translateCentroid( origin )
+        
+        angle = random.uniform( 0, 2*numpy.pi)
+        block.rotate( self.A, angle )
+        
+        angle = random.uniform( 0, 2*numpy.pi)
+        block.rotate( self.B, angle )
+        
+        angle = random.uniform( 0, 2*numpy.pi)
+        block.rotate(self.C, angle )
+        
+        # Now move to new position
         block.translateCentroid( position )
         
-        # Rotate by a random number
-        axis, angle = self.getRandomRotation()
+        #print "After rotate centroid at: {}".format( block.centroid() )
         
-        block.rotate( axis, angle )
         
     def randomSmallMove(self, block, cog, prange=1.0 ):
         
@@ -81,25 +83,37 @@ class Cell():
         units from its current position, The cog argument is the
         original centre of geometry so that we sample around it"""
         
+        
+        # Calculate new position
         x = random.uniform(-prange/2,prange/2)
         y = random.uniform(-prange/2,prange/2)
         z = random.uniform(-prange/2,prange/2)
-        xyz = numpy.array( [x,y,z] )
-        
+        xyz = numpy.array( [x,y,z], dtype=numpy.float64 )
         position = numpy.add( cog, xyz )
         
+        # Overklll - move to origin, rotate there and then move to new position
+        # Use the cell axis definitions
+        origin = numpy.array([0,0,0], dtype=numpy.float64 )
+        block.translateCentroid( origin )
+        
+        angle = random.uniform( 0, 2*numpy.pi)
+        block.rotate( self.A, angle )
+        
+        angle = random.uniform( 0, 2*numpy.pi)
+        block.rotate( self.B, angle )
+        
+        angle = random.uniform( 0, 2*numpy.pi)
+        block.rotate(self.C, angle )
+        
+        # Now move to new position
         block.translateCentroid( position )
         
-        # Rotate by a random number
-        axis, angle = self.getRandomRotation()
-        
-        block.rotate( axis, angle )
     
     def seed( self, nblocks, firstBlock ):
         """ Seed a cell with nblocks based on firstBlock
         """
         
-        MAXTRIES = 10000
+        MAXTRIES = 1000
         # Loop through the nblocks adding the blocks to
         # the cell
         for seedCount in range( nblocks ):
@@ -107,7 +121,7 @@ class Cell():
             newblock = firstBlock.copy()
             tries = 0
             clash = True
-            print "Adding block: "+str(seedCount)
+            print "Adding block: {}".format(seedCount)
             while clash:
                 # quit on maxTries
                 if tries >= MAXTRIES:
@@ -116,11 +130,12 @@ class Cell():
                 
                 # Move the block and rotate it
                 self.randomMove(newblock)
+                #print "RANDOM TO MOVE TO: {}".format( newblock.centroid() )
                 
                 # Test for Clashes with other molecules - always set clash
                 # to False at start so it only becomes true if no clashes
                 clash = False
-                for block in self.blocks:
+                for block in self._blocks:
                     if block.clash(newblock):
                         clash = True
                         break
@@ -134,7 +149,7 @@ class Cell():
             
             # End Seeding loop
             if (clash == False):
-                print "ADDED BLOCK AT POS: {}".format( newblock.centroid() )
+                #print "ADDED BLOCK AT POS: {}".format( newblock.centroid() )
                 self.addBlock(newblock)
             else:
                 print "ERROR ADDING BLOCK"
@@ -143,7 +158,6 @@ class Cell():
         # End of loop to seed cell
     
     # End seed
-    
 
         
     def shimmy(self, nsteps=100, nmoves=50 ):
@@ -161,7 +175,7 @@ class Cell():
                 
             iblock = self.getRandomBlockIndex()
             
-            block = self.blocks[iblock]
+            block = self._blocks[iblock]
             
             # Copy the origianl coordintes so we can reject the move
             # we copy the whole block so we don't need to recalculate
@@ -176,14 +190,14 @@ class Cell():
             
             # Check all atoms and 
             removed = []
-            for i in range( len(self.blocks) ):
+            for i in range( len(self._blocks) ):
                 
                 # skip the block we are using
                 if i == iblock:
                     i+=1
                     continue
                 
-                oblock = self.blocks[i]
+                oblock = self._blocks[i]
                 
                 # First see if we are close enough to consider bonding
                 if not block.close( oblock, margin = CLOSE_MARGIN ):
@@ -214,7 +228,7 @@ class Cell():
                 if bond:
                     if bond == "clash":
                         # Reject this move and overwrite the changed block with the original one
-                        self.blocks[i] = orig_block
+                        self._blocks[i] = orig_block
                     else:
                         block.bond( oblock, bond )
                         print "Bonded block {} with block {}".format( iblock, i)
@@ -223,7 +237,7 @@ class Cell():
                 i+=1
             
             for r in removed:
-                self.blocks.pop(r)
+                self._blocks.pop(r)
                 #r=r-1
                     
 
@@ -233,7 +247,7 @@ class Cell():
         
         natoms=0
         xyz = ""
-        for block in self.blocks:
+        for block in self._blocks:
             for i, c in enumerate( block.coords ):
                 xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.labelToSymbol(block.labels[i]), c[0], c[1], c[2] )
                 natoms += 1
@@ -250,7 +264,69 @@ class Cell():
         """
         """
         s = ""
-        for block in self.blocks:
+        for block in self._blocks:
             s+= str(block)
             
         return s
+    
+    
+class TestCell(unittest.TestCase):
+    
+    # Import only here as only needed for testing
+    import buildingBlock
+
+    def makeCh4(self):
+        """Create a CH4 molecule for testing"""
+        
+        coords = [ numpy.array([  0.000000,  0.000000,  0.000000 ] ),
+        numpy.array([  0.000000,  0.000000,  1.089000 ]),
+        numpy.array([  1.026719,  0.000000, -0.363000 ]),
+        numpy.array([ -0.513360, -0.889165, -0.363000 ]),
+        numpy.array([ -0.513360,  0.889165, -0.363000 ]) ]
+
+        #numpy.array([ -0.513360,  0.889165, -0.363000 ]) ]
+        labels = [ 'C', 'H', 'H', 'H', 'H' ]
+        
+        endGroups = [ 1,2,3,4 ]
+        
+        ch4 = self.buildingBlock.BuildingBlock()
+        ch4.createFromArgs( coords, labels, endGroups )
+        return ch4
+    
+    def makePaf(self):
+        """Return the PAF molecule for testing"""
+        
+        paf = self.buildingBlock.BuildingBlock()
+        paf.fromCarFile("../PAF_bb_typed.car")
+        return paf
+        
+    def testSeed(self):
+        """Test we can seed correctly"""
+        
+        
+        nblocks = 10
+        CELLA = [ 10,  0,  0 ]
+        CELLB = [ 0, 10,  0 ]
+        CELLC = [ 0,  0, 10 ]
+        
+        ch4 = self.makeCh4()
+        
+        cell = Cell( CELLA, CELLB, CELLC )
+        cell.seed ( nblocks, ch4 )
+        
+        self.assertEqual( nblocks, len(cell.blocks()), "Incorrect number of cell blocks" )
+        
+        # Check no block is outside the unit cell
+        # We seed by the centroid so the edges could stick out by radius
+        radius = ch4.radius()
+        
+        bad = []
+        for b in cell.blocks():
+            for c in b.coords:
+                if ( 0-radius > c[0] > CELLA[0]+ radius ) or \
+                   ( 0-radius > c[1] > CELLB[1]+ radius ) or \
+                   ( 0-radius > c[2] > CELLC[2]+ radius ):
+                    
+                    bad.append( b )
+        
+        self.assertEqual( 0, len(bad), "Got {} blocks outside cell: {}".format( len(bad), bad ) )
