@@ -24,6 +24,9 @@ import numpy
 # This stolen from the CCP1GUI: http://sourceforge.net/projects/ccp1gui/
 
 
+# degrees to radians
+DEGREES2RADIANS = 57.29577951
+
 # double check these values...
 #hvd values obtained from http://www.webelements.com/ and recorded to their
 #    known accuracy.
@@ -555,7 +558,7 @@ class BuildingBlock():
         # A list of the indices of the atoms that are endGroups
         self.endGroups = []
         
-        # Dictionary mapping the index of an endGroup to an atom bonded ato it
+        # Dictionary mapping the index of an endGroup to an atom bonded to it
         # Required for finding the angle when we check bonds
         self._endGroupContacts = {}
         
@@ -615,19 +618,20 @@ class BuildingBlock():
         self.calcRadius()
         
         
-    def createFromArgs(self, coords, labels, endGroups ):
+    def createFromArgs(self, coords, labels, endGroups, endGroupContacts ):
         """ Create from given arguments
         """
         # could check if numpy array here
         self.coords = coords
         self.labels = labels
         self.endGroups = endGroups
+        self._endGroupContacts = endGroupContacts
         
         self.fillData()
         
         self.calcCenterOfMassAndGeometry()
         self.calcRadius()
-        self.findEndGroupContacts()
+        #self.findEndGroupContacts()
     
   
     def calcCenterOfMassAndGeometry(self):
@@ -675,7 +679,7 @@ class BuildingBlock():
         # Set radius
         self._radius = dist + atomR
         
-    def canBond( self, block ):
+    def canBond( self, block, bondAngle=None ):
         """See if we can form a bond with the given block.
         Return the indicies of the two atoms (self and then other)
         or False if the molecules cannot bond but do not clash
@@ -683,6 +687,10 @@ class BuildingBlock():
         the string "clash" to indicate a clash and that the move should be
         rejected
         """
+        
+        assert bondAngle
+        
+        #global DEGREES2RADIANS
 
         # Might be able to bond so loop through all atoms and check
         # We only accept the case where just one pair of atoms is close enough to bond
@@ -713,19 +721,25 @@ class BuildingBlock():
             return False
         
         # Got a bond so check the angle
-        # Get the atom connected to the endGroup we can use to define the angle
-        ig = self._endGroupContacts[ bond[0] ]
-        jg = block._endGroupContacts[ bond[1] ]
-        igcoord = self.coords[ig]
-        ibcoord = self.coords[i]
-        jgcoord = block.coords[jg]
-        jbcoord = block.coords[j]
+        selfContactAtom = self._endGroupContacts[ bond[0] ]
+        acoord = self.coords[ selfContactAtom ]
+        sgatom = self.coords[ bond[0] ] 
+        bgatom = block.coords[ bond[1] ] 
+        angle = self.getAngle( acoord, sgatom, bgatom )
         
-        angle = self.getDihedral( ibcoord, igcoord, jgcoord, jbcoord )
+# Old routine 
+#        ig = self._endGroupContacts[ bond[0] ]
+#        jg = block._endGroupContacts[ bond[1] ]
+#        igcoord = self.coords[ig]
+#        ibcoord = self.coords[i]
+#        jgcoord = block.coords[jg]
+#        jbcoord = block.coords[j]
+#        angle = self.getDihedral( ibcoord, igcoord, jgcoord, jbcoord )
         
-        print "Got bond angle: {}".format(angle)
+        print "Got bond angle D: {}".format(angle)
+        #print "Got bond angle D: {}".format(angle/DEGREES2RADIANS)
         
-        if ( -20 < angle < 20 or 160 < angle < 180 or -160 < angle < -180 ):
+        if ( bondAngle-15 < angle < bondAngle+15 ):
             return bond
         else:
             print "Cannot bond due to angle"
@@ -808,7 +822,7 @@ class BuildingBlock():
             self.atom_radii.append(r)
             #print "ADDING R {} for label {}".format(r,label)
             
-    def findEndGroupContacts(self):
+    def XXXfindEndGroupContacts(self):
         """
         work out an atom connected to the endGroup so that we can define the angle 
         for bonding
@@ -851,6 +865,15 @@ class BuildingBlock():
         # array of bools - could change to an array of the indexes
         endGroups = []
         
+        endGroupContacts = {}
+        
+        # For tracking the mapping of the index used to mark the endgroups
+        # to the true index of the atom
+        eGlabel2index = {}
+        # For tracking the mapping of the index used to mark the endgroup contact atom
+        # to the true index of the atom
+        eAlabel2index = {}
+        
         reading = True
         with open( carFile, "r" ) as f:
             
@@ -875,16 +898,37 @@ class BuildingBlock():
                      
                 labels.append(label) 
                 
-                # End groups are denoted by an underscore at the end
-                # of the label name
-                if fields[0].endswith('_'):
-                    endGroups.append( count )
+                # End groups and the atoms which define their bond angles 
+                # are of the form XX_EN for endgroups and XX_AN for the defining atoms
+                # where N can be any number, but linking the two atoms together 
+                # The indexing of the atoms starts from 1!!!!
+                if "_" in label:
+                    _,ident = label.split("_")
+                    atype=ident[0]
+                    anum=int(ident[1:])
                     
+                    if atype.upper() == "E":
+                        # An endgroup
+                        endGroups.append( count )
+                        eGlabel2index[ anum ] = count
+                    elif atype.upper() == "A":
+                        eAlabel2index[ anum ] = count
+                    else:
+                        raise RuntimeError,"Got a duff label! - {}".format(label)
+                
                 coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
                 
                 count+=1
         
-        self.createFromArgs(coords, labels, endGroups)
+        #Now matach up the endgroups with their contact atoms
+        print eGlabel2index
+        print eAlabel2index
+        for mapIndex,trueIndex in eGlabel2index.iteritems():
+            if trueIndex not in endGroups:
+                raise RuntimeError,"Got a bad index for an endgroup!"
+            endGroupContacts[ trueIndex ] = eAlabel2index[ mapIndex ]
+        
+        self.createFromArgs(coords, labels, endGroups, endGroupContacts)
 
 
     def fromXyzFile(self, xyzFile):
@@ -896,8 +940,18 @@ class BuildingBlock():
         # numpy array
         coords = []
         
-        # array of bools - could change to an array of the indexes
+        # List of the endgroups
         endGroups = []
+        
+        # Maps endgroups to the atoms used to define the angle
+        endGroupContacts = {}
+        
+        # For tracking the mapping of the index used to mark the endgroups
+        # to the true index of the atom
+        eGlabel2index = {}
+        # For tracking the mapping of the index used to mark the endgroup contact atom
+        # to the true index of the atom
+        eAlabel2index = {}
         
         with open( xyzFile ) as f:
             
@@ -909,23 +963,47 @@ class BuildingBlock():
             line = f.readline()
             
             count = 0
-            for i in range(natoms):
+            for _ in range(natoms):
                 
                 line = f.readline()
                 line = line.strip()
                 fields = line.split()
-                labels.append(fields[0]) 
+                label = fields[0]
+                labels.append(label) 
                 
-                # End groups are denoted by an underscore at the end
-                # of the label name
+                # End groups and the atoms which define their bond angles 
+                # are of the form XX_EN for endgroups and XX_AN for the defining atoms
+                # where N can be any number, but linking the two atoms together 
+                # The indexing of the atoms starts from 1!!!!
+                if "_" in label:
+                    _,ident = label.split("_")
+                    atype=ident[0]
+                    anum=int(ident[1:])
+                    
+                    if atype.upper() == "E":
+                        # An endgroup
+                        endGroups.append( count )
+                        eGlabel2index[ anum ] = count
+                    elif atype.upper() == "A":
+                        eAlabel2index[ anum ] = count
+                    else:
+                        raise RuntimeError,"Got a duff label! - {}".format(label)
+                
                 if fields[0].endswith('_'):
                     endGroups.append( count )
                     
                 coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
                 
                 count += 1
-                
-        self.createFromArgs(coords, labels, endGroups)
+        
+        #Now matach up the endgroups with their contact atoms
+        for mapIndex,trueIndex in eGlabel2index.iteritems():
+            if trueIndex not in endGroups:
+                raise RuntimeError,"Got a bad index for an endgroup!"
+            endGroupContacts[ trueIndex ] = eAlabel2index[ mapIndex ]
+        
+        self.createFromArgs(coords, labels, endGroups, endGroupContacts)
+        #self.createFromArgs(coords, labels, endGroups)
     
     def getAngle(self,c1,c2,c3):
         """Return the angle in radians c1---c2---c3
@@ -1134,8 +1212,10 @@ class TestBuildingBlock(unittest.TestCase):
         
         endGroups = [ 1,2,3,4 ]
         
+        endGroupContacts = { 1:0, 2:0, 3:0, 4:0 }
+        
         ch4 = BuildingBlock()
-        ch4.createFromArgs( coords, labels, endGroups )
+        ch4.createFromArgs( coords, labels, endGroups, endGroupContacts )
         return ch4
     
     def makePaf(self):
@@ -1144,6 +1224,16 @@ class TestBuildingBlock(unittest.TestCase):
         paf = BuildingBlock()
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
+    
+    
+    def testAaaReadCar(self):
+        """
+        Test we can read a car file - needs to come first
+        """
+        
+        paf = self.makePaf()
+        self.assertTrue( paf._endGroupContacts == {17: 3, 12: 2, 22: 4, 7: 1}, "Incorrect reading of endGroup contacts")
+        
         
     def testBond(self):
         """Test we can correctly bond two blocks at the given bond"""
@@ -1156,7 +1246,7 @@ class TestBuildingBlock(unittest.TestCase):
         ch4.bond(m2, bond)
         
         self.assertTrue( ch4.endGroups == [1,2,4,6,8,9], "Incorrect calculation of endGroups")
-        self.assertTrue( ch4._endGroupContacts == { 1:0, 2:0, 4:0, 6:5, 8:5, 9:5 }, "Incorrect calculation of endGroup contacts")
+        self.assertTrue( ch4._endGroupContacts == {1: 0, 2: 0, 4: 0, 6: 5, 8: 5, 9: 5}, "Incorrect calculation of endGroup contacts")
     
 
     def testCenterOfGeometry(self):

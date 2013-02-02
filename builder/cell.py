@@ -160,10 +160,14 @@ class Cell():
     # End seed
 
         
-    def shimmy(self, nsteps=100, nmoves=50 ):
+    def shimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
         """ Shuffle the molecules about making bonds where necessary for nsteps
         minimoves is number of sub-moves to attempt when the blocks are close
         """
+        
+        # For time being ensure we are given a bond angle
+        assert bondAngle
+
         
         CLOSE_MARGIN=1.5 # how close 2 blocks are before we consider checking if they can bond
         PRANGE=4.0 # the range within which to make the smaller minimoves
@@ -177,9 +181,9 @@ class Cell():
             
             block = self._blocks[iblock]
             
-            # Copy the origianl coordintes so we can reject the move
+            # Copy the original coordinates so we can reject the move
             # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker the saving the coords & updating tho
+            # anything - not sure if this quicker then saving the coords & updating tho
             orig_block = copy.deepcopy( block )
              
             # Make a random move
@@ -188,15 +192,16 @@ class Cell():
             # Remeber the original cog of the block 
             cog = block.centroid()
             
-            # Check all atoms and 
+            # Loop over all blocks to see if we can bond or if we clash
             removed = []
-            for i in range( len(self._blocks) ):
+            for i in range( len( self.blocks() ) ):
                 
                 # skip the block we are using
                 if i == iblock:
                     i+=1
                     continue
                 
+                # Get the next block
                 oblock = self._blocks[i]
                 
                 # First see if we are close enough to consider bonding
@@ -210,7 +215,7 @@ class Cell():
                 noclashmove=0
                 for j in range( nmoves ):
                     # Try to make a bond
-                    bond = block.canBond( oblock )
+                    bond = block.canBond( oblock, bondAngle=bondAngle )
                     if not bond or bond == "clash":
                         # Try a smaller move
                         self.randomSmallMove( block, cog, prange=PRANGE )
@@ -222,6 +227,7 @@ class Cell():
                         
                     else:
                         # Bonding worked so break out of loop
+                        print "GOT BOND"
                         break
                 
                 print "Next Block after clash/noclash: {}/{}".format(clashmove,noclashmove)
@@ -235,6 +241,7 @@ class Cell():
                         # Now delete block
                         removed.append(i)
                 i+=1
+                #End Loop Over Blocks
             
             for r in removed:
                 self._blocks.pop(r)
@@ -288,9 +295,10 @@ class TestCell(unittest.TestCase):
         labels = [ 'C', 'H', 'H', 'H', 'H' ]
         
         endGroups = [ 1,2,3,4 ]
+        endGroupContacts = { 1:0, 2:0, 3:0, 4:0 }
         
         ch4 = self.buildingBlock.BuildingBlock()
-        ch4.createFromArgs( coords, labels, endGroups )
+        ch4.createFromArgs( coords, labels, endGroups, endGroupContacts )
         return ch4
     
     def makePaf(self):

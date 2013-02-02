@@ -33,24 +33,24 @@ def newFile(filename):
     name = name[:count]+str(n)
     
     return name+suffix
-    
-    
 
 
 INFILE = "/Users/abbietrewin/Dropbox/Amorphousbuilder/pyrene_typed.car" 
-#INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/pyrene_typed.car" 
-INFILE = "/Users/jmht/1.xyz" 
+INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/pyrene_typed.car" 
+#INFILE = "/Users/jmht/1.xyz" 
 #INFILE = "/Users/abbietrewin/Dropbox/Amorphousbuilder/builder/ch4.xyz"
 #OUTFILE1 = "/Users/abbietrewin/Dropbox/Amorphousbuilder/abbie_output/cell_1.xyz"
 OUTFILE = "/Users/jmht/cell_1.xyz"
 #OUTFILE2 = "/Users/abbietrewin/Dropbox/Amorphousbuilder/abbie_output/cell_2.xyz"
 #OUTFILE2 = "/Users/jmht/cell_2.xyz"
-nblocks = 15 
+nblocks = 45 
 CELLA = [ 30,  0,  0 ]
 CELLB = [ 0, 30,  0 ]
 CELLC = [ 0,  0, 30 ]
-STEPS = 10
+STEPS = 100
 NMOVES=50
+
+BONDANGLE=180
 
 
 # Create building block and read in car file
@@ -64,7 +64,7 @@ cell.write( OUTFILE )
 # Loop through as many shimmy stages as required
 while True:
     OUTFILE=newFile(OUTFILE)
-    cell.shimmy( nsteps=STEPS, nmoves=NMOVES  )
+    cell.shimmy( nsteps=STEPS, nmoves=NMOVES, bondAngle=BONDANGLE  )
     cell.write( OUTFILE )
     response = raw_input('Do we have to do this _again_? (y/n)')
     if response.lower() == 'n':
