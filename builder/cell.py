@@ -179,7 +179,6 @@ class Cell():
                 print "step {}".format(step)
                 
             iblock = self.getRandomBlockIndex()
-            
             block = self._blocks[iblock]
             
             # Copy the original coordinates so we can reject the move
