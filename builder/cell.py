@@ -169,7 +169,7 @@ class Cell():
         assert bondAngle
 
         
-        CLOSE_MARGIN=1.5 # how close 2 blocks are before we consider checking if they can bond
+        CLOSE_MARGIN=4.0 # how close 2 blocks are before we consider checking if they can bond
         PRANGE=4.0 # the range within which to make the smaller minimoves
         
         

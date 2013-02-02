@@ -43,7 +43,10 @@ def newFile(filename):
 # 9/0
 # 7/0
 # 
-# 
+# 9/0
+# 6/0
+# 8/0
+# 18/0
 
 
 INFILE = "/Users/abbietrewin/Dropbox/Amorphousbuilder/pyrene_typed.car" 
@@ -62,7 +65,6 @@ STEPS = 1000
 NMOVES=50
 
 BONDANGLE=180
-
 
 # Create building block and read in car file
 firstBlock = buildingBlock.BuildingBlock( infile = INFILE )

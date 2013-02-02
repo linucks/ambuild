@@ -705,7 +705,7 @@ class BuildingBlock():
                 #j_radius = block.atom_radii[j]
                 j_symbol = block.symbols[j]
                 bond_length = get_bond_length( i_symbol , j_symbol )
-                if ( bond_length + MARGIN > numpy.linalg.norm( c - b ) > bond_length - MARGIN ):
+                if ( numpy.linalg.norm( c - b ) < bond_length + MARGIN ):
                     # Check if both atoms are end groups
                     if not ( i in self.endGroups and j in block.endGroups ):
                         # 2 atoms close enough to bond but they are not end groups
@@ -736,7 +736,7 @@ class BuildingBlock():
             return bond
         else:
             print "Cannot bond due to angle"
-            return False
+            return "clash"
         
     def centroid(self):
         """
