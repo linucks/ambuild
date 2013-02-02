@@ -584,6 +584,7 @@ class BuildingBlock():
         """Bond the two blocks at the given bond - tuple is indices of self and other bond
         """
         
+        
         # Needed to work out how much to add to the block indices
         lcoords = len(self.coords)
         
@@ -714,7 +715,7 @@ class BuildingBlock():
         # Got a bond so check the angle
         # Get the atom connected to the endGroup we can use to define the angle
         ig = self._endGroupContacts[ bond[0] ]
-        jg = self._endGroupContacts[ bond[1] ]
+        jg = block._endGroupContacts[ bond[1] ]
         igcoord = self.coords[ig]
         ibcoord = self.coords[i]
         jgcoord = block.coords[jg]
