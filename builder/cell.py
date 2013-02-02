@@ -195,61 +195,76 @@ class Cell():
             
             # Loop over all blocks to see if we can bond or if we clash
             
-            #  list of a list containing the index of the block this block can bond to 
-            # with a tuple of the index of the two atoms in this block and other 
-            bonds = []
-            clash = False
-            for i in range( len( self.blocks() ) ):
-                
-                # skip the block we are using
-                if i == iblock:
-                    continue
-                
-                # Get the next block
-                oblock = self._blocks[i]
-                
-                # First see if we are close enough to consider bonding
-                if not block.close( oblock, margin = CLOSE_MARGIN ):
-                    continue
-                
-                # See if we can bond
-                bond = block.canBond( oblock, bondAngle=bondAngle )
-                
-                # No bond so move  to next block
-                if not bond:
-                    continue
-                
-                # Either a bond or a clash
-                if bond == "clash":
-                    # A clash so break out of the whole loop so we can reject this step
-                    clash=True
-                    break
-                else:
-                    # Got a bond, so add it to the list of possible bonds
-                    print "Found bond between block {} and {}".format( iblock, i)
-                    bonds.append( [i, bond] )
-
-                #End Loop Over Blocks
+            bonds = self.checkMove( block, iblock, closeMargin=CLOSE_MARGIN, bondAngle=bondAngle )
             
             # See what happend
-            if clash:
-                # Reject this move and overwrite the changed block with the original one
-                self._blocks[iblock] = orig_block
-            elif len( bonds ):
-                # Got some bonds so deal with them
-                # Need to decrement index if we are removing blocks
-                bcount=0
-                for b,bond in bonds:
-                    block.bond( self._blocks[b-bcount], bond )
-                    # Remove the block from the list as it is now part of the other one
-                    self._blocks.pop(b-bcount)
-                    bcount+=1
-                
+            if bonds:
+                if bonds == "clash":
+                    # Reject this move and overwrite the changed block with the original one
+                    self._blocks[iblock] = orig_block
+                elif len( bonds ):
+                    # Got some bonds so deal with them
+                    # Need to decrement index if we are removing blocks
+                    bcount=0
+                    for b,bond in bonds:
+                        block.bond( self._blocks[b-bcount], bond )
+                        # Remove the block from the list as it is now part of the other one
+                        self._blocks.pop(b-bcount)
+                        bcount+=1
             #End step loop
             
         #End shimmy
             
+    
+    def checkMove(self, block, iblock, closeMargin=None, bondAngle=None ):
+        """
+        See how this move went.
+        we return:
+        False - nothing was close
+        clash - we clashed with something
+        bonds - [ [iblock, (i,j] ]- a list of the bonds as the index of the other block and a pair
+        of the atom in this and the other block forming the bond
+        """
+        
+        assert closeMargin, bondAngle
+        
+        bonds=[]
+        for i in range( len( self.blocks() ) ):
             
+            # skip the block we are using
+            if i == iblock:
+                continue
+            
+            # Get the next block
+            oblock = self._blocks[i]
+            
+            # First see if we are close enough to consider bonding
+            if not block.close( oblock, margin = closeMargin ):
+                continue
+            
+            # See if we can bond
+            bond = block.canBond( oblock, bondAngle=bondAngle )
+            
+            # No bond so move  to next block
+            if not bond:
+                continue
+            
+            # Either a bond or a clash
+            if bond == "clash":
+                # A clash so break out of the whole loop so we can reject this step
+                return "clash"
+            else:
+                # Got a bond, so add it to the list of possible bonds
+                print "Found bond between block {} and {}".format( iblock, i)
+                bonds.append( [i, bond] )
+
+            #End Loop Over Blocks
+        
+        if len(bonds):
+            return bonds
+        else:
+            return False
+        return bond
             
             
     def OLDshimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
