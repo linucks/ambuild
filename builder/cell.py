@@ -172,6 +172,7 @@ class Cell():
         CLOSE_MARGIN=1.5 # how close 2 blocks are before we consider checking if they can bond
         PRANGE=4.0 # the range within which to make the smaller minimoves
         
+        
         for step in range( nsteps ):
             
             if not step % 20:
@@ -189,7 +190,98 @@ class Cell():
             # Make a random move
             self.randomMove( block )
             
-            # Remeber the original cog of the block 
+            # Remember the original cog of the block 
+            cog = block.centroid()
+            
+            # Loop over all blocks to see if we can bond or if we clash
+            
+            #  list of a list containing the index of the block this block can bond to 
+            # with a tuple of the index of the two atoms in this block and other 
+            bonds = []
+            clash = False
+            for i in range( len( self.blocks() ) ):
+                
+                # skip the block we are using
+                if i == iblock:
+                    continue
+                
+                # Get the next block
+                oblock = self._blocks[i]
+                
+                # First see if we are close enough to consider bonding
+                if not block.close( oblock, margin = CLOSE_MARGIN ):
+                    continue
+                
+                # See if we can bond
+                bond = block.canBond( oblock, bondAngle=bondAngle )
+                
+                # No bond so move  to next block
+                if not bond:
+                    continue
+                
+                # Either a bond or a clash
+                if bond == "clash":
+                    # A clash so break out of the whole loop so we can reject this step
+                    clash=True
+                    break
+                else:
+                    # Got a bond, so add it to the list of possible bonds
+                    print "Found bond between block {} and {}".format( iblock, i)
+                    bonds.append( [i, bond] )
+
+                #End Loop Over Blocks
+            
+            # See what happend
+            if clash:
+                # Reject this move and overwrite the changed block with the original one
+                self._blocks[iblock] = orig_block
+            elif len( bonds ):
+                # Got some bonds so deal with them
+                # Need to decrement index if we are removing blocks
+                bcount=0
+                for b,bond in bonds:
+                    block.bond( self._blocks[b-bcount], bond )
+                    # Remove the block from the list as it is now part of the other one
+                    self._blocks.pop(b-bcount)
+                    bcount+=1
+                
+            #End step loop
+            
+        #End shimmy
+            
+            
+            
+            
+    def OLDshimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
+        """ Shuffle the molecules about making bonds where necessary for nsteps
+        minimoves is number of sub-moves to attempt when the blocks are close
+        """
+        
+        # For time being ensure we are given a bond angle
+        assert bondAngle
+
+        
+        CLOSE_MARGIN=1.5 # how close 2 blocks are before we consider checking if they can bond
+        PRANGE=4.0 # the range within which to make the smaller minimoves
+        
+        for step in range( nsteps ):
+            
+            if not step % 20:
+                print "step {}".format(step)
+                
+            iblock = self.getRandomBlockIndex()
+            
+            block = self._blocks[iblock]
+            
+            # Copy the original coordinates so we can reject the move
+            # we copy the whole block so we don't need to recalculate
+            # anything - not sure if this quicker then saving the coords & updating tho
+            orig_block = copy.deepcopy( block )
+             
+            # Make a random move
+            self.randomMove( block )
+            
+            # Remember the original cog of the block 
             cog = block.centroid()
             
             # Loop over all blocks to see if we can bond or if we clash
@@ -198,7 +290,6 @@ class Cell():
                 
                 # skip the block we are using
                 if i == iblock:
-                    i+=1
                     continue
                 
                 # Get the next block
@@ -206,7 +297,6 @@ class Cell():
                 
                 # First see if we are close enough to consider bonding
                 if not block.close( oblock, margin = CLOSE_MARGIN ):
-                    i+=1
                     continue
                 
                 # See if we can bond and shimmy minimoves times
@@ -243,10 +333,10 @@ class Cell():
                 i+=1
                 #End Loop Over Blocks
             
+            #
             for r in removed:
                 self._blocks.pop(r)
-                #r=r-1
-                    
+            #End step loop
 
              
     def write(self, ofile ):

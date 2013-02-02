@@ -705,7 +705,7 @@ class BuildingBlock():
                 #j_radius = block.atom_radii[j]
                 j_symbol = block.symbols[j]
                 bond_length = get_bond_length( i_symbol , j_symbol )
-                if ( bond_length + MARGIN > numpy.linalg.norm( c - b ) > bond_length - MARGIN):
+                if ( bond_length + MARGIN > numpy.linalg.norm( c - b ) > bond_length - MARGIN ):
                     # Check if both atoms are end groups
                     if not ( i in self.endGroups and j in block.endGroups ):
                         # 2 atoms close enough to bond but they are not end groups
@@ -715,6 +715,7 @@ class BuildingBlock():
                     if bond:
                         # Already got one so this is no good
                         return "clash"
+                    
                     bond = (i,j)
         
         if not bond:
@@ -727,17 +728,9 @@ class BuildingBlock():
         bgatom = block.coords[ bond[1] ] 
         angle = self.getAngle( acoord, sgatom, bgatom )
         
-# Old routine 
-#        ig = self._endGroupContacts[ bond[0] ]
-#        jg = block._endGroupContacts[ bond[1] ]
-#        igcoord = self.coords[ig]
-#        ibcoord = self.coords[i]
-#        jgcoord = block.coords[jg]
-#        jbcoord = block.coords[j]
-#        angle = self.getDihedral( ibcoord, igcoord, jgcoord, jbcoord )
+#       angle = self.getDihedral( ibcoord, igcoord, jgcoord, jbcoord )
         
         print "Got bond angle D: {}".format(angle)
-        #print "Got bond angle D: {}".format(angle/DEGREES2RADIANS)
         
         if ( bondAngle-15 < angle < bondAngle+15 ):
             return bond

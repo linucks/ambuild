@@ -35,6 +35,17 @@ def newFile(filename):
     return name+suffix
 
 
+#1000
+# 13/0
+# 8/0
+# 5/0
+# 10/0
+# 9/0
+# 7/0
+# 
+# 
+
+
 INFILE = "/Users/abbietrewin/Dropbox/Amorphousbuilder/pyrene_typed.car" 
 INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/pyrene_typed.car" 
 #INFILE = "/Users/jmht/1.xyz" 
@@ -47,7 +58,7 @@ nblocks = 45
 CELLA = [ 30,  0,  0 ]
 CELLB = [ 0, 30,  0 ]
 CELLC = [ 0,  0, 30 ]
-STEPS = 100
+STEPS = 1000
 NMOVES=50
 
 BONDANGLE=180
