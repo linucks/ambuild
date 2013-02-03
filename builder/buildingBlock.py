@@ -587,6 +587,10 @@ class BuildingBlock():
         """Bond the two blocks at the given bond - tuple is indices of self and other bond
         """
         
+        #print "Bonding Block"
+        #print block
+        #print "with"
+        #print self
         
         # Needed to work out how much to add to the block indices
         lcoords = len(self.coords)

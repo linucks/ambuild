@@ -12,6 +12,8 @@ import unittest
 
 import numpy
 
+import util
+
 
 class Cell():
     '''
@@ -77,25 +79,33 @@ class Cell():
         #print "After rotate centroid at: {}".format( block.centroid() )
         
         
-    def randomSmallMove(self, block, cog, prange=1.0 ):
+    def randomMoveAroundBlock(self, oblock, block, margin=1.0 ):
         
-        """Get a random position that moves the COG prange
-        units from its current position, The cog argument is the
-        original centre of geometry so that we sample around it"""
+        """
+        Move the subject block (block) around the centroid of the target oblock
+        """
         
+        centroid = oblock.centroid()
+        #print "centroid at: {}".format(centroid)
+        rb = block.radius()
+        ro = oblock.radius()
+        
+        prange = rb + ro + margin
+        prange = prange/2
         
         # Calculate new position
-        x = random.uniform(-prange/2,prange/2)
-        y = random.uniform(-prange/2,prange/2)
-        z = random.uniform(-prange/2,prange/2)
+        x = random.uniform(-prange,prange)
+        y = random.uniform(-prange,prange)
+        z = random.uniform(-prange,prange)
         xyz = numpy.array( [x,y,z], dtype=numpy.float64 )
-        position = numpy.add( cog, xyz )
+        position = numpy.add( centroid, xyz )
         
-        # Overklll - move to origin, rotate there and then move to new position
+        # possibly ovverklll - move to origin, rotate there and then move to new position
         # Use the cell axis definitions
         origin = numpy.array([0,0,0], dtype=numpy.float64 )
         block.translateCentroid( origin )
         
+        # Make a random rotation
         angle = random.uniform( 0, 2*numpy.pi)
         block.rotate( self.A, angle )
         
@@ -107,6 +117,7 @@ class Cell():
         
         # Now move to new position
         block.translateCentroid( position )
+        #print "block now at: {}".format( block.centroid() )
         
     
     def seed( self, nblocks, firstBlock ):
@@ -159,6 +170,103 @@ class Cell():
     
     # End seed
 
+    def directedShimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
+        """
+        Shimmy by selecting a block and then moving around it.
+        Lots of possiblities for speeding up - preseeclting which blocks
+        to sample and a box around the target to avoid looping over undeeded atoms
+        """
+        
+        #For writing out our progress
+        filename= "SHIMMY_0.xyz"
+        
+        # For time being ensure we are given a bond angle
+        assert bondAngle
+        
+        CLOSE_MARGIN=4.0 # how close 2 blocks are before we consider checking if they can bond
+        BLOCK_MARGIN=2.0 # margin between the ranges that are used to sample the smaller moves
+        
+        nbonds=0
+        for step in range(nsteps):
+            
+            if len(self.blocks()) == 1:
+                print "NO MORE BLOCKS TO BOND _ HOORAY!"
+                return
+            
+            
+            
+            if not step % 10:
+                print "Step: {}".format(step)
+                filename = util.newFilename(filename)
+                self.write( filename )
+            
+            # Pick a block to move
+            iblock = self.getRandomBlockIndex()
+            block = self._blocks[iblock]
+            
+            # Copy the original coordinates so we can reject the move
+            # we copy the whole block so we don't need to recalculate
+            # anything - not sure if this quicker then saving the coords & updating tho
+            orig_block = copy.deepcopy( block )
+            
+            # Find a different one to sample around
+            jblock = iblock
+            while jblock == iblock:
+                jblock = self.getRandomBlockIndex()
+            oblock = self._blocks[jblock]
+            
+            print "Sampling block {} about {}".format(iblock,jblock)
+            
+            # The centroid of the block we are sampling about
+            #centroid = block.centroid()
+            
+            clash=0
+            noclash=0
+            gotBond=False
+            for _ in range( nmoves ):
+                
+                self.randomMoveAroundBlock( oblock, block, margin=BLOCK_MARGIN )
+                
+                # Loop over all blocks to see if we can bond or if we clash
+                bonds = self.checkMove( block, iblock, closeMargin=CLOSE_MARGIN, bondAngle=bondAngle )
+                
+                # See what happend
+                if not bonds:
+                    noclash+=1
+                    continue
+                    
+                if bonds == "clash":
+                    clash+=1
+                    continue
+                
+                # Got some bonds so deal with them
+                # Need to decrement index if we are removing blocks
+                bcount=0
+                print "FOUND {} BOND(S)!!!!".format(len(bonds))
+                nbonds+=len(bonds)
+                for b,bond in bonds:
+                    block.bond( self._blocks[b-bcount], bond )
+                    # Remove the block from the list as it is now part of the other one
+                    self._blocks.pop(b-bcount)
+                    bcount+=1
+                
+                # No need to loop anymore
+                gotBond=True
+                break
+                            
+            print "End of moves  clash/noclash: {}/{}".format(clash,noclash)
+            
+            if not gotBond:
+                # If no bonds place the bond back at it's original position
+                self._blocks[iblock] = orig_block
+            
+            #End move loop
+        #End step loop
+        
+        print "END OF DIRECTED SHIMMY\nMade {} bonds and got {} clusters".format(nbonds,len(self.blocks()))
+    #End directedShimmy
+
+
         
     def shimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
         """ Shuffle the molecules about making bonds where necessary for nsteps
@@ -189,11 +297,7 @@ class Cell():
             # Make a random move
             self.randomMove( block )
             
-            # Remember the original cog of the block 
-            cog = block.centroid()
-            
             # Loop over all blocks to see if we can bond or if we clash
-            
             bonds = self.checkMove( block, iblock, closeMargin=CLOSE_MARGIN, bondAngle=bondAngle )
             
             # See what happend
@@ -228,14 +332,14 @@ class Cell():
         assert closeMargin, bondAngle
         
         bonds=[]
-        for i in range( len( self.blocks() ) ):
+        for i, oblock in enumerate( self.blocks() ):
             
             # skip the block we are using
             if i == iblock:
                 continue
             
             # Get the next block
-            oblock = self._blocks[i]
+            #oblock = self._blocks[i]
             
             # First see if we are close enough to consider bonding
             if not block.close( oblock, margin = closeMargin ):
@@ -263,7 +367,8 @@ class Cell():
             return bonds
         else:
             return False
-        return bond
+        
+        assert False
             
             
     def OLDshimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
@@ -322,7 +427,7 @@ class Cell():
                     bond = block.canBond( oblock, bondAngle=bondAngle )
                     if not bond or bond == "clash":
                         # Try a smaller move
-                        self.randomSmallMove( block, cog, prange=PRANGE )
+                        self.randomMoveAroundBlock( block, cog, prange=PRANGE )
                         # Just for logging
                         if bond == "clash":
                             clashmove+=1

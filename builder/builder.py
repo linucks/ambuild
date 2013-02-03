@@ -9,31 +9,7 @@ Created on Jan 15, 2013
 
 import buildingBlock
 import cell
-import os
-
-def newFile(filename):
-    # Create a new filename using _1 etc
-    name,suffix = os.path.splitext( filename )
-    
-    count=0
-    while True:
-        try:
-            int(name[count-1])
-        except ValueError:
-            break
-        count-=1
-    
-    nstr=name[count:]
-            
-    if not name[count-1] == "_" or count==0:
-        raise RuntimeError,"Filename needs to be of the form: NAME_1.xyz"
-    
-    n=int(nstr)
-    n=n+1
-    name = name[:count]+str(n)
-    
-    return name+suffix
-
+import util
 
 #1000
 # 13/0
@@ -57,12 +33,12 @@ INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/pyrene_typed.car"
 OUTFILE = "/Users/jmht/cell_1.xyz"
 #OUTFILE2 = "/Users/abbietrewin/Dropbox/Amorphousbuilder/abbie_output/cell_2.xyz"
 #OUTFILE2 = "/Users/jmht/cell_2.xyz"
-nblocks = 45 
-CELLA = [ 30,  0,  0 ]
-CELLB = [ 0, 30,  0 ]
-CELLC = [ 0,  0, 30 ]
-STEPS = 1000
-NMOVES=50
+nblocks = 40 
+CELLA = [ 50,  0,  0 ]
+CELLB = [ 0, 50,  0 ]
+CELLC = [ 0,  0, 50 ]
+STEPS = 12
+NMOVES=100
 
 BONDANGLE=180
 
@@ -70,15 +46,16 @@ BONDANGLE=180
 firstBlock = buildingBlock.BuildingBlock( infile = INFILE )
 
 # Create Cell and seed it with the blocks
-cell = cell.Cell( CELLA, CELLB, CELLC )
-cell.seed (nblocks, firstBlock )
-cell.write( OUTFILE )
+new_cell = cell.Cell( CELLA, CELLB, CELLC )
+new_cell.seed (nblocks, firstBlock )
+new_cell.write( OUTFILE )
 
 # Loop through as many shimmy stages as required
 while True:
-    OUTFILE=newFile(OUTFILE)
-    cell.shimmy( nsteps=STEPS, nmoves=NMOVES, bondAngle=BONDANGLE  )
-    cell.write( OUTFILE )
+    OUTFILE=util.newFilename(OUTFILE)
+    #cell.shimmy( nsteps=STEPS, nmoves=NMOVES, bondAngle=BONDANGLE  )
+    new_cell.directedShimmy( nsteps=STEPS, nmoves=NMOVES, bondAngle=BONDANGLE )
+    new_cell.write( OUTFILE )
     response = raw_input('Do we have to do this _again_? (y/n)')
     if response.lower() == 'n':
         break
