@@ -764,7 +764,9 @@ class BuildingBlock():
         return self._centerOfMass
     
     def clash( self, block, closeMargin=2.0, clashMargin=1.0 ):
-        """ See if this molecule clashes (overlaps) with the given one """
+        """ See if this molecule clashes (overlaps) with the given one
+        by checking the atomic radii 
+        """
         
         # First check if these two molecules are within range assuming they 
         # are circular, centered on the COG and with the given radius
@@ -864,10 +866,11 @@ class BuildingBlock():
         
         endGroupContacts = {}
         
-        # For tracking the mapping of the index used to mark the endgroups
-        # to the true index of the atom
-        eGlabel2index = {}
-        # For tracking the mapping of the index used to mark the endgroup contact atom
+        # For tracking the mapping of the index of the endgroup to the label
+        # used to mark the contat atom
+        eGindex2label = {}
+        
+        # For tracking the mapping of the index used to mark the contact atom
         # to the true index of the atom
         eAlabel2index = {}
         
@@ -893,7 +896,7 @@ class BuildingBlock():
                     reading=False
                     break
                      
-                labels.append(label) 
+                labels.append(label)
                 
                 # End groups and the atoms which define their bond angles 
                 # are of the form XX_EN for endgroups and XX_AN for the defining atoms
@@ -907,7 +910,7 @@ class BuildingBlock():
                     if atype.upper() == "E":
                         # An endgroup
                         endGroups.append( count )
-                        eGlabel2index[ anum ] = count
+                        eGindex2label[ count ] = anum
                     elif atype.upper() == "A":
                         eAlabel2index[ anum ] = count
                     else:
@@ -918,9 +921,7 @@ class BuildingBlock():
                 count+=1
         
         #Now matach up the endgroups with their contact atoms
-        print eGlabel2index
-        print eAlabel2index
-        for mapIndex,trueIndex in eGlabel2index.iteritems():
+        for trueIndex, mapIndex in eGindex2label.iteritems():
             if trueIndex not in endGroups:
                 raise RuntimeError,"Got a bad index for an endgroup!"
             endGroupContacts[ trueIndex ] = eAlabel2index[ mapIndex ]
@@ -928,7 +929,7 @@ class BuildingBlock():
         self.createFromArgs(coords, labels, endGroups, endGroupContacts)
 
 
-    def fromXyzFile(self, xyzFile):
+    def fromXyzFile(self, xyzFile ):
         """"Jens did this.
         """
         
@@ -943,10 +944,11 @@ class BuildingBlock():
         # Maps endgroups to the atoms used to define the angle
         endGroupContacts = {}
         
-        # For tracking the mapping of the index used to mark the endgroups
-        # to the true index of the atom
-        eGlabel2index = {}
-        # For tracking the mapping of the index used to mark the endgroup contact atom
+        # For tracking the mapping of the index of the endgroup to the label
+        # used to mark the contat atom
+        eGindex2label = {}
+        
+        # For tracking the mapping of the index used to mark the contact atom
         # to the true index of the atom
         eAlabel2index = {}
         
@@ -980,7 +982,7 @@ class BuildingBlock():
                     if atype.upper() == "E":
                         # An endgroup
                         endGroups.append( count )
-                        eGlabel2index[ anum ] = count
+                        eGindex2label[ count ] = anum
                     elif atype.upper() == "A":
                         eAlabel2index[ anum ] = count
                     else:
@@ -992,9 +994,9 @@ class BuildingBlock():
                 coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
                 
                 count += 1
-        
-        #Now matach up the endgroups with their contact atoms
-        for mapIndex,trueIndex in eGlabel2index.iteritems():
+
+        #Now match up the endgroups with their contact atoms
+        for trueIndex, mapIndex in eGindex2label.iteritems():
             if trueIndex not in endGroups:
                 raise RuntimeError,"Got a bad index for an endgroup!"
             endGroupContacts[ trueIndex ] = eAlabel2index[ mapIndex ]
@@ -1198,21 +1200,24 @@ class TestBuildingBlock(unittest.TestCase):
     def makeCh4(self):
         """Create a CH4 molecule for testing"""
         
-        coords = [ numpy.array([  0.000000,  0.000000,  0.000000 ] ),
-        numpy.array([  0.000000,  0.000000,  1.089000 ]),
-        numpy.array([  1.026719,  0.000000, -0.363000 ]),
-        numpy.array([ -0.513360, -0.889165, -0.363000 ]),
-        numpy.array([ -0.513360,  0.889165, -0.363000 ]) ]
+#        coords = [ numpy.array([  0.000000,  0.000000,  0.000000 ] ),
+#        numpy.array([  0.000000,  0.000000,  1.089000 ]),
+#        numpy.array([  1.026719,  0.000000, -0.363000 ]),
+#        numpy.array([ -0.513360, -0.889165, -0.363000 ]),
+#        numpy.array([ -0.513360,  0.889165, -0.363000 ]) ]
+#
+#        #numpy.array([ -0.513360,  0.889165, -0.363000 ]) ]
+#        labels = [ 'C', 'H', 'H', 'H', 'H' ]
+#        
+#        endGroups = [ 1,2,3,4 ]
+#        
+#        endGroupContacts = { 1:0, 2:0, 3:0, 4:0 }
+#        
+#        ch4 = BuildingBlock()
+#        ch4.createFromArgs( coords, labels, endGroups, endGroupContacts )
 
-        #numpy.array([ -0.513360,  0.889165, -0.363000 ]) ]
-        labels = [ 'C', 'H', 'H', 'H', 'H' ]
-        
-        endGroups = [ 1,2,3,4 ]
-        
-        endGroupContacts = { 1:0, 2:0, 3:0, 4:0 }
-        
         ch4 = BuildingBlock()
-        ch4.createFromArgs( coords, labels, endGroups, endGroupContacts )
+        ch4.fromXyzFile("../ch4.xyz")
         return ch4
     
     def makePaf(self):
@@ -1230,6 +1235,15 @@ class TestBuildingBlock(unittest.TestCase):
         
         paf = self.makePaf()
         self.assertTrue( paf._endGroupContacts == {17: 3, 12: 2, 22: 4, 7: 1}, "Incorrect reading of endGroup contacts")
+
+    def testAaaReadXyz(self):
+        """
+        Test we can read an xyz file - needs to come first
+        """
+        
+        paf = self.makeCh4()
+        self.assertTrue( paf._endGroupContacts == { 1:0, 2:0, 3:0, 4:0 }, "Incorrect reading of endGroup contacts")
+        
         
         
     def testBond(self):

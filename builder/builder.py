@@ -26,18 +26,19 @@ import util
 
 
 INFILE = "/Users/abbietrewin/Dropbox/Amorphousbuilder/pyrene_typed.car" 
-INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/pyrene_typed.car" 
+#INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/pyrene_typed.car" 
 #INFILE = "/Users/jmht/1.xyz" 
 #INFILE = "/Users/abbietrewin/Dropbox/Amorphousbuilder/builder/ch4.xyz"
 #OUTFILE1 = "/Users/abbietrewin/Dropbox/Amorphousbuilder/abbie_output/cell_1.xyz"
-OUTFILE = "/Users/jmht/cell_1.xyz"
+OUTFILE = "/Users/abbietrewin/AMBI/cell_1.xyz"
 #OUTFILE2 = "/Users/abbietrewin/Dropbox/Amorphousbuilder/abbie_output/cell_2.xyz"
 #OUTFILE2 = "/Users/jmht/cell_2.xyz"
-nblocks = 40 
-CELLA = [ 50,  0,  0 ]
-CELLB = [ 0, 50,  0 ]
-CELLC = [ 0,  0, 50 ]
-STEPS = 12
+nblocks = 400 
+CELLA = [ 100,  0,  0 ]
+CELLB = [ 0, 100,  0 ]
+CELLC = [ 0,  0, 100 ]
+
+STEPS = 50000
 NMOVES=100
 
 BONDANGLE=180

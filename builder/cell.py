@@ -193,9 +193,7 @@ class Cell():
                 print "NO MORE BLOCKS TO BOND _ HOORAY!"
                 return
             
-            
-            
-            if not step % 10:
+            if not step % 100:
                 print "Step: {}".format(step)
                 filename = util.newFilename(filename)
                 self.write( filename )
