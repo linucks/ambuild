@@ -38,7 +38,7 @@ CELLA = [ 100,  0,  0 ]
 CELLB = [ 0, 100,  0 ]
 CELLC = [ 0,  0, 100 ]
 
-STEPS = 50000
+STEPS = 50
 NMOVES=100
 
 BONDANGLE=180

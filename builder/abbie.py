@@ -15,7 +15,7 @@ o = open( CONFIG, "w" )
 # First 7 lines just info - not needed
 for i in range(7):
     line = f.readline()
-    o.write( line )
+    o.writeXyz( line )
 
 line = f.readline()
 while line:
@@ -24,13 +24,13 @@ while line:
     label = fields[0]
     if label in ATOMS:
         newline = label + "      c\n"
-        o.write( newline )
+        o.writeXyz( newline )
     else:
         if label in ATOMS2:
             newline = label + "    c\n"
-            o.write( newline )
+            o.writeXyz( newline )
         else:
-            o.write( line )
+            o.writeXyz( line )
         
     line = f.readline()
 
