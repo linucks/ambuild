@@ -150,22 +150,21 @@ class Cell():
         """ Read in an xyz file containing a cell and recreate the cell object"""
         
         blocks = self._readXyz(xyzFile)
-        print blocks
-        print blocks[0]
-        for (label, coord) in blocks:
+        for labels,coords in blocks:
             block = buildingBlock.BuildingBlock()
-            block.createFromLabelAndCoords( label, coord )
+            block.createFromLabelAndCoords( labels, coords )
             self.addBlock(block)
         
-    
     def _readXyz(self, xyzFile ):
         """"Read in an xyz file containing a cell - cell axes is title line and 
-        atoms are written out with their labels.
-        This routine sets the axes and returns a list of the labels and coordinates
+        atoms are written out with their _labels.
+        This routine sets the axes and returns a list of the _labels and coordinates
         """
         
-        # Each block is a list of [label, coords
+        # Each block is a list of [label, _coords
         blocks = []
+        labels=[]
+        coords=[]
         
         with open( xyzFile ) as f:
             
@@ -198,20 +197,32 @@ class Cell():
                 # Determine block from last bit of label
                 labelf = label.split("_")
                 iblock = int( labelf[-1].split("#")[1] )
+                
                 if iblock != lastBlock:
                     # Add new block
-                    blocks.append( [] )
+                    if lastBlock != -1:
+                        blocks.append( (labels,coords) )
+                    lastBlock = iblock
+                    labels=[]
+                    coords=[]
                 
-                label = labelf[0]+"_"+labelf[1]
+                if len(labelf) == 2:
+                    label = labelf[0]
+                elif len(labelf) == 3:
+                    label = labelf[0]+"_"+labelf[1]
+                else:
+                    raise RuntimeError,"HELLLP"
                 
-                blocks[-1].append( [label, numpy.array(fields[1:4], dtype=numpy.float64)] )
-                #labels.append(label) 
-                #coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
+                labels.append(label) 
+                coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
+        
+        # Add the last block
+        blocks.append( (labels,coords) )
         
         return blocks
     
     def _recreateBlocks(self, labels, coords):
-        """Given a list of labels and coordinates, recreate the blocks
+        """Given a list of _labels and coordinates, recreate the blocks
         Uses a stoopid but simple connectivity algorithm
         """
         
@@ -315,7 +326,7 @@ class Cell():
             
             # Copy the original coordinates so we can reject the move
             # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker then saving the coords & updating tho
+            # anything - not sure if this quicker then saving the _coords & updating tho
             orig_block = copy.deepcopy( block )
             
             #jmht FIND OUT WHY THIS DOEN"ST WORK
@@ -395,7 +406,7 @@ class Cell():
          Defintely needs more work on the rotation
         """
         
-        # Get coords of random point in the cell
+        # Get _coords of random point in the cell
         x = random.uniform(0,self.A[0])
         y = random.uniform(0,self.B[1])
         z = random.uniform(0,self.C[2])
@@ -544,7 +555,7 @@ class Cell():
             
             # Copy the original coordinates so we can reject the move
             # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker then saving the coords & updating tho
+            # anything - not sure if this quicker then saving the _coords & updating tho
             orig_block = copy.deepcopy( block )
              
             # Make a random move
@@ -597,7 +608,7 @@ class Cell():
             
             # Copy the original coordinates so we can reject the move
             # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker then saving the coords & updating tho
+            # anything - not sure if this quicker then saving the _coords & updating tho
             orig_block = copy.deepcopy( block )
              
             # Make a random move
@@ -669,11 +680,11 @@ class Cell():
         natoms=0
         xyz = ""
         for i,block in enumerate(self._blocks):
-            for j, c in enumerate( block.coords ):
+            for j, c in enumerate( block._coords ):
                 if label:
-                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format(block.labels[j], i), c[0], c[1], c[2] )
+                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format(block._labels[j], i), c[0], c[1], c[2] )
                 else:
-                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.labelToSymbol(block.labels[j]), c[0], c[1], c[2] )
+                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.labelToSymbol(block._labels[j]), c[0], c[1], c[2] )
                 natoms += 1
         
         # Write out natoms and axes as title
@@ -749,7 +760,7 @@ class TestCell(unittest.TestCase):
         
         bad = []
         for b in cell.blocks():
-            for c in b.coords:
+            for c in b._coords:
                 if ( 0-radius > c[0] > CELLA[0]+ radius ) or \
                    ( 0-radius > c[1] > CELLB[1]+ radius ) or \
                    ( 0-radius > c[2] > CELLC[2]+ radius ):
@@ -757,3 +768,40 @@ class TestCell(unittest.TestCase):
                     bad.append( b )
         
         self.assertEqual( 0, len(bad), "Got {} blocks outside cell: {}".format( len(bad), bad ) )
+        
+    def testCellIO(self):
+        """Check we can write out and then read in a cell
+        """
+        
+        nblocks = 5
+        CELLA = [ 20,  0,  0 ]
+        CELLB = [ 0, 20,  0 ]
+        CELLC = [ 0,  0, 20 ]
+        
+        paf = self.makePaf()
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        cell.seed ( nblocks, paf )
+        
+        # Remember a coordinate for checking
+        test_coord = cell.blocks()[3].coords()[4]
+        
+        self.assertEqual( nblocks, len(cell.blocks()), "Incorrect number of cell blocks at start: {}".format( len(cell.blocks()) ))
+        
+        outfile = "./testCell.xyz"
+        cell.writeXyz( outfile, label=True )
+        
+        newCell = Cell()
+        
+        newCell.fromXyz( outfile )
+        self.assertEqual( nblocks, len(newCell.blocks()), "Incorrect number of cell blocks after read: {}".format(len(newCell.blocks()) ))
+        
+        self.assertTrue( numpy.allclose( test_coord, cell.blocks()[3].coords()[4], rtol=1e-9, atol=1e-9 ),
+                         msg="Incorrect testCoordinate of cell.")
+        
+if __name__ == '__main__':
+    """
+    Run the unit tests
+    """
+    unittest.main()
