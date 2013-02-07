@@ -684,7 +684,7 @@ class Cell():
                 if label:
                     xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format(block._labels[j], i), c[0], c[1], c[2] )
                 else:
-                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.labelToSymbol(block._labels[j]), c[0], c[1], c[2] )
+                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(block._labels[j]), c[0], c[1], c[2] )
                 natoms += 1
         
         # Write out natoms and axes as title
