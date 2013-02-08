@@ -12,14 +12,18 @@ http://mail.scipy.org/pipermail/scipy-dev/2012-March/017177.html
 https://groups.google.com/forum/?fromgroups=#!topic/scipy-user/P6k8LEo30ws
 https://github.com/patvarilly/periodic_kdtree
 '''
+
+# Python imports
 import os
-import re
 import copy
 import math
+import random
 import unittest
 
+# external imports
 import numpy
 
+# local imports
 import util
 
 class BuildingBlock():
@@ -82,7 +86,7 @@ class BuildingBlock():
             else:
                 raise RuntimeError("Unrecognised file suffix: {}".format(infile) )
                 
-        
+    
     def bond (self, block, bond):
         """Bond the two blocks at the given bond - tuple is indices of self and other bond
         """
@@ -516,7 +520,7 @@ class BuildingBlock():
     def getBondLength(self,symbola, symbolb):
         """Return the bond length between two atoms of the given type"""
         return self._labels2bondlength[symbola][symbolb]
-        
+    
     def getDihedral(self, p1, p2, p3, p4):
         """ From the CCP1GUI"""
 
@@ -564,7 +568,11 @@ class BuildingBlock():
             dihed = dihed * -1.0
 
         return dihed
-    
+
+    def getEndGroupContactAtom(self, endGroup):
+        """Return the contact atom for this endGroup"""
+        return self._coords[ self._endGroupContacts[ endGroup ] ]
+        
 #    def index(self,index=None):
 #        """
 #        Get or set the index of this block in the cell
@@ -574,8 +582,37 @@ class BuildingBlock():
 #            
 #        return self._index
 
-                
-
+    def getNewBondPosition(self, targetEndGroupIndex, newBlock, newEndGroupIndex):
+        """Return the position where NewBlock would position its bonding atom if joining
+         to this one at targetEndGroupIndex by newEndGroupIndex
+        """
+        
+        targetEndGroup = self._coords[ targetEndGroupIndex ]
+        targetContact = self.getEndGroupContactAtom( targetEndGroupIndex )
+        
+        label = self._labels[ targetEndGroupIndex ]
+        targetSymbol = util.label2symbol(label)
+        
+        label = newBlock._labels[ newEndGroupIndex ]
+        newSymbol = util.label2symbol(label)
+        
+        # Get the bond length between these two atoms
+        bondLength = util.bondLength(targetSymbol, newSymbol)
+        
+        # vector from target EndGroup contact to Endgroup
+        vec = targetEndGroup - targetContact
+        
+        # Now extend it by Bondlength
+        vLength = numpy.linalg.norm( vec )
+        ratio = ( vLength + bondLength ) / vLength
+        newPosition = vec * ratio
+        
+        return newPosition
+        
+    
+    def getRandomEndGroupIndex(self):
+        """Return a randomly picked endgroup"""
+        return random.choice( self._endGroups )
     
     def radius(self):
         

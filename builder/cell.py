@@ -92,9 +92,10 @@ class Cell():
             oblock = self._blocks[i]
             
             # First see if we are close enough to consider bonding
-            # Don't need to do this as we have already checked that these blocks are close
-            #if not block.close( oblock, margin = closeMargin ):
-            #   continue
+            # Shouldn't need to use this as we are using findClose, but it seems to be required
+            # - need to look into this
+            if not block.close( oblock, margin = closeMargin ):
+                continue
             
             # See if we can bond
             bond = block.canBond( oblock, bondAngle=bondAngle )
@@ -329,11 +330,11 @@ class Cell():
             # anything - not sure if this quicker then saving the _coords & updating tho
             orig_block = copy.deepcopy( block )
             
-            #jmht FIND OUT WHY THIS DOEN"ST WORK
             # Get a list of which blocks are close
-            #closeBlocks = self.findClose( oblock, block, closeMargin=CLOSE_MARGIN, blockMargin=BLOCK_MARGIN )
+            # Don't use - it's slower for some unfathomable reason
+            closeBlocks = self.findClose( oblock, block, closeMargin=CLOSE_MARGIN, blockMargin=BLOCK_MARGIN )
             #print "Got close blocks: {}".format(closeBlocks)
-            closeBlocks=None
+            #closeBlocks=None
             
             clash=0
             noclash=0
@@ -400,7 +401,38 @@ class Cell():
             jblock = self.getRandomBlockIndex()
         
         return (iblock, jblock)
+    
+    def growBlock(self):
+        """ Add a block to the cell by joining it to an existing block
+        * select a random block
+        * pick one of the endGroup atoms and, assuming the bond is linear
+          work out where the bonded atom would be, by extending along the endGroup->contact
+          vector by bondLength
+        * work out where the centroid of the new block would be by using the vector of the
+          centroid to the bonded atom and remember this position
+        * work out the current alignment of the block
+        * perform the 3 rotations to align the block so its bond points along  correct axis
+        """
         
+        # Select random target block
+        oblock = self.blocks()[ self.getRandomBlockIndex() ]
+        
+        # pick random endgroup
+        targetEndGroupIndex = oblock.getRandomEndGroupIndex()
+        
+        # Create the new block we want to add - for the time being just copy the one we are moving
+        newBlock = oblock.copy()
+        
+        # pick random endGroup on target
+        newEndGroupIndex = newBlock.getRandomEndGroupIndex()
+        
+        # get the position where the next block should bond
+        bondPos = oblock.getNewBondPosition( targetEndGroupIndex, newBlock, newEndGroupIndex )
+        
+        print "got bondPos: {}".format( bondPos )
+        return bondPos
+        
+    
     def randomMove(self, block ):
         """Randomly move the given block
          Defintely needs more work on the rotation
@@ -474,7 +506,8 @@ class Cell():
         block.translateCentroid( position )
         #print "block now at: {}".format( block.centroid() )
         
-    
+
+
     def seed( self, nblocks, firstBlock ):
         """ Seed a cell with nblocks based on firstBlock
         """
@@ -736,6 +769,61 @@ class TestCell(unittest.TestCase):
         paf = self.buildingBlock.BuildingBlock()
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
+    
+    def testCellIO(self):
+        """Check we can write out and then read in a cell
+        """
+        
+        nblocks = 5
+        CELLA = [ 20,  0,  0 ]
+        CELLB = [ 0, 20,  0 ]
+        CELLC = [ 0,  0, 20 ]
+        
+        paf = self.makePaf()
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        cell.seed ( nblocks, paf )
+        
+        # Remember a coordinate for checking
+        test_coord = cell.blocks()[3].coords()[4]
+        
+        self.assertEqual( nblocks, len(cell.blocks()), "Incorrect number of cell blocks at start: {}".format( len(cell.blocks()) ))
+        
+        outfile = "./testCell.xyz"
+        cell.writeXyz( outfile, label=True )
+        
+        newCell = Cell()
+        
+        newCell.fromXyz( outfile )
+        self.assertEqual( nblocks, len(newCell.blocks()), "Incorrect number of cell blocks after read: {}".format(len(newCell.blocks()) ))
+        
+        self.assertTrue( numpy.allclose( test_coord, cell.blocks()[3].coords()[4], rtol=1e-9, atol=1e-9 ),
+                         msg="Incorrect testCoordinate of cell.")
+        
+    def testGrowBlock(self):
+        """Test we can add blocks correctly"""
+        
+        nblocks = 1
+        CELLA = [ 10,  0,  0 ]
+        CELLB = [ 0, 10,  0 ]
+        CELLC = [ 0,  0, 10 ]
+        
+        paf = self.makePaf()
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        cell.seed ( nblocks, paf )
+        
+        pos = cell.growBlock()
+        
+        block = cell.blocks()[0]
+        block._coords.append( pos )
+        block._labels.append( "Cl" )
+        
+        cell.writeXyz("JENS.xyz")
+        
+ 
         
     def testSeed(self):
         """Test we can seed correctly"""
@@ -769,37 +857,7 @@ class TestCell(unittest.TestCase):
         
         self.assertEqual( 0, len(bad), "Got {} blocks outside cell: {}".format( len(bad), bad ) )
         
-    def testCellIO(self):
-        """Check we can write out and then read in a cell
-        """
-        
-        nblocks = 5
-        CELLA = [ 20,  0,  0 ]
-        CELLB = [ 0, 20,  0 ]
-        CELLC = [ 0,  0, 20 ]
-        
-        paf = self.makePaf()
-        
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        cell.seed ( nblocks, paf )
-        
-        # Remember a coordinate for checking
-        test_coord = cell.blocks()[3].coords()[4]
-        
-        self.assertEqual( nblocks, len(cell.blocks()), "Incorrect number of cell blocks at start: {}".format( len(cell.blocks()) ))
-        
-        outfile = "./testCell.xyz"
-        cell.writeXyz( outfile, label=True )
-        
-        newCell = Cell()
-        
-        newCell.fromXyz( outfile )
-        self.assertEqual( nblocks, len(newCell.blocks()), "Incorrect number of cell blocks after read: {}".format(len(newCell.blocks()) ))
-        
-        self.assertTrue( numpy.allclose( test_coord, cell.blocks()[3].coords()[4], rtol=1e-9, atol=1e-9 ),
-                         msg="Incorrect testCoordinate of cell.")
-        
+
 if __name__ == '__main__':
     """
     Run the unit tests
