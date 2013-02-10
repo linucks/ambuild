@@ -508,13 +508,13 @@ class BuildingBlock():
         r3 = numpy.linalg.norm( c1 - c3 )
 
         small = 1.0e-10
-        cnv   = 57.29577951
+        #cnv   = 57.29577951
         if r1 + r2 - r3 < small:
             # printf("trig error %f\n",r3-r1-r2)
             # This seems to happen occasionally for 180 angles 
             theta = 180.0
         else:
-            theta = cnv*math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
+            theta = util.DEGREES2RADIANS*math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
         return theta;
 
     def getBondLength(self,symbola, symbolb):
@@ -524,7 +524,7 @@ class BuildingBlock():
     def getDihedral(self, p1, p2, p3, p4):
         """ From the CCP1GUI"""
 
-        cnv=57.29577951
+        #cnv=57.29577951
 
         vec_ij = p1 - p2
         vec_kj = p3 - p2
@@ -554,7 +554,7 @@ class BuildingBlock():
             fac = 1.0
         if(fac < -1.0):
             fac = -1.0
-        dihed = 180.0 - cnv * math.acos(fac )
+        dihed = 180.0 - util.DEGREES2RADIANS * math.acos(fac )
 
         # the dot product between the bond between atoms i and j and the     
         # normal to the plane defined by atoms j, k, and l is used to        
@@ -585,12 +585,14 @@ class BuildingBlock():
     def getNewBondPosition(self, targetEndGroupIndex, newBlock, newEndGroupIndex):
         """Return the position where NewBlock would position its bonding atom if joining
          to this one at targetEndGroupIndex by newEndGroupIndex
+         I'm sure this algorithm is clunky in the extreme...
         """
         
         targetEndGroup = self._coords[ targetEndGroupIndex ]
         targetContact = self.getEndGroupContactAtom( targetEndGroupIndex )
         
         label = self._labels[ targetEndGroupIndex ]
+        #jmht - use symbols!
         targetSymbol = util.label2symbol(label)
         
         label = newBlock._labels[ newEndGroupIndex ]
@@ -600,12 +602,14 @@ class BuildingBlock():
         bondLength = util.bondLength(targetSymbol, newSymbol)
         
         # vector from target EndGroup contact to Endgroup
-        vec = targetEndGroup - targetContact
+        bondVec =  targetEndGroup - targetContact 
         
         # Now extend it by Bondlength
-        vLength = numpy.linalg.norm( vec )
+        vLength = numpy.linalg.norm( bondVec )
         ratio = ( vLength + bondLength ) / vLength
-        newPosition = vec * ratio
+        newVec = bondVec * ratio
+        diff = newVec-bondVec
+        newPosition = targetEndGroup + diff
         
         return newPosition
         
@@ -614,6 +618,11 @@ class BuildingBlock():
         """Return a randomly picked endgroup"""
         return random.choice( self._endGroups )
     
+    def position(self, index):
+        """Return the coordinates for the given atom
+        """
+        return self._coords[index]
+ 
     def radius(self):
         
         if self._changed:
@@ -625,7 +634,7 @@ class BuildingBlock():
 
 
     def rotate( self, axis, angle ):
-        """ Rotate the molecule about the given axis by the angle in radians - I think...
+        """ Rotate the molecule about the given axis by the angle in radians
         """
         
         rmat = self.rotation_matrix( axis, angle )
@@ -640,6 +649,7 @@ class BuildingBlock():
         """
         http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector
         """
+        
         axis = axis/numpy.sqrt( numpy.dot(axis,axis) )
         a = numpy.cos(angle/2)
         b,c,d = -axis*numpy.sin(angle/2)

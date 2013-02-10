@@ -7,12 +7,14 @@ Utility functions
 '''
 import os
 import re
+import numpy
+import math
 
 # Bits stolen from the CCP1GUI: http://sourceforge.net/projects/ccp1gui/
 # However, I wrote bits of that so I assume its ok
 
 # degrees to radians
-DEGREES2RADIANS = 57.29577951
+RADIANS2DEGREES = 57.29577951
 
 # double check these values...
 #hvd values obtained from http://www.webelements.com/ and recorded to their
@@ -560,3 +562,25 @@ def newFilename(filename):
     name = name[:count]+str(n)
     
     return name+suffix
+
+def vectorAngle( v1, v2):
+    """ Calculate the angle between two vectors
+    Return value in Radians
+    Stolen from: http://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
+    """
+    
+    #print "v1: {}".format(v1)
+    #print "v1 norm: {}".format(numpy.linalg.norm(v1))
+    v1_u = v1/numpy.linalg.norm(v1)
+    #print "v1_u: {}".format(v1_u)
+    v2_u = v2/numpy.linalg.norm(v2)
+    
+    angle = numpy.arccos(numpy.dot(v1_u, v2_u))
+    if math.isnan(angle):
+        if (v1_u == v2_u).all():
+            return 0.0
+        else:
+            return numpy.pi
+            #return numpy.pi/RADIANS2DEGREES
+    #return angle/RADIANS2DEGREES
+    return angle
