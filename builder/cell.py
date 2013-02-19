@@ -32,7 +32,7 @@ class Cell():
         self.B = None
         self.C = None
         
-        self._blocks = []
+        self.blocks = []
         
     def cellAxis(self,A=None,B=None,C=None):
         """
@@ -50,17 +50,29 @@ class Cell():
             return (A,B,C)
             
         
-    def blocks(self):
-        return self._blocks
     
     def addBlock( self, block ):
-        self._blocks.append( block )
+        self.blocks.append( block )
         
-    def checkMove(self, block, iblock, closeMargin=None, bondAngle=None, blockList=None ):
+    def checkClash(self, newblock, ignore=[] ):
+        """
+        See if the given block clashes with any of the others
+        return True if there is a clash
+        ignore is a list of block indices to ignore
+        """
+        
+        for i,block in enumerate(self.blocks):
+            if i in ignore:
+                continue
+            if block.clash( newblock ):
+                return True
+            
+        return False
+        
+    def checkMove(self, iblock, closeMargin=None, bondAngle=None, blockList=None ):
         """
         See how this move went.
         Arguments
-        block - block that we are checking the move for
         iblock - the index of the block in the list of blocks for the cell
         closeMargin - the extra bit to add on to the radii of the blocks to see if they are close
         bondAngle - the angle to define a suitable bond
@@ -77,10 +89,12 @@ class Cell():
         
         # Loop over all blocks
         if not blockList:
-            blockList = [ i for i in range( len(self.blocks()) ) ]
+            blockList = [ i for i in range( len(self.blocks) ) ]
         
+        
+        block = self.blocks[iblock]
         bonds=[]
-        #for i, oblock in enumerate( self.blocks() ):
+        #for i, oblock in enumerate( self.blocks ):
         for i in blockList:
             
             print "Checking block: {}".format(i)
@@ -89,7 +103,7 @@ class Cell():
                 continue
             
             # Get the next block
-            oblock = self._blocks[i]
+            oblock = self.blocks[i]
             
             # First see if we are close enough to consider bonding
             # Shouldn't need to use this as we are using findClose, but it seems to be required
@@ -139,7 +153,7 @@ class Cell():
         centroid = oblock.centroid()
         closeBlocks = []
         # This should implicitly include oblock
-        for i,b in enumerate( self.blocks() ):
+        for i,b in enumerate( self.blocks ):
             # See if we are close enough
             dist = numpy.linalg.norm( centroid - b.centroid() )
             if dist < margin + b.radius():
@@ -158,11 +172,11 @@ class Cell():
         
     def _readXyz(self, xyzFile ):
         """"Read in an xyz file containing a cell - cell axes is title line and 
-        atoms are written out with their _labels.
-        This routine sets the axes and returns a list of the _labels and coordinates
+        atoms are written out with their labels.
+        This routine sets the axes and returns a list of the labels and coordinates
         """
         
-        # Each block is a list of [label, _coords
+        # Each block is a list of [label, coords
         blocks = []
         labels=[]
         coords=[]
@@ -223,7 +237,7 @@ class Cell():
         return blocks
     
     def _recreateBlocks(self, labels, coords):
-        """Given a list of _labels and coordinates, recreate the blocks
+        """Given a list of labels and coordinates, recreate the blocks
         Uses a stoopid but simple connectivity algorithm
         """
         
@@ -310,7 +324,7 @@ class Cell():
         nbonds=0
         for step in range(nsteps):
             
-            if len(self.blocks()) == 1:
+            if len(self.blocks) == 1:
                 print "NO MORE BLOCKS TO BOND _ HOORAY!"
                 return
             
@@ -321,13 +335,13 @@ class Cell():
             
             # Get two blocks to sample round
             iblock, jblock = self.getRandomBlocks()
-            block = self._blocks[iblock]
-            oblock = self._blocks[jblock]
+            block = self.blocks[iblock]
+            oblock = self.blocks[jblock]
             print "Sampling block {} about {}".format(iblock,jblock)
             
             # Copy the original coordinates so we can reject the move
             # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker then saving the _coords & updating tho
+            # anything - not sure if this quicker then saving the coords & updating tho
             orig_block = copy.deepcopy( block )
             
             # Get a list of which blocks are close
@@ -346,7 +360,7 @@ class Cell():
                 print "Move: {} about {}".format( oblock.centroid(), block.centroid() )
                 
                 # Loop over all blocks to see if we can bond or if we clash
-                bonds = self.checkMove( block, iblock, closeMargin=CLOSE_MARGIN, bondAngle=bondAngle, blockList=closeBlocks )
+                bonds = self.checkMove( iblock, closeMargin=CLOSE_MARGIN, bondAngle=bondAngle, blockList=closeBlocks )
                 
                 # See what happend
                 if not bonds:
@@ -363,9 +377,9 @@ class Cell():
                 print "FOUND {} BOND(S)!!!!".format(len(bonds))
                 nbonds+=len(bonds)
                 for b,bond in bonds:
-                    block.bond( self._blocks[b-bcount], bond )
+                    block.bond( self.blocks[b-bcount], bond )
                     # Remove the block from the list as it is now part of the other one
-                    self._blocks.pop(b-bcount)
+                    self.blocks.pop(b-bcount)
                     bcount+=1
                 
                 # No need to loop anymore
@@ -376,18 +390,18 @@ class Cell():
             
             if not gotBond:
                 # If no bonds place the bond back at it's original position
-                self._blocks[iblock] = orig_block
+                self.blocks[iblock] = orig_block
             
             #End move loop
         #End step loop
         
-        print "END OF DIRECTED SHIMMY\nMade {} bonds and got {} clusters".format(nbonds,len(self.blocks()))
+        print "END OF DIRECTED SHIMMY\nMade {} bonds and got {} clusters".format(nbonds,len(self.blocks))
     #End directedShimmy
             
 
     def getRandomBlockIndex(self):
         """Return the index of one of the blocks"""
-        return random.randint( 0, len(self._blocks)-1 )
+        return random.randint( 0, len(self.blocks)-1 )
     
     def getRandomBlocks(self):
         """Return two random block indices"""
@@ -409,20 +423,23 @@ class Cell():
         """
 
         # Select 2 random blocks
-        block1 = self.blocks()[ self.getRandomBlockIndex() ]
+        block1index = self.getRandomBlockIndex()
+        block1 = self.blocks[ block1index ]
         
         # pick random endgroup and contact in target
         block1EndGroupIndex = block1.getRandomEndGroupIndex()
         # Need to copy this so we can remember it - otherwise it changes with the moves
-        block1Contact = block1.getEndGroupContactAtom(  block1EndGroupIndex ).copy()
+        block1ContactIndex = block1.endGroupContactIndex( block1EndGroupIndex )
+        block1Contact = block1.position( block1ContactIndex ).copy()
         
         # pick random endGroup on the new block
         block2EndGroupIndex = block2.getRandomEndGroupIndex()
-        block2Contact = block2.getEndGroupContactAtom( block2EndGroupIndex ).copy()
+        block2ContactIndex = block2.endGroupContactIndex( block2EndGroupIndex )
+        block2Contact = block2.position( block2ContactIndex ).copy()
         
         # get the position where the next block should bond
         bondPos = block1.getNewBondPosition( block1EndGroupIndex, block2, block2EndGroupIndex )
-        print "got bondPos: {}".format( bondPos )
+        #print "got bondPos: {}".format( bondPos )
         
         # Move block1Contact to center so that block1Contact -> block1EndGroup defines
         # the alignment we are after
@@ -461,8 +478,14 @@ class Cell():
         #jmht FIX!
         block2.translate( bondPos + block2EndGroup )
         
-        # Check it doesn't clash
-        self.addBlock(block2)
+        
+        # Check it doesn't clash - could try rotating about the dihedral
+        if not self.checkClash( block2, ignore=[block1index] ):
+            # Bond the two blocks
+            block1.bond(  block2, (block1EndGroupIndex,block2EndGroupIndex) )
+            return True
+        
+        return False
         
     
     def alignBlocks(self, block1, block1EndGroupIndex, block2, block2EndGroupIndex):
@@ -476,6 +499,11 @@ class Cell():
         block1EndGroup = block1.position( block1EndGroupIndex )
         
         # Aign with each axis in turn. The axis to align to is just the position of bock1EndGroup
+        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="x" )
+        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="y" )
+        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="z" )
+        
+        # Don't know why, but for the time being do it twice
         self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="x" )
         self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="y" )
         self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="z" )
@@ -515,15 +543,14 @@ class Cell():
         #print "Got angle: {}".format(angle*util.RADIANS2DEGREES)
         
         if not ( ( -small < angle < small ) or  ( numpy.pi-small < angle < numpy.pi+small ) ):
-            rotAxis = numpy.cross(blockEndGroup,axis)
-            rotAxis = rotAxis/numpy.linalg.norm(rotAxis)
+            rotAxis = numpy.cross( blockEndGroup, axis)
             #print "rotAxis {}".format(rotAxis)
             block.rotate( rotAxis, angle )
-        
         
         #blockEndGroup = block.position( endGroupIndex )
         #bAngle = util.vectorAngle(blockEndGroup, axis)
         #print "bAngle after: {}".format(bAngle)
+        #print block
         
 
     def XXgrowBlock(self):
@@ -531,11 +558,11 @@ class Cell():
         # For comparing angles
         small = 1.0e-8
         
-        block1 = self.blocks()[ 0 ]
+        block1 = self.blocks[ 0 ]
         block1EndGroup = block1.position(1)
         block1Contact = block1.position(0)
         
-        block2 = self.blocks()[ 1 ]
+        block2 = self.blocks[ 1 ]
         block2EndGroup = block2.position(1)
         block2Contact = block2.position(0)
         
@@ -627,7 +654,7 @@ class Cell():
          Defintely needs more work on the rotation
         """
         
-        # Get _coords of random point in the cell
+        # Get coords of random point in the cell
         x = random.uniform(0,self.A[0])
         y = random.uniform(0,self.B[1])
         z = random.uniform(0,self.C[2])
@@ -728,23 +755,18 @@ class Cell():
                 self.randomMove(newblock)
                 #print "RANDOM TO MOVE TO: {}".format( newblock.centroid() )
                 
-                # Test for Clashes with other molecules - always set clash
-                # to False at start so it only becomes true if no clashes
-                clash = False
-                for block in self._blocks:
-                    if block.clash(newblock):
-                        clash = True
-                        break
+                # Test for Clashes with other molecules
+                clash = self.checkClash( newblock )
                 
                 # Break out if no clashes
-                if clash == False:
+                if not clash:
                     break
                 
                 # increment tries counter
                 tries += 1
             
             # End Seeding loop
-            if (clash == False):
+            if not clash:
                 #print "ADDED BLOCK AT POS: {}".format( newblock.centroid() )
                 self.addBlock(newblock)
                 #newblock.index(index=seedCount)
@@ -778,32 +800,32 @@ class Cell():
                 print "step {}".format(step)
                 
             iblock = self.getRandomBlockIndex()
-            block = self._blocks[iblock]
+            block = self.blocks[iblock]
             
             # Copy the original coordinates so we can reject the move
             # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker then saving the _coords & updating tho
+            # anything - not sure if this quicker then saving the coords & updating tho
             orig_block = copy.deepcopy( block )
              
             # Make a random move
             self.randomMove( block )
             
             # Loop over all blocks to see if we can bond or if we clash
-            bonds = self.checkMove( block, iblock, closeMargin=CLOSE_MARGIN, bondAngle=bondAngle )
+            bonds = self.checkMove( iblock, closeMargin=CLOSE_MARGIN, bondAngle=bondAngle )
             
             # See what happend
             if bonds:
                 if bonds == "clash":
                     # Reject this move and overwrite the changed block with the original one
-                    self._blocks[iblock] = orig_block
+                    self.blocks[iblock] = orig_block
                 elif len( bonds ):
                     # Got some bonds so deal with them
                     # Need to decrement index if we are removing blocks
                     bcount=0
                     for b,bond in bonds:
-                        block.bond( self._blocks[b-bcount], bond )
+                        block.bond( self.blocks[b-bcount], bond )
                         # Remove the block from the list as it is now part of the other one
-                        self._blocks.pop(b-bcount)
+                        self.blocks.pop(b-bcount)
                         bcount+=1
             #End step loop
             
@@ -831,11 +853,11 @@ class Cell():
                 
             iblock = self.getRandomBlockIndex()
             
-            block = self._blocks[iblock]
+            block = self.blocks[iblock]
             
             # Copy the original coordinates so we can reject the move
             # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker then saving the _coords & updating tho
+            # anything - not sure if this quicker then saving the coords & updating tho
             orig_block = copy.deepcopy( block )
              
             # Make a random move
@@ -846,14 +868,14 @@ class Cell():
             
             # Loop over all blocks to see if we can bond or if we clash
             removed = []
-            for i in range( len( self.blocks() ) ):
+            for i in range( len( self.blocks ) ):
                 
                 # skip the block we are using
                 if i == iblock:
                     continue
                 
                 # Get the next block
-                oblock = self._blocks[i]
+                oblock = self.blocks[i]
                 
                 # First see if we are close enough to consider bonding
                 if not block.close( oblock, margin = CLOSE_MARGIN ):
@@ -884,7 +906,7 @@ class Cell():
                 if bond:
                     if bond == "clash":
                         # Reject this move and overwrite the changed block with the original one
-                        self._blocks[i] = orig_block
+                        self.blocks[i] = orig_block
                     else:
                         block.bond( oblock, bond )
                         print "Bonded block {} with block {}".format( iblock, i)
@@ -895,7 +917,7 @@ class Cell():
             
             #
             for r in removed:
-                self._blocks.pop(r)
+                self.blocks.pop(r)
             #End step loop
 
              
@@ -906,12 +928,12 @@ class Cell():
         
         natoms=0
         xyz = ""
-        for i,block in enumerate(self._blocks):
-            for j, c in enumerate( block._coords ):
+        for i,block in enumerate(self.blocks):
+            for j, c in enumerate( block.coords ):
                 if label:
-                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format(block._labels[j], i), c[0], c[1], c[2] )
+                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format(block.labels[j], i), c[0], c[1], c[2] )
                 else:
-                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block._symbols[j], c[0], c[1], c[2] )
+                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.symbols[j], c[0], c[1], c[2] )
                 natoms += 1
         
         # Write out natoms and axes as title
@@ -927,7 +949,7 @@ class Cell():
         """
         """
         s = ""
-        for block in self._blocks:
+        for block in self.blocks:
             s+= str(block)
             
         return s
@@ -980,9 +1002,9 @@ class TestCell(unittest.TestCase):
         cell.seed ( nblocks, paf )
         
         # Remember a coordinate for checking
-        test_coord = cell.blocks()[3].coords()[4]
+        test_coord = cell.blocks[3].coords[4]
         
-        self.assertEqual( nblocks, len(cell.blocks()), "Incorrect number of cell blocks at start: {}".format( len(cell.blocks()) ))
+        self.assertEqual( nblocks, len(cell.blocks), "Incorrect number of cell blocks at start: {}".format( len(cell.blocks) ))
         
         outfile = "./testCell.xyz"
         cell.writeXyz( outfile, label=True )
@@ -990,9 +1012,9 @@ class TestCell(unittest.TestCase):
         newCell = Cell()
         
         newCell.fromXyz( outfile )
-        self.assertEqual( nblocks, len(newCell.blocks()), "Incorrect number of cell blocks after read: {}".format(len(newCell.blocks()) ))
+        self.assertEqual( nblocks, len(newCell.blocks), "Incorrect number of cell blocks after read: {}".format(len(newCell.blocks) ))
         
-        self.assertTrue( numpy.allclose( test_coord, cell.blocks()[3].coords()[4], rtol=1e-9, atol=1e-9 ),
+        self.assertTrue( numpy.allclose( test_coord, cell.blocks[3].coords[4], rtol=1e-9, atol=1e-9 ),
                          msg="Incorrect testCoordinate of cell.")
         
     def testAlignBlocks(self):
@@ -1003,23 +1025,25 @@ class TestCell(unittest.TestCase):
         CELLC = [ 0,  0, 10 ]
         
         block = self.makeCh4()
-        #b1._symbols[1] = 'F'
+        #b1.symbols[1] = 'F'
 
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         cell.seed ( 2, block )
         
         # Get the two blocks
-        block1 = cell.blocks()[0]
-        block2 = cell.blocks()[1]
+        block1 = cell.blocks[0]
+        block2 = cell.blocks[1]
         
         # Get two end Groups
         block1EndGroupIndex=1
         block2EndGroupIndex=2
         
         # Get the atoms that define things
-        block1Contact = block1.getEndGroupContactAtom( block1EndGroupIndex )
-        block2Contact = block2.getEndGroupContactAtom( block2EndGroupIndex )
+        block1ContactIndex = block1.endGroupContactIndex( block1EndGroupIndex )
+        block1Contact = block1.position( block1ContactIndex )
+        block2ContactIndex = block2.endGroupContactIndex( block2EndGroupIndex )
+        block2Contact = block2.position( block2ContactIndex )
         
         # Move block1Contact to center so that block1Contact -> block1EndGroup defines
         # the alignment we are after
@@ -1028,18 +1052,18 @@ class TestCell(unittest.TestCase):
         # Same for block2
         block2.translate( -block2Contact )
         
-        cell.alignBlocks( block1, block1EndGroupIndex, block2, block2EndGroupIndex)
+        cell.alignBlocks( block1, block1EndGroupIndex, block2, block2EndGroupIndex )
         
         # Check the relevant atoms are in the right place
-        block1 = cell.blocks()[0]
-        block2 = cell.blocks()[1]
-        block1EndGroup = block1.position(block1EndGroupIndex)
-        block2EndGroup = block2.position(block2EndGroupIndex)
-        block1Contact = block1.getEndGroupContactAtom( block1EndGroupIndex )
-        block2Contact = block2.getEndGroupContactAtom( block2EndGroupIndex )
+        block1 = cell.blocks[0]
+        block2 = cell.blocks[1]
+        block1EndGroup = block1.position( block1EndGroupIndex )
+        block2EndGroup = block2.position( block2EndGroupIndex )
+        block1Contact = block1.position(  block1ContactIndex )
+        block2Contact = block2.position(  block2ContactIndex )
         
-        #print "{}\n{}".format( block1EndGroup, block2EndGroup)
-        #print "{}\n{}".format( block1Contact, block2Contact)
+        print "{}\n{}".format( block1EndGroup, block2EndGroup)
+        print "{}\n{}".format( block1Contact, block2Contact)
         
         # Shocking tolerances - need to work out why...
         self.assertTrue( numpy.allclose( block1EndGroup, block2EndGroup, rtol=1e-1, atol=1e-1 ),
@@ -1060,7 +1084,9 @@ class TestCell(unittest.TestCase):
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         cell.seed ( 1, block )
         for _ in range( 10 ):
-            cell.growBlock( block.copy() )
+            ok = cell.growBlock( block.copy() )
+            if not ok:
+                print "Failed to add block"
             
         cell.writeXyz("JENS.xyz", label=False)
         
@@ -1079,15 +1105,15 @@ class TestCell(unittest.TestCase):
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         cell.seed ( nblocks, ch4 )
         
-        self.assertEqual( nblocks, len(cell.blocks()), "Incorrect number of cell blocks" )
+        self.assertEqual( nblocks, len(cell.blocks), "Incorrect number of cell blocks" )
         
         # Check no block is outside the unit cell
         # We seed by the centroid so the edges could stick out by radius
         radius = ch4.radius()
         
         bad = []
-        for b in cell.blocks():
-            for c in b._coords:
+        for b in cell.blocks:
+            for c in b.coords:
                 if ( 0-radius > c[0] > CELLA[0]+ radius ) or \
                    ( 0-radius > c[1] > CELLB[1]+ radius ) or \
                    ( 0-radius > c[2] > CELLC[2]+ radius ):

@@ -41,7 +41,7 @@ CELLC = [ 0,  0, 100 ]
 STEPS = 50
 NMOVES=100
 
-BONDANGLE=180
+y=180
 
 # Create building block and read in car file
 firstBlock = buildingBlock.BuildingBlock( infile = INFILE )

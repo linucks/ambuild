@@ -9,6 +9,7 @@ import os
 import re
 import numpy
 import math
+import unittest
 
 # Bits stolen from the CCP1GUI: http://sourceforge.net/projects/ccp1gui/
 # However, I wrote bits of that so I assume its ok
@@ -584,3 +585,29 @@ def vectorAngle( v1, v2):
             #return numpy.pi/RADIANS2DEGREES
     #return angle/RADIANS2DEGREES
     return angle
+
+def XvectorAngle( v1, v2 ):
+    """
+    Dot product of two vectors is the product of their lengths multiplied by the cosine of the
+    angle between them.
+    X.Y = |X||Y|cos( theta )
+    so: theta = arccos( X.Y / |X||Y| )
+    """
+
+
+class TestCell(unittest.TestCase):
+    
+    def testVectorAngle(self):
+        """Test we can measure angles"""
+        
+        v1 = numpy.array( [0,0,0] )
+        v2 = numpy.array( [1,0,0] )
+        
+        theta = vectorAngle(v1, v2)
+        print theta*RADIANS2DEGREES
+
+if __name__ == '__main__':
+    """
+    Run the unit tests
+    """
+    unittest.main()

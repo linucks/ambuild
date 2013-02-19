@@ -37,30 +37,30 @@ class BuildingBlock():
         '''
         
         # An python array of numpy.array
-        self._coords = []
+        self.coords = []
         
-        # ordered array of _labels
-        self._labels = []
+        # ordered array of labels
+        self.labels = []
         
-        # ordered array of _symbols (in upper case)
-        self._symbols = []
+        # ordered array of symbols (in upper case)
+        self.symbols = []
         
-        # ordered array of _masses
-        self._masses = []
+        # ordered array of masses
+        self.masses = []
         
         # orderd array of atom radii
-        self._atom_radii = []
+        self.atom_radii = []
         
         # The index of this block in the cell
-        self._index = None
+        self.index = None
         
         # Dict of dicts mapping atom types to their bond lengths for this block
         # used so we only check the types of atoms for this type of block
         # For now we assume that both blocks have the same atom types
         self._labels2bondlength = {}
         
-        # A list of the indices of the atoms that are _endGroups
-        self._endGroups = []
+        # A list of the indices of the atoms that are endGroups
+        self.endGroups = []
         
         # Dictionary mapping the index of an endGroup to an atom bonded to it
         # Required for finding the angle when we check bonds
@@ -97,24 +97,24 @@ class BuildingBlock():
         #print self
         
         # Needed to work out how much to add to the block indices
-        lcoords = len(self._coords)
+        lcoords = len(self.coords)
         
-        self._coords.extend( block._coords )
-        self._atom_radii.extend( block._atom_radii )
-        self._labels.extend( block._labels )
-        self._symbols.extend( block._symbols )
-        self._masses.extend( block._masses )
+        self.coords.extend( block.coords )
+        self.atom_radii.extend( block.atom_radii )
+        self.labels.extend( block.labels )
+        self.symbols.extend( block.symbols )
+        self.masses.extend( block.masses )
         
         # Need to remove the end groups used in the bond
-        i = self._endGroups.index( bond[0] )
-        self._endGroups.pop( i )
-        i = block._endGroups.index( bond[1] )
-        block._endGroups.pop( i )
+        i = self.endGroups.index( bond[0] )
+        self.endGroups.pop( i )
+        i = block.endGroups.index( bond[1] )
+        block.endGroups.pop( i )
         
         # Now add block to self, updating index
-        for i in block._endGroups:
-            self._endGroups.append( i+lcoords )
-
+        for i in block.endGroups:
+            self.endGroups.append( i+lcoords )
+        
         del self._endGroupContacts[ bond[0] ]
         del block._endGroupContacts[ bond[1] ]
         
@@ -125,16 +125,13 @@ class BuildingBlock():
         self.calcCenterOfMassAndGeometry()
         self.calcRadius()
         
-    def coords(self):
-        return self._coords
-        
     def createFromArgs(self, coords, labels, endGroups, endGroupContacts ):
         """ Create from given arguments
         """
         # could check if numpy array here
-        self._coords = coords
-        self._labels = labels
-        self._endGroups = endGroups
+        self.coords = coords
+        self.labels = labels
+        self.endGroups = endGroups
         self._endGroupContacts = endGroupContacts
         
         self.fillData()
@@ -144,7 +141,7 @@ class BuildingBlock():
         #self.findEndGroupContacts()
         
     def createFromLabelAndCoords(self, labels, coords):
-        """ Given an array of _labels and another of _coords, create a block
+        """ Given an array of labels and another of coords, create a block
         This requires determining the end groups and contacts from the label
         """
         
@@ -197,8 +194,8 @@ class BuildingBlock():
         sumM = numpy.zeros( 3 )
         
         totalMass = 0.0
-        for i, coord in enumerate( self._coords ):
-            mass = self._masses[i]
+        for i, coord in enumerate( self.coords ):
+            mass = self.masses[i]
             totalMass += mass
             sumG += coord
             sumM += mass * coord
@@ -224,12 +221,12 @@ class BuildingBlock():
         cog = self.centroid()
         
         distances = []
-        for coord in self._coords:
+        for coord in self.coords:
             distances.append(  numpy.linalg.norm(coord-cog) )
             
         imax = numpy.argmax( distances )
         dist = distances[ imax ]
-        atomR = self._atom_radii[ imax ]
+        atomR = self.atom_radii[ imax ]
         
         # Set radius
         self._radius = dist + atomR
@@ -252,17 +249,17 @@ class BuildingBlock():
         # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
         MARGIN = 0.2
         bond = None
-        for i, c in enumerate( self._coords ):
-            #i_radius = self._atom_radii[i]
-            i_symbol = self._symbols[i]
-            for j, b in enumerate( block._coords ):
-                #j_radius = block._atom_radii[j]
-                j_symbol = block._symbols[j]
-                bond_length = self.getBondLength( i_symbol, j_symbol )
+        for i, c in enumerate( self.coords ):
+            #i_radius = self.atom_radii[i]
+            i_symbol = self.symbols[i]
+            for j, b in enumerate( block.coords ):
+                #j_radius = block.atom_radii[j]
+                j_symbol = block.symbols[j]
+                bond_length = self.bondLength( i_symbol, j_symbol )
                 #bond_length = util.bondLength( i_symbol, j_symbol )
                 if ( numpy.linalg.norm( c - b ) < bond_length + MARGIN ):
                     # Check if both atoms are end groups
-                    if not ( i in self._endGroups and j in block._endGroups ):
+                    if not ( i in self.endGroups and j in block.endGroups ):
                         # 2 atoms close enough to bond but they are not end groups
                         return "clash"
                         
@@ -276,13 +273,13 @@ class BuildingBlock():
             return False
         
         # Got a bond so check the angle
-        selfContactAtom = self._endGroupContacts[ bond[0] ]
-        acoord = self._coords[ selfContactAtom ]
-        sgatom = self._coords[ bond[0] ] 
-        bgatom = block._coords[ bond[1] ] 
-        angle = self.getAngle( acoord, sgatom, bgatom )
+        icontact = self.endGroupContactIndex( bond[0] )
+        contact = self.coords[ icontact ]
+        sgatom = self.coords[ bond[0] ] 
+        bgatom = block.coords[ bond[1] ] 
+        angle = self.angle( contact, sgatom, bgatom )
         
-#       angle = self.getDihedral( ibcoord, igcoord, jgcoord, jbcoord )
+#       angle = self.dihedral( ibcoord, igcoord, jgcoord, jbcoord )
         
         print "Got bond angle D: {}".format(angle)
         
@@ -325,10 +322,10 @@ class BuildingBlock():
         
         # Within range, so see if any atoms actually do overlap
         # Do this with scipy and no loops when we optimise
-        for i, c in enumerate( self._coords ):
-            i_radius = self._atom_radii[i]
-            for j, b in enumerate( block._coords ):
-                j_radius = block._atom_radii[j]
+        for i, c in enumerate( self.coords ):
+            i_radius = self.atom_radii[i]
+            for j, b in enumerate( block.coords ):
+                j_radius = block.atom_radii[j]
                 if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + clashMargin ):
                     return True
                 
@@ -352,27 +349,27 @@ class BuildingBlock():
     def fillData(self):
         """ Fill the data arrays from the label """
         
-        if len(self._labels) < len(self._coords):
-            raise RuntimeError("fillData needs _labels filled!")
+        if len(self.labels) < len(self.coords):
+            raise RuntimeError("fillData needs labels filled!")
         
         symbol_types=[]
-        for label in self._labels:
+        for label in self.labels:
             
             # Symbols
             symbol = util.label2symbol( label )
-            self._symbols.append( symbol )
+            self.symbols.append( symbol )
             
             # For checking bonding
             if symbol not in symbol_types:
                 symbol_types.append(symbol)
                 
             # Masses
-            self._masses.append( util.ATOMIC_MASS[ symbol ] )
+            self.masses.append( util.ATOMIC_MASS[ symbol ] )
             
             # Radii
             z = util.SYMBOL_TO_NUMBER[ symbol ]
             r = util.COVALENT_RADII[z]
-            self._atom_radii.append(r)
+            self.atom_radii.append(r)
             #print "ADDING R {} for label {}".format(r,label)
             
             # Add bond lengths
@@ -395,19 +392,19 @@ class BuildingBlock():
         
         MARGIN = 0.1 
         
-        # Trundle through all the _endGroups
-        for e in self._endGroups:
-            e_coord = self._coords[e]
-            e_symbol = self._symbols[e]
+        # Trundle through all the endGroups
+        for e in self.endGroups:
+            e_coord = self.coords[e]
+            e_symbol = self.symbols[e]
             
             # Loop through all atoms
-            for i, coord in enumerate( self._coords ):
+            for i, coord in enumerate( self.coords ):
                 
                 # Ignore self
                 if i == e:
                     continue
                 
-                i_symbol = self._symbols[i]
+                i_symbol = self.symbols[i]
                 bond_length = util.bondLength( i_symbol , e_symbol )
                 
                 # See if these are bonded
@@ -490,7 +487,7 @@ class BuildingBlock():
 
         self.createFromLabelAndCoords( labels, coords )
     
-    def getAngle(self,c1,c2,c3):
+    def angle(self,c1,c2,c3):
         """Return the angle in radians c1---c2---c3
         where c are the coordinates in a numpy array
         Taken from the CCP1GUI
@@ -514,14 +511,14 @@ class BuildingBlock():
             # This seems to happen occasionally for 180 angles 
             theta = 180.0
         else:
-            theta = util.DEGREES2RADIANS*math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
+            theta = math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
         return theta;
 
-    def getBondLength(self,symbola, symbolb):
+    def bondLength(self,symbola, symbolb):
         """Return the bond length between two atoms of the given type"""
         return self._labels2bondlength[symbola][symbolb]
     
-    def getDihedral(self, p1, p2, p3, p4):
+    def dihedral(self, p1, p2, p3, p4):
         """ From the CCP1GUI"""
 
         #cnv=57.29577951
@@ -554,7 +551,7 @@ class BuildingBlock():
             fac = 1.0
         if(fac < -1.0):
             fac = -1.0
-        dihed = 180.0 - util.DEGREES2RADIANS * math.acos(fac )
+        dihed = 180.0 - util.RADIANS2DEGREES * math.acos(fac )
 
         # the dot product between the bond between atoms i and j and the     
         # normal to the plane defined by atoms j, k, and l is used to        
@@ -569,18 +566,18 @@ class BuildingBlock():
 
         return dihed
 
-    def getEndGroupContactAtom(self, endGroup):
-        """Return the contact atom for this endGroup"""
-        return self._coords[ self._endGroupContacts[ endGroup ] ]
+    def endGroupContactIndex(self, endGroupIndex ):
+        """Return the index of the contact atom for this endGroup"""
+        return self._endGroupContacts[ endGroupIndex ]
         
 #    def index(self,index=None):
 #        """
 #        Get or set the index of this block in the cell
 #        """
 #        if index:
-#            self._index=index
+#            self.index=index
 #            
-#        return self._index
+#        return self.index
 
     def getNewBondPosition(self, targetEndGroupIndex, newBlock, newEndGroupIndex):
         """Return the position where NewBlock would position its bonding atom if joining
@@ -588,14 +585,14 @@ class BuildingBlock():
          I'm sure this algorithm is clunky in the extreme...
         """
         
-        targetEndGroup = self._coords[ targetEndGroupIndex ]
-        targetContact = self.getEndGroupContactAtom( targetEndGroupIndex )
+        targetEndGroup = self.coords[ targetEndGroupIndex ]
+        targetContact = self.endGroupContactIndex( targetEndGroupIndex )
         
-        label = self._labels[ targetEndGroupIndex ]
+        label = self.labels[ targetEndGroupIndex ]
         #jmht - use symbols!
         targetSymbol = util.label2symbol(label)
         
-        label = newBlock._labels[ newEndGroupIndex ]
+        label = newBlock.labels[ newEndGroupIndex ]
         newSymbol = util.label2symbol(label)
         
         # Get the bond length between these two atoms
@@ -616,12 +613,12 @@ class BuildingBlock():
     
     def getRandomEndGroupIndex(self):
         """Return a randomly picked endgroup"""
-        return random.choice( self._endGroups )
+        return random.choice( self.endGroups )
     
     def position(self, index):
         """Return the coordinates for the given atom
         """
-        return self._coords[index]
+        return self.coords[ index ]
  
     def radius(self):
         
@@ -639,9 +636,9 @@ class BuildingBlock():
         
         rmat = self.rotation_matrix( axis, angle )
         
-        # loop through and change all _coords
-        for i,coord in enumerate( self._coords ):
-            self._coords[i] = numpy.dot( rmat, coord )
+        # loop through and change all coords
+        for i,coord in enumerate( self.coords ):
+            self.coords[i] = numpy.dot( rmat, coord )
         
         self._changed = True
 
@@ -664,8 +661,8 @@ class BuildingBlock():
         if isinstance(tvector,list):
             tvector = numpy.array( tvector )
 
-        for i in range( len(self._coords) ):
-            self._coords[i] += tvector
+        for i in range( len(self.coords) ):
+            self.coords[i] += tvector
         
         self._changed = True
     
@@ -682,16 +679,16 @@ class BuildingBlock():
             
         with open(name,"w") as f:
             fpath = os.path.abspath(f.name)
-            f.writeXyz( "{}\n".format(len(self._coords)) )
+            f.writeXyz( "{}\n".format(len(self.coords)) )
             f.writeXyz( "id={}\n".format(str(id(self))) )
                              
-            for i,c in enumerate(self._coords):
-                f.writeXyz("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(self._labels[i]), c[0], c[1], c[2]))
+            for i,c in enumerate(self.coords):
+                f.writeXyz("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(self.labels[i]), c[0], c[1], c[2]))
         
         print "Wrote file: {0}".format(fpath)
     
     def __add__(self):
-        """Add two blocks - concatenate the _coords and recalculate the variables"""
+        """Add two blocks - concatenate the coords and recalculate the variables"""
         
         
         
@@ -703,15 +700,15 @@ class BuildingBlock():
         """
         
         mystr = ""
-        mystr += "{}\n".format(len(self._coords))
-        for i,c in enumerate(self._coords):
-            #mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self._labels[i], c[0], c[1], c[2])
-            mystr += "{0:5} {1:0< 15} {2:0< 15} {3:0< 15} \n".format( self._labels[i], c[0], c[1], c[2])
+        mystr += "{}\n".format(len(self.coords))
+        for i,c in enumerate(self.coords):
+            #mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self.labels[i], c[0], c[1], c[2])
+            mystr += "{0:5} {1:0< 15} {2:0< 15} {3:0< 15} \n".format( self.labels[i], c[0], c[1], c[2])
             
         mystr += "radius: {}\n".format( self.radius() )
         mystr += "COM: {}\n".format( self._centerOfMass )
         mystr += "COG: {}\n".format( self._centerOfGeometry )
-        mystr += "_endGroups: {}\n".format( self._endGroups )
+        mystr += "endGroups: {}\n".format( self.endGroups )
         mystr += "endGroupContacts: {}\n".format( self._endGroupContacts )
         
         return mystr
@@ -722,21 +719,21 @@ class TestBuildingBlock(unittest.TestCase):
     def makeCh4(self):
         """Create a CH4 molecule for testing"""
         
-#        _coords = [ numpy.array([  0.000000,  0.000000,  0.000000 ] ),
+#        coords = [ numpy.array([  0.000000,  0.000000,  0.000000 ] ),
 #        numpy.array([  0.000000,  0.000000,  1.089000 ]),
 #        numpy.array([  1.026719,  0.000000, -0.363000 ]),
 #        numpy.array([ -0.513360, -0.889165, -0.363000 ]),
 #        numpy.array([ -0.513360,  0.889165, -0.363000 ]) ]
 #
 #        #numpy.array([ -0.513360,  0.889165, -0.363000 ]) ]
-#        _labels = [ 'C', 'H', 'H', 'H', 'H' ]
+#        labels = [ 'C', 'H', 'H', 'H', 'H' ]
 #        
-#        _endGroups = [ 1,2,3,4 ]
+#        endGroups = [ 1,2,3,4 ]
 #        
 #        endGroupContacts = { 1:0, 2:0, 3:0, 4:0 }
 #        
 #        ch4 = BuildingBlock()
-#        ch4.createFromArgs( _coords, _labels, _endGroups, endGroupContacts )
+#        ch4.createFromArgs( coords, labels, endGroups, endGroupContacts )
 
         ch4 = BuildingBlock()
         ch4.fromXyzFile("../ch4.xyz")
@@ -778,7 +775,7 @@ class TestBuildingBlock(unittest.TestCase):
         bond = (3,2)
         ch4.bond(m2, bond)
         
-        self.assertTrue( ch4._endGroups == [1,2,4,6,8,9], "Incorrect calculation of _endGroups")
+        self.assertTrue( ch4.endGroups == [1,2,4,6,8,9], "Incorrect calculation of endGroups")
         self.assertTrue( ch4._endGroupContacts == {1: 0, 2: 0, 4: 0, 6: 5, 8: 5, 9: 5}, "Incorrect calculation of endGroup contacts")
     
 
@@ -870,7 +867,7 @@ class TestBuildingBlock(unittest.TestCase):
         
         ch4 = self.makeCh4()
         array1 = numpy.array([ -0.51336 ,  0.889165, -0.363 ])
-        self.assertTrue( numpy.array_equal( ch4._coords[4], array1 ),
+        self.assertTrue( numpy.array_equal( ch4.coords[4], array1 ),
                          msg="testRotate arrays before rotation incorrect.")
         
         axis = numpy.array([1,2,3])
@@ -881,7 +878,7 @@ class TestBuildingBlock(unittest.TestCase):
 
         # Need to use assertTrue as we get a numpy.bool returned and need to test this will
         # bool - assertIs fails
-        self.assertTrue( numpy.allclose( ch4._coords[4], array2, rtol=1e-9, atol=1e-8 ),
+        self.assertTrue( numpy.allclose( ch4.coords[4], array2, rtol=1e-9, atol=1e-8 ),
                          msg="testRotate arrays after rotation incorrect.")
 
         
