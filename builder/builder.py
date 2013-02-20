@@ -41,13 +41,14 @@ CELLC = [ 0,  0, 100 ]
 STEPS = 50
 NMOVES=100
 
-y=180
+BONDANGLE=180
+
+# Create Cell and seed it with the blocks
+new_cell = cell.Cell( CELLA, CELLB, CELLC )
 
 # Create building block and read in car file
 firstBlock = buildingBlock.BuildingBlock( infile = INFILE )
 
-# Create Cell and seed it with the blocks
-new_cell = cell.Cell( CELLA, CELLB, CELLC )
 new_cell.seed (nblocks, firstBlock )
 new_cell.write( OUTFILE )
 

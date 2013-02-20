@@ -4,10 +4,11 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
-import sys
-import os
 import copy
+import math
+import os
 import random
+import sys
 import unittest
 
 import numpy
@@ -34,6 +35,76 @@ class Cell():
         
         self.blocks = []
         
+            
+        
+    
+    def addBlock( self, block ):
+        self.blocks.append( block )
+        
+    def alignBlocks(self, block1, block1EndGroupIndex, block2, block2EndGroupIndex):
+        """
+        Align block2, so that the bond defined by the endGroup on block 2 is aligned with
+        the bond defined by the endGroup on block 1
+        
+        This assumes that the blocks have already been positioned with the contact atoms at the origin
+        """
+        
+        block1EndGroup = block1.position( block1EndGroupIndex )
+        
+        # Aign with each axis in turn. The axis to align to is just the position of bock1EndGroup
+        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="x" )
+        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="y" )
+        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="z" )
+        
+        # Don't know why, but for the time being do it twice
+        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="x" )
+        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="y" )
+        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="z" )
+        
+        return
+    
+    def _alignAxis(self, block, endGroupIndex, targetVector, axisLabel=None ):
+        """
+        Align the given block so that the bond deined by the endGroupIndex
+        is aligned with the targetVector along the given axis
+        """
+        
+        if axisLabel.lower() == "x":
+            axis = numpy.array( [1,0,0] )
+        elif axisLabel.lower() == "y":
+            axis = numpy.array( [0,1,0] )
+        elif axisLabel.lower() == "z":
+            axis = numpy.array( [0,0,1] )
+        else:
+            raise RuntimeError,"Unrecognised Axis!"
+        
+        # For comparing angles
+        small = 1.0e-8
+        
+        # Find the angle targetVector makes with the axis
+        tvAngle = util.vectorAngle(targetVector, axis)
+        #print "tvAngle: {}".format(tvAngle)
+        
+        # Find angle the block makes with axis
+        blockEndGroup = block.position( endGroupIndex )
+        bAngle = util.vectorAngle(blockEndGroup, axis)
+        #print "bAngle b4: {}".format(bAngle)
+        
+        # Need to rotate block on X-axis by tvAngle-bAngle
+        angle = tvAngle-bAngle
+        
+        #print "Got angle: {}".format(angle*util.RADIANS2DEGREES)
+        
+        if not ( ( -small < angle < small ) or  ( numpy.pi-small < angle < numpy.pi+small ) ):
+            rotAxis = numpy.cross( blockEndGroup, axis)
+            #print "rotAxis {}".format(rotAxis)
+            block.rotate( rotAxis, angle )
+        
+        #blockEndGroup = block.position( endGroupIndex )
+        #bAngle = util.vectorAngle(blockEndGroup, axis)
+        #print "bAngle after: {}".format(bAngle)
+        #print block
+        
     def cellAxis(self,A=None,B=None,C=None):
         """
         Get or set the cell axes
@@ -48,11 +119,6 @@ class Cell():
             self.C = numpy.array( C, dtype=numpy.float64 )
         else:
             return (A,B,C)
-            
-        
-    
-    def addBlock( self, block ):
-        self.blocks.append( block )
         
     def checkClash(self, newblock, ignore=[] ):
         """
@@ -136,7 +202,119 @@ class Cell():
         
         # Never get here
         assert False
+
+    def directedShimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
+        """
+        Shimmy by selecting a block and then moving around it.
+        Lots of possiblities for speeding up - preseeclting which blocks
+        to sample and a box around the target to avoid looping over undeeded atoms
+        """
+        
+        #For writing out our progress
+        filename= "SHIMMY_0.xyz"
+        
+        # For time being ensure we are given a bond angle
+        assert bondAngle
+        
+        CLOSE_MARGIN=4.0 # how close 2 blocks are before we consider checking if they can bond
+        BLOCK_MARGIN=2.0 # margin between the ranges that are used to sample the smaller moves
+        
+        nbonds=0
+        for step in range(nsteps):
             
+            if len(self.blocks) == 1:
+                print "NO MORE BLOCKS TO BOND _ HOORAY!"
+                return
+            
+            if not step % 100:
+                print "Step: {}".format(step)
+                filename = util.newFilename(filename)
+                self.writeXyz( filename )
+            
+            # Get two blocks to sample round
+            iblock, jblock = self.randomBlocks()
+            block = self.blocks[iblock]
+            oblock = self.blocks[jblock]
+            print "Sampling block {} about {}".format(iblock,jblock)
+            
+            # Copy the original coordinates so we can reject the move
+            # we copy the whole block so we don't need to recalculate
+            # anything - not sure if this quicker then saving the coords & updating tho
+            orig_block = copy.deepcopy( block )
+            
+            # Get a list of which blocks are close
+            # Don't use - it's slower for some unfathomable reason
+            closeBlocks = self.findClose( oblock, block, closeMargin=CLOSE_MARGIN, blockMargin=BLOCK_MARGIN )
+            #print "Got close blocks: {}".format(closeBlocks)
+            #closeBlocks=None
+            
+            clash=0
+            noclash=0
+            gotBond=False
+            for _ in range( nmoves ):
+                
+                self.randomMoveAroundBlock( oblock, block, margin=BLOCK_MARGIN )
+                
+                print "Move: {} about {}".format( oblock.centroid(), block.centroid() )
+                
+                # Loop over all blocks to see if we can bond or if we clash
+                bonds = self.checkMove( iblock, closeMargin=CLOSE_MARGIN, bondAngle=bondAngle, blockList=closeBlocks )
+                
+                # See what happend
+                if not bonds:
+                    noclash+=1
+                    continue
+                    
+                if bonds == "clash":
+                    clash+=1
+                    continue
+                
+                # Got some bonds so deal with them
+                # Need to decrement index if we are removing blocks
+                bcount=0
+                print "FOUND {} BOND(S)!!!!".format(len(bonds))
+                nbonds+=len(bonds)
+                for b,bond in bonds:
+                    block.bond( self.blocks[b-bcount], bond )
+                    # Remove the block from the list as it is now part of the other one
+                    self.blocks.pop(b-bcount)
+                    bcount+=1
+                
+                # No need to loop anymore
+                gotBond=True
+                break
+                            
+            print "End of moves  clash/noclash: {}/{}".format(clash,noclash)
+            
+            if not gotBond:
+                # If no bonds place the bond back at it's original position
+                self.blocks[iblock] = orig_block
+            
+            #End move loop
+        #End step loop
+        
+        print "END OF DIRECTED SHIMMY\nMade {} bonds and got {} clusters".format(nbonds,len(self.blocks))
+    #End directedShimmy
+    
+    
+    def distance(self, v1, v2 ):
+        """
+        Calculate the distance between two vectors in the cell
+        under periodic boundary conditions
+        """
+        
+        dx = v2[0] - v1[0]
+        if math.fabs(dx) > self.A[0] * 0.5:
+            dx = dx - math.copysign( self.A[0], dx)
+        dy = v2[1] - v1[1]
+        if math.fabs(dy) > self.B[1] * 0.5:
+            dy = dy - math.copysign( self.B[1], dy)
+        dz = v2[2] - v1[2]
+        if math.fabs(dz) > self.C[2] * 0.5:
+            dz = dz - math.copysign( self.C[2], dz)
+        
+        return math.sqrt( dx*dx + dy*dy + dz*dz )
+
     def findClose(self, oblock, block, closeMargin=None, blockMargin=None ):
         """
         Find the blocks around oblock that might be close to block if we were moving
@@ -166,7 +344,7 @@ class Cell():
         
         blocks = self._readXyz(xyzFile)
         for labels,coords in blocks:
-            block = buildingBlock.BuildingBlock()
+            block = buildingBlock.BuildingBlock( self.distance )
             block.createFromLabelAndCoords( labels, coords )
             self.addBlock(block)
         
@@ -235,210 +413,30 @@ class Cell():
         blocks.append( (labels,coords) )
         
         return blocks
-    
-    def _recreateBlocks(self, labels, coords):
-        """Given a list of labels and coordinates, recreate the blocks
-        Uses a stoopid but simple connectivity algorithm
-        """
-        
-        toler=0.5
-        
-        bonds = []
-        
-        for i,i_coord in enumerate( coords ):
-            i_symbol = util.label2symbol( labels[i] )
-            #zi = util.SYMBOL_TO_NUMBER[ i_symbol ]
-            #ri = util.COVALENT_RADII[ zi ]
-            
-            # Start from j so we don't loop over the same atoms twice
-            for j in range( i ):
-                j_coord = coords[ j ]
-                j_symbol = util.label2symbol( labels[j] )
-                #zj = util.SYMBOL_TO_NUMBER[ j_symbol ]
-                #rj = util.COVALENT_RADII[ zj ]
-                bondLength = util.bondLength(i_symbol, j_symbol) + toler
-                dist = numpy.linalg.norm( i_coord - j_coord )
-                if dist <= bondLength:
-                    #print "bondLength({}|{}): {}".format(i_symbol,j_symbol,bondLength)
-                    #print "dist: {}".format(dist)
-                    print "Added bond {}:{}".format(i,j)
-                    # Got bond so add it to the list
-                    bonds.append( (i,j) )
-                    
-        print "GOT {} BONDS".format(bonds)
-                    
-        #End loop through coordinates
-        
-        # Add first atom to first block
-        blocks=[]
-        blocks.append( [bonds[0][0]] )
-        
-        # Now loop through the bonds and create the blocks
-        for (i,j) in bonds:
-            found = False
-            for k,block in enumerate(blocks):
-                #print "Checking block[{}] {}".format(k,block)
-                if i in block:
-                    #print "{} in block but {} not so adding {}".format(i,j,j)
-                    block.append( j )
-                    found=True
-                    break
-                elif j in block:
-                    block.append( i )
-                    #print "{} in block but {} not so adding {}".format(j,i,i)
-                    found=True
-                    break
-                elif j in block and i in block:
-                    raise RuntimeError, "GOT TWO BONDS FOR INDEXES {}:{}".format(i,j)
-            #End loop over blocks
-        
-            if not found:
-                # New block
-                blocks.append( [i,j] )
-                #print "Added atoms {} and {} to NEW BLOCK {}".format(i,j,len(blocks)-1)
- 
-        print "Got blocks: {}".format(len(blocks))
-        
-        # Now create the new blocks
-       # for block in blocks:
-            
-            
-        
-        
-    def directedShimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
-        """
-        Shimmy by selecting a block and then moving around it.
-        Lots of possiblities for speeding up - preseeclting which blocks
-        to sample and a box around the target to avoid looping over undeeded atoms
-        """
-        
-        #For writing out our progress
-        filename= "SHIMMY_0.xyz"
-        
-        # For time being ensure we are given a bond angle
-        assert bondAngle
-        
-        CLOSE_MARGIN=4.0 # how close 2 blocks are before we consider checking if they can bond
-        BLOCK_MARGIN=2.0 # margin between the ranges that are used to sample the smaller moves
-        
-        nbonds=0
-        for step in range(nsteps):
-            
-            if len(self.blocks) == 1:
-                print "NO MORE BLOCKS TO BOND _ HOORAY!"
-                return
-            
-            if not step % 100:
-                print "Step: {}".format(step)
-                filename = util.newFilename(filename)
-                self.writeXyz( filename )
-            
-            # Get two blocks to sample round
-            iblock, jblock = self.getRandomBlocks()
-            block = self.blocks[iblock]
-            oblock = self.blocks[jblock]
-            print "Sampling block {} about {}".format(iblock,jblock)
-            
-            # Copy the original coordinates so we can reject the move
-            # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker then saving the coords & updating tho
-            orig_block = copy.deepcopy( block )
-            
-            # Get a list of which blocks are close
-            # Don't use - it's slower for some unfathomable reason
-            closeBlocks = self.findClose( oblock, block, closeMargin=CLOSE_MARGIN, blockMargin=BLOCK_MARGIN )
-            #print "Got close blocks: {}".format(closeBlocks)
-            #closeBlocks=None
-            
-            clash=0
-            noclash=0
-            gotBond=False
-            for _ in range( nmoves ):
-                
-                self.randomMoveAroundBlock( oblock, block, margin=BLOCK_MARGIN )
-                
-                print "Move: {} about {}".format( oblock.centroid(), block.centroid() )
-                
-                # Loop over all blocks to see if we can bond or if we clash
-                bonds = self.checkMove( iblock, closeMargin=CLOSE_MARGIN, bondAngle=bondAngle, blockList=closeBlocks )
-                
-                # See what happend
-                if not bonds:
-                    noclash+=1
-                    continue
-                    
-                if bonds == "clash":
-                    clash+=1
-                    continue
-                
-                # Got some bonds so deal with them
-                # Need to decrement index if we are removing blocks
-                bcount=0
-                print "FOUND {} BOND(S)!!!!".format(len(bonds))
-                nbonds+=len(bonds)
-                for b,bond in bonds:
-                    block.bond( self.blocks[b-bcount], bond )
-                    # Remove the block from the list as it is now part of the other one
-                    self.blocks.pop(b-bcount)
-                    bcount+=1
-                
-                # No need to loop anymore
-                gotBond=True
-                break
-                            
-            print "End of moves  clash/noclash: {}/{}".format(clash,noclash)
-            
-            if not gotBond:
-                # If no bonds place the bond back at it's original position
-                self.blocks[iblock] = orig_block
-            
-            #End move loop
-        #End step loop
-        
-        print "END OF DIRECTED SHIMMY\nMade {} bonds and got {} clusters".format(nbonds,len(self.blocks))
-    #End directedShimmy
-            
 
-    def getRandomBlockIndex(self):
-        """Return the index of one of the blocks"""
-        return random.randint( 0, len(self.blocks)-1 )
-    
-    def getRandomBlocks(self):
-        """Return two random block indices"""
-        
-        # Pick a block to move
-        iblock = self.getRandomBlockIndex()
-        
-        # Find a different one to sample around
-        jblock = iblock
-        while jblock == iblock:
-            jblock = self.getRandomBlockIndex()
-        
-        return (iblock, jblock)
-    
-    
+
     def growBlock(self, block2):
         """
         Bond block2 to a randomly chosen block at randomly chosen endGroups in each
         """
 
         # Select 2 random blocks
-        block1index = self.getRandomBlockIndex()
+        block1index = self.randomBlockIndex()
         block1 = self.blocks[ block1index ]
         
         # pick random endgroup and contact in target
-        block1EndGroupIndex = block1.getRandomEndGroupIndex()
+        block1EndGroupIndex = block1.randomEndGroupIndex()
         # Need to copy this so we can remember it - otherwise it changes with the moves
         block1ContactIndex = block1.endGroupContactIndex( block1EndGroupIndex )
         block1Contact = block1.position( block1ContactIndex ).copy()
         
         # pick random endGroup on the new block
-        block2EndGroupIndex = block2.getRandomEndGroupIndex()
+        block2EndGroupIndex = block2.randomEndGroupIndex()
         block2ContactIndex = block2.endGroupContactIndex( block2EndGroupIndex )
         block2Contact = block2.position( block2ContactIndex ).copy()
         
         # get the position where the next block should bond
-        bondPos = block1.getNewBondPosition( block1EndGroupIndex, block2, block2EndGroupIndex )
+        bondPos = block1.newBondPosition( block1EndGroupIndex, block2, block2EndGroupIndex )
         #print "got bondPos: {}".format( bondPos )
         
         # Move block1Contact to center so that block1Contact -> block1EndGroup defines
@@ -488,70 +486,6 @@ class Cell():
         return False
         
     
-    def alignBlocks(self, block1, block1EndGroupIndex, block2, block2EndGroupIndex):
-        """
-        Align block2, so that the bond defined by the endGroup on block 2 is aligned with
-        the bond defined by the endGroup on block 1
-        
-        This assumes that the blocks have already been positioned with the contact atoms at the origin
-        """
-        
-        block1EndGroup = block1.position( block1EndGroupIndex )
-        
-        # Aign with each axis in turn. The axis to align to is just the position of bock1EndGroup
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="x" )
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="y" )
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="z" )
-        
-        # Don't know why, but for the time being do it twice
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="x" )
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="y" )
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="z" )
-        
-        return
-    
-    def _alignAxis(self, block, endGroupIndex, targetVector, axisLabel=None ):
-        """
-        Align the given block so that the bond deined by the endGroupIndex
-        is aligned with the targetVector along the given axis
-        """
-        
-        if axisLabel.lower() == "x":
-            axis = numpy.array( [1,0,0] )
-        elif axisLabel.lower() == "y":
-            axis = numpy.array( [0,1,0] )
-        elif axisLabel.lower() == "z":
-            axis = numpy.array( [0,0,1] )
-        else:
-            raise RuntimeError,"Unrecognised Axis!"
-        
-        # For comparing angles
-        small = 1.0e-8
-        
-        # Find the angle targetVector makes with the axis
-        tvAngle = util.vectorAngle(targetVector, axis)
-        #print "tvAngle: {}".format(tvAngle)
-        
-        # Find angle the block makes with axis
-        blockEndGroup = block.position( endGroupIndex )
-        bAngle = util.vectorAngle(blockEndGroup, axis)
-        #print "bAngle b4: {}".format(bAngle)
-        
-        # Need to rotate block on X-axis by tvAngle-bAngle
-        angle = tvAngle-bAngle
-        
-        #print "Got angle: {}".format(angle*util.RADIANS2DEGREES)
-        
-        if not ( ( -small < angle < small ) or  ( numpy.pi-small < angle < numpy.pi+small ) ):
-            rotAxis = numpy.cross( blockEndGroup, axis)
-            #print "rotAxis {}".format(rotAxis)
-            block.rotate( rotAxis, angle )
-        
-        #blockEndGroup = block.position( endGroupIndex )
-        #bAngle = util.vectorAngle(blockEndGroup, axis)
-        #print "bAngle after: {}".format(bAngle)
-        #print block
-        
 
     def XXgrowBlock(self):
         
@@ -646,6 +580,93 @@ class Cell():
         
         ##End growBlock
         
+
+    def _recreateBlocks(self, labels, coords):
+        """Given a list of labels and coordinates, recreate the blocks
+        Uses a stoopid but simple connectivity algorithm
+        """
+        
+        toler=0.5
+        
+        bonds = []
+        
+        for i,i_coord in enumerate( coords ):
+            i_symbol = util.label2symbol( labels[i] )
+            #zi = util.SYMBOL_TO_NUMBER[ i_symbol ]
+            #ri = util.COVALENT_RADII[ zi ]
+            
+            # Start from j so we don't loop over the same atoms twice
+            for j in range( i ):
+                j_coord = coords[ j ]
+                j_symbol = util.label2symbol( labels[j] )
+                #zj = util.SYMBOL_TO_NUMBER[ j_symbol ]
+                #rj = util.COVALENT_RADII[ zj ]
+                bondLength = util.bondLength(i_symbol, j_symbol) + toler
+                dist = numpy.linalg.norm( i_coord - j_coord )
+                if dist <= bondLength:
+                    #print "bondLength({}|{}): {}".format(i_symbol,j_symbol,bondLength)
+                    #print "dist: {}".format(dist)
+                    print "Added bond {}:{}".format(i,j)
+                    # Got bond so add it to the list
+                    bonds.append( (i,j) )
+                    
+        print "GOT {} BONDS".format(bonds)
+                    
+        #End loop through coordinates
+        
+        # Add first atom to first block
+        blocks=[]
+        blocks.append( [bonds[0][0]] )
+        
+        # Now loop through the bonds and create the blocks
+        for (i,j) in bonds:
+            found = False
+            for k,block in enumerate(blocks):
+                #print "Checking block[{}] {}".format(k,block)
+                if i in block:
+                    #print "{} in block but {} not so adding {}".format(i,j,j)
+                    block.append( j )
+                    found=True
+                    break
+                elif j in block:
+                    block.append( i )
+                    #print "{} in block but {} not so adding {}".format(j,i,i)
+                    found=True
+                    break
+                elif j in block and i in block:
+                    raise RuntimeError, "GOT TWO BONDS FOR INDEXES {}:{}".format(i,j)
+            #End loop over blocks
+        
+            if not found:
+                # New block
+                blocks.append( [i,j] )
+                #print "Added atoms {} and {} to NEW BLOCK {}".format(i,j,len(blocks)-1)
+ 
+        print "Got blocks: {}".format(len(blocks))
+        
+        # Now create the new blocks
+        # for block in blocks:
+        
+        
+
+            
+
+    def randomBlockIndex(self):
+        """Return the index of one of the blocks"""
+        return random.randint( 0, len(self.blocks)-1 )
+    
+    def randomBlocks(self):
+        """Return two random block indices"""
+        
+        # Pick a block to move
+        iblock = self.randomBlockIndex()
+        
+        # Find a different one to sample around
+        jblock = iblock
+        while jblock == iblock:
+            jblock = self.randomBlockIndex()
+        
+        return (iblock, jblock)
 
         
     
@@ -778,8 +799,6 @@ class Cell():
     
     # End seed
 
-
-
         
     def shimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
         """ Shuffle the molecules about making bonds where necessary for nsteps
@@ -799,7 +818,7 @@ class Cell():
             if not step % 20:
                 print "step {}".format(step)
                 
-            iblock = self.getRandomBlockIndex()
+            iblock = self.randomBlockIndex()
             block = self.blocks[iblock]
             
             # Copy the original coordinates so we can reject the move
@@ -851,7 +870,7 @@ class Cell():
             if not step % 20:
                 print "step {}".format(step)
                 
-            iblock = self.getRandomBlockIndex()
+            iblock = self.randomBlockIndex()
             
             block = self.blocks[iblock]
             
@@ -960,7 +979,7 @@ class TestCell(unittest.TestCase):
     # Import only here as only needed for testing
     import buildingBlock
 
-    def makeCh4(self):
+    def makeCh4(self, cell):
         """Create a CH4 molecule for testing"""
         
         coords = [ numpy.array([  0.000000,  0.000000,  0.000000 ] ),
@@ -975,47 +994,16 @@ class TestCell(unittest.TestCase):
         endGroups = [ 1,2,3,4 ]
         endGroupContacts = { 1:0, 2:0, 3:0, 4:0 }
         
-        ch4 = self.buildingBlock.BuildingBlock()
+        ch4 = self.buildingBlock.BuildingBlock( cell.distance )
         ch4.createFromArgs( coords, labels, endGroups, endGroupContacts )
         return ch4
     
-    def makePaf(self):
+    def makePaf(self, cell):
         """Return the PAF molecule for testing"""
         
-        paf = self.buildingBlock.BuildingBlock()
+        paf = self.buildingBlock.BuildingBlock( cell.distance )
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
-    
-    def testCellIO(self):
-        """Check we can write out and then read in a cell
-        """
-        
-        nblocks = 5
-        CELLA = [ 20,  0,  0 ]
-        CELLB = [ 0, 20,  0 ]
-        CELLC = [ 0,  0, 20 ]
-        
-        paf = self.makePaf()
-        
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        cell.seed ( nblocks, paf )
-        
-        # Remember a coordinate for checking
-        test_coord = cell.blocks[3].coords[4]
-        
-        self.assertEqual( nblocks, len(cell.blocks), "Incorrect number of cell blocks at start: {}".format( len(cell.blocks) ))
-        
-        outfile = "./testCell.xyz"
-        cell.writeXyz( outfile, label=True )
-        
-        newCell = Cell()
-        
-        newCell.fromXyz( outfile )
-        self.assertEqual( nblocks, len(newCell.blocks), "Incorrect number of cell blocks after read: {}".format(len(newCell.blocks) ))
-        
-        self.assertTrue( numpy.allclose( test_coord, cell.blocks[3].coords[4], rtol=1e-9, atol=1e-9 ),
-                         msg="Incorrect testCoordinate of cell.")
         
     def testAlignBlocks(self):
         """Test we can align two blocks correctly"""
@@ -1024,11 +1012,12 @@ class TestCell(unittest.TestCase):
         CELLB = [ 0, 10,  0 ]
         CELLC = [ 0,  0, 10 ]
         
-        block = self.makeCh4()
         #b1.symbols[1] = 'F'
 
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        
+        block = self.makeCh4( cell )
         cell.seed ( 2, block )
         
         # Get the two blocks
@@ -1070,7 +1059,63 @@ class TestCell(unittest.TestCase):
                          msg="End Group incorrectly positioned")
         self.assertTrue( numpy.allclose( block1Contact, block2Contact, rtol=1e-7, atol=1e-7 ),
                          msg="Contact atom incorrectly positioned")
+
+    def testCellIO(self):
+        """Check we can write out and then read in a cell
+        """
         
+        nblocks = 4
+        CELLA = [ 20,  0,  0 ]
+        CELLB = [ 0, 20,  0 ]
+        CELLC = [ 0,  0, 20 ]
+        
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        
+        paf = self.makePaf( cell )
+        cell.seed ( nblocks, paf )
+        
+        # Remember a coordinate for checking
+        test_coord = cell.blocks[3].coords[4]
+        
+        self.assertEqual( nblocks, len(cell.blocks), "Incorrect number of cell blocks at start: {}".format( len(cell.blocks) ))
+        
+        outfile = "./testCell.xyz"
+        cell.writeXyz( outfile, label=True )
+        
+        newCell = Cell()
+        
+        newCell.fromXyz( outfile )
+        self.assertEqual( nblocks, len(newCell.blocks), "Incorrect number of cell blocks after read: {}".format(len(newCell.blocks) ))
+        
+        self.assertTrue( numpy.allclose( test_coord, cell.blocks[3].coords[4], rtol=1e-9, atol=1e-9 ),
+                         msg="Incorrect testCoordinate of cell.")
+        
+        
+    def testDistance(self):
+        """Test the distance under periodic boundary conditions"""
+        
+        CELLA = [ 10,  0,  0 ]
+        CELLB = [ 0, 10,  0 ]
+        CELLC = [ 0,  0, 10 ]
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        
+        v1 = numpy.array([ 1.0, 1.0, 1.0 ])
+        v2 = numpy.array([ 5.0, 5.0, 5.0 ])
+        
+        dc = cell.distance(v1,v2)
+        dn = numpy.linalg.norm(v2-v1)
+        self.assertEqual( dc, dn, "Distance within cell:{} | {}".format(dc,dn) )
+        
+        v1 = numpy.array([ 0.0, 0.0, 0.0 ])
+        v2 = numpy.array([ 0.0, 0.0, 25.0 ])
+        dc = cell.distance(v1,v2)
+        self.assertEqual( dc, 15.0, "Distance within cell:{} | {}".format(dc,dn) )
+        
+    
     def testGrowBlock(self):
         """Test we can add a block correctly"""
         
@@ -1079,9 +1124,9 @@ class TestCell(unittest.TestCase):
         CELLC = [ 0,  0, 10 ]
         
         #block = self.makeCh4()
-        block = self.makePaf()
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        block = self.makePaf( cell )
         cell.seed ( 1, block )
         for _ in range( 10 ):
             ok = cell.growBlock( block.copy() )
@@ -1099,10 +1144,10 @@ class TestCell(unittest.TestCase):
         CELLB = [ 0, 10,  0 ]
         CELLC = [ 0,  0, 10 ]
         
-        ch4 = self.makeCh4()
         
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        ch4 = self.makeCh4( cell )
         cell.seed ( nblocks, ch4 )
         
         self.assertEqual( nblocks, len(cell.blocks), "Incorrect number of cell blocks" )

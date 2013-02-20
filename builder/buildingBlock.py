@@ -31,10 +31,14 @@ class BuildingBlock():
     classdocs
     '''
 
-    def __init__( self, infile = None ):
+    def __init__( self, distance, infile=None ):
         '''
         Constructor
+        Distance is the cells distance function used to calculate the distance between two vectors
+        - passed in through constructor as we may be under periodic bounduary conditions.
         '''
+        
+        self.distance = distance
         
         # An python array of numpy.array
         self.coords = []
@@ -222,7 +226,8 @@ class BuildingBlock():
         
         distances = []
         for coord in self.coords:
-            distances.append(  numpy.linalg.norm(coord-cog) )
+            #distances.append( numpy.linalg.norm(coord-cog) )
+            distances.append( self.distance(cog, coord) )
             
         imax = numpy.argmax( distances )
         dist = distances[ imax ]
@@ -257,7 +262,8 @@ class BuildingBlock():
                 j_symbol = block.symbols[j]
                 bond_length = self.bondLength( i_symbol, j_symbol )
                 #bond_length = util.bondLength( i_symbol, j_symbol )
-                if ( numpy.linalg.norm( c - b ) < bond_length + MARGIN ):
+                #if ( numpy.linalg.norm( c - b ) < bond_length + MARGIN ):
+                if ( self.distance( b,c ) < bond_length + MARGIN ):
                     # Check if both atoms are end groups
                     if not ( i in self.endGroups and j in block.endGroups ):
                         # 2 atoms close enough to bond but they are not end groups
@@ -326,7 +332,8 @@ class BuildingBlock():
             i_radius = self.atom_radii[i]
             for j, b in enumerate( block.coords ):
                 j_radius = block.atom_radii[j]
-                if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + clashMargin ):
+                #if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + clashMargin ):
+                if ( self.distance( b, c ) < i_radius + j_radius + clashMargin ):
                     return True
                 
         return False
@@ -336,7 +343,8 @@ class BuildingBlock():
         Works from the overall radii of the two blocks
         Margin is allowed gap between their respective radii
         """
-        dist = numpy.linalg.norm( self.centroid() - block.centroid() )
+        #dist = numpy.linalg.norm( self.centroid() - block.centroid() )
+        dist = self.distance( block.centroid(), self.centroid() )
         if ( dist < self.radius() + block.radius() + margin ):
             return True
         else:
@@ -408,7 +416,8 @@ class BuildingBlock():
                 bond_length = util.bondLength( i_symbol , e_symbol )
                 
                 # See if these are bonded
-                if ( bond_length - MARGIN < numpy.linalg.norm( coord - e_coord ) < bond_length + MARGIN ):
+                #if ( bond_length - MARGIN < numpy.linalg.norm( coord - e_coord ) < bond_length + MARGIN ):
+                if ( bond_length - MARGIN < self.distance( e_coord, coord ) < bond_length + MARGIN ):
                     
                     # Found a bonded atom so add it to the list and move on
                     self._endGroupContacts[e] = i
@@ -500,10 +509,13 @@ class BuildingBlock():
         #r2 = cpv.distance(p2,p3)
         #r3 = cpv.distance(p1,p3)
         
-        r1 = numpy.linalg.norm( c1 - c2 )
-        r2 = numpy.linalg.norm( c2 - c3 )
-        r3 = numpy.linalg.norm( c1 - c3 )
-
+        #r1 = numpy.linalg.norm( c1 - c2 )
+        #r2 = numpy.linalg.norm( c2 - c3 )
+        #r3 = numpy.linalg.norm( c1 - c3 )
+        r1 = self.distance( c2, c1 )
+        r2 = self.distance( c3, c2 )
+        r3 = self.distance( c3, c1 )
+        
         small = 1.0e-10
         #cnv   = 57.29577951
         if r1 + r2 - r3 < small:
@@ -570,16 +582,8 @@ class BuildingBlock():
         """Return the index of the contact atom for this endGroup"""
         return self._endGroupContacts[ endGroupIndex ]
         
-#    def index(self,index=None):
-#        """
-#        Get or set the index of this block in the cell
-#        """
-#        if index:
-#            self.index=index
-#            
-#        return self.index
 
-    def getNewBondPosition(self, targetEndGroupIndex, newBlock, newEndGroupIndex):
+    def newBondPosition(self, targetEndGroupIndex, newBlock, newEndGroupIndex):
         """Return the position where NewBlock would position its bonding atom if joining
          to this one at targetEndGroupIndex by newEndGroupIndex
          I'm sure this algorithm is clunky in the extreme...
@@ -611,7 +615,7 @@ class BuildingBlock():
         return newPosition
         
     
-    def getRandomEndGroupIndex(self):
+    def randomEndGroupIndex(self):
         """Return a randomly picked endgroup"""
         return random.choice( self.endGroups )
     
@@ -735,14 +739,14 @@ class TestBuildingBlock(unittest.TestCase):
 #        ch4 = BuildingBlock()
 #        ch4.createFromArgs( coords, labels, endGroups, endGroupContacts )
 
-        ch4 = BuildingBlock()
+        ch4 = BuildingBlock( distance = util.distance )
         ch4.fromXyzFile("../ch4.xyz")
         return ch4
     
     def makePaf(self):
         """Return the PAF molecule for testing"""
         
-        paf = BuildingBlock()
+        paf = BuildingBlock( distance = util.distance )
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
     

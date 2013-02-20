@@ -519,6 +519,7 @@ def bondLength( symbol1,symbol2 ):
     print 'No data for bond length for %s-%s' % (symbol1,symbol2)
     return 1.0
 
+
 def label2symbol( name ):
     """ Determine the element type of an atom from its name, e.g. Co_2b -> Co
         Returns a capitalised element name
@@ -556,7 +557,7 @@ def newFilename(filename):
     nstr=name[count:]
             
     if not name[count-1] == "_" or count==0:
-        raise RuntimeError,"Filename needs to be of the form: NAME_1.xyz"
+        raise RuntimeError,"Filename needs to be of the form: NAME_15.xyz"
     
     n=int(nstr)
     n=n+1
@@ -593,6 +594,14 @@ def XvectorAngle( v1, v2 ):
     X.Y = |X||Y|cos( theta )
     so: theta = arccos( X.Y / |X||Y| )
     """
+    pass
+
+def distance(x,y):
+    """
+    Calculate the distance between two vectors - currently just use for testing
+    Actual one lives in cell
+    """
+    return numpy.linalg.norm(y-x)
 
 
 class TestCell(unittest.TestCase):
