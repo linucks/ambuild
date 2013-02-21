@@ -1155,9 +1155,9 @@ class TestCell(unittest.TestCase):
         self.assertEqual( dc, dn, "Distance within cell:{} | {}".format(dc,dn) )
         
         v1 = numpy.array([ 0.0, 0.0, 0.0 ])
-        v2 = numpy.array([ 0.0, 0.0, 25.0 ])
+        v2 = numpy.array([ 0.0, 0.0, 8.0 ])
         dc = cell.distance(v1,v2)
-        self.assertEqual( dc, 15.0, "Distance within cell:{} | {}".format(dc,dn) )
+        self.assertEqual( dc, 2.0, "Distance within cell:{} | {}".format(dc,dn) )
         
     
     def testGrowBlock(self):
