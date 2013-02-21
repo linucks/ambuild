@@ -33,6 +33,8 @@ class Cell():
         self.B = None
         self.C = None
         
+        # first block is kept separate as everything is built up from it
+        self.initBlock = None
         self.blocks = []
         
             
@@ -40,6 +42,7 @@ class Cell():
     
     def addBlock( self, block ):
         self.blocks.append( block )
+        
         
     def alignBlocks(self, block1, block1EndGroupIndex, block2, block2EndGroupIndex):
         """
@@ -486,7 +489,37 @@ class Cell():
         return False
         
     
+    def initCell(self,inputFile):
+        """
+        Read in the first block from the input file, position it so it is in the cell
+        and then save it
+        """
+        
+        ib = buildingBlock.BuildingBlock( self.distance )
+        ib.fromCarFile( inputFile )
+        
+        # Make sure it is positioned in the cell - if not keep moving it about randomly till
+        # it fits
+        while True:
+            #print "moving initblock"
+            #print "{} | {} | {} | {}".format( ib.centroid()[0], ib.centroid()[1], ib.centroid()[2], ib.radius()  )
+            if ib.centroid()[0] - ib.radius() < 0 or \
+               ib.centroid()[0] + ib.radius() > self.A[0] or \
+               ib.centroid()[1] - ib.radius() < 0 or \
+               ib.centroid()[1] + ib.radius() > self.B[1] or \
+               ib.centroid()[2] - ib.radius() < 0 or \
+               ib.centroid()[2] + ib.radius() > self.C[2]:
+                self.randomMove(ib, buffer=ib.radius())
+            else:
+                # Its in!
+                break
 
+        self.initBlock = ib
+        
+        return
+    ##End initCell
+        
+        
     def XXgrowBlock(self):
         
         # For comparing angles
@@ -670,20 +703,28 @@ class Cell():
 
         
     
-    def randomMove(self, block ):
+    def randomMove(self, block, buffer=None ):
         """Randomly move the given block
          Defintely needs more work on the rotation
+         If buffer is given, use this as a buffer from the edges of the cell
+         when selecting the position
         """
         
         # Get coords of random point in the cell
-        x = random.uniform(0,self.A[0])
-        y = random.uniform(0,self.B[1])
-        z = random.uniform(0,self.C[2])
+        if buffer:
+            x = random.uniform(buffer,self.A[0]-buffer)
+            y = random.uniform(buffer,self.B[1]-buffer)
+            z = random.uniform(buffer,self.C[2]-buffer)
+        else:
+            x = random.uniform(0,self.A[0])
+            y = random.uniform(0,self.B[1])
+            z = random.uniform(0,self.C[2])
+            
         position = numpy.array([x,y,z], dtype=numpy.float64 )
         
         #print "Got random position: {}".format(position)
         
-        # Overklll - move to origin, rotate there and then move to new position
+        # Move to origin, rotate there and then move to new position
         # Use the cell axis definitions
         origin = numpy.array([0,0,0], dtype=numpy.float64 )
         block.translateCentroid( origin )
@@ -745,24 +786,27 @@ class Cell():
         
 
 
-    def seed( self, nblocks, firstBlock ):
-        """ Seed a cell with nblocks based on firstBlock
+    def seed( self, nblocks, inputFile ):
+        """ Seed a cell with nblocks based on the block that will be created
+        from the input block
         """
         
         if self.A == None or self.B == None or self.C == None:
             raise RuntimeError,"Need to specify cell before seeding"
         
+        self.initCell( inputFile )
+        
         # If it's just one, add the given block
+        self.addBlock( self.initBlock.copy() )
         if nblocks == 1:
-            self.addBlock(firstBlock)
             return
         
         MAXTRIES = 1000
         # Loop through the nblocks adding the blocks to
-        # the cell
-        for seedCount in range( nblocks ):
+        # the cell - nblocks-1 as we've already added the first
+        for seedCount in range( nblocks-1 ):
             # Create new block
-            newblock = firstBlock.copy()
+            newblock = self.initBlock.copy()
             tries = 0
             clash = True
             print "Adding block: {}".format(seedCount)
@@ -1008,25 +1052,25 @@ class TestCell(unittest.TestCase):
     def testAlignBlocks(self):
         """Test we can align two blocks correctly"""
         
-        CELLA = [ 10,  0,  0 ]
-        CELLB = [ 0, 10,  0 ]
-        CELLC = [ 0,  0, 10 ]
+        CELLA = [ 30,  0,  0 ]
+        CELLB = [ 0, 30,  0 ]
+        CELLC = [ 0,  0, 30 ]
         
         #b1.symbols[1] = 'F'
 
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
-        block = self.makeCh4( cell )
-        cell.seed ( 2, block )
+        #block = self.makeCh4( cell )
+        cell.seed( 2, "../PAF_bb_typed.car" )
         
         # Get the two blocks
         block1 = cell.blocks[0]
         block2 = cell.blocks[1]
         
         # Get two end Groups
-        block1EndGroupIndex=1
-        block2EndGroupIndex=2
+        block1EndGroupIndex=7
+        block2EndGroupIndex=17
         
         # Get the atoms that define things
         block1ContactIndex = block1.endGroupContactIndex( block1EndGroupIndex )
@@ -1065,16 +1109,16 @@ class TestCell(unittest.TestCase):
         """
         
         nblocks = 4
-        CELLA = [ 20,  0,  0 ]
-        CELLB = [ 0, 20,  0 ]
-        CELLC = [ 0,  0, 20 ]
+        CELLA = [ 30,  0,  0 ]
+        CELLB = [ 0, 30,  0 ]
+        CELLC = [ 0,  0, 30 ]
         
         
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
-        paf = self.makePaf( cell )
-        cell.seed ( nblocks, paf )
+        #paf = self.makePaf( cell )
+        cell.seed( nblocks, "../PAF_bb_typed.car" )
         
         # Remember a coordinate for checking
         test_coord = cell.blocks[3].coords[4]
@@ -1119,17 +1163,17 @@ class TestCell(unittest.TestCase):
     def testGrowBlock(self):
         """Test we can add a block correctly"""
         
-        CELLA = [ 10,  0,  0 ]
-        CELLB = [ 0, 10,  0 ]
-        CELLC = [ 0,  0, 10 ]
+        CELLA = [ 30,  0,  0 ]
+        CELLB = [ 0, 30,  0 ]
+        CELLC = [ 0,  0, 30 ]
         
         #block = self.makeCh4()
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        block = self.makePaf( cell )
-        cell.seed ( 1, block )
+        #block = self.makePaf( cell )
+        cell.seed( 1, "../PAF_bb_typed.car" )
         for _ in range( 10 ):
-            ok = cell.growBlock( block.copy() )
+            ok = cell.growBlock( cell.initBlock.copy() )
             if not ok:
                 print "Failed to add block"
             
@@ -1140,21 +1184,22 @@ class TestCell(unittest.TestCase):
         
         
         nblocks = 10
-        CELLA = [ 10,  0,  0 ]
-        CELLB = [ 0, 10,  0 ]
-        CELLC = [ 0,  0, 10 ]
+        CELLA = [ 50,  0,  0 ]
+        CELLB = [ 0, 50,  0 ]
+        CELLC = [ 0,  0, 50 ]
         
         
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        ch4 = self.makeCh4( cell )
-        cell.seed ( nblocks, ch4 )
+        #ch4 = self.makeCh4( cell )
+        cell.seed( nblocks, "../PAF_bb_typed.car" )
         
         self.assertEqual( nblocks, len(cell.blocks), "Incorrect number of cell blocks" )
         
         # Check no block is outside the unit cell
         # We seed by the centroid so the edges could stick out by radius
-        radius = ch4.radius()
+        #radius = ch4.radius()
+        radius = cell.initBlock.radius()
         
         bad = []
         for b in cell.blocks:

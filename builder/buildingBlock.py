@@ -422,7 +422,6 @@ class BuildingBlock():
                     # Found a bonded atom so add it to the list and move on
                     self._endGroupContacts[e] = i
                     break
-                
     
     def fromCarFile(self, carFile):
         """"Abbie did this.
