@@ -236,7 +236,7 @@ class BuildingBlock():
         # Set radius
         self._radius = dist + atomR
         
-    def canBond( self, block, bondAngle=None ):
+    def canBond( self, block, bondMargin=None, bondAngle=None ):
         """See if we can form a bond with the given block.
         Return the indicies of the two atoms (self and then other)
         or False if the molecules cannot bond but do not clash
@@ -252,7 +252,6 @@ class BuildingBlock():
         # We only accept the case where just one pair of atoms is close enough to bond
         # more than one is considered a failure
         # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
-        MARGIN = 0.2
         bond = None
         for i, c in enumerate( self.coords ):
             #i_radius = self.atom_radii[i]
@@ -262,8 +261,8 @@ class BuildingBlock():
                 j_symbol = block.symbols[j]
                 bond_length = self.bondLength( i_symbol, j_symbol )
                 #bond_length = util.bondLength( i_symbol, j_symbol )
-                #if ( numpy.linalg.norm( c - b ) < bond_length + MARGIN ):
-                if ( self.distance( b,c ) < bond_length + MARGIN ):
+                #if ( numpy.linalg.norm( c - b ) < bond_length + bondMargin ):
+                if ( self.distance( b,c ) < bond_length + bondMargin ):
                     # Check if both atoms are end groups
                     if not ( i in self.endGroups and j in block.endGroups ):
                         # 2 atoms close enough to bond but they are not end groups
@@ -316,14 +315,14 @@ class BuildingBlock():
         
         return self._centerOfMass
     
-    def clash( self, block, closeMargin=2.0, clashMargin=1.0 ):
+    def clash( self, block, blockMargin=2.0, atomMargin=1.0 ):
         """ See if this molecule clashes (overlaps) with the given one
         by checking the atomic radii 
         """
         
         # First check if these two molecules are within range assuming they 
         # are circular, centered on the COG and with the given radius
-        if not self.close(block, margin=closeMargin):
+        if not self.close(block, blockMargin=blockMargin):
             return False
         
         # Within range, so see if any atoms actually do overlap
@@ -332,20 +331,20 @@ class BuildingBlock():
             i_radius = self.atom_radii[i]
             for j, b in enumerate( block.coords ):
                 j_radius = block.atom_radii[j]
-                #if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + clashMargin ):
-                if ( self.distance( b, c ) < i_radius + j_radius + clashMargin ):
+                #if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + atomMargin ):
+                if ( self.distance( b, c ) < i_radius + j_radius + atomMargin ):
                     return True
                 
         return False
     
-    def close( self, block, margin=2.0 ):
+    def close( self, block, blockMargin=2.0 ):
         """Return true of false depending on whether two blocks are close enough to bond/clash.
         Works from the overall radii of the two blocks
         Margin is allowed gap between their respective radii
         """
         #dist = numpy.linalg.norm( self.centroid() - block.centroid() )
         dist = self.distance( block.centroid(), self.centroid() )
-        if ( dist < self.radius() + block.radius() + margin ):
+        if ( dist < self.radius() + block.radius() + blockMargin ):
             return True
         else:
             return False
@@ -583,7 +582,7 @@ class BuildingBlock():
         
 
     def newBondPosition(self, targetEndGroupIndex, newBlock, newEndGroupIndex):
-        """Return the position where NewBlock would position its bonding atom if joining
+        """Return the coord where NewBlock would coord its bonding atom if joining
          to this one at targetEndGroupIndex by newEndGroupIndex
          I'm sure this algorithm is clunky in the extreme...
         """
@@ -617,11 +616,6 @@ class BuildingBlock():
     def randomEndGroupIndex(self):
         """Return a randomly picked endgroup"""
         return random.choice( self.endGroups )
-    
-    def position(self, index):
-        """Return the coordinates for the given atom
-        """
-        return self.coords[ index ]
  
     def radius(self):
         
@@ -671,7 +665,7 @@ class BuildingBlock():
     
     def translateCentroid( self, position ):
         """Translate the molecule so the center of geometry moves
-        to the given position
+        to the given coord
         """
         self.translate( position - self.centroid() )
         
@@ -837,9 +831,9 @@ class TestBuildingBlock(unittest.TestCase):
         radius = paf.radius()
         m. translate( numpy.array( [0,0,radius*2+1.0] ) )
         
-        self.assertFalse( paf.close( m, margin=0.9 ), "Not close with 0.1 margin")
+        self.assertFalse( paf.close( m, blockMargin=0.9 ), "Not close with 0.1 margin")
         
-        self.assertTrue( paf.close( m, margin=1.1 ), "Close with 0.1 margin")
+        self.assertTrue( paf.close( m, blockMargin=1.1 ), "Close with 0.1 margin")
         
         
     def testMove(self):
