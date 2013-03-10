@@ -126,13 +126,9 @@ class Cell():
         Get or set the cell axes
         """
         if A and B and C:
-            # A, B and C are cell vectors - for the time being we assume they are orthogonal
-            assert A[1] == 0 and A[2] == 0, "Cell vectors need to be orthogonal and in correct order"
-            assert B[0] == 0 and B[2] == 0, "Cell vectors need to be orthogonal and in correct order"
-            assert C[0] == 0 and C[1] == 0, "Cell vectors need to be orthogonal and in correct order"
-            self.A = numpy.array( A, dtype=numpy.float64 )
-            self.B = numpy.array( B, dtype=numpy.float64 )
-            self.C = numpy.array( C, dtype=numpy.float64 )
+            self.A = numpy.array( [A,0.0,0.0], dtype=numpy.float64 )
+            self.B = numpy.array( [0.0,B,0.0], dtype=numpy.float64 )
+            self.C = numpy.array( [0.0,0.0,C], dtype=numpy.float64 )
         else:
             return (A,B,C)
         
@@ -240,7 +236,7 @@ class Cell():
         iblock: index of the block in self.blocks
         
         Returns:
-        a list of tuples: (blockIndex,atomIndex) or None if there we no close contacts
+        a list of tuples: (thisAtomIndex, otherBlockIndex,otherAtomIndex) or None if there we no close contacts
         """
         
         contacts=[]
@@ -272,8 +268,8 @@ class Cell():
                     ocoord = oblock.coords[iocoord]
                     
                     if ( self.distance( ocoord,coord ) < self.boxSize() ):
-                        print "ATOMS {}-{}:({}) and {}-{}:({}) close".format( iblock,icoord,coord,ioblock,iocoord,ocoord )
-                        contacts.append( (ioblock,iocoord) )
+                        #print "ATOMS {}-{}:({}) and {}-{}:({}) close".format( iblock,icoord,coord,ioblock,iocoord,ocoord )
+                        contacts.append( (icoord, ioblock,iocoord) )
                         
         if len(contacts):
             return contacts
@@ -1143,7 +1139,7 @@ class Cell():
                 natoms += 1
         
         # Write out natoms and axes as title
-        xyz = "{}\nAxes:{}:{}:{}\n".format(natoms, self.A.tolist(), self.B.tolist(), self.C.tolist() ) + xyz
+        xyz = "{}\nAxes:{}:{}:{}\n".format(natoms, self.A[0], self.B[1], self.C[2] ) + xyz
         
         with open( ofile, 'w' ) as f:
             fpath = os.path.abspath(f.name)
@@ -1195,12 +1191,10 @@ class TestCell(unittest.TestCase):
     def XtestAlignBlocks(self):
         """Test we can align two blocks correctly"""
         
-        CELLA = [ 30,  0,  0 ]
-        CELLB = [ 0, 30,  0 ]
-        CELLC = [ 0,  0, 30 ]
+        CELLA = 30
+        CELLB = 30
+        CELLC = 30
         
-        #b1.symbols[1] = 'F'
-
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
@@ -1252,10 +1246,9 @@ class TestCell(unittest.TestCase):
         """
         
         nblocks = 4
-        CELLA = [ 30,  0,  0 ]
-        CELLB = [ 0, 30,  0 ]
-        CELLC = [ 0,  0, 30 ]
-        
+        CELLA = 30
+        CELLB = 30
+        CELLC = 30
         
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
@@ -1283,9 +1276,9 @@ class TestCell(unittest.TestCase):
     def XtestDistance(self):
         """Test the distance under periodic boundary conditions"""
         
-        CELLA = [ 10,  0,  0 ]
-        CELLB = [ 0, 10,  0 ]
-        CELLC = [ 0,  0, 10 ]
+        CELLA = 10
+        CELLB = 10
+        CELLC = 10
         
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
@@ -1306,11 +1299,10 @@ class TestCell(unittest.TestCase):
     def XtestGrowBlock(self):
         """Test we can add a block correctly"""
         
-        CELLA = [ 30,  0,  0 ]
-        CELLB = [ 0, 30,  0 ]
-        CELLC = [ 0,  0, 30 ]
+        CELLA = 30
+        CELLB = 30
+        CELLC = 30
         
-        #block = self.makeCh4()
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         #block = self.makePaf( cell )
@@ -1327,9 +1319,9 @@ class TestCell(unittest.TestCase):
         
         
         nblocks = 10
-        CELLA = [ 50,  0,  0 ]
-        CELLB = [ 0, 50,  0 ]
-        CELLC = [ 0,  0, 50 ]
+        CELLA = 50
+        CELLB = 50
+        CELLC = 50
         
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
@@ -1354,11 +1346,54 @@ class TestCell(unittest.TestCase):
         
         self.assertEqual( 0, len(bad), "Got {} blocks outside cell: {}".format( len(bad), bad ) )
         
-    def testCellLists(self):
         
-        CELLA = [ 10,  0,  0 ]
-        CELLB = [ 0, 10,  0 ]
-        CELLC = [ 0,  0, 10 ]
+        
+    def testCloseAtoms(self):
+        
+        CELLA = 30
+        CELLB = 30
+        CELLC = 30
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        #block1 = self.makePaf( cell )
+        block1 = self.makeCh4( cell )
+        print block1.radius()
+        
+        b1 = numpy.array([2,2,2], dtype=numpy.float64 )
+        block1.translateCentroid( b1 )
+        cell.addBlock(block1)
+        
+        block2=block1.copy()
+        b2 = numpy.array([3,3,3], dtype=numpy.float64 )
+        block2.translateCentroid( b2 )
+        cell.addBlock(block2)
+        
+        cell.initCellLists()
+        self.assertEqual(cell.closeAtoms(0), 
+                         [(0, 1, 0), (0, 1, 3), (1, 1, 0), (1, 1, 3), (1, 1, 1), (2, 1, 0), (2, 1, 3), (2, 1, 2), (3, 1, 3), (4, 1, 3), (4, 1, 4)],
+                          "Periodic boundary")
+        
+        
+        b2 = numpy.array([10,10,10], dtype=numpy.float64 )
+        block2.translateCentroid( b2 )
+        cell.initCellLists()
+        self.assertEqual(cell.closeAtoms(0), None, "Periodic boundary")
+        
+        
+        b2 = numpy.array([29,2,2], dtype=numpy.float64 )
+        block2.translateCentroid( b2 )
+        cell.initCellLists()
+        self.assertEqual(cell.closeAtoms(0), [(3, 1, 2), (4, 1, 2)], "Periodic boundary")
+        
+        
+        #cell.writeXyz("jens.xyz", label=False)
+        
+    def XtestCellLists(self):
+        
+        CELLA = 10
+        CELLB = 10
+        CELLC = 10
         
         cell = Cell( atomMargin=0.1)
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
