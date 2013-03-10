@@ -23,7 +23,7 @@ class Cell():
     '''
 
 
-    def __init__( self, bondMargin=0.2, blockMargin=2.0, atomMargin=0.1 ):
+    def __init__( self, bondMargin=0.2, blockMargin=2.0, atomMargin=0.1, bondAngle=180, bondAngleMargin=15 ):
         '''
         Constructor
         '''
@@ -37,27 +37,95 @@ class Cell():
         
         # additional distance to add on when checking whether 2 atoms are close enough to bond
         self.bondMargin = bondMargin
+        
         # additional distance to add on when checking if two blocks are close enough to require
         # checking their interactions
         self.blockMargin = blockMargin
+        
         # additional distance to add on when checking if two atoms are close enough to clash
         self.atomMargin = atomMargin
         
-        # list of boxes surrounding each box
-        self.box3=None
+        # The acceptable bond angle
+        self.bondAngle = bondAngle
+        
+        self.bondAngleMargin = bondAngleMargin
+        
         # Dict mapping box key to a list of tuples defining the atoms in that box
-        self.box1=None
+        self.box1={}
+        
+        # Dict mapping key to list of boxes surrounding the keyed box
+        self.box3={}
         
         #jmht - hack
         self.maxAtomR=None
         
         # first block is kept separate as everything is built up from it
         self.initBlock = None
-        self.blocks = []
+        
+        # dictionary mapping id of the block to the block - can't use a list and indices
+        # as we add and remove blocks and need to keep track of them
+        self.blocks = {}
     
     def addBlock( self, block ):
-        self.blocks.append( block )
+        """
+        Add the block and the calculate the boxes for all atoms.
         
+        Args:
+        block -- block to add
+        
+        Returns:
+        index of the new block in the list
+        """
+        
+        boxSize = self.boxSize()
+        
+        self.blocks[ id(block) ] = block
+        
+        # The index of the new block
+        iblock = id(block)
+        for icoord,coord in enumerate(block.coords):
+            a=int( math.floor( coord[0] / boxSize ) )
+            b=int( math.floor( coord[1] / boxSize ) ) 
+            c=int( math.floor( coord[2] / boxSize ) )
+            key = (a,b,c)
+            block.atomCell[icoord] = key
+            try:
+                self.box1[key].append( (iblock,icoord) )
+                #print "APPENDING KEY ",key,iblock,icoord
+            except KeyError:
+                #print "ADDING KEY ",key,iblock,icoord
+                # Add to main list
+                self.box1[key] = [(iblock,icoord)]
+                # Map surrounding boxes
+                self.box3[key] = self.surroundBoxes(key)
+                
+        return iblock
+                
+    def delBlock(self,blockId):
+        """
+        Remove the block with the given index from the cell
+        """
+        
+        block =  self.blocks[blockId]
+        
+        # Remove each atom from the list
+        keys = []
+        for iatom, key in enumerate( block.atomCell ):
+            #print "removing ",blockId,iatom,key
+            keys.append(key)
+            #print "B4 ",self.box1[key]
+            self.box1[key].remove( ( blockId, iatom ) )
+            #print "AFTER ",self.box1[key]
+            
+        # Now remove any empty keys and corresponding surrounding boxes
+        # Might think about keeping the surrounding boxes as they could be use by other atoms?
+        #print "now checking keys"
+        for key in keys:
+            if self.box1.has_key(key) and len( self.box1[key] ) == 0:
+                del self.box1[key]
+                del self.box3[key]
+        del self.blocks[blockId]
+        del block
         
     def alignBlocks(self, block1, block1EndGroupIndex, block2, block2EndGroupIndex):
         """
@@ -141,7 +209,7 @@ class Cell():
         ignore is a list of block indices to ignore
         """
         
-        for i,block in enumerate(self.blocks):
+        for i,block in self.blocks.iteritems():
             if i in ignore:
                 continue
             if block.clash( newblock, blockMargin=self.blockMargin, atomMargin=self.atomMargin ):
@@ -194,41 +262,41 @@ class Cell():
                     l.append((ai, bj, ck))
         return l
         
-    def initCellLists(self):
-        """
-        initialise the cell lists
-        
-        
-        Data structure
-        a cell (3 coordinates)
-        each cell has a list of the 26+ itself cells surrounding it - Box3
-        each cell contains a list of the atoms that are within the cell - Box1
-        """
-        
-        boxSize = self.boxSize()
-        
-        # Dict mapping box key to a list of tuples defining the atoms in that box
-        self.box1 = {}
-        
-        # Build up a list of which atoms are in each box
-        for i,block in enumerate(self.blocks):
-            for j,coord in enumerate(block.coords):
-                a=int( math.floor( coord[0] / boxSize ) )
-                b=int( math.floor( coord[1] / boxSize ) ) 
-                c=int( math.floor( coord[2] / boxSize ) )
-                key = (a,b,c)
-                block.atomCell[j] = key
-                try:
-                    self.box1[key].append( (i,j) )
-                    #print "Adding box1: {},{}".format(i,j)
-                except KeyError:
-                    self.box1[key] = [(i,j)]
-                    #print "Adding box1: {},{}".format(i,j)
-        
-        # Now for each Box1, map the surrounding boxes
-        self.box3 = {}
-        for key in self.box1.keys():
-            self.box3[key] = self.surroundBoxes(key)
+#    def initCellLists(self):
+#        """
+#        initialise the cell lists
+#        
+#        
+#        Data structure
+#        a cell (3 coordinates)
+#        each cell has a list of the 26+ itself cells surrounding it - Box3
+#        each cell contains a list of the atoms that are within the cell - Box1
+#        """
+#        
+#        boxSize = self.boxSize()
+#        
+#        # Dict mapping box key to a list of tuples defining the atoms in that box
+#        self.box1 = {}
+#        
+#        # Build up a list of which atoms are in each box
+#        for iblock,block in enumerate(self.blocks):
+#            for icoord,coord in enumerate(block.coords):
+#                a=int( math.floor( coord[0] / boxSize ) )
+#                b=int( math.floor( coord[1] / boxSize ) ) 
+#                c=int( math.floor( coord[2] / boxSize ) )
+#                key = (a,b,c)
+#                block.atomCell[icoord] = key
+#                try:
+#                    self.box1[key].append( (iblock,icoord) )
+#                    #print "Adding box1: {},{}".format(iblock,icoord)
+#                except KeyError:
+#                    self.box1[key] = [ (iblock,icoord) ]
+#                    #print "Adding box1: {},{}".format(i,j)
+#        
+#        # Now for each Box1, map the surrounding boxes
+#        self.box3 = {}
+#        for key in self.box1.keys():
+#            self.box3[key] = self.surroundBoxes(key)
         
     def closeAtoms(self, iblock):
         """
@@ -238,7 +306,7 @@ class Cell():
         iblock: index of the block in self.blocks
         
         Returns:
-        a list of tuples: (thisAtomIndex, otherBlockIndex,otherAtomIndex) or None if there we no close contacts
+        a list of tuples: (thisAtomIndex, otherBlockIndex, otherAtomIndex) or None if there we no close contacts
         """
         
         contacts=[]
@@ -376,7 +444,7 @@ class Cell():
                 self.writeXyz( filename )
             
             # Get two blocks to sample round
-            iblock, jblock = self.randomBlocks()
+            iblock, jblock = self.randomBlockId(count=2)
             block = self.blocks[iblock]
             oblock = self.blocks[jblock]
             print "Sampling block {} about {}".format(iblock,jblock)
@@ -482,7 +550,7 @@ class Cell():
         centroid = oblock.centroid()
         closeBlocks = []
         # This should implicitly include oblock
-        for i,b in enumerate( self.blocks ):
+        for i,b in self.block.iteritems():
             # See if we are close enough
             dist = numpy.linalg.norm( centroid - b.centroid() )
             if dist < margin + b.radius():
@@ -494,9 +562,14 @@ class Cell():
         """ Read in an xyz file containing a cell and recreate the cell object"""
         
         blocks = self._readXyz(xyzFile)
+        # Need to initialise cell from first block
+        initBlock = False
         for labels,coords in blocks:
             block = buildingBlock.BuildingBlock( self.distance )
             block.createFromLabelAndCoords( labels, coords )
+            if not initBlock:
+                self.setInitBlock(block.copy())
+                initBlock=True
             self.addBlock(block)
         
     def _readXyz(self, xyzFile ):
@@ -572,8 +645,8 @@ class Cell():
         """
 
         # Select 2 random blocks
-        block1index = self.randomBlockIndex()
-        block1 = self.blocks[ block1index ]
+        block1id = self.randomBlockId()
+        block1 = self.blocks[ block1id ]
         
         # pick random endgroup and contact in target
         block1EndGroupIndex = block1.randomEndGroupIndex()
@@ -629,7 +702,7 @@ class Cell():
         
         
         # Check it doesn't clash - could try rotating about the dihedral
-        if not self.checkClash( block2, ignore=[block1index] ):
+        if not self.checkClash( block2, ignore=[block1id] ):
             # Bond the two blocks
             block1.bond(  block2, (block1EndGroupIndex,block2EndGroupIndex) )
             return True
@@ -662,12 +735,17 @@ class Cell():
                     # Its in!
                     break
 
-        # Calc max atom radius
-        self.maxAtomR=ib.maxAtomRadius()
-        self.initBlock = ib
-        
+        self.setInitBlock(ib)
+        print "initCell - block radius: ",ib.radius()
         return
-    ##End initCell
+    
+    def setInitBlock(self,block):
+        """
+        Set the init block
+        """
+        self.maxAtomR=block.maxAtomRadius()
+        self.initBlock = block
+        return
         
         
     def XXgrowBlock(self):
@@ -831,25 +909,17 @@ class Cell():
         # for block in blocks:
         
         
-
-            
-
-    def randomBlockIndex(self):
-        """Return the index of one of the blocks"""
-        return random.randint( 0, len(self.blocks)-1 )
-    
-    def randomBlocks(self):
-        """Return two random block indices"""
-        
-        # Pick a block to move
-        iblock = self.randomBlockIndex()
-        
-        # Find a different one to sample around
-        jblock = iblock
-        while jblock == iblock:
-            jblock = self.randomBlockIndex()
-        
-        return (iblock, jblock)
+    def randomBlockId(self,count=1):
+        """Return count random block ids"""
+        if count == 1:
+            return random.choice( list( self.blocks.keys() ) )
+        else:
+            ids = []
+            while len(ids) < count:
+                id = random.choice( list( self.blocks.keys() ) )
+                if id not in ids:
+                    ids.append(id)
+            return ids
 
         
     
@@ -958,9 +1028,9 @@ class Cell():
             # Create new block
             newblock = self.initBlock.copy()
             tries = 0
-            clash = True
-            print "Adding block: {}".format(seedCount)
-            while clash:
+            ok = False
+            print "Adding block: {}".format(seedCount+1)
+            while not ok:
                 # quit on maxTries
                 if tries >= MAXTRIES:
                     print "EXCEEDED MAXTRIES WHEN SEEDING"
@@ -970,72 +1040,126 @@ class Cell():
                 self.randomMove(newblock)
                 #print "RANDOM TO MOVE TO: {}".format( newblock.centroid() )
                 
+                #Add the block so we can check for clashes/bonds
+                iblock = self.addBlock(newblock)
+                
                 # Test for Clashes with other molecules
-                clash = self.checkClash( newblock )
+                ok = self.newCheckMove( iblock )
                 
                 # Break out if no clashes
-                if not clash:
+                if ok:
                     break
                 
                 # increment tries counter
                 tries += 1
             
-            # End Seeding loop
-            if not clash:
-                #print "ADDED BLOCK AT POS: {}".format( newblock.centroid() )
-                self.addBlock(newblock)
-                #newblock.index(index=seedCount)
-            else:
-                print "ERROR ADDING BLOCK"
-                sys.exit(1)
-    
+            # End Clash loop
         # End of loop to seed cell
-    
     # End seed
+    
+    def newCheckMove(self,iblock):
+        """
+        See what happened with this move
+        """
+        # Get a list of the close atoms
+        close = self.closeAtoms(iblock)
+        
+        if not close:
+            # Nothing to see so move along
+            return True
+        
+        # Get the block
+        block = self.blocks[iblock]
+        
+        bonds = [] # list of possible bond atoms
+        for ( iatom, ioblock, ioatom ) in close:
+            symbol = block.symbols[iatom]
+            radius = block.atom_radii[iatom]
+            oblock = self.blocks[ioblock]
+            coord = block.coords[iatom]
+            ocoord = oblock.coords[ioatom]
+            # First see if both atoms are endGroups
+            if iatom in block.endGroups and ioatom in oblock.endGroups:
+                # Checking for a bond
+                # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
+                osymbol = oblock.symbols[ioatom]
+                
+                # This uses -the 'optimised' bond lenght check - probably uneeded
+                bond_length = block.bondLength( symbol, osymbol )
+                
+                # THINK ABOUT BETTER SHORT BOND LENGTH CHECK
+                if  bond_length - self.bondMargin < self.distance( coord, ocoord ) < bond_length + self.bondMargin:
+                    
+                    print "possible bond for ",iatom,ioblock,ioatom
+                    # Possible bond so check the angle
+                    icontact = block.endGroupContactIndex( iatom )
+                    contact = block.coords[icontact]
+                    angle = block.angle( contact, coord, ocoord )
+                    
+                    print "Got bond angle D: {}".format(angle)
+                    
+                    if ( self.bondAngle-self.bondAngleMargin < angle < self.bondAngle+self.bondAngleMargin ):
+                        bonds.append( iatom, ioblock, ioatom )
+                    else:
+                        print "Cannot bond due to angle"
+                        
+            #Finished here so check the next ones
+            continue
+           
+            # No bond so just check if the two atoms are close enough for a clash
+            oradius = oblock.atom_radii[ioatom]
+            if self.distance( coord, ocoord ) < radius+oradius+self.atomMargin:
+                #print "ATOMS CLASH ",iatom,ioblock,ioatom
+                return False
+    
+        # Here no atoms clash and we have a list of possible bonds - so bond'em!
+        if len(bonds):
+            for iatom, ioblock, ioatom in bonds:
+                oblock = self.blocks[ioblock]
+                block.bond( oblock, (iatom, ioatom) )
+                # Remove the block from the list as it is now part of the other one
+                self.delBlock(oblock)
+            print "ADDED {} bonds".format(len(bonds))
+        
+        # Either got bonds or no clashes
+        return True
 
         
-    def shimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
+    def shimmy(self, nsteps=100, nmoves=50):
         """ Shuffle the molecules about making bonds where necessary for nsteps
         minimoves is number of sub-moves to attempt when the blocks are close
         """
         
-        # For time being ensure we are given a bond angle
-        assert bondAngle
-
         for step in range( nsteps ):
             
             if not step % 20:
                 print "step {}".format(step)
                 
-            iblock = self.randomBlockIndex()
+            iblock = self.randomBlockId()
             block = self.blocks[iblock]
             
             # Copy the original coordinates so we can reject the move
             # we copy the whole block so we don't need to recalculate
             # anything - not sure if this quicker then saving the coords & updating tho
             orig_block = copy.deepcopy( block )
+            
+            # Remove the block from the cell so we don't check against itself
+            self.delBlock(iblock)
              
             # Make a random move
             self.randomMove( block )
             
-            # Loop over all blocks to see if we can bond or if we clash
-            bonds = self.checkMove( iblock, closeMargin=self.closeMargin, bondAngle=bondAngle )
+            #Add the block so we can check for clashes/bonds
+            new_iblock = self.addBlock(block)
             
-            # See what happend
-            if bonds:
-                if bonds == "clash":
-                    # Reject this move and overwrite the changed block with the original one
-                    self.blocks[iblock] = orig_block
-                elif len( bonds ):
-                    # Got some bonds so deal with them
-                    # Need to decrement index if we are removing blocks
-                    bcount=0
-                    for b,bond in bonds:
-                        block.bond( self.blocks[b-bcount], bond )
-                        # Remove the block from the list as it is now part of the other one
-                        self.blocks.pop(b-bcount)
-                        bcount+=1
-            #End step loop
+            # Test for Clashes with other molecules
+            ok = self.newCheckMove( new_iblock )
+            
+            # Break out if no clashes
+            if not ok:
+                # Put it back where we got it from
+                self.delBlock(new_iblock)
+                self.addBlock(orig_block)
             
         #End shimmy
             
@@ -1057,7 +1181,7 @@ class Cell():
             if not step % 20:
                 print "step {}".format(step)
                 
-            iblock = self.randomBlockIndex()
+            iblock = self.randomBlockId()
             
             block = self.blocks[iblock]
             
@@ -1134,7 +1258,7 @@ class Cell():
         
         natoms=0
         xyz = ""
-        for i,block in enumerate(self.blocks):
+        for i,block in self.blocks.iteritems():
             for j, c in enumerate( block.coords ):
                 if label:
                     xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format(block.labels[j], i), c[0], c[1], c[2] )
@@ -1155,7 +1279,7 @@ class Cell():
         """
         """
         s = ""
-        for block in self.blocks:
+        for block in self.blocks.values():
             s+= str(block)
             
         return s

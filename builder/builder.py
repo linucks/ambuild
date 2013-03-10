@@ -25,43 +25,35 @@ import util
 # 18/0
 
 
-INFILE = "/Users/abbietrewin/Dropbox/Amorphousbuilder/pyrene_typed.car" 
-#INFILE = "/Users/jmht/Dropbox/Amorphousbuilder/pyrene_typed.car" 
-#INFILE = "/Users/jmht/1.xyz" 
-#INFILE = "/Users/abbietrewin/Dropbox/Amorphousbuilder/builder/ch4.xyz"
-#OUTFILE1 = "/Users/abbietrewin/Dropbox/Amorphousbuilder/abbie_output/cell_1.xyz"
-OUTFILE = "/Users/abbietrewin/AMBI/cell_1.xyz"
-#OUTFILE2 = "/Users/abbietrewin/Dropbox/Amorphousbuilder/abbie_output/cell_2.xyz"
-#OUTFILE2 = "/Users/jmht/cell_2.xyz"
-nblocks = 400 
-CELLA = [ 100,  0,  0 ]
-CELLB = [ 0, 100,  0 ]
-CELLC = [ 0,  0, 100 ]
+INFILE = "../ch4_typed.car" 
+INFILE = "../PAF_bb_typed.car" 
+OUTFILE1 = "../afterSeed.xyz"
+OUTFILE2 = "../afterShimmy.xyz"
+nblocks = 11
+CELLA = 100
+CELLB = 100
+CELLC = 100
 
-STEPS = 50
-NMOVES=100
-
-BONDANGLE=180
+STEPS = 5
+MOVES=10
 
 # Create Cell and seed it with the blocks
-new_cell = cell.Cell( CELLA, CELLB, CELLC )
+mycell = cell.Cell( bondMargin=0.2, blockMargin=2.0, atomMargin=0.5, bondAngle=180, bondAngleMargin=15 )
+mycell.cellAxis( CELLA, CELLB, CELLC )
 
-# Create building block and read in car file
-firstBlock = buildingBlock.BuildingBlock( infile = INFILE )
+mycell.seed( nblocks, INFILE )
+mycell.writeXyz( OUTFILE1 )
+#mycell.shimmy(nsteps=STEPS,nmoves=MOVES)
+#mycell.writeXyz( OUTFILE2 )
 
-new_cell.seed (nblocks, firstBlock )
-new_cell.write( OUTFILE )
-
-# Loop through as many shimmy stages as required
-while True:
-    OUTFILE=util.newFilename(OUTFILE)
-    #cell.shimmy( nsteps=STEPS, nmoves=NMOVES, bondAngle=BONDANGLE  )
-    new_cell.directedShimmy( nsteps=STEPS, nmoves=NMOVES, bondAngle=BONDANGLE )
-    new_cell.write( OUTFILE )
-    response = raw_input('Do we have to do this _again_? (y/n)')
-    if response.lower() == 'n':
-        break
+## Loop through as many shimmy stages as required
+#while True:
+#    OUTFILE=util.newFilename(OUTFILE)
+#    #cell.shimmy( nsteps=STEPS, nmoves=NMOVES, bondAngle=BONDANGLE  )
+#    new_cell.directedShimmy( nsteps=STEPS, nmoves=NMOVES, bondAngle=BONDANGLE )
+#    new_cell.write( OUTFILE )
+#    response = raw_input('Do we have to do this _again_? (y/n)')
+#    if response.lower() == 'n':
+#        break
     
-            
-#if __name__ == '__main__':
-#    pass
+

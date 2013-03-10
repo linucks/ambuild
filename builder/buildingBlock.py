@@ -240,7 +240,8 @@ class BuildingBlock():
         self._radius = dist + atomR
         
     def canBond( self, block, bondMargin=None, bondAngle=None ):
-        """See if we can form a bond with the given block.
+        """
+        See if we can form a bond with the given block.
         Return the indicies of the two atoms (self and then other)
         or False if the molecules cannot bond but do not clash
         If the blocks clash (are close but cannot bond) we return
@@ -250,7 +251,6 @@ class BuildingBlock():
         
         assert bondAngle
         
-
         # Might be able to bond so loop through all atoms and check
         # We only accept the case where just one pair of atoms is close enough to bond
         # more than one is considered a failure
