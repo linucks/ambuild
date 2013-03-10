@@ -23,14 +23,13 @@ class Cell():
     '''
 
 
-    def __init__( self, bondMargin=0.2, blockMargin=2.0, atomMargin=1.0 ):
+    def __init__( self, bondMargin=0.2, blockMargin=2.0, atomMargin=0.1 ):
         '''
         Constructor
         '''
         
         
-        #jmht - hack
-        self.maxAtomR=0.5
+       
         # A, B and C are cell vectors - for the time being we assume they are orthogonal
         self.A = None
         self.B = None
@@ -48,6 +47,9 @@ class Cell():
         self.box3=None
         # Dict mapping box key to a list of tuples defining the atoms in that box
         self.box1=None
+        
+        #jmht - hack
+        self.maxAtomR=None
         
         # first block is kept separate as everything is built up from it
         self.initBlock = None
@@ -635,31 +637,33 @@ class Cell():
         return False
         
     
-    def initCell(self,inputFile):
+    def initCell(self,inputFile, incell=True):
         """
-        Read in the first block from the input file, coord it so it is in the cell
-        and then save it
+        Read in the first block from the input file and save it
         """
         
         ib = buildingBlock.BuildingBlock( self.distance )
         ib.fromCarFile( inputFile )
         
-        # Make sure it is positioned in the cell - if not keep moving it about randomly till
-        # it fits
-        while True:
-            #print "moving initblock"
-            #print "{} | {} | {} | {}".format( ib.centroid()[0], ib.centroid()[1], ib.centroid()[2], ib.radius()  )
-            if ib.centroid()[0] - ib.radius() < 0 or \
-               ib.centroid()[0] + ib.radius() > self.A[0] or \
-               ib.centroid()[1] - ib.radius() < 0 or \
-               ib.centroid()[1] + ib.radius() > self.B[1] or \
-               ib.centroid()[2] - ib.radius() < 0 or \
-               ib.centroid()[2] + ib.radius() > self.C[2]:
-                self.randomMove(ib, buffer=ib.radius())
-            else:
-                # Its in!
-                break
+        if incell:
+            # Make sure it is positioned in the cell - if not keep moving it about randomly till
+            # it fits
+            while True:
+                #print "moving initblock"
+                #print "{} | {} | {} | {}".format( ib.centroid()[0], ib.centroid()[1], ib.centroid()[2], ib.radius()  )
+                if ib.centroid()[0] - ib.radius() < 0 or \
+                   ib.centroid()[0] + ib.radius() > self.A[0] or \
+                   ib.centroid()[1] - ib.radius() < 0 or \
+                   ib.centroid()[1] + ib.radius() > self.B[1] or \
+                   ib.centroid()[2] - ib.radius() < 0 or \
+                   ib.centroid()[2] + ib.radius() > self.C[2]:
+                    self.randomMove(ib, buffer=ib.radius())
+                else:
+                    # Its in!
+                    break
 
+        # Calc max atom radius
+        self.maxAtomR=ib.maxAtomRadius()
         self.initBlock = ib
         
         return
@@ -1188,7 +1192,7 @@ class TestCell(unittest.TestCase):
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
         
-    def XtestAlignBlocks(self):
+    def testAlignBlocks(self):
         """Test we can align two blocks correctly"""
         
         CELLA = 30
@@ -1241,7 +1245,7 @@ class TestCell(unittest.TestCase):
         self.assertTrue( numpy.allclose( block1Contact, block2Contact, rtol=1e-7, atol=1e-7 ),
                          msg="Contact atom incorrectly positioned")
 
-    def XtestCellIO(self):
+    def testCellIO(self):
         """Check we can write out and then read in a cell
         """
         
@@ -1253,7 +1257,6 @@ class TestCell(unittest.TestCase):
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
-        #paf = self.makePaf( cell )
         cell.seed( nblocks, "../PAF_bb_typed.car" )
         
         # Remember a coordinate for checking
@@ -1273,7 +1276,7 @@ class TestCell(unittest.TestCase):
                          msg="Incorrect testCoordinate of cell.")
         
         
-    def XtestDistance(self):
+    def testDistance(self):
         """Test the distance under periodic boundary conditions"""
         
         CELLA = 10
@@ -1296,7 +1299,7 @@ class TestCell(unittest.TestCase):
         self.assertEqual( dc, 2.0, "Distance within cell:{} | {}".format(dc,dn) )
         
     
-    def XtestGrowBlock(self):
+    def testGrowBlock(self):
         """Test we can add a block correctly"""
         
         CELLA = 30
@@ -1314,7 +1317,7 @@ class TestCell(unittest.TestCase):
             
         cell.writeXyz("JENS.xyz", label=False)
         
-    def XtestSeed(self):
+    def testSeed(self):
         """Test we can seed correctly"""
         
         
@@ -1357,34 +1360,35 @@ class TestCell(unittest.TestCase):
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         #block1 = self.makePaf( cell )
-        block1 = self.makeCh4( cell )
-        print block1.radius()
+        cell.initCell("../ch4_typed.car",incell=False)
+        block1 = cell.initBlock.copy()
         
         b1 = numpy.array([2,2,2], dtype=numpy.float64 )
         block1.translateCentroid( b1 )
         cell.addBlock(block1)
         
-        block2=block1.copy()
+        block2=cell.initBlock.copy()
         b2 = numpy.array([3,3,3], dtype=numpy.float64 )
         block2.translateCentroid( b2 )
         cell.addBlock(block2)
         
         cell.initCellLists()
-        self.assertEqual(cell.closeAtoms(0), 
-                         [(0, 1, 0), (0, 1, 3), (1, 1, 0), (1, 1, 3), (1, 1, 1), (2, 1, 0), (2, 1, 3), (2, 1, 2), (3, 1, 3), (4, 1, 3), (4, 1, 4)],
-                          "Periodic boundary")
+        self.assertEqual(cell.closeAtoms(0),
+                         [(0, 1, 3), (0, 1, 4), (0, 1, 2), (0, 1, 0), (0, 1, 1), (1, 1, 3), (1, 1, 4),
+                          (1, 1, 0), (1, 1, 1), (1, 1, 2), (2, 1, 2), (2, 1, 0), (2, 1, 1), (2, 1, 3),
+                          (2, 1, 4), (3, 1, 3), (4, 1, 4), (4, 1, 3), (4, 1, 2), (4, 1, 0)]
+                         ,"Many contacts")
         
         
         b2 = numpy.array([10,10,10], dtype=numpy.float64 )
         block2.translateCentroid( b2 )
         cell.initCellLists()
-        self.assertEqual(cell.closeAtoms(0), None, "Periodic boundary")
-        
+        self.assertEqual(cell.closeAtoms(0), None, "No contacts")
         
         b2 = numpy.array([29,2,2], dtype=numpy.float64 )
         block2.translateCentroid( b2 )
         cell.initCellLists()
-        self.assertEqual(cell.closeAtoms(0), [(3, 1, 2), (4, 1, 2)], "Periodic boundary")
+        self.assertEqual(cell.closeAtoms(0), [(0, 1, 2), (1, 1, 2), (3, 1, 0), (3, 1, 2), (4, 1, 0), (4, 1, 2)], "Periodic boundary")
         
         
         #cell.writeXyz("jens.xyz", label=False)

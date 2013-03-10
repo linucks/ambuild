@@ -185,7 +185,7 @@ class BuildingBlock():
                 else:
                     raise RuntimeError,"Got a duff label! - {}".format(label)
         
-        #Now matach up the endgroups with their contact atoms
+        #Now match up the endgroups with their contact atoms
         for trueIndex, mapIndex in eGindex2label.iteritems():
             if trueIndex not in endGroups:
                 raise RuntimeError,"Got a bad index for an endgroup!"
@@ -614,7 +614,16 @@ class BuildingBlock():
         newPosition = targetEndGroup + diff
         
         return newPosition
+    
+    def maxAtomRadius(self):
+        """Return the maxium atom radius
+        """
         
+        rmax=0
+        for r in self.atom_radii:
+            if r>rmax:
+                rmax=r
+        return rmax
     
     def randomEndGroupIndex(self):
         """Return a randomly picked endgroup"""
