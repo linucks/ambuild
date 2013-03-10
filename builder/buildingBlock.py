@@ -55,8 +55,8 @@ class BuildingBlock():
         # orderd array of atom radii
         self.atom_radii = []
         
-        # The index of this block in the cell
-        self.index = None
+        # List of the cell (3-tuple) to which each atom belongs
+        self.atomCell = []
         
         # Dict of dicts mapping atom types to their bond lengths for this block
         # used so we only check the types of atoms for this type of block
@@ -137,6 +137,9 @@ class BuildingBlock():
         self.labels = labels
         self.endGroups = endGroups
         self._endGroupContacts = endGroupContacts
+        
+        # Fill atomCell list
+        self.atomCell = [None]*len(self.coords)
         
         self.fillData()
         
