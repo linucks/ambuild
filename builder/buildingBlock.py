@@ -31,16 +31,13 @@ class BuildingBlock():
     classdocs
     '''
 
-    def __init__( self, distance, infile=None ):
+    def __init__( self, infile=None ):
         '''
         Constructor
         Distance is the cells distance function used to calculate the distance between two vectors
         - passed in through constructor as we may be under periodic bounduary conditions.
         '''
         
-        self.distance = distance
-        
-        # An python array of numpy.array
         self.coords = []
         
         # ordered array of labels
@@ -230,7 +227,7 @@ class BuildingBlock():
         distances = []
         for coord in self.coords:
             #distances.append( numpy.linalg.norm(coord-cog) )
-            distances.append( self.distance(cog, coord) )
+            distances.append( util.distance(cog, coord) )
             
         imax = numpy.argmax( distances )
         dist = distances[ imax ]
@@ -239,7 +236,7 @@ class BuildingBlock():
         # Set radius
         self._radius = dist + atomR
         
-    def canBond( self, block, bondMargin=None, bondAngle=None ):
+    def XcanBond( self, block, bondMargin=None, bondAngle=None ):
         """
         See if we can form a bond with the given block.
         Return the indicies of the two atoms (self and then other)
@@ -318,7 +315,7 @@ class BuildingBlock():
         
         return self._centerOfMass
     
-    def clash( self, block, blockMargin=2.0, atomMargin=1.0 ):
+    def Xclash( self, block, blockMargin=2.0, atomMargin=1.0 ):
         """ See if this molecule clashes (overlaps) with the given one
         by checking the atomic radii 
         """
@@ -340,7 +337,7 @@ class BuildingBlock():
                 
         return False
     
-    def close( self, block, blockMargin=2.0 ):
+    def Xclose( self, block, blockMargin=2.0 ):
         """Return true of false depending on whether two blocks are close enough to bond/clash.
         Works from the overall radii of the two blocks
         Margin is allowed gap between their respective radii
@@ -353,7 +350,11 @@ class BuildingBlock():
             return False
     
     def copy( self ):
-        """Create a copy of ourselves and return it"""
+        """
+        Create a copy of ourselves and return it.
+        OLD - Tried using deepcopy, but this took forever - I think this is because the distance functions'
+        reference to the cell is causing the cell to be copied as well.
+        """
         return copy.deepcopy(self)
 
     def fillData(self):
@@ -501,6 +502,7 @@ class BuildingBlock():
         """Return the angle in radians c1---c2---c3
         where c are the coordinates in a numpy array
         Taken from the CCP1GUI
+        jmht - think about PBC
         """
         #p1 = a1.coord
         #p2 = a2.coord
@@ -513,9 +515,9 @@ class BuildingBlock():
         #r1 = numpy.linalg.norm( c1 - c2 )
         #r2 = numpy.linalg.norm( c2 - c3 )
         #r3 = numpy.linalg.norm( c1 - c3 )
-        r1 = self.distance( c2, c1 )
-        r2 = self.distance( c3, c2 )
-        r3 = self.distance( c3, c1 )
+        r1 = util.distance( c2, c1 )
+        r2 = util.distance( c3, c2 )
+        r3 = util.distance( c3, c1 )
         
         small = 1.0e-10
         #cnv   = 57.29577951
@@ -744,14 +746,14 @@ class TestBuildingBlock(unittest.TestCase):
 #        ch4 = BuildingBlock()
 #        ch4.createFromArgs( coords, labels, endGroups, endGroupContacts )
 
-        ch4 = BuildingBlock( distance = util.distance )
+        ch4 = BuildingBlock()
         ch4.fromXyzFile("../ch4.xyz")
         return ch4
     
     def makePaf(self):
         """Return the PAF molecule for testing"""
         
-        paf = BuildingBlock( distance = util.distance )
+        paf = BuildingBlock()
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
     
@@ -819,7 +821,7 @@ class TestBuildingBlock(unittest.TestCase):
 #        print m
 #        print m.centerOfMass()
 
-    def testClash(self):
+    def XtestClash(self):
         """
         Test we can spot a clash
         """
@@ -834,7 +836,7 @@ class TestBuildingBlock(unittest.TestCase):
         block.translateCentroid( [0,0,radius*2+2.0] )
         self.assertFalse( paf.clash( block ) )
     
-    def testClose(self):
+    def XtestClose(self):
         """Test we can check if molecules are close"""
         
         paf = self.makePaf()
