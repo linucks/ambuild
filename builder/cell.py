@@ -1029,7 +1029,6 @@ class Cell():
             newblock = self.initBlock.copy()
             tries = 0
             ok = False
-            print "Adding block: {}".format(seedCount+1)
             while not ok:
                 # quit on maxTries
                 if tries >= MAXTRIES:
@@ -1046,8 +1045,9 @@ class Cell():
                 # Test for Clashes with other molecules
                 ok = self.newCheckMove( iblock )
                 
-                # Break out if no clashes
+                # Break out of try loop if no clashes
                 if ok:
+                    print "Added block {0} after {1} tries.".format( seedCount+1, tries )
                     break
                 
                 # increment tries counter
@@ -1060,6 +1060,8 @@ class Cell():
     def newCheckMove(self,iblock):
         """
         See what happened with this move
+        
+        Return True if the move should be accepted False if not
         """
         # Get a list of the close atoms
         close = self.closeAtoms(iblock)
@@ -1068,16 +1070,21 @@ class Cell():
             # Nothing to see so move along
             return True
         
+        # convert bondAngle to angstroms
+        bondAngleMargin = self.bondAngleMargin / util.RADIANS2DEGREES
+        
         # Get the block
         block = self.blocks[iblock]
         
         bonds = [] # list of possible bond atoms
         for ( iatom, ioblock, ioatom ) in close:
+            
             symbol = block.symbols[iatom]
             radius = block.atom_radii[iatom]
             oblock = self.blocks[ioblock]
             coord = block.coords[iatom]
             ocoord = oblock.coords[ioatom]
+            
             # First see if both atoms are endGroups
             if iatom in block.endGroups and ioatom in oblock.endGroups:
                 # Checking for a bond
@@ -1095,16 +1102,16 @@ class Cell():
                     icontact = block.endGroupContactIndex( iatom )
                     contact = block.coords[icontact]
                     angle = block.angle( contact, coord, ocoord )
+                    print "Got bond angle D: {}".format( angle  / util.RADIANS2DEGREES )
                     
-                    print "Got bond angle D: {}".format(angle)
-                    
-                    if ( self.bondAngle-self.bondAngleMargin < angle < self.bondAngle+self.bondAngleMargin ):
+                    if ( self.bondAngle-bondAngleMargin < angle < self.bondAngle+bondAngleMargin ):
                         bonds.append( iatom, ioblock, ioatom )
                     else:
                         print "Cannot bond due to angle"
+                        return False
                         
-            #Finished here so check the next ones
-            continue
+                # Finished checking for bonds so move onto the next atoms
+                continue
            
             # No bond so just check if the two atoms are close enough for a clash
             oradius = oblock.atom_radii[ioatom]

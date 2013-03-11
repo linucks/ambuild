@@ -16,12 +16,12 @@ INFILE = "../ch4_typed.car"
 INFILE = "../PAF_bb_typed.car" 
 OUTFILE1 = "../afterSeed.xyz"
 OUTFILE2 = "../afterShimmy.xyz"
-nblocks = 50
-CELLA = 100
-CELLB = 100
-CELLC = 100
+nblocks = 60
+CELLA = 50
+CELLB = 50
+CELLC = 50
 
-STEPS = 1000
+STEPS = 10000
 MOVES=100
 
 # Create Cell and seed it with the blocks
