@@ -66,23 +66,26 @@ class Cell():
         # as we add and remove blocks and need to keep track of them
         self.blocks = {}
     
-    def addBlock( self, block ):
+    def addBlock( self, block):
         """
         Add the block and the calculate the boxes for all atoms.
         
         Args:
         block -- block to add
+        blockid -- the id to use for the block - otherwise we use the python id
         
         Returns:
         index of the new block in the list
         """
         
+        # The index of the new block
+        blockid = id(block)
+        
+        # Add to the dict
+        self.blocks[ blockid ] = block
+        
         boxSize = self.boxSize()
         
-        self.blocks[ id(block) ] = block
-        
-        # The index of the new block
-        iblock = id(block)
         for icoord,coord in enumerate(block.coords):
             a=int( math.floor( coord[0] / boxSize ) )
             b=int( math.floor( coord[1] / boxSize ) ) 
@@ -90,16 +93,16 @@ class Cell():
             key = (a,b,c)
             block.atomCell[icoord] = key
             try:
-                self.box1[key].append( (iblock,icoord) )
+                self.box1[key].append( (blockid,icoord) )
                 #print "APPENDING KEY ",key,iblock,icoord
             except KeyError:
                 #print "ADDING KEY ",key,iblock,icoord
                 # Add to main list
-                self.box1[key] = [(iblock,icoord)]
+                self.box1[key] = [(blockid,icoord)]
                 # Map surrounding boxes
                 self.box3[key] = self.surroundBoxes(key)
                 
-        return iblock
+        return blockid
                 
     def delBlock(self,blockId):
         """
@@ -127,6 +130,8 @@ class Cell():
         del self.blocks[blockId]
         del block
         
+        return 
+    
     def alignBlocks(self, block1, block1EndGroupIndex, block2, block2EndGroupIndex):
         """
         Align block2, so that the bond defined by the endGroup on block 2 is aligned with
@@ -916,9 +921,9 @@ class Cell():
         else:
             ids = []
             while len(ids) < count:
-                id = random.choice( list( self.blocks.keys() ) )
-                if id not in ids:
-                    ids.append(id)
+                myid = random.choice( list( self.blocks.keys() ) )
+                if myid not in ids:
+                    ids.append(myid)
             return ids
 
         
@@ -1050,6 +1055,9 @@ class Cell():
                     print "Added block {0} after {1} tries.".format( seedCount+1, tries )
                     break
                 
+                # Unsuccessful so remove the block from cell
+                self.delBlock(iblock)
+                
                 # increment tries counter
                 tries += 1
             
@@ -1094,6 +1102,8 @@ class Cell():
                 # This uses -the 'optimised' bond lenght check - probably uneeded
                 bond_length = block.bondLength( symbol, osymbol )
                 
+                print "CHECKING BOND ATOMS ",bond_length,self.distance( coord, ocoord )
+                
                 # THINK ABOUT BETTER SHORT BOND LENGTH CHECK
                 if  bond_length - self.bondMargin < self.distance( coord, ocoord ) < bond_length + self.bondMargin:
                     
@@ -1132,7 +1142,7 @@ class Cell():
         return True
 
         
-    def shimmy(self, nsteps=100, nmoves=50):
+    def shimmy(self, nsteps=100):
         """ Shuffle the molecules about making bonds where necessary for nsteps
         minimoves is number of sub-moves to attempt when the blocks are close
         """
