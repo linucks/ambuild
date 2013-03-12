@@ -1492,7 +1492,7 @@ class TestCell(unittest.TestCase):
         
         
         
-    def XtestCloseAtoms(self):
+    def testCloseAtoms(self):
         
         CELLA = 30
         CELLB = 30
@@ -1506,31 +1506,46 @@ class TestCell(unittest.TestCase):
         
         b1 = numpy.array([2,2,2], dtype=numpy.float64 )
         block1.translateCentroid( b1 )
-        cell.addBlock(block1)
+        block1_id = cell.addBlock(block1)
         
         block2=cell.initBlock.copy()
         b2 = numpy.array([3,3,3], dtype=numpy.float64 )
         block2.translateCentroid( b2 )
-        cell.addBlock(block2)
+        block2_id = cell.addBlock(block2)
         
-        cell.initCellLists()
-        self.assertEqual(cell.closeAtoms(0),
-                         [(0, 1, 3), (0, 1, 4), (0, 1, 2), (0, 1, 0), (0, 1, 1), (1, 1, 3), (1, 1, 4),
-                          (1, 1, 0), (1, 1, 1), (1, 1, 2), (2, 1, 2), (2, 1, 0), (2, 1, 1), (2, 1, 3),
-                          (2, 1, 4), (3, 1, 3), (4, 1, 4), (4, 1, 3), (4, 1, 2), (4, 1, 0)]
+        closeList =  cell.closeAtoms(block1_id)
+        closePairs = []
+        for iatom, ioblock, ioatom in closeList:
+            closePairs.append( (iatom,ioatom) )
+        
+        self.assertEqual(closePairs,
+                         [(0, 3), (0, 4), (0, 2), (0, 0), (0, 1), (1, 3), (1, 4), (1, 0), (1, 1), 
+                          (1, 2), (2, 2), (2, 0), (2, 1), (2, 3), (2, 4), (3, 3), (4, 4), (4, 3), 
+                          (4, 2), (4, 0)]
                          ,"Many contacts")
         
         
+        cell.delBlock(block2_id)
+        block2 = cell.initBlock.copy()
         b2 = numpy.array([10,10,10], dtype=numpy.float64 )
         block2.translateCentroid( b2 )
-        cell.initCellLists()
-        self.assertEqual(cell.closeAtoms(0), None, "No contacts")
+        block2_id = cell.addBlock(block2)
         
+        self.assertEqual(cell.closeAtoms(block1_id), None, "No contacts")
+        
+        
+        cell.delBlock(block2_id)
+        block2 = cell.initBlock.copy()
         b2 = numpy.array([29,2,2], dtype=numpy.float64 )
         block2.translateCentroid( b2 )
-        cell.initCellLists()
-        self.assertEqual(cell.closeAtoms(0), [(0, 1, 2), (1, 1, 2), (3, 1, 0), (3, 1, 2), (4, 1, 0), (4, 1, 2)], "Periodic boundary")
+        block2_id = cell.addBlock(block2)
         
+        closeList =  cell.closeAtoms(block1_id)
+        closePairs = []
+        for iatom, ioblock, ioatom in closeList:
+            closePairs.append( (iatom,ioatom) )
+
+        self.assertEqual(closePairs, [(0, 2), (1, 2), (3, 0), (3, 2), (4, 0), (4, 2)], "Periodic boundary")
         
         #cell.writeXyz("jens.xyz", label=False)
         
