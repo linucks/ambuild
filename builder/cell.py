@@ -1417,7 +1417,7 @@ class TestCell(unittest.TestCase):
                          msg="Incorrect testCoordinate of cell.")
         
         
-    def XtestDistance(self):
+    def testDistance(self):
         """Test the distance under periodic boundary conditions"""
         
         CELLA = 10
@@ -1437,7 +1437,7 @@ class TestCell(unittest.TestCase):
         v1 = numpy.array([ 0.0, 0.0, 0.0 ])
         v2 = numpy.array([ 0.0, 0.0, 8.0 ])
         dc = cell.distance(v1,v2)
-        self.assertEqual( dc, 2.0, "Distance within cell:{} | {}".format(dc,dn) )
+        self.assertEqual( dc, 2.0, "Distance across boundary cell:{} | {}".format(dc,dn) )
         
     
     def XtestGrowBlock(self):
@@ -1523,7 +1523,7 @@ class TestCell(unittest.TestCase):
                           (1, 2), (2, 2), (2, 0), (2, 1), (2, 3), (2, 4), (3, 3), (4, 4), (4, 3), 
                           (4, 2), (4, 0)]
                          ,"Many contacts")
-        
+        #cell.writeXyz("close.xyz", label=False)
         
         cell.delBlock(block2_id)
         block2 = cell.initBlock.copy()
@@ -1547,7 +1547,42 @@ class TestCell(unittest.TestCase):
 
         self.assertEqual(closePairs, [(0, 2), (1, 2), (3, 0), (3, 2), (4, 0), (4, 2)], "Periodic boundary")
         
-        #cell.writeXyz("jens.xyz", label=False)
+    def testCloseDistance(self):
+        """
+        Test distance and close together
+        """
+        CELLA = 30
+        CELLB = 30
+        CELLC = 30
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        cell.initCell("../ch4_typed.car",incell=False)
+        block1 = cell.initBlock.copy()
+        
+        b1 = numpy.array([2,2,2], dtype=numpy.float64 )
+        block1.translateCentroid( b1 )
+        block1_id = cell.addBlock(block1)
+        
+        block2=cell.initBlock.copy()
+        b2 = numpy.array([3,3,3], dtype=numpy.float64 )
+        block2.translateCentroid( b2 )
+        block2_id = cell.addBlock(block2)
+        
+        #cell.writeXyz("close1.xyz", label=False)
+        
+#        closeList =  cell.closeAtoms(block1_id)
+#        for iatom, ioblock, ioatom in closeList:
+#            b1c = block1.coords[iatom]
+#            b2c = cell.blocks[ioblock].coords[ioatom]
+#            distance = cell.distance(b1c,b2c)
+#            print "{}: {} -> {}:{} = {}".format(iatom,b1c,ioatom,b2c,distance)
+            
+        # Distance measured with Avogadro so it MUST be right...
+        refd = 0.673354948616
+        distance = cell.distance(block1.coords[1], cell.blocks[block2_id].coords[3])
+        self.assertAlmostEqual(refd,distance,12,"Closest atoms: {}".format(distance))
+        
         
     def XtestCellLists(self):
         
