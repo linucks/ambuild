@@ -698,12 +698,6 @@ class BuildingBlock():
         
         print "Wrote file: {0}".format(fpath)
     
-    def __add__(self):
-        """Add two blocks - concatenate the coords and recalculate the variables"""
-        
-        
-        
-
         
     def __str__(self):
         """
@@ -711,6 +705,7 @@ class BuildingBlock():
         """
         
         mystr = ""
+        mystr += "BlockID: {}\n".format(id(self))
         mystr += "{}\n".format(len(self.coords))
         for i,c in enumerate(self.coords):
             #mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self.labels[i], c[0], c[1], c[2])

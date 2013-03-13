@@ -427,6 +427,7 @@ class Cell():
         
         #For writing out our progress
         filename= "SHIMMY_0.xyz"
+        self.writeXyz( filename )
         
         for step in range( nsteps ):
             
@@ -434,11 +435,12 @@ class Cell():
                 print "NO MORE BLOCKS TO BOND _ HOORAY!"
                 return
             
-            if not step % 100:
-                print "Step: {}".format(step)
-                filename = util.newFilename(filename)
-                self.writeXyz( filename )
-            
+            #if not step % 100:
+            print "Step: {}".format(step)
+            print "BLOCKS",self.blocks.keys()
+            print "KEYS ",self.box1
+            filename = util.newFilename(filename)
+            self.writeXyz( filename )
             
             imove_block, istatic_block = self.randomBlockId(count=2)
             move_block = self.blocks[imove_block]
@@ -449,7 +451,7 @@ class Cell():
             # anything - not sure if this quicker then saving the coords & updating tho
             orig_block = copy.deepcopy( move_block )
             
-            # Calulcate how far to move
+            # Calculate how far to move
             circ = move_block.radius() + static_block.radius()
             radius = (circ/2) + self.atomMargin
             
@@ -1038,7 +1040,7 @@ class Cell():
         xyz = numpy.array( [x,y,z], dtype=numpy.float64 )
         coord = numpy.add( center, xyz )
         
-        # possibly ovverklll - move to origin, rotate there and then move to new coord
+        # move to origin, rotate there and then move to new coord
         # Use the cell axis definitions
         origin = numpy.array([0,0,0], dtype=numpy.float64 )
         move_block.translateCentroid( origin )
@@ -1194,11 +1196,15 @@ class Cell():
         """ Shuffle the molecules about making bonds where necessary for nsteps
         minimoves is number of sub-moves to attempt when the blocks are close
         """
-        
+
+        filename = "SHIMMY_0.xyz"    
+        self.writeXyz( filename )    
         for step in range( nsteps ):
             
-            if not step % 20:
+            if not step % 100:
                 print "step {}".format(step)
+                filename = util.newFilename(filename)
+                self.writeXyz( filename )
                 
             iblock = self.randomBlockId()
             block = self.blocks[iblock]

@@ -12,32 +12,44 @@ import cell
 import util
 
 
-INFILE = "../ch4_typed.car" 
-INFILE = "../PAF_bb_typed.car" 
-OUTFILE1 = "../afterSeed.xyz"
-OUTFILE2 = "../afterSeedLabel.xyz"
-OUTFILE3 = "../afterShimmy.xyz"
-nblocks = 15
-CELLA = 30
-CELLB = 30
-CELLC = 30
+#INFILE = "../PAF_bb_typed.car" 
+#INFILE = "../ch4_typed.car" 
+#OUTFILE1 = "../afterSeed.xyz"
+#OUTFILE2 = "../afterSeedLabel.xyz"
+#OUTFILE2 = "../SHIMMY_0_lab.xyz"
+#OUTFILE3 = "afterShimmy.xyz"
+nblocks = 5
+CELLA = 5
+CELLB = 5
+CELLC = 5
 
-STEPS = 10000
-MOVES=100
+STEPS = 1000
+MOVES=10
 
 # Create Cell and seed it with the blocks
 mycell = cell.Cell( bondMargin=0.2, blockMargin=2.0, atomMargin=0.5, bondAngle=180, bondAngleMargin=15 )
-mycell.cellAxis( CELLA, CELLB, CELLC )
+#mycell.cellAxis( CELLA, CELLB, CELLC )
 
 
 #import pdb
 #pdb.set_trace()
-mycell.seed( nblocks, INFILE )
-mycell.writeXyz( OUTFILE1 )
+#mycell.seed( nblocks, INFILE )
+#mycell.writeXyz( OUTFILE1 )
 #mycell.writeXyz( OUTFILE2, label=True )
-#mycell.fromXyz(OUTFILE2)
+mycell.fromXyz("fkkd_lab.xyz")
+print mycell.blocks.keys()
+print mycell.box1
+#print mycell
+for b in mycell.blocks.keys():
+    print mycell.newCheckMove(b)
+
+mycell.writeXyz("fkkd.xyz", label=False)
+
+
+
+
 #mycell.shimmy(nsteps=STEPS)
-mycell.newDirectedShimmy(nsteps=STEPS,nmoves=MOVES)
+#mycell.newDirectedShimmy(nsteps=STEPS,nmoves=MOVES)
 #mycell.writeXyz( OUTFILE3 )
 
 ## Loop through as many shimmy stages as required
