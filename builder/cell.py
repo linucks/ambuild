@@ -420,20 +420,75 @@ class Cell():
         # Never get here
         assert False
 
-    def directedShimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
-        """
-        Shimmy by selecting a block and then moving around it.
-        Lots of possiblities for speeding up - preseeclting which blocks
-        to sample and a box around the target to avoid looping over undeeded atoms
+    def newDirectedShimmy(self, nsteps=100, nmoves=50):
+        """ Shuffle the molecules about making bonds where necessary for nsteps
+        minimoves is number of sub-moves to attempt when the blocks are close
         """
         
         #For writing out our progress
         filename= "SHIMMY_0.xyz"
         
-        # For time being ensure we are given a bond angle
-        assert bondAngle
+        for step in range( nsteps ):
+            
+            if len(self.blocks) == 1:
+                print "NO MORE BLOCKS TO BOND _ HOORAY!"
+                return
+            
+            if not step % 100:
+                print "Step: {}".format(step)
+                filename = util.newFilename(filename)
+                self.writeXyz( filename )
+            
+            
+            imove_block, istatic_block = self.randomBlockId(count=2)
+            move_block = self.blocks[imove_block]
+            static_block = self.blocks[istatic_block]
+            
+            # Copy the original coordinates so we can reject the move
+            # we copy the whole block so we don't need to recalculate
+            # anything - not sure if this quicker then saving the coords & updating tho
+            orig_block = copy.deepcopy( move_block )
+            
+            # Calulcate how far to move
+            circ = move_block.radius() + static_block.radius()
+            radius = (circ/2) + self.atomMargin
+            
+            for move in range( nmoves ):
+                
+                # Remove the block from the cell so we don't check against itself
+                self.delBlock(imove_block)
+                
+                self.randomMoveAroundCenter( move_block, static_block.centroid(), radius )
+                
+                #Add the block so we can check for clashes/bonds
+                imove_block = self.addBlock(move_block)
+                
+                # Test for Clashes with other molecules
+                ok = self.newCheckMove( imove_block )
+                
+                # Break out if no clashes
+                if ok:
+                    print "Successful move ",move
+                    break
+                
+                # Put it back where we got it from
+                self.delBlock(imove_block)
+                imove_block = self.addBlock(orig_block)
+                
+                #End move loop
+            #End step loop
+        #End shimmy
+        return
+
+
+    def directedShimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
+        """
+        Shimmy by selecting a block and then moving around it.
+        """
         
-        CLOSE_MARGIN=4.0 # how close 2 blocks are before we consider checking if they can bond
+        #For writing out our progress
+        filename= "SHIMMY_0.xyz"
+        
         BLOCK_MARGIN=2.0 # margin between the ranges that are used to sample the smaller moves
         
         nbonds=0
@@ -969,47 +1024,39 @@ class Cell():
         #print "After rotate centroid at: {}".format( block.centroid() )
         
         
-    def randomMoveAroundBlock(self, oblock, block, margin=1.0 ):
+    def randomMoveAroundCenter(self, move_block, center, radius ):
         
         """
-        Move the subject block (block) around the centroid of the target oblock
+        Move the move_block to a random point so that the its centroid is withiin
+        radius of the center
         """
-        
-        centroid = oblock.centroid()
-        #print "centroid at: {}".format(centroid)
-        rb = block.radius()
-        ro = oblock.radius()
-        
-        prange = rb + ro + margin
-        prange = prange/2
         
         # Calculate new coord
-        x = random.uniform(-prange,prange)
-        y = random.uniform(-prange,prange)
-        z = random.uniform(-prange,prange)
+        x = random.uniform(-radius,radius)
+        y = random.uniform(-radius,radius)
+        z = random.uniform(-radius,radius)
         xyz = numpy.array( [x,y,z], dtype=numpy.float64 )
-        coord = numpy.add( centroid, xyz )
+        coord = numpy.add( center, xyz )
         
         # possibly ovverklll - move to origin, rotate there and then move to new coord
         # Use the cell axis definitions
         origin = numpy.array([0,0,0], dtype=numpy.float64 )
-        block.translateCentroid( origin )
+        move_block.translateCentroid( origin )
         
         # Make a random rotation
         angle = random.uniform( 0, 2*numpy.pi)
-        block.rotate( self.A, angle )
+        move_block.rotate( self.A, angle )
         
         angle = random.uniform( 0, 2*numpy.pi)
-        block.rotate( self.B, angle )
+        move_block.rotate( self.B, angle )
         
         angle = random.uniform( 0, 2*numpy.pi)
-        block.rotate(self.C, angle )
+        move_block.rotate(self.C, angle )
         
         # Now move to new coord
-        block.translateCentroid( coord )
-        #print "block now at: {}".format( block.centroid() )
+        move_block.translateCentroid( coord )
         
-
+        return
 
     def seed( self, nblocks, inputFile ):
         """ Seed a cell with nblocks based on the block that will be created
@@ -1092,6 +1139,7 @@ class Cell():
             oblock = self.blocks[ioblock]
             coord = block.coords[iatom]
             ocoord = oblock.coords[ioatom]
+            #print "CHECKING  ATOMS ",self.distance( coord, ocoord )
             
             # First see if both atoms are endGroups
             if iatom in block.endGroups and ioatom in oblock.endGroups:
@@ -1333,7 +1381,7 @@ class TestCell(unittest.TestCase):
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
         
-    def XtestAlignBlocks(self):
+    def testAlignBlocks(self):
         """Test we can align two blocks correctly"""
         
         CELLA = 30
