@@ -94,9 +94,9 @@ class Cell():
             block.atomCell[icoord] = key
             try:
                 self.box1[key].append( (blockid,icoord) )
-                #print "APPENDING KEY ",key,iblock,icoord
+                print "APPENDING KEY ",key,blockid,icoord
             except KeyError:
-                #print "ADDING KEY ",key,iblock,icoord
+                print "ADDING KEY ",key,blockid,icoord
                 # Add to main list
                 self.box1[key] = [(blockid,icoord)]
                 # Map surrounding boxes
@@ -263,8 +263,10 @@ class Cell():
                         ck = maxKeyC
                     elif ck >= maxKeyC:
                         ck = 0
-                    #print "sKey ({},{},{})->({},{},{})-".format(a,b,c,ai,bj,ck)
-                    l.append((ai, bj, ck))
+                    skey = (a+i, b+j, c+k)
+                    if skey not in l:
+                        print "sKey ({},{},{})->({},{},{})-".format(a,b,c,a+i,b+j,c+k)
+                        l.append(skey)
         return l
         
 #    def initCellLists(self):
@@ -322,18 +324,25 @@ class Cell():
             # Get the box this atom is in
             key = block.atomCell[icoord]
             
+            print "CHECKING KEY ",key
+            
             # Get a list of the boxes surrounding this one
             surrounding = self.box3[key]
+            print "SURROUNDING ",surrounding
             
             #For each box loop through all its atoms chekcking for clashes
             for sbox in surrounding:
                 
+                print "CHECKING SURROUNDING BOX ",sbox
                 # For each box, get the list of the atoms as (block,coord) tuples
                 # Check if we have a box with anything in it
                 if not self.box1.has_key(sbox):
+                    print "CONTINUE"
                     continue
                     
                 for (ioblock, iocoord) in self.box1[ sbox ]:
+                    
+                    print "NOW CHECKING ",ioblock, iocoord
                     
                     # Check we are not checking ourself - need to check block index too!
                     if iblock == ioblock:
@@ -1141,7 +1150,7 @@ class Cell():
             oblock = self.blocks[ioblock]
             coord = block.coords[iatom]
             ocoord = oblock.coords[ioatom]
-            #print "CHECKING  ATOMS ",self.distance( coord, ocoord )
+            print "CHECKING  ATOMS ",self.distance( coord, ocoord )
             
             # First see if both atoms are endGroups
             if iatom in block.endGroups and ioatom in oblock.endGroups:

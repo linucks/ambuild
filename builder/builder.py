@@ -43,7 +43,7 @@ print mycell.box1
 for b in mycell.blocks.keys():
     print mycell.newCheckMove(b)
 
-mycell.writeXyz("fkkd.xyz", label=False)
+#mycell.writeXyz("fkkd.xyz", label=False)
 
 
 
