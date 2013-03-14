@@ -105,6 +105,7 @@ class BuildingBlock():
         self.labels.extend( block.labels )
         self.symbols.extend( block.symbols )
         self.masses.extend( block.masses )
+        self.atomCell.extend( block.atomCell )
         
         # Need to remove the end groups used in the bond
         i = self.endGroups.index( bond[0] )
@@ -379,7 +380,7 @@ class BuildingBlock():
             
             # Radii
             z = util.SYMBOL_TO_NUMBER[ symbol ]
-            r = util.COVALENT_RADII[z]
+            r = util.COVALENT_RADII[z] * util.BOHR2ANGSTROM
             self.atom_radii.append(r)
             #print "ADDING R {} for label {}".format(r,label)
             

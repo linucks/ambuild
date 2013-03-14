@@ -16,6 +16,7 @@ import unittest
 
 # degrees to radians
 RADIANS2DEGREES = 57.29577951
+BOHR2ANGSTROM = 0.529177249
 
 # double check these values...
 #hvd values obtained from http://www.webelements.com/ and recorded to their
@@ -343,7 +344,7 @@ SYMBOL_TO_NUMBER = {
 #
 #
 # note that indexing with -1 accesses the last element (0.4 copied at start and edn)
-#
+# UNITS ARE IN BOHR!!!
 COVALENT_RADII = [
 0.4,
 0.7,                                   3.80,    
@@ -367,6 +368,7 @@ COVALENT_RADII = [
 
 # joe lennards table angstroms
 # 1.0 added as index [0] and [-1] see above
+# UNITS ARE IN BOHR!!!
 VDW_RADII = [  1.0,
   1.20,                              1.40,
   1.82,1.78,1.74,1.70,1.55,1.52,1.47,1.54,
@@ -403,6 +405,7 @@ Te                     1.82      1.66
 """
 
 # REM - symbols should be in lower case!
+# UNITS ARE IN ANGSTROM!!!
 BOND_LENGTHS = {}
 BOND_LENGTHS['AS'] = { 'AS' : 2.10,
                        'BR' : 2.32,
