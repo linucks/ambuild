@@ -169,7 +169,31 @@ class Cell():
         #bAngle = util.vectorAngle(blockEndGroup, axis)
         #print "bAngle after: {}".format(bAngle)
         #print block
+        return
+
+    def bondBlock(self, bond):
+        """ Bond the second block to the first and update the data structures"""
         
+        iblock, iatom, ioblock, ioatom = bond
+        block = self.blocks[iblock]
+        lenbcoords = len(block.coords)
+        oblock = self.blocks[ioblock]
+        block.bond( oblock, (iatom, ioatom) )
+        
+        # Update the cells of the new block - WRITE TEST!
+        #print self.box1
+        #print "iblock, ioblock ",iblock,ioblock
+        for icoord, key in enumerate(oblock.atomCell):
+            #print "CHECKING ",icoord,key
+            i = self.box1[key].index( ( ioblock, icoord )  )
+            #print "UPDATING INDEX ",i
+            # NEED TO UPDATE INDEX OF NEW COORD
+            self.box1[key][i] =  ( iblock, icoord+lenbcoords )
+        
+        del self.blocks[ioblock]
+        
+        return 
+    
     def boxSize(self):
         """
         Return the size of the box
@@ -186,22 +210,94 @@ class Cell():
             self.C = numpy.array( [0.0,0.0,C], dtype=numpy.float64 )
         else:
             return (A,B,C)
-        
-    def checkClash(self, newblock, ignore=[] ):
-        """
-        See if the given block clashes with any of the others
-        return True if there is a clash
-        ignore is a list of block indices to ignore
-        """
-        
-        for i,block in self.blocks.iteritems():
-            if i in ignore:
-                continue
-            if block.clash( newblock, blockMargin=self.blockMargin, atomMargin=self.atomMargin ):
-                return True
-            
-        return False
     
+    def checkMove(self,iblock):
+        """
+        See what happened with this move
+        
+        Return:
+        A string where:
+        "noclash" - nothing clashed
+        "bond" - we made a single bond
+        "clash" - atoms clashed
+        """
+        # Get a list of the close atoms
+        close = self.closeAtoms(iblock)
+        
+        #print "GOT {} CLOSE ATOMS ".format(len(close))
+        
+        if not close:
+            # Nothing to see so move along
+            return True
+        
+        # convert bondAngle and bondMargin to angstroms
+        bondAngleMargin = self.bondAngleMargin / util.RADIANS2DEGREES
+        bondAngle = self.bondAngle / util.RADIANS2DEGREES
+        
+        # Get the block
+        block = self.blocks[iblock]
+        
+        bonds = [] # list of possible bond atoms
+        for ( iatom, ioblock, ioatom ) in close:
+            
+            symbol = block.symbols[iatom]
+            radius = block.atom_radii[iatom]
+            oblock = self.blocks[ioblock]
+            coord = block.coords[iatom]
+            ocoord = oblock.coords[ioatom]
+            #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(iatom,iblock, ioatom,ioblock,self.distance( coord, ocoord ) )
+            
+            # First see if both atoms are endGroups
+            if iatom in block.endGroups and ioatom in oblock.endGroups:
+                # Checking for a bond
+                # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
+                osymbol = oblock.symbols[ioatom]
+                
+                # This uses -the 'optimised' bond lenght check - probably uneeded
+                bond_length = block.bondLength( symbol, osymbol )
+                
+                #print "CHECKING BOND ATOMS ",bond_length,self.distance( coord, ocoord )
+                
+                # THINK ABOUT BETTER SHORT BOND LENGTH CHECK
+                if  bond_length - self.bondMargin < self.distance( coord, ocoord ) < bond_length + self.bondMargin:
+                    
+                    print "possible bond for ",iatom,ioblock,ioatom
+                    # Possible bond so check the angle
+                    icontact = block.endGroupContactIndex( iatom )
+                    contact = block.coords[icontact]
+                    angle = block.angle( contact, coord, ocoord )
+                    print "Got bond angle in deg: {}".format( angle  * util.RADIANS2DEGREES )
+                    #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
+                    
+                    if ( bondAngle-bondAngleMargin < angle < bondAngle+bondAngleMargin ):
+                        bonds.append( (iblock, iatom, ioblock, ioatom) )
+                    else:
+                        print "Cannot bond due to angle"
+                        return False
+                        
+                # Finished checking for bonds so move onto the next atoms
+                continue
+           
+            # No bond so just check if the two atoms are close enough for a clash
+            oradius = oblock.atom_radii[ioatom]
+            #d = self.distance( coord, ocoord )
+            #l = radius+oradius+self.atomMargin
+            if self.distance( coord, ocoord ) < radius+oradius+self.atomMargin:
+                #print "CLASH {}->{} = {} < {}".format( coord,ocoord, d, l  )
+                return False
+    
+        # Here no atoms clash and we have a list of possible bonds - so bond'em!
+        if len(bonds):
+            if len(bonds) > 1:
+                raise RuntimeError,"JENS FIX FOR MULTIPLE BONDS!!!"
+            # FIX _ JUST ONE BOND FOR NOW AS WE NEED TO THINK ABOUT DATA STRUCTURES
+            #for bond in bonds:
+            #    self.bondBlock(bond)
+            self.bondBlock(bonds[0])
+            print "ADDED {} bonds".format(len(bonds))
+        
+        # Either got bonds or no clashes
+        return True
 
         
 #    def initCellLists(self):
@@ -291,75 +387,6 @@ class Cell():
         else:
             return None
 
-        
-    def checkMove(self, iblock, closeMargin=None, bondAngle=None, blockList=None ):
-        """
-        See how this move went.
-        Arguments
-        iblock - the index of the block in the list of blocks for the cell
-        closeMargin - the extra bit to add on to the radii of the blocks to see if they are close
-        bondAngle - the angle to define a suitable bond
-        blockList - a list of tuples of blocks to sample - (index,block)
-        
-        we return:
-        False - nothing was close
-        clash - we clashed with something
-        bonds - [ [iblock, (i,j] ]- a list of the bonds as the index of the other block and a pair
-        of the atom in this and the other block forming the bond
-        """
-        
-        assert closeMargin, bondAngle
-        
-        # Loop over all blocks
-        if not blockList:
-            blockList = [ i for i in range( len(self.blocks) ) ]
-        
-        
-        block = self.blocks[iblock]
-        bonds=[]
-        #for i, oblock in enumerate( self.blocks ):
-        for i in blockList:
-            
-            print "Checking block: {}".format(i)
-            # skip the block we are using
-            if i == iblock:
-                continue
-            
-            # Get the next block
-            oblock = self.blocks[i]
-            
-            # First see if we are close enough to consider bonding
-            # Shouldn't need to use this as we are using findClose, but it seems to be required
-            # - need to look into this
-            if not block.close( oblock, blockMargin = self.blockMargin ):
-                continue
-            
-            # See if we can bond
-            bond = block.canBond( oblock, bondMargin=self.bondMargin, bondAngle=bondAngle )
-            
-            # No bond so move  to next block
-            if not bond:
-                continue
-            
-            # Either a bond or a clash
-            if bond == "clash":
-                # A clash so break out of the whole loop so we can reject this step
-                return "clash"
-            else:
-                # Got a bond, so add it to the list of possible bonds
-                print "Found bond between block {} and {}".format( iblock, i)
-                bonds.append( [i, bond] )
-
-            #End Loop Over Blocks
-        
-        if len(bonds):
-            return bonds
-        else:
-            return False
-        
-        # Never get here
-        assert False
-
     def delBlock(self,blockId):
         """
         Remove the block with the given index from the cell
@@ -388,7 +415,7 @@ class Cell():
         
         return 
 
-    def newDirectedShimmy(self, nsteps=100, nmoves=50):
+    def directedShimmy(self, nsteps=100, nmoves=50):
         """ Shuffle the molecules about making bonds where necessary for nsteps
         minimoves is number of sub-moves to attempt when the blocks are close
         """
@@ -434,7 +461,7 @@ class Cell():
                 imove_block = self.addBlock(move_block)
                 
                 # Test for Clashes with other molecules
-                ok = self.newCheckMove( imove_block )
+                ok = self.checkMove( imove_block )
                 
                 # Break out if no clashes
                 if ok:
@@ -450,94 +477,6 @@ class Cell():
         #End shimmy
         return
 
-
-    def directedShimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
-        """
-        Shimmy by selecting a block and then moving around it.
-        """
-        
-        #For writing out our progress
-        filename= "SHIMMY_0.xyz"
-        
-        BLOCK_MARGIN=2.0 # margin between the ranges that are used to sample the smaller moves
-        
-        nbonds=0
-        for step in range(nsteps):
-            
-            if len(self.blocks) == 1:
-                print "NO MORE BLOCKS TO BOND _ HOORAY!"
-                return
-            
-            if not step % 100:
-                print "Step: {}".format(step)
-                filename = util.newFilename(filename)
-                self.writeXyz( filename )
-            
-            # Get two blocks to sample round
-            iblock, jblock = self.randomBlockId(count=2)
-            block = self.blocks[iblock]
-            oblock = self.blocks[jblock]
-            print "Sampling block {} about {}".format(iblock,jblock)
-            
-            # Copy the original coordinates so we can reject the move
-            # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker then saving the coords & updating tho
-            orig_block = copy.deepcopy( block )
-            
-            # Get a list of which blocks are close
-            # Don't use - it's slower for some unfathomable reason
-            closeBlocks = self.findClose( oblock, block, closeMargin=CLOSE_MARGIN, blockMargin=BLOCK_MARGIN )
-            #print "Got close blocks: {}".format(closeBlocks)
-            #closeBlocks=None
-            
-            clash=0
-            noclash=0
-            gotBond=False
-            for _ in range( nmoves ):
-                
-                self.randomMoveAroundBlock( oblock, block, margin=BLOCK_MARGIN )
-                
-                print "Move: {} about {}".format( oblock.centroid(), block.centroid() )
-                
-                # Loop over all blocks to see if we can bond or if we clash
-                bonds = self.checkMove( iblock, closeMargin=CLOSE_MARGIN, bondAngle=bondAngle, blockList=closeBlocks )
-                
-                # See what happend
-                if not bonds:
-                    noclash+=1
-                    continue
-                    
-                if bonds == "clash":
-                    clash+=1
-                    continue
-                
-                # Got some bonds so deal with them
-                # Need to decrement index if we are removing blocks
-                bcount=0
-                print "FOUND {} BOND(S)!!!!".format(len(bonds))
-                nbonds+=len(bonds)
-                for b,bond in bonds:
-                    block.bond( self.blocks[b-bcount], bond )
-                    # Remove the block from the list as it is now part of the other one
-                    self.blocks.pop(b-bcount)
-                    bcount+=1
-                
-                # No need to loop anymore
-                gotBond=True
-                break
-                            
-            print "End of moves  clash/noclash: {}/{}".format(clash,noclash)
-            
-            if not gotBond:
-                # If no bonds place the bond back at it's original coord
-                self.blocks[iblock] = orig_block
-            
-            #End move loop
-        #End step loop
-        
-        print "END OF DIRECTED SHIMMY\nMade {} bonds and got {} clusters".format(nbonds,len(self.blocks))
-    #End directedShimmy
-    
     
     def distance(self, v1, v2 ):
         """
@@ -1067,7 +1006,7 @@ class Cell():
                 iblock = self.addBlock(newblock)
                 
                 # Test for Clashes with other molecules
-                ok = self.newCheckMove( iblock )
+                ok = self.checkMove( iblock )
                 
                 # Break out of try loop if no clashes
                 if ok:
@@ -1122,129 +1061,20 @@ class Cell():
                         l.append(skey)
         return l
     
-    
-    def newCheckMove(self,iblock):
-        """
-        See what happened with this move
-        
-        Return:
-        A string where:
-        "noclash" - nothing clashed
-        "bond" - we made a single bond
-        "clash" - atoms clashed
-        """
-        # Get a list of the close atoms
-        close = self.closeAtoms(iblock)
-        
-        #print "GOT {} CLOSE ATOMS ".format(len(close))
-        
-        if not close:
-            # Nothing to see so move along
-            return "noclash"
-        
-        # convert bondAngle and bondMargin to angstroms
-        bondAngleMargin = self.bondAngleMargin / util.RADIANS2DEGREES
-        bondAngle = self.bondAngle / util.RADIANS2DEGREES
-        
-        # Get the block
-        block = self.blocks[iblock]
-        
-        bonds = [] # list of possible bond atoms
-        for ( iatom, ioblock, ioatom ) in close:
-            
-            symbol = block.symbols[iatom]
-            radius = block.atom_radii[iatom]
-            oblock = self.blocks[ioblock]
-            coord = block.coords[iatom]
-            ocoord = oblock.coords[ioatom]
-            #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(iatom,iblock, ioatom,ioblock,self.distance( coord, ocoord ) )
-            
-            # First see if both atoms are endGroups
-            if iatom in block.endGroups and ioatom in oblock.endGroups:
-                # Checking for a bond
-                # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
-                osymbol = oblock.symbols[ioatom]
-                
-                # This uses -the 'optimised' bond lenght check - probably uneeded
-                bond_length = block.bondLength( symbol, osymbol )
-                
-                #print "CHECKING BOND ATOMS ",bond_length,self.distance( coord, ocoord )
-                
-                # THINK ABOUT BETTER SHORT BOND LENGTH CHECK
-                if  bond_length - self.bondMargin < self.distance( coord, ocoord ) < bond_length + self.bondMargin:
-                    
-                    print "possible bond for ",iatom,ioblock,ioatom
-                    # Possible bond so check the angle
-                    icontact = block.endGroupContactIndex( iatom )
-                    contact = block.coords[icontact]
-                    angle = block.angle( contact, coord, ocoord )
-                    print "Got bond angle in deg: {}".format( angle  * util.RADIANS2DEGREES )
-                    #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
-                    
-                    if ( bondAngle-bondAngleMargin < angle < bondAngle+bondAngleMargin ):
-                        bonds.append( (iblock, iatom, ioblock, ioatom) )
-                    else:
-                        print "Cannot bond due to angle"
-                        return "clash"
-                        
-                # Finished checking for bonds so move onto the next atoms
-                continue
-           
-            # No bond so just check if the two atoms are close enough for a clash
-            oradius = oblock.atom_radii[ioatom]
-            #d = self.distance( coord, ocoord )
-            #l = radius+oradius+self.atomMargin
-            if self.distance( coord, ocoord ) < radius+oradius+self.atomMargin:
-                #print "CLASH {}->{} = {} < {}".format( coord,ocoord, d, l  )
-                return "clash"
-    
-        # Here no atoms clash and we have a list of possible bonds - so bond'em!
-        if len(bonds):
-            if len(bonds) > 1:
-                raise RuntimeError,"JENS FIX FOR MULTIPLE BONDS!!!"
-            # FIX _ JUST ONE BOND FOR NOW AS WE NEED TO THINK ABOUT DATA STRUCTURES
-            #for bond in bonds:
-            #    self.bondBlock(bond)
-            self.bondBlock(bonds[0])
-            print "ADDED {} bonds".format(len(bonds))
-        
-        # Either got bonds or no clashes
-        return "noclash"
-
-    def bondBlock(self, bond):
-        """ Bond the second block to the first and update the dat structures"""
-        iblock, iatom, ioblock, ioatom = bond
-        block = self.blocks[iblock]
-        lenbcoords = len(block.coords)
-        oblock = self.blocks[ioblock]
-        block.bond( oblock, (iatom, ioatom) )
-        
-        # Update the cells of the new block - WRITE TEST!
-        #print self.box1
-        #print "iblock, ioblock ",iblock,ioblock
-        for icoord, key in enumerate(oblock.atomCell):
-            #print "CHECKING ",icoord,key
-            i = self.box1[key].index( (ioblock,icoord )  )
-            #print "UPDATING INDEX ",i
-            # NEED TO UPDATE INDEX OF NEW COORD
-            self.box1[key][i] =  (iblock,icoord+lenbcoords )
-        
-        del self.blocks[ioblock]
-        #self.delBlock(ioblock)
-        
-        
     def shimmy(self, nsteps=100):
         """ Shuffle the molecules about making bonds where necessary for nsteps
         minimoves is number of sub-moves to attempt when the blocks are close
         """
+        
+        startBlocks=len(self.blocks)
 
         filename = "SHIMMY_0.xyz"    
         self.writeXyz( filename )    
         for step in range( nsteps ):
             
             if len(self.blocks) == 1:
-                print "NO MORE BLOCKS!"
                 filename = util.newFilename(filename)
+                print "NO MORE BLOCKS!\nResult in file: {}".format(filename)
                 self.writeXyz( filename )
                 break
             
@@ -1263,111 +1093,28 @@ class Cell():
             
             # Remove the block from the cell so we don't check against itself
             self.delBlock(iblock)
-             
-            # Make a random move
             self.randomMove( block )
             
-            #Add the block so we can check for clashes/bonds
+            #Add the block back so we can check for clashes/bonds
             new_iblock = self.addBlock(block)
             
             # Test for Clashes with other molecules
-            res = self.newCheckMove( new_iblock )
+            ok = self.checkMove( new_iblock )
             
             # If the move failed, put the block back
-            if res == "clash":
+            if not ok:
                 # Put it back where we got it from
                 self.delBlock(new_iblock)
                 self.addBlock(orig_block)
-            
+        
+        # End of shimmy loop
+        endBlocks = len(self.blocks)
+        made = startBlocks-endBlocks
+        if made > 0:
+            print "Shimmy bonded {} blocks".format(made)
+        
+        return
         #End shimmy
-            
-    
-
-            
-    def OLDshimmy(self, nsteps=100, nmoves=50, bondAngle=None ):
-        """ Shuffle the molecules about making bonds where necessary for nsteps
-        minimoves is number of sub-moves to attempt when the blocks are close
-        """
-        
-        # For time being ensure we are given a bond angle
-        assert bondAngle
-        
-        PRANGE=4.0 # the range within which to make the smaller minimoves
-        
-        for step in range( nsteps ):
-            
-            if not step % 20:
-                print "step {}".format(step)
-                
-            iblock = self.randomBlockId()
-            
-            block = self.blocks[iblock]
-            
-            # Copy the original coordinates so we can reject the move
-            # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker then saving the coords & updating tho
-            orig_block = copy.deepcopy( block )
-             
-            # Make a random move
-            self.randomMove( block )
-            
-            # Remember the original cog of the block 
-            cog = block.centroid()
-            
-            # Loop over all blocks to see if we can bond or if we clash
-            removed = []
-            for i in range( len( self.blocks ) ):
-                
-                # skip the block we are using
-                if i == iblock:
-                    continue
-                
-                # Get the next block
-                oblock = self.blocks[i]
-                
-                # First see if we are close enough to consider bonding
-                if not block.close( oblock, blockMargin = self.blockMargin ):
-                    continue
-                
-                # See if we can bond and shimmy minimoves times
-                # Get the original cog so we sample about it
-                clashmove=0
-                noclashmove=0
-                for j in range( nmoves ):
-                    # Try to make a bond
-                    bond = block.canBond( oblock, bondAngle=bondAngle )
-                    if not bond or bond == "clash":
-                        # Try a smaller move
-                        self.randomMoveAroundBlock( block, cog, prange=PRANGE )
-                        # Just for logging
-                        if bond == "clash":
-                            clashmove+=1
-                        else:
-                            noclashmove+=1
-                        
-                    else:
-                        # Bonding worked so break out of loop
-                        print "GOT BOND"
-                        break
-                
-                print "Next Block after clash/noclash: {}/{}".format(clashmove,noclashmove)
-                if bond:
-                    if bond == "clash":
-                        # Reject this move and overwrite the changed block with the original one
-                        self.blocks[i] = orig_block
-                    else:
-                        block.bond( oblock, bond )
-                        print "Bonded block {} with block {}".format( iblock, i)
-                        # Now delete block
-                        removed.append(i)
-                i+=1
-                #End Loop Over Blocks
-            
-            #
-            for r in removed:
-                self.blocks.pop(r)
-            #End step loop
-
              
     def writeXyz(self, ofile, label=False ):
         """Write out the cell atoms to an xyz file
@@ -1653,9 +1400,9 @@ class TestCell(unittest.TestCase):
         cell = Cell( )
         cell.fromXyz("canBond_lab.xyz")
         ib1 = cell.blocks.keys()[0]
-        ok = cell.newCheckMove(ib1)
+        ok = cell.checkMove(ib1)
         #for b in cell.blocks.keys():
-        #    print cell.newCheckMove(b)
+        #    print cell.checkMove(b)
 
     def testSurroundBoxes(self):
         """

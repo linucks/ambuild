@@ -19,9 +19,9 @@ OUTFILE1 = "afterSeed.xyz"
 #OUTFILE2 = "../SHIMMY_0_lab.xyz"
 OUTFILE3 = "afterShimmy.xyz"
 nblocks = 40
-CELLA = 50
-CELLB = 50
-CELLC = 50
+CELLA = 40
+CELLB = 40
+CELLC = 40
 
 STEPS = 10000
 MOVES=10
