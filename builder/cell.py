@@ -1061,7 +1061,7 @@ class Cell():
                         l.append(skey)
         return l
     
-    def shimmy(self, nsteps=100):
+    def shimmy(self, nsteps=100, nmoves=50, stype="directed"):
         """ Shuffle the molecules about making bonds where necessary for nsteps
         minimoves is number of sub-moves to attempt when the blocks are close
         """
@@ -1078,40 +1078,72 @@ class Cell():
                 self.writeXyz( filename )
                 break
             
-            if not step % 100:
+            #if not step % 100:
+            if True:
                 print "step {}".format(step)
                 filename = util.newFilename(filename)
                 self.writeXyz( filename )
                 
-            iblock = self.randomBlockId()
-            block = self.blocks[iblock]
+            istatic_block = None
+            if stype == "directed":
+                imove_block, istatic_block = self.randomBlockId(count=2)
+                static_block = self.blocks[istatic_block]    
+            else:
+                imove_block = self.randomBlockId()
+                
+            move_block = self.blocks[imove_block]
             
             # Copy the original coordinates so we can reject the move
-            # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker then saving the coords & updating tho
-            orig_block = copy.deepcopy( block )
+            orig_coords = copy.deepcopy( move_block.coords )
             
-            # Remove the block from the cell so we don't check against itself
-            self.delBlock(iblock)
-            self.randomMove( block )
+            if stype == "directed":
+                # Calculate how far to move
+                circ = move_block.radius() + static_block.radius()
+                radius = (circ/2) + self.atomMargin
+            else:
+                nmoves=1
             
-            #Add the block back so we can check for clashes/bonds
-            new_iblock = self.addBlock(block)
-            
-            # Test for Clashes with other molecules
-            ok = self.checkMove( new_iblock )
-            
-            # If the move failed, put the block back
-            if not ok:
-                # Put it back where we got it from
-                self.delBlock(new_iblock)
-                self.addBlock(orig_block)
+            for move in range(nmoves):
+                
+                print "move ",move
+                
+                # Remove the move_block from the cell so we don't check against itself
+                self.delBlock(imove_block)
+                
+                if stype == "directed":
+                    self.randomMoveAroundCenter( move_block, static_block.centroid(), radius )
+                else:
+                    self.randomMove( move_block )
+                
+                #Add the move_block back so we can check for clashes/bonds
+                icheck = self.addBlock(move_block)
+                if icheck != imove_block:
+                    raise RuntimeError,"BAD ADD IN SHIMMY1"
+                
+                # Test for Clashes with other molecules
+                ok = self.checkMove( imove_block )
+                
+                # If the move failed, put the move_block back
+                if ok:
+                    # End the moves and go onto the next step
+                    break
+                else:
+                    # Put it back where we got it from
+                    self.delBlock( imove_block )
+                    move_block.coords = copy.deepcopy(orig_coords)
+                    move_block.update()
+                    icheck = self.addBlock(move_block)
+                    if icheck != imove_block:
+                        raise RuntimeError,"BAD ADD IN SHIMMY1"
         
         # End of shimmy loop
+        
         endBlocks = len(self.blocks)
         made = startBlocks-endBlocks
         if made > 0:
             print "Shimmy bonded {} blocks".format(made)
+        else:
+            print "Shimmy made no bonds"
         
         return
         #End shimmy

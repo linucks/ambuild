@@ -123,9 +123,8 @@ class BuildingBlock():
         for k,v in block._endGroupContacts.iteritems():
             self._endGroupContacts[ k+lcoords ] = v+lcoords
         
-        # Recalculate the data for this new block
-        self.calcCenterOfMassAndGeometry()
-        self.calcRadius()
+        self.update()
+
         
     def createFromArgs(self, coords, labels, endGroups, endGroupContacts ):
         """ Create from given arguments
@@ -141,9 +140,7 @@ class BuildingBlock():
         
         self.fillData()
         
-        self.calcCenterOfMassAndGeometry()
-        self.calcRadius()
-        #self.findEndGroupContacts()
+        self.update()
         
     def createFromLabelAndCoords(self, labels, coords):
         """ Given an array of labels and another of coords, create a block
@@ -698,7 +695,14 @@ class BuildingBlock():
                 f.writeXyz("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(self.labels[i]), c[0], c[1], c[2]))
         
         print "Wrote file: {0}".format(fpath)
-    
+        
+    def update(self):
+        """
+        Run any methods that need to be done when the coordinates are changed
+        """
+        # Recalculate the data for this new block
+        self.calcCenterOfMassAndGeometry()
+        self.calcRadius()
         
     def __str__(self):
         """

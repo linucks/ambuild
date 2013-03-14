@@ -12,18 +12,18 @@ import cell
 import util
 
 
-INFILE = "../PAF_bb_typed.car" 
-#INFILE = "../ch4_typed.car" 
+#INFILE = "../PAF_bb_typed.car" 
+INFILE = "../ch4_typed.car" 
 OUTFILE1 = "afterSeed.xyz"
 #OUTFILE2 = "afterSeedLabel.xyz"
 #OUTFILE2 = "../SHIMMY_0_lab.xyz"
 OUTFILE3 = "afterShimmy.xyz"
-nblocks = 40
-CELLA = 40
-CELLB = 40
-CELLC = 40
+nblocks = 6
+CELLA = 5
+CELLB = 5
+CELLC = 5
 
-STEPS = 10000
+STEPS = 100
 MOVES=10
 
 # Create Cell and seed it with the blocks
