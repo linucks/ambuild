@@ -56,8 +56,13 @@ class Cell():
         # Dict mapping key to list of boxes surrounding the keyed box
         self.box3={}
         
-        #jmht - hack
+        # max atom radius - used to calculate box size
+        self.boxSize = None
         self.maxAtomR=None
+        # number of boxes in A,B,C axes - used for calculating PBC
+        self.numBoxA = None
+        self.numBoxB = None
+        self.numBoxC = None
         
         # first block is kept separate as everything is built up from it
         self.initBlock = None
@@ -76,6 +81,11 @@ class Cell():
         
         Returns:
         index of the new block in the list
+        
+        jmht  - rather then the check here, we could create a copy of the coords of the 
+        block in the cell and then use these when checking distances - this way we wouldn't
+        need to use PBC in the distance check, which would possibly be quicker at the expense of
+        storing 2 sets of coordinates, which is negligible - test!
         """
         
         # The index of the new block
@@ -84,13 +94,22 @@ class Cell():
         # Add to the dict
         self.blocks[ blockid ] = block
         
-        boxSize = self.boxSize()
-        
+        #print "nbox ",self.numBoxA,self.numBoxB,self.numBoxC
         for icoord,coord in enumerate(block.coords):
-            a=int( math.floor( coord[0] / boxSize ) )
-            b=int( math.floor( coord[1] / boxSize ) ) 
-            c=int( math.floor( coord[2] / boxSize ) )
+            
+            #print "ADDING COORD ",coord
+            
+            # Periodic Boundaries
+            x = coord[0] % self.A[0]
+            y = coord[1] % self.B[1]
+            z = coord[2] % self.C[2]
+            
+            a=int( math.floor( x / self.boxSize ) )
+            b=int( math.floor( y / self.boxSize ) ) 
+            c=int( math.floor( z / self.boxSize ) )
+            
             key = (a,b,c)
+            #print "NEW KEY ",key
             block.atomCell[icoord] = key
             try:
                 self.box1[key].append( (blockid,icoord) )
@@ -194,12 +213,6 @@ class Cell():
         
         return 
     
-    def boxSize(self):
-        """
-        Return the size of the box
-        """
-        return (self.maxAtomR*2)+self.atomMargin
-    
     def cellAxis(self,A=None,B=None,C=None):
         """
         Get or set the cell axes
@@ -216,10 +229,6 @@ class Cell():
         See what happened with this move
         
         Return:
-        A string where:
-        "noclash" - nothing clashed
-        "bond" - we made a single bond
-        "clash" - atoms clashed
         """
         # Get a list of the close atoms
         close = self.closeAtoms(iblock)
@@ -261,18 +270,17 @@ class Cell():
                 # THINK ABOUT BETTER SHORT BOND LENGTH CHECK
                 if  bond_length - self.bondMargin < self.distance( coord, ocoord ) < bond_length + self.bondMargin:
                     
-                    print "possible bond for ",iatom,ioblock,ioatom
+                    print "Possible bond for ",iatom,ioblock,ioatom
                     # Possible bond so check the angle
                     icontact = block.endGroupContactIndex( iatom )
                     contact = block.coords[icontact]
                     angle = block.angle( contact, coord, ocoord )
-                    print "Got bond angle in deg: {}".format( angle  * util.RADIANS2DEGREES )
                     #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
                     
                     if ( bondAngle-bondAngleMargin < angle < bondAngle+bondAngleMargin ):
                         bonds.append( (iblock, iatom, ioblock, ioatom) )
                     else:
-                        print "Cannot bond due to angle"
+                        print "Cannot bond due to angle: {}".format(angle  * util.RADIANS2DEGREES)
                         return False
                         
                 # Finished checking for bonds so move onto the next atoms
@@ -294,7 +302,7 @@ class Cell():
             #for bond in bonds:
             #    self.bondBlock(bond)
             self.bondBlock(bonds[0])
-            print "ADDED {} bonds".format(len(bonds))
+            print "Added {} Bonds".format(len(bonds))
         
         # Either got bonds or no clashes
         return True
@@ -349,20 +357,22 @@ class Cell():
         
         contacts=[]
         
+        #print "box1 ",self.box1
+        
         block=self.blocks[iblock]
         for icoord,coord in enumerate(block.coords):
             
-            #print "Close checking: {}: {}".format(icoord,coord)
             # Get the box this atom is in
             key = block.atomCell[icoord]
+            #print "Close checking [{}] {}: {} : {}".format(key,iblock,icoord,coord)
             
             # Get a list of the boxes surrounding this one
             surrounding = self.box3[key]
             
             #For each box loop through all its atoms chekcking for clashes
-            for sbox in surrounding:
+            for i,sbox in enumerate(surrounding):
                 
-                #print "KEY ",key
+                #print "KEY ",i,sbox
                 # For each box, get the list of the atoms as (block,coord) tuples
                 # Check if we have a box with anything in it
                 if not self.box1.has_key(sbox):
@@ -376,9 +386,13 @@ class Cell():
                     
                     oblock = self.blocks[ioblock]
                     ocoord = oblock.coords[iocoord]
-                    #print "AGAINST {}:{}".format(iocoord,ocoord)
+                    #print "AGAINST        [{}] {}: {} : {}".format(sbox,ioblock, iocoord,ocoord)
+                    #x = ocoord[0] % self.A[0]
+                    #y = ocoord[1] % self.B[1]
+                    #z = ocoord[2] % self.C[2]
+                    #print "PBC: {}                         {}".format(self.distance( ocoord,coord ),[x,y,z] )
                     
-                    if ( self.distance( ocoord,coord ) < self.boxSize() ):
+                    if ( self.distance( ocoord,coord ) < self.boxSize ):
                         #print "CLOSE {}-{}:({}) and {}-{}:({}): {}".format( iblock,icoord,coord,ioblock,iocoord,ocoord, self.distance( ocoord,coord ))
                         contacts.append( (icoord, ioblock,iocoord) )
                         
@@ -478,10 +492,10 @@ class Cell():
         return
 
     
-    def distance(self, v1, v2 ):
+    def X2distance(self, v1, v2 ):
         """
         Calculate the distance between two vectors in the cell
-        under periodic boundary conditions
+        under periodic boundary conditions - from wikipedia entry
         """
         
         dx = v2[0] - v1[0]
@@ -496,12 +510,32 @@ class Cell():
         
         return math.sqrt( dx*dx + dy*dy + dz*dz )
     
-    def Xdistance(self, x,y):
+    def distance(self, v1, v2):
+        """
+        my attempt to do PBC
+        """
+        
+        dx = v2[0] % self.A[0] - v1[0] % self.A[0]
+        if math.fabs(dx) > self.A[0] * 0.5:
+            dx = dx - math.copysign( self.A[0], dx)
+            
+        dy = v2[1] % self.B[1] - v1[1] % self.B[1]
+        if math.fabs(dy) > self.B[1] * 0.5:
+            dy = dy - math.copysign( self.B[1], dy)
+            
+        dz = v2[2] % self.C[2] - v1[2] % self.C[2]
+        if math.fabs(dz) > self.C[2] * 0.5:
+            dz = dz - math.copysign( self.C[2], dz)
+            
+        return math.sqrt( dx*dx + dy*dy + dz*dz )
+        
+    
+    def Xdistance(self, v1,v2):
         """
         Calculate the distance between two vectors - currently just use for testing
         Actual one lives in cell
         """
-        return numpy.linalg.norm(y-x)
+        return numpy.linalg.norm(v2-v1)
 
     def findClose(self, oblock, block):
         """
@@ -708,17 +742,6 @@ class Cell():
         print "initCell - block radius: ",ib.radius()
         return
     
-    def setInitBlock(self,block):
-        """
-        Set the init block
-        """
-        self.maxAtomR=block.maxAtomRadius()
-        if self.maxAtomR <= 0:
-            raise RuntimeError,"Error setting initBlock"
-        self.initBlock = block
-        return
-        
-        
     def XXgrowBlock(self):
         
         # For comparing angles
@@ -1023,17 +1046,32 @@ class Cell():
         # End of loop to seed cell
     # End seed
     
+    def setInitBlock(self,block):
+        """
+        Set the init block
+        """
+        self.maxAtomR=block.maxAtomRadius()
+        if self.maxAtomR <= 0:
+            raise RuntimeError,"Error setting initBlock"
+        
+        self.boxSize = ( self.maxAtomR * 2 ) + self.atomMargin
+        
+        #jmht - ceil or floor
+        self.numBoxA = int(math.ceil( self.A[0] / self.boxSize ) )
+        self.numBoxB = int(math.ceil( self.B[1] / self.boxSize ) )
+        self.numBoxC = int(math.ceil( self.C[2] / self.boxSize ) )
+        
+        self.initBlock = block
+        return
+    
     def surroundBoxes(self, key ):
         """
         return a list of the boxes surrounding the box with the given key
         """
         
-        # jmht - think minus 1 correct - ned to put this in init
-        maxKeyA = int(math.floor( self.A[0] / self.boxSize() ) )
-        maxKeyB = int(math.floor( self.B[1] / self.boxSize() ) )
-        maxKeyC = int(math.floor( self.C[2] / self.boxSize() ) ) 
-        #print "box size {} : {},{},{}".format(self.boxSize(),maxKeyA,maxKeyB,maxKeyC)
+        #print "box size {} : {},{},{}".format( self.boxSize, self.numBoxA, self.numBoxB, self.numBoxC )
         
+        # REM - max box num is numboxes - 1
         a,b,c = key
         l = []
         for  i in [ 0, -1, +1 ]:
@@ -1042,26 +1080,27 @@ class Cell():
                     # Impose periodic boundaries
                     ai = a+i
                     if ai < 0:
-                        ai = maxKeyA
-                    elif ai > maxKeyA:
+                        ai = self.numBoxA-1
+                    elif ai > self.numBoxA-1:
                         ai = 0
                     bj = b+j
                     if bj < 0:
-                        bj = maxKeyB
-                    elif bj > maxKeyB:
+                        bj = self.numBoxB-1
+                    elif bj > self.numBoxB-1:
                         bj = 0
                     ck = c+k
                     if ck < 0:
-                        ck = maxKeyC
-                    elif ck > maxKeyC:
+                        ck = self.numBoxC-1
+                    elif ck > self.numBoxC-1:
                         ck = 0
                     skey = (ai, bj, ck)
-                    #print "sKey ({},{},{})->({},{},{})".format(a,b,c,a+i,b+j,c+k)
+                    #print "sKey ({},{},{})->({})".format(a,b,c,skey)
                     if skey not in l:
                         l.append(skey)
+                        
         return l
     
-    def shimmy(self, nsteps=100, nmoves=50, stype="directed"):
+    def shimmy(self, nsteps=100, nmoves=50, stype="directedX"):
         """ Shuffle the molecules about making bonds where necessary for nsteps
         minimoves is number of sub-moves to attempt when the blocks are close
         """
@@ -1078,8 +1117,8 @@ class Cell():
                 self.writeXyz( filename )
                 break
             
-            #if not step % 100:
-            if True:
+            if not step % 100:
+            #if True:
                 print "step {}".format(step)
                 filename = util.newFilename(filename)
                 self.writeXyz( filename )
@@ -1105,7 +1144,7 @@ class Cell():
             
             for move in range(nmoves):
                 
-                print "move ",move
+                #print "move ",move
                 
                 # Remove the move_block from the cell so we don't check against itself
                 self.delBlock(imove_block)
@@ -1160,7 +1199,8 @@ class Cell():
                 if label:
                     xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format(block.labels[j], i), c[0], c[1], c[2] )
                 else:
-                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.symbols[j], c[0], c[1], c[2] )
+                    #xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.symbols[j], c[0], c[1], c[2] )
+                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(  util.label2symbol(block.labels[j]), c[0], c[1], c[2] )
                 natoms += 1
         
         # Write out natoms and axes as title
@@ -1213,7 +1253,7 @@ class TestCell(unittest.TestCase):
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
         
-    def testAlignBlocks(self):
+    def XtestAlignBlocks(self):
         """Test we can align two blocks correctly"""
         
         CELLA = 30
@@ -1307,17 +1347,37 @@ class TestCell(unittest.TestCase):
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
-        v1 = numpy.array([ 1.0, 1.0, 1.0 ])
-        v2 = numpy.array([ 5.0, 5.0, 5.0 ])
+        v1 = [ 2.46803012, 1.67131881, 1.96745421]
+        v2 = [ 1.07988345, 0.10567109, 1.64897769]
         
-        dc = cell.distance(v1,v2)
-        dn = numpy.linalg.norm(v2-v1)
-        self.assertEqual( dc, dn, "Distance within cell:{} | {}".format(dc,dn) )
+        nv1 = numpy.array( v1 )
+        nv2 = numpy.array( v2 )
+        
+        dc1 = cell.distance(nv1,nv2)
+        dn = numpy.linalg.norm(nv2-nv1)
+        self.assertEqual( dc1, dn, "Distance within cell:{} | {}".format(dc1,dn) )
+        
+        x = v2[0] + 2 * CELLA
+        y = v2[1] + 2 * CELLB
+        z = v2[2] + 2 * CELLC
+        nv2 = numpy.array([ x, y, z ])
+        dc2 = cell.distance(nv1,nv2)
+        self.assertAlmostEqual( dc1, dc2, 11,"Distance across multiple cells +ve: {} | {}".format(dc1,dc2) )
+        
+        x = v2[0] - 2 * CELLA
+        y = v2[1] - 2 * CELLB
+        z = v2[2] - 2 * CELLC
+        nv2 = numpy.array([ x, y, z ])
+        dc3 = cell.distance(nv1,nv2)
+        self.assertAlmostEqual( dc1, dc3, 11, "Distance across multiple cells -ve: {} | {}".format(dc1,dc3) )
         
         v1 = numpy.array([ 0.0, 0.0, 0.0 ])
         v2 = numpy.array([ 0.0, 0.0, 8.0 ])
         dc = cell.distance(v1,v2)
-        self.assertEqual( dc, 2.0, "Distance across boundary cell:{} | {}".format(dc,dn) )
+        self.assertEqual( dc, 2.0, "Distance across boundary cell:{}".format(dc) )
+        
+        
+
         
     
     def XtestGrowBlock(self):
@@ -1384,48 +1444,71 @@ class TestCell(unittest.TestCase):
         cell.initCell("../ch4_typed.car",incell=False)
         block1 = cell.initBlock.copy()
         
-        b1 = numpy.array([2,2,2], dtype=numpy.float64 )
+        b1 = numpy.array([1,1,1], dtype=numpy.float64 )
         block1.translateCentroid( b1 )
         block1_id = cell.addBlock(block1)
         
         block2=cell.initBlock.copy()
-        b2 = numpy.array([3,3,3], dtype=numpy.float64 )
+        b2 = numpy.array([2.2,2.2,2.2], dtype=numpy.float64 )
         block2.translateCentroid( b2 )
         block2_id = cell.addBlock(block2)
         
         closeList =  cell.closeAtoms(block1_id)
+        refPairs = [(0, 3), (1, 3), (2, 3)] # Also used to check PBC
         closePairs = []
         for iatom, ioblock, ioatom in closeList:
             closePairs.append( (iatom,ioatom) )
-        
+            
+        #cell.writeXyz("close1.xyz", label=False)
+            
         self.assertEqual(closePairs,
-                         [(0, 3), (0, 4), (0, 2), (0, 0), (0, 1), (1, 3), (1, 4), (1, 0), (1, 1), 
-                          (1, 2), (2, 2), (2, 0), (2, 1), (2, 3), (2, 4), (3, 3), (4, 4), (4, 3), 
-                          (4, 2), (4, 0)]
-                         ,"Many contacts")
-        #cell.writeXyz("close.xyz", label=False)
+                        refPairs,
+                         "Many contacts: {}".format(closePairs))
         
+        # Too far for any contacts
         cell.delBlock(block2_id)
         block2 = cell.initBlock.copy()
         b2 = numpy.array([10,10,10], dtype=numpy.float64 )
         block2.translateCentroid( b2 )
         block2_id = cell.addBlock(block2)
         
-        self.assertEqual(cell.closeAtoms(block1_id), None, "No contacts")
+        close = cell.closeAtoms(block1_id)
+        self.assertEqual(close, None, "No contacts: ".format(close))
         
-        
+        # Now check across periodic boundary
         cell.delBlock(block2_id)
         block2 = cell.initBlock.copy()
-        b2 = numpy.array([29,2,2], dtype=numpy.float64 )
+        x = 2.2 + 2 * cell.A[0]
+        y = 2.2 + 2 * cell.B[1]
+        z = 2.2 + 2 * cell.C[2]
+        
+        b2 = numpy.array([x,y,z], dtype=numpy.float64 )
         block2.translateCentroid( b2 )
         block2_id = cell.addBlock(block2)
+        
+        #cell.writeXyz("close2.xyz", label=False)
         
         closeList =  cell.closeAtoms(block1_id)
         closePairs = []
         for iatom, ioblock, ioatom in closeList:
             closePairs.append( (iatom,ioatom) )
 
-        self.assertEqual(closePairs, [(0, 2), (1, 2), (3, 0), (3, 2), (4, 0), (4, 2)], "Periodic boundary")
+        self.assertEqual(closePairs, refPairs, "Periodic boundary: {}".format(closePairs))
+
+#        cell.delBlock(block2_id)
+#        block2 = cell.initBlock.copy()
+#        b2 = numpy.array([29,1,1], dtype=numpy.float64 )
+#        block2.translateCentroid( b2 )
+#        block2_id = cell.addBlock(block2)
+#        
+#        cell.writeXyz("close.xyz", label=False)
+#        
+#        closeList =  cell.closeAtoms(block1_id)
+#        closePairs = []
+#        for iatom, ioblock, ioatom in closeList:
+#            closePairs.append( (iatom,ioatom) )
+#
+#        self.assertEqual(closePairs, [(0, 2), (1, 2), (3, 0), (3, 2), (4, 0), (4, 2)], "Periodic boundary: ".format(closePairs))
 
     def testBonding(self):
         
@@ -1440,10 +1523,15 @@ class TestCell(unittest.TestCase):
         """
         """
         cell = Cell( )
-        cell.cellAxis(A=5, B=5, C=5)
-        # box size=1
+        cell.cellAxis( A=5, B=5, C=5 )
+        # box size=1 - need to set manually as not reading in a block
         cell.maxAtomR = 0.5
         cell.atomMargin = 0.0
+        
+        cell.boxSize = ( cell.maxAtomR * 2 ) + cell.atomMargin
+        cell.numBoxA = int(math.floor( cell.A[0] / cell.boxSize ) )
+        cell.numBoxB = int(math.floor( cell.B[1] / cell.boxSize ) )
+        cell.numBoxC = int(math.floor( cell.C[2] / cell.boxSize ) )
         
         s = [(2, 2, 2), (2, 2, 1), (2, 2, 3), (2, 1, 2), (2, 1, 1), (2, 1, 3), (2, 3, 2), (2, 3, 1), 
          (2, 3, 3), (1, 2, 2), (1, 2, 1), (1, 2, 3), (1, 1, 2), (1, 1, 1), (1, 1, 3), (1, 3, 2),
@@ -1451,13 +1539,13 @@ class TestCell(unittest.TestCase):
           (3, 3, 2), (3, 3, 1), (3, 3, 3)]
         self.assertEqual(s, cell.surroundBoxes( (2,2,2) ), "in center")
         
-        s = [(0, 0, 0), (0, 0, 4), (0, 0, 1), (0, 4, 0), (0, 4, 4), (0, 4, 1), (0, 1, 0), (0, 1, 4),
-              (0, 1, 1), (4, 0, 0), (4, 0, 4), (4, 0, 1), (4, 4, 0), (4, 4, 4), (4, 4, 1), (4, 1, 0), 
-              (4, 1, 4), (4, 1, 1), (1, 0, 0), (1, 0, 4), (1, 0, 1), (1, 4, 0), (1, 4, 4), (1, 4, 1),
-               (1, 1, 0), (1, 1, 4), (1, 1, 1)]
-        self.assertEqual(s, cell.surroundBoxes( (0,0,0) ), "periodic")
+        sb = cell.surroundBoxes( (0,0,0) )
+        s = [ (0, 0, 0), (0, 0, 4), (0, 0, 1), (0, 4, 0), (0, 4, 4), (0, 4, 1), (0, 1, 0), (0, 1, 4), 
+        (0, 1, 1), (4, 0, 0), (4, 0, 4), (4, 0, 1), (4, 4, 0), (4, 4, 4), (4, 4, 1), (4, 1, 0), (4, 1, 4),
+         (4, 1, 1), (1, 0, 0), (1, 0, 4), (1, 0, 1), (1, 4, 0), (1, 4, 4), (1, 4, 1), (1, 1, 0), (1, 1, 4), (1, 1, 1)]
+        self.assertEqual(s, sb , "periodic: {0}".format( sb ) )
         
-    def testCloseDistance(self):
+    def XtestCloseDistance(self):
         """
         Test distance and close together
         """
@@ -1492,53 +1580,6 @@ class TestCell(unittest.TestCase):
         refd = 0.673354948616
         distance = cell.distance(block1.coords[1], cell.blocks[block2_id].coords[3])
         self.assertAlmostEqual(refd,distance,12,"Closest atoms: {}".format(distance))
-        
-        
-    def XtestCellLists(self):
-        
-        CELLA = 10
-        CELLB = 10
-        CELLC = 10
-        
-        cell = Cell( atomMargin=0.1)
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        b1 = self.buildingBlock.BuildingBlock()
-        coords = [ numpy.array([  0.050000,  0.000000,  0.000000 ] ) ]
-        labels = [ 'C' ]
-        endGroups = [ 1 ]
-        endGroupContacts = { 1:1 }
-        b1.createFromArgs( coords, labels, endGroups, endGroupContacts )
-        
-        b2 = self.buildingBlock.BuildingBlock()
-        coords = [ numpy.array([  1.000000,  0.000000,  0.000000 ] ) ]
-        b2.createFromArgs( coords, labels, endGroups, endGroupContacts )
-        
-        cell.blocks.append(b1)
-        cell.blocks.append(b2)
-        
-        cell.initCellLists()
-        print "first"
-        cell.closeAtoms(1)
-#        
-#        del cell.blocks[1]
-#        b2 = self.buildingBlock.BuildingBlock( cell.distance )
-#        coords = [ numpy.array([  7.400000,  2.000000,  2.000000 ] ) ]
-#        b2.createFromArgs( coords, labels, endGroups, endGroupContacts )
-#        cell.blocks.append(b2)
-#        cell.initCellLists()
-#        print "second"
-#        cell.newClash(1)
-#        
-#        del cell.blocks[1]
-#        b2 = self.buildingBlock.BuildingBlock( cell.distance )
-#        coords = [ numpy.array([  9.950000,  1.000000,  1.000000 ] ) ]
-#        b2.createFromArgs( coords, labels, endGroups, endGroupContacts )
-#        cell.blocks.append(b2)
-#        cell.initCellLists()
-#        print "third"
-#        cell.newClash(1)
-
 
 if __name__ == '__main__':
     """

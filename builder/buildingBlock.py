@@ -92,7 +92,7 @@ class BuildingBlock():
         """Bond the two blocks at the given bond - tuple is indices of self and other bond
         """
         
-        #print "Bonding Block"
+        print "Bonding Block"
         #print block
         #print "with"
         #print self
@@ -103,6 +103,12 @@ class BuildingBlock():
         self.coords.extend( block.coords )
         self.atom_radii.extend( block.atom_radii )
         self.labels.extend( block.labels )
+        
+        #jmht hack
+        for i,l in enumerate(self.labels):
+            if l[0] == 'H':
+                self.labels[i] = 'X'+l[1:]
+                print "CHANGING LABEL TO ",self.labels[i] 
         self.symbols.extend( block.symbols )
         self.masses.extend( block.masses )
         self.atomCell.extend( block.atomCell )
