@@ -23,27 +23,32 @@ class Cell():
     '''
 
 
-    def __init__( self, atomMargin=0.1, bondMargin=0.5, blockMargin=2.0,  bondAngle=180, bondAngleMargin=15 ):
+    def __init__( self, atomClashMargin=0.5, atomCloseMargin=1.0, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 ):
         '''
         Constructor
         '''
-        
-        
-       
+
         # A, B and C are cell vectors - for the time being we assume they are orthogonal
         self.A = None
         self.B = None
         self.C = None
         
-        # additional distance to add on when checking whether 2 atoms are close enough to bond
+        # additional distance to add on to the characteristic bond length
+        # when checking whether 2 atoms are close enough to bond
         self.bondMargin = bondMargin
         
         # additional distance to add on when checking if two blocks are close enough to require
         # checking their interactions
-        self.blockMargin = blockMargin
+        # CURRENTLY UNUSED
+        self.blockMargin = 2.0
         
-        # additional distance to add on when checking if two atoms are close enough to clash
-        self.atomMargin = atomMargin
+        # additional distance to add on to the atom covalent radii when checking if two atoms 
+        # are close enough to clash
+        self.atomClashMargin = atomClashMargin
+        
+        # additional distance to add on to the atom covalent radii when checking if two atoms 
+        # are close enough to add them to the interatction boxes
+        self.atomCloseMargin = atomCloseMargin
         
         # The acceptable bond angle
         self.bondAngle = bondAngle
@@ -289,8 +294,8 @@ class Cell():
             # No bond so just check if the two atoms are close enough for a clash
             oradius = oblock.atom_radii[ioatom]
             #d = self.distance( coord, ocoord )
-            #l = radius+oradius+self.atomMargin
-            if self.distance( coord, ocoord ) < radius+oradius+self.atomMargin:
+            #l = radius+oradius+self.atomClashMargin
+            if self.distance( coord, ocoord ) < radius+oradius+self.atomClashMargin:
                 #print "CLASH {}->{} = {} < {}".format( coord,ocoord, d, l  )
                 return False
     
@@ -462,7 +467,7 @@ class Cell():
             
             # Calculate how far to move
             circ = move_block.radius() + static_block.radius()
-            radius = (circ/2) + self.atomMargin
+            radius = (circ/2) + self.atomClashMargin
             
             for move in range( nmoves ):
                 
@@ -1004,6 +1009,7 @@ class Cell():
         
         # If it's just one, add the given block
         self.addBlock( self.initBlock.copy() )
+        print "Added block 1"
         if nblocks == 1:
             return
         
@@ -1033,7 +1039,7 @@ class Cell():
                 
                 # Break out of try loop if no clashes
                 if ok:
-                    print "Added block {0} after {1} tries.".format( seedCount+1, tries )
+                    print "Added block {0} after {1} tries.".format( seedCount+2, tries )
                     break
                 
                 # Unsuccessful so remove the block from cell
@@ -1054,7 +1060,7 @@ class Cell():
         if self.maxAtomR <= 0:
             raise RuntimeError,"Error setting initBlock"
         
-        self.boxSize = ( self.maxAtomR * 2 ) + self.atomMargin
+        self.boxSize = ( self.maxAtomR * 2 ) + self.atomClashMargin
         
         #jmht - ceil or floor
         self.numBoxA = int(math.ceil( self.A[0] / self.boxSize ) )
@@ -1100,28 +1106,32 @@ class Cell():
                         
         return l
     
-    def shimmy(self, nsteps=100, nmoves=50, stype="directedX"):
+    def shimmy(self, nsteps=100, nmoves=50, stype="directed"):
         """ Shuffle the molecules about making bonds where necessary for nsteps
         minimoves is number of sub-moves to attempt when the blocks are close
         """
         
         startBlocks=len(self.blocks)
 
-        filename = "SHIMMY_0.xyz"    
-        self.writeXyz( filename )    
+        filename = "SHIMMY_0.xyz"
+        self.writeXyz( filename )
+        self.writeXyz( filename+".lab", label=True )
+        
         for step in range( nsteps ):
             
             if len(self.blocks) == 1:
                 filename = util.newFilename(filename)
                 print "NO MORE BLOCKS!\nResult in file: {}".format(filename)
                 self.writeXyz( filename )
+                self.writeXyz( filename+".lab", label=True )
                 break
             
-            if not step % 100:
             #if True:
+            if not step % 100:
                 print "step {}".format(step)
                 filename = util.newFilename(filename)
                 self.writeXyz( filename )
+                self.writeXyz( filename+".lab", label=True )
                 
             istatic_block = None
             if stype == "directed":
@@ -1138,7 +1148,7 @@ class Cell():
             if stype == "directed":
                 # Calculate how far to move
                 circ = move_block.radius() + static_block.radius()
-                radius = (circ/2) + self.atomMargin
+                radius = (circ/2) + self.atomClashMargin
             else:
                 nmoves=1
             
@@ -1438,7 +1448,8 @@ class TestCell(unittest.TestCase):
         CELLB = 30
         CELLC = 30
         
-        cell = Cell( )
+        cell = Cell( atomClashMargin=0.1, atomCloseMargin=0.1, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
+        
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         #block1 = self.makePaf( cell )
         cell.initCell("../ch4_typed.car",incell=False)
@@ -1526,9 +1537,9 @@ class TestCell(unittest.TestCase):
         cell.cellAxis( A=5, B=5, C=5 )
         # box size=1 - need to set manually as not reading in a block
         cell.maxAtomR = 0.5
-        cell.atomMargin = 0.0
+        cell.atomClashMargin = 0.0
         
-        cell.boxSize = ( cell.maxAtomR * 2 ) + cell.atomMargin
+        cell.boxSize = ( cell.maxAtomR * 2 ) + cell.atomClashMargin
         cell.numBoxA = int(math.floor( cell.A[0] / cell.boxSize ) )
         cell.numBoxB = int(math.floor( cell.B[1] / cell.boxSize ) )
         cell.numBoxC = int(math.floor( cell.C[2] / cell.boxSize ) )

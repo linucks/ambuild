@@ -7,9 +7,8 @@ Created on Jan 15, 2013
 
 '''
 
-import buildingBlock
 import cell
-import util
+import cPickle
 
 
 INFILE = "../PAF_bb_typed.car" 
@@ -21,13 +20,15 @@ OUTFILE1 = "afterSeed.xyz"
 OUTFILE3 = "afterShimmy.xyz"
 # for ch4: 4,4,4,4
 # 35,10,10,10
+#
+#for paf: 4, 15, 15, 15
 nblocks = 30
-CELLA = 30
-CELLB = 30
-CELLC = 30
+CELLA = 40
+CELLB = 40
+CELLC = 40
 
-STEPS = 10000
-MOVES=20
+STEPS = 1000
+MOVES=100
 
 # Create Cell and seed it with the blocks
 mycell = cell.Cell()
@@ -36,12 +37,21 @@ mycell.cellAxis( CELLA, CELLB, CELLC )
 #import pdb
 #pdb.set_trace()
 mycell.seed( nblocks, INFILE )
-mycell.writeXyz( OUTFILE1 )
+pfile = open("pickle1.pkl","w")
+cPickle.dump(mycell,pfile)
+pfile.close()
+#mycell.writeXyz( OUTFILE1 )
 #mycell.writeXyz( OUTFILE2, label=True )
 #mycell.writeXyz("canBond.xyz", label=False)
 
-mycell.shimmy(nsteps=STEPS)
-mycell.writeXyz( OUTFILE3 )
+
+mycell.shimmy(nsteps=STEPS, nmoves=MOVES)
+pfile = open("pickle2.pkl","w")
+cPickle.dump(mycell,pfile)
+pfile.close()
+#mycell.writeXyz( OUTFILE3 )
+
+
 
 ## Loop through as many shimmy stages as required
 #while True:
