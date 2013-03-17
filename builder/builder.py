@@ -52,7 +52,6 @@ pfile.close()
 #mycell.writeXyz( OUTFILE3 )
 
 
-
 ## Loop through as many shimmy stages as required
 #while True:
 #    OUTFILE=util.newFilename(OUTFILE)

@@ -107,7 +107,7 @@ class BuildingBlock():
         #jmht hack
         for i,l in enumerate(self.labels):
             if l[0] == 'H':
-                self.labels[i] = 'Cl'+l[2:]
+                self.labels[i] = 'Cl'+l[1:]
                 print "CHANGING LABEL TO ",self.labels[i] 
         self.symbols.extend( block.symbols )
         self.masses.extend( block.masses )

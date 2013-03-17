@@ -23,7 +23,7 @@ class Cell():
     '''
 
 
-    def __init__( self, atomClashMargin=0.5, atomCloseMargin=1.0, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 ):
+    def __init__( self, atomClashMargin=0.5, boxMargin=1.0, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 ):
         '''
         Constructor
         '''
@@ -48,7 +48,7 @@ class Cell():
         
         # additional distance to add on to the atom covalent radii when checking if two atoms 
         # are close enough to add them to the interatction boxes
-        self.atomCloseMargin = atomCloseMargin
+        self.boxMargin = boxMargin
         
         # The acceptable bond angle
         self.bondAngle = bondAngle
@@ -1448,7 +1448,7 @@ class TestCell(unittest.TestCase):
         CELLB = 30
         CELLC = 30
         
-        cell = Cell( atomClashMargin=0.1, atomCloseMargin=0.1, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
+        cell = Cell( atomClashMargin=0.1, boxMargin=0.1, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
         
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         #block1 = self.makePaf( cell )
