@@ -4,6 +4,7 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
+import collections
 import copy
 import math
 import os
@@ -23,7 +24,7 @@ class Cell():
     '''
 
 
-    def __init__( self, atomClashMargin=0.5, boxMargin=1.0, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 ):
+    def __init__( self, atomMargin=0.5, boxMargin=1.0, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 ):
         '''
         Constructor
         '''
@@ -44,7 +45,7 @@ class Cell():
         
         # additional distance to add on to the atom covalent radii when checking if two atoms 
         # are close enough to clash
-        self.atomClashMargin = atomClashMargin
+        self.atomMargin = atomMargin
         
         # additional distance to add on to the atom covalent radii when checking if two atoms 
         # are close enough to add them to the interatction boxes
@@ -294,8 +295,8 @@ class Cell():
             # No bond so just check if the two atoms are close enough for a clash
             oradius = oblock.atom_radii[ioatom]
             #d = self.distance( coord, ocoord )
-            #l = radius+oradius+self.atomClashMargin
-            if self.distance( coord, ocoord ) < radius+oradius+self.atomClashMargin:
+            #l = radius+oradius+self.atomMargin
+            if self.distance( coord, ocoord ) < radius+oradius+self.atomMargin:
                 #print "CLASH {}->{} = {} < {}".format( coord,ocoord, d, l  )
                 return False
     
@@ -467,7 +468,7 @@ class Cell():
             
             # Calculate how far to move
             circ = move_block.radius() + static_block.radius()
-            radius = (circ/2) + self.atomClashMargin
+            radius = (circ/2) + self.atomMargin
             
             for move in range( nmoves ):
                 
@@ -1060,7 +1061,7 @@ class Cell():
         if self.maxAtomR <= 0:
             raise RuntimeError,"Error setting initBlock"
         
-        self.boxSize = ( self.maxAtomR * 2 ) + self.atomClashMargin
+        self.boxSize = ( self.maxAtomR * 2 ) + self.atomMargin
         
         #jmht - ceil or floor
         self.numBoxA = int(math.ceil( self.A[0] / self.boxSize ) )
@@ -1106,7 +1107,7 @@ class Cell():
                         
         return l
     
-    def shimmy(self, nsteps=100, nmoves=50, stype="directed"):
+    def shimmy(self, nsteps=100, nmoves=50, stype=None):
         """ Shuffle the molecules about making bonds where necessary for nsteps
         minimoves is number of sub-moves to attempt when the blocks are close
         """
@@ -1123,6 +1124,7 @@ class Cell():
                 filename = util.newFilename(filename)
                 print "NO MORE BLOCKS!\nResult in file: {}".format(filename)
                 self.writeXyz( filename )
+                self.writeXyz( os.path.splitext(filename)[0]+"incell.xyz", periodic=True )
                 self.writeXyz( filename+".lab", label=True )
                 break
             
@@ -1132,9 +1134,10 @@ class Cell():
                 filename = util.newFilename(filename)
                 self.writeXyz( filename )
                 self.writeXyz( filename+".lab", label=True )
+                self.writeXyz( os.path.splitext(filename)[0]+"incell.xyz", periodic=True )
                 
             istatic_block = None
-            if stype == "directed":
+            if stype == "block" or stype == "bond":
                 imove_block, istatic_block = self.randomBlockId(count=2)
                 static_block = self.blocks[istatic_block]    
             else:
@@ -1145,10 +1148,18 @@ class Cell():
             # Copy the original coordinates so we can reject the move
             orig_coords = copy.deepcopy( move_block.coords )
             
-            if stype == "directed":
+            center = None
+            if stype == "block":
                 # Calculate how far to move
                 circ = move_block.radius() + static_block.radius()
-                radius = (circ/2) + self.atomClashMargin
+                radius = (circ/2) + self.atomMargin
+                center = static_block.centroid()
+            elif stype == "bond":
+                staticEndGroupIndex = static_block.randomEndGroupIndex()
+                moveEndGroupIndex = move_block.randomEndGroupIndex()
+                center = static_block.newBondPosition( staticEndGroupIndex, move_block, moveEndGroupIndex)
+                # jmht - this is wrong!
+                radius = self.atomMargin
             else:
                 nmoves=1
             
@@ -1159,8 +1170,8 @@ class Cell():
                 # Remove the move_block from the cell so we don't check against itself
                 self.delBlock(imove_block)
                 
-                if stype == "directed":
-                    self.randomMoveAroundCenter( move_block, static_block.centroid(), radius )
+                if stype == "block" or stype == "bond":
+                    self.randomMoveAroundCenter( move_block, center, radius )
                 else:
                     self.randomMove( move_block )
                 
@@ -1197,7 +1208,7 @@ class Cell():
         return
         #End shimmy
              
-    def writeXyz(self, ofile, label=False ):
+    def writeXyz(self, ofile, label=False, periodic=False ):
         """Write out the cell atoms to an xyz file
         If label is true we write out the atom label and block, otherwise the symbol
         """
@@ -1209,8 +1220,15 @@ class Cell():
                 if label:
                     xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format(block.labels[j], i), c[0], c[1], c[2] )
                 else:
-                    #xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.symbols[j], c[0], c[1], c[2] )
-                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(  util.label2symbol(block.labels[j]), c[0], c[1], c[2] )
+                    if periodic:
+                        # PBC
+                        x = c[0] % self.A[0]
+                        y = c[1] % self.B[1]
+                        z = c[2] % self.C[2]
+                        #xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.symbols[j], c[0], c[1], c[2] )
+                        xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(  util.label2symbol(block.labels[j]), x, y, z )
+                    else:
+                        xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(block.labels[j]), c[0], c[1], c[2] )
                 natoms += 1
         
         # Write out natoms and axes as title
@@ -1448,7 +1466,7 @@ class TestCell(unittest.TestCase):
         CELLB = 30
         CELLC = 30
         
-        cell = Cell( atomClashMargin=0.1, boxMargin=0.1, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
+        cell = Cell( atomMargin=0.1, boxMargin=0.1, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
         
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         #block1 = self.makePaf( cell )
@@ -1537,9 +1555,9 @@ class TestCell(unittest.TestCase):
         cell.cellAxis( A=5, B=5, C=5 )
         # box size=1 - need to set manually as not reading in a block
         cell.maxAtomR = 0.5
-        cell.atomClashMargin = 0.0
+        cell.atomMargin = 0.0
         
-        cell.boxSize = ( cell.maxAtomR * 2 ) + cell.atomClashMargin
+        cell.boxSize = ( cell.maxAtomR * 2 ) + cell.atomMargin
         cell.numBoxA = int(math.floor( cell.A[0] / cell.boxSize ) )
         cell.numBoxB = int(math.floor( cell.B[1] / cell.boxSize ) )
         cell.numBoxC = int(math.floor( cell.C[2] / cell.boxSize ) )

@@ -37,15 +37,19 @@ mycell.cellAxis( CELLA, CELLB, CELLC )
 #import pdb
 #pdb.set_trace()
 mycell.seed( nblocks, INFILE )
+
 pfile = open("pickle1.pkl","w")
 cPickle.dump(mycell,pfile)
 pfile.close()
+
 #mycell.writeXyz( OUTFILE1 )
 #mycell.writeXyz( OUTFILE2, label=True )
 #mycell.writeXyz("canBond.xyz", label=False)
 
 
-mycell.shimmy(nsteps=STEPS, nmoves=MOVES)
+#stype - 3 types: "bond", "block" or None (random)
+mycell.shimmy(nsteps=STEPS, nmoves=MOVES, stype="bond")
+
 pfile = open("pickle2.pkl","w")
 cPickle.dump(mycell,pfile)
 pfile.close()
