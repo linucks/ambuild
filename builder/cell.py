@@ -1406,10 +1406,6 @@ class TestCell(unittest.TestCase):
         dc = cell.distance(v1,v2)
         self.assertEqual( dc, 2.0, "Distance across boundary cell:{}".format(dc) )
         
-        
-
-        
-    
     def testGrowBlock(self):
         """Test we can add a block correctly"""
         
@@ -1420,10 +1416,14 @@ class TestCell(unittest.TestCase):
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         cell.seed( 1, "../PAF_bb_typed.car" )
-        for _ in range( 10 ):
+
+        nblocks=19
+        for _ in range( nblocks ):
             ok = cell.growBlock( cell.initBlock.copy() )
             if not ok:
                 print "Failed to add block"
+
+        self.assertEqual(1,len(cell.blocks), "Growing blocks found {0} blocks".format( len(cell.blocks) ) )
             
         cell.writeXyz("JENS.xyz", label=False)
         
