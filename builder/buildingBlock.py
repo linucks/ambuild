@@ -597,14 +597,11 @@ class BuildingBlock():
         """
         
         targetEndGroup = self.coords[ targetEndGroupIndex ]
-        targetContact = self.endGroupContactIndex( targetEndGroupIndex )
+        targetContactIndex = self.endGroupContactIndex( targetEndGroupIndex )
+        targetContact = self.coords[ targetContactIndex ]
         
-        label = self.labels[ targetEndGroupIndex ]
-        #jmht - use symbols!
-        targetSymbol = util.label2symbol(label)
-        
-        label = newBlock.labels[ newEndGroupIndex ]
-        newSymbol = util.label2symbol(label)
+        targetSymbol = self.symbols[ targetEndGroupIndex ]
+        newSymbol = newBlock.symbols[ newEndGroupIndex ]
         
         # Get the bond length between these two atoms
         bondLength = util.bondLength(targetSymbol, newSymbol)

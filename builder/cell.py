@@ -659,6 +659,7 @@ class Cell():
         
         # pick random endgroup and contact in target
         block1EndGroupIndex = block1.randomEndGroupIndex()
+        
         # Need to copy this so we can remember it - otherwise it changes with the moves
         block1ContactIndex = block1.endGroupContactIndex( block1EndGroupIndex )
         block1Contact = block1.coords[ block1ContactIndex ].copy()
@@ -709,14 +710,15 @@ class Cell():
         #jmht FIX!
         block2.translate( bondPos + block2EndGroup )
         
+        # Now add block2 to the cell so we can check for clashes
+        block2_id = self.addBlock(block2)
         
         # Check it doesn't clash - could try rotating about the dihedral
-        if not self.checkClash( block2, ignore=[block1id] ):
-            # Bond the two blocks
-            block1.bond(  block2, (block1EndGroupIndex,block2EndGroupIndex) )
+        if not self.checkMove(block2_id):
+            self.delBlock(block2_id)
+            return False
+        else:
             return True
-        
-        return False
         
     
     def initCell(self,inputFile, incell=True):
@@ -1408,7 +1410,7 @@ class TestCell(unittest.TestCase):
 
         
     
-    def XtestGrowBlock(self):
+    def testGrowBlock(self):
         """Test we can add a block correctly"""
         
         CELLA = 30
@@ -1417,7 +1419,6 @@ class TestCell(unittest.TestCase):
         
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        #block = self.makePaf( cell )
         cell.seed( 1, "../PAF_bb_typed.car" )
         for _ in range( 10 ):
             ok = cell.growBlock( cell.initBlock.copy() )
