@@ -647,11 +647,11 @@ class BuildingBlock():
             
         with open(name,"w") as f:
             fpath = os.path.abspath(f.name)
-            f.writeXyz( "{}\n".format(len(self.coords)) )
-            f.writeXyz( "id={}\n".format(str(id(self))) )
+            f.write( "{}\n".format(len(self.coords)) )
+            f.write( "id={}\n".format(str(id(self))) )
                              
             for i,c in enumerate(self.coords):
-                f.writeXyz("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(self.labels[i]), c[0], c[1], c[2]))
+                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(self.labels[i]), c[0], c[1], c[2]))
         
         print "Wrote file: {0}".format(fpath)
         

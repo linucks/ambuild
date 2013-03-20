@@ -156,7 +156,9 @@ class Cell():
 #        print block2EndGroup
         
         # Makes no sense if they are the same already...
-        assert not numpy.array_equal(block1EndGroup,block2EndGroup)
+        if numpy.array_equal(block1EndGroup,block2EndGroup):
+            print "alignBlocks - blocks already aligned. May not be a problem, but you should know..."
+            return
         
         # Calculate normlised cross product to find an axis orthogonal 
         # to both that we can rotate about
@@ -719,9 +721,8 @@ class Cell():
         # Move block1 back to its original coord
         block1.translate( block1Contact )
         
-        # now turn the second block around
-        
-        # Need to get the new vectors as these will have changed due to the moves
+        # Now turn the second block around
+        # - need to get the new vectors as these will have changed due to the moves
         block2EndGroup = block2.coords[ block2EndGroupIndex ]
         
         # Find vector perpendicular to the bond axis
@@ -737,8 +738,8 @@ class Cell():
         # Rotate by 180
         block2.rotate( rotAxis, numpy.pi )
         
-        # Now need to coord the endGroup at the bond coord - at the moment
-        # The contact atom is on the origin so we need to subtract the vector to the endGroup
+        # Now need to place the endGroup at the bond coord - at the moment
+        # the contact atom is on the origin so we need to subtract the vector to the endGroup
         # from the translation vector
         
         #jmht FIX!
@@ -1053,8 +1054,10 @@ class Cell():
         
         self.initCell( inputFile )
         
-        # If it's just one, add the given block
-        self.addBlock( self.initBlock.copy() )
+        # If it's just one, add the init block - after a random move
+        block = self.initBlock.copy()
+        self.randomMove( block )
+        self.addBlock( block )
         print "Added block 1"
         if nblocks == 1:
             return
@@ -1461,12 +1464,12 @@ class TestCell(unittest.TestCase):
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         cell.seed( 1, "../PAF_bb_typed.car" )
-        cell.writeXyz("JENS.xyz")
+        #cell.writeXyz("JENS.xyz")
 
-        nblocks=2
+        nblocks=10
         for i in range( nblocks ):
             ok = cell.growBlock( cell.initBlock.copy() )
-            cell.writeXyz("JENS"+str(i)+".xyz")
+            #cell.writeXyz("JENS"+str(i)+".xyz")
             if not ok:
                 print "Failed to add block"
 

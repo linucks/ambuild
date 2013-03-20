@@ -16,7 +16,7 @@ INFILE = "../PAF_bb_typed.car"
 #INFILE = "../ch4_typed.car" 
 #INFILE = "./afterSeed.bust.xyz"
 OUTFILE1 = "afterSeed.xyz"
-#OUTFILE2 = "afterSeedLabel.xyz"
+OUTFILE2 = "afterGrow.xyz"
 #OUTFILE2 = "../SHIMMY_0_lab.xyz"
 OUTFILE3 = "afterShimmy.xyz"
 # for ch4: 4,4,4,4
@@ -38,11 +38,11 @@ mycell.cellAxis( CELLA, CELLB, CELLC )
 #import pdb
 #pdb.set_trace()
 mycell.seed( nblocks, INFILE )
-
-for i in range(10):
+mycell.writeXyz( OUTFILE1 )
+for i in range(40):
     mycell.growBlock( mycell.initBlock.copy() )
 
-mycell.writeXyz( OUTFILE1 )
+mycell.writeXyz( OUTFILE2 )
 sys.exit(1)
 
 pfile = open("pickle1.pkl","w")
