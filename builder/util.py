@@ -499,6 +499,42 @@ BOND_LENGTHS['SE'] = { 'SE' : 2.33 }
 
 BOND_LENGTHS['SI'] = { 'SI' : 2.33 }
 
+
+def angle( c1, c2, c3 ):
+    """Return the angle in radians c1---c2---c3
+    where c are the coordinates in a numpy array
+    Taken from the CCP1GUI
+    jmht - think about PBC
+    """
+    #p1 = a1.coord
+    #p2 = a2.coord
+    #p3 = a3.coord
+
+    #r1 = cpv.distance(p1,p2)
+    #r2 = cpv.distance(p2,p3)
+    #r3 = cpv.distance(p1,p3)
+    
+    #r1 = numpy.linalg.norm( c1 - c2 )
+    #r2 = numpy.linalg.norm( c2 - c3 )
+    #r3 = numpy.linalg.norm( c1 - c3 )
+    r1 = distance( c2, c1 )
+    r2 = distance( c3, c2 )
+    r3 = distance( c3, c1 )
+    
+    print r1,r2,r3
+    
+    small = 1.0e-10
+    #cnv   = 57.29577951
+    if r1 + r2 - r3 < small:
+        # printf("trig error %f\n",r3-r1-r2)
+        # This seems to happen occasionally for 180 angles 
+        theta = math.pi
+    else:
+        theta = math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
+        
+    print "ANGLE THETA IS ",theta
+    return theta;
+
 def bondLength( symbol1,symbol2 ):
     """ Get the characteristic lengths of single bonds as defined in:
         Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
@@ -521,6 +557,13 @@ def bondLength( symbol1,symbol2 ):
     
     print 'No data for bond length for %s-%s' % (symbol1,symbol2)
     return 1.0
+
+def distance(x,y):
+    """
+    Calculate the distance between two vectors - currently just use for testing
+    Actual one lives in cell
+    """
+    return numpy.linalg.norm(y-x)
 
 
 def label2symbol( name ):
@@ -568,9 +611,25 @@ def newFilename(filename):
     
     return name+suffix
 
+def rotation_matrix( axis, angle ):
+    """
+    Return the rotation matrix to rotate a vector by the given angle about the 
+    axis.
+    
+    http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector
+    """
+    
+    axis = axis/numpy.sqrt( numpy.dot(axis,axis) )
+    a = numpy.cos(angle/2)
+    b,c,d = -axis*numpy.sin(angle/2)
+    return numpy.array([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
+                     [2*(b*c+a*d), a*a+c*c-b*b-d*d, 2*(c*d-a*b)],
+                     [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]])
+
 def vectorAngle( v1, v2):
     """ Calculate the angle between two vectors
     Return value in Radians
+    A . B = |A|*|B|*cos(theta)
     Stolen from: http://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
     """
     
@@ -598,13 +657,6 @@ def XvectorAngle( v1, v2 ):
     so: theta = arccos( X.Y / |X||Y| )
     """
     pass
-
-def distance(x,y):
-    """
-    Calculate the distance between two vectors - currently just use for testing
-    Actual one lives in cell
-    """
-    return numpy.linalg.norm(y-x)
 
 
 class TestCell(unittest.TestCase):

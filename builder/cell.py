@@ -137,25 +137,53 @@ class Cell():
         the bond defined by the endGroup on block 1
         
         This assumes that the blocks have already been positioned with the contact atoms at the origin
+        so the vector is just defined by the position of the endgroup
         """
         
-        block1EndGroup = block1.coords[ block1EndGroupIndex ]
         
         # Aign with each axis in turn. The axis to align to is just the coord of bock1EndGroup
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="x" )
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="y" )
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="z" )
+        #self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="x" )
+        #self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="y" )
+        #self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="z" )
+        # Above doesn't work as each rotation isn't orthogonal to the others. Here's how you are
+        # _supposed_ to do it...
         
-        # Don't know why, but for the time being do it twice
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="x" )
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="y" )
-        self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="z" )
+        block1EndGroup = block1.coords[ block1EndGroupIndex ]
+        block2EndGroup = block2.coords[ block2EndGroupIndex ]
         
+#        print "alignBlocks BEFORE"
+#        print block1EndGroup
+#        print block2EndGroup
+        
+        # Makes no sense if they are the same already...
+        assert not numpy.array_equal(block1EndGroup,block2EndGroup)
+        
+        # Calculate normlised cross product to find an axis orthogonal 
+        # to both that we can rotate about
+        cross = numpy.cross( block1EndGroup, block2EndGroup )
+        ncross = cross / numpy.linalg.norm( cross )
+        
+        if numpy.array_equal( cross, [0,0,0]):
+            raise RuntimeError,"alignBlocks - vectors are parallel or one is zero"
+        
+        # Find angle
+        angle = util.vectorAngle(block1EndGroup, block2EndGroup)
+        
+        # Rotate
+        block2.rotate( ncross, angle )
+        
+#        block1EndGroup = block1.coords[ block1EndGroupIndex ]
+#        block2EndGroup = block2.coords[ block2EndGroupIndex ]
+#        
+#        print "alignBlocks AFTER"
+#        print block1EndGroup
+#        print block2EndGroup
+
         return
     
-    def _alignAxis(self, block, endGroupIndex, targetVector, axisLabel=None ):
+    def X_alignAxis(self, block, endGroupIndex, targetVector, axisLabel=None ):
         """
-        Align the given block so that the bond deined by the endGroupIndex
+        Align the given block so that the bond defined by the endGroupIndex
         is aligned with the targetVector along the given axis
         """
         
@@ -280,7 +308,8 @@ class Cell():
                     # Possible bond so check the angle
                     icontact = block.endGroupContactIndex( iatom )
                     contact = block.coords[icontact]
-                    angle = block.angle( contact, coord, ocoord )
+                    print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( contact, coord, ocoord )
+                    angle = util.angle( contact, coord, ocoord )
                     #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
                     
                     if ( bondAngle-bondAngleMargin < angle < bondAngle+bondAngleMargin ):
@@ -657,6 +686,8 @@ class Cell():
         block1id = self.randomBlockId()
         block1 = self.blocks[ block1id ]
         
+        print "Growblock Adding to block: {0}".format(block1id)
+        
         # pick random endgroup and contact in target
         block1EndGroupIndex = block1.randomEndGroupIndex()
         
@@ -670,7 +701,10 @@ class Cell():
         block2Contact = block2.coords[ block2ContactIndex ].copy()
         
         # get the coord where the next block should bond
-        bondPos = block1.newBondPosition( block1EndGroupIndex, block2, block2EndGroupIndex )
+        # symbol of endGroup tells us the sort of bond we are making which determines
+        # the bond length
+        symbol = block2.symbols[block2EndGroupIndex]
+        bondPos = block1.newBondPosition( block1EndGroupIndex, symbol )
         #print "got bondPos: {}".format( bondPos )
         
         # Move block1Contact to center so that block1Contact -> block1EndGroup defines
@@ -679,7 +713,7 @@ class Cell():
         # Same for block2
         block2.translate( -block2Contact )
         
-        # Align along all 3 axes
+        # Align along the block1 bond
         self.alignBlocks( block1, block1EndGroupIndex, block2, block2EndGroupIndex)
         
         # Move block1 back to its original coord
@@ -715,6 +749,15 @@ class Cell():
         
         # Check it doesn't clash - could try rotating about the dihedral
         if not self.checkMove(block2_id):
+#            # jmht - just for checking
+#            for i in range(len(block1.coords)):
+#                block1.labels[i] = 'F'
+#            for i in range(len(block2.coords)):
+#                block2.labels[i] = 'F'
+#            self.writeXyz("failedBond.xyz")
+#            self.writeXyz("failedBondP.xyz",periodic=True)
+#            sys.exit(1)
+            
             self.delBlock(block2_id)
             return False
         else:
@@ -733,7 +776,7 @@ class Cell():
             # Make sure it is positioned in the cell - if not keep moving it about randomly till
             # it fits
             while True:
-                #print "moving initblock"
+                print "moving initblock"
                 #print "{} | {} | {} | {}".format( ib.centroid()[0], ib.centroid()[1], ib.centroid()[2], ib.radius()  )
                 if ib.centroid()[0] - ib.radius() < 0 or \
                    ib.centroid()[0] + ib.radius() > self.A[0] or \
@@ -1283,7 +1326,7 @@ class TestCell(unittest.TestCase):
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
         
-    def XtestAlignBlocks(self):
+    def testAlignBlocks(self):
         """Test we can align two blocks correctly"""
         
         CELLA = 30
@@ -1297,18 +1340,19 @@ class TestCell(unittest.TestCase):
         cell.seed( 2, "../PAF_bb_typed.car" )
         
         # Get the two blocks
-        block1 = cell.blocks[0]
-        block2 = cell.blocks[1]
+        ids = cell.blocks.keys()
+        block1 = cell.blocks[ ids[0] ]
+        block2 = cell.blocks[ ids[1] ]
         
         # Get two end Groups
-        block1EndGroupIndex=7
-        block2EndGroupIndex=17
+        iblock1EG=block1.randomEndGroupIndex()
+        iblock2EG=block2.randomEndGroupIndex()
         
         # Get the atoms that define things
-        block1ContactIndex = block1.endGroupContactIndex( block1EndGroupIndex )
-        block1Contact = block1.coords[ block1ContactIndex ]
-        block2ContactIndex = block2.endGroupContactIndex( block2EndGroupIndex )
-        block2Contact = block2.coords[ block2ContactIndex ]
+        iblock1Contact = block1.endGroupContactIndex( iblock1EG )
+        block1Contact = block1.coords[ iblock1Contact ]
+        iblock2Contact = block2.endGroupContactIndex( iblock2EG )
+        block2Contact = block2.coords[ iblock2Contact ]
         
         # Move block1Contact to center so that block1Contact -> block1EndGroup defines
         # the alignment we are after
@@ -1317,24 +1361,25 @@ class TestCell(unittest.TestCase):
         # Same for block2
         block2.translate( -block2Contact )
         
-        cell.alignBlocks( block1, block1EndGroupIndex, block2, block2EndGroupIndex )
+        cell.alignBlocks( block1, iblock1EG, block2, iblock2EG )
         
         # Check the relevant atoms are in the right place
-        block1 = cell.blocks[0]
-        block2 = cell.blocks[1]
-        block1EndGroup = block1.coords[ block1EndGroupIndex ]
-        block2EndGroup = block2.coords[ block2EndGroupIndex ]
-        block1Contact = block1.coords[  block1ContactIndex ]
-        block2Contact = block2.coords[  block2ContactIndex ]
+        #block1 = cell.blocks[ ids[0] ]
+        #block2 = cell.blocks[  ids[1] ]
+        block1EndGroup = block1.coords[ iblock1EG ]
+        block2EndGroup = block2.coords[ iblock2EG ]
+        block1Contact = block1.coords[  iblock1Contact ]
+        block2Contact = block2.coords[  iblock2Contact ]
         
-        print "{}\n{}".format( block1EndGroup, block2EndGroup)
-        print "{}\n{}".format( block1Contact, block2Contact)
+        # Normalise two vectors so we can compare them
+        b1EGnorm = block1EndGroup / numpy.linalg.norm(block1EndGroup)
+        b2EGnorm = block2EndGroup / numpy.linalg.norm(block2EndGroup)
         
-        # Shocking tolerances - need to work out why...
-        self.assertTrue( numpy.allclose( block1EndGroup, block2EndGroup, rtol=1e-1, atol=1e-1 ),
-                         msg="End Group incorrectly positioned")
-        self.assertTrue( numpy.allclose( block1Contact, block2Contact, rtol=1e-7, atol=1e-7 ),
-                         msg="Contact atom incorrectly positioned")
+        # Slack tolerances - need to work out why...
+        self.assertTrue( numpy.allclose( b1EGnorm, b2EGnorm),
+                         msg="End Group incorrectly positioned: {0} | {1}".format(block1EndGroup, block2EndGroup )  )
+        self.assertTrue( numpy.allclose( block1Contact, block2Contact),
+                         msg="Contact atom incorrectly positioned: {0} | {1}".format(block1Contact, block2Contact ))
 
     def XtestCellIO(self):
         """Check we can write out and then read in a cell
@@ -1416,16 +1461,18 @@ class TestCell(unittest.TestCase):
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         cell.seed( 1, "../PAF_bb_typed.car" )
+        cell.writeXyz("JENS.xyz")
 
-        nblocks=19
-        for _ in range( nblocks ):
+        nblocks=2
+        for i in range( nblocks ):
             ok = cell.growBlock( cell.initBlock.copy() )
+            cell.writeXyz("JENS"+str(i)+".xyz")
             if not ok:
                 print "Failed to add block"
 
         self.assertEqual(1,len(cell.blocks), "Growing blocks found {0} blocks".format( len(cell.blocks) ) )
             
-        cell.writeXyz("JENS.xyz", label=False)
+        #cell.writeXyz("JENS.xyz", label=False)
         
     def testSeed(self):
         """Test we can seed correctly"""

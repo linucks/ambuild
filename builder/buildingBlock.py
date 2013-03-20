@@ -286,7 +286,7 @@ class BuildingBlock():
         contact = self.coords[ icontact ]
         sgatom = self.coords[ bond[0] ] 
         bgatom = block.coords[ bond[1] ] 
-        angle = self.angle( contact, sgatom, bgatom )
+        angle = util.angle( contact, sgatom, bgatom )
         
 #       angle = self.dihedral( ibcoord, igcoord, jgcoord, jbcoord )
         
@@ -501,37 +501,6 @@ class BuildingBlock():
                 count += 1
 
         self.createFromLabelAndCoords( labels, coords )
-    
-    def angle(self,c1,c2,c3):
-        """Return the angle in radians c1---c2---c3
-        where c are the coordinates in a numpy array
-        Taken from the CCP1GUI
-        jmht - think about PBC
-        """
-        #p1 = a1.coord
-        #p2 = a2.coord
-        #p3 = a3.coord
-
-        #r1 = cpv.distance(p1,p2)
-        #r2 = cpv.distance(p2,p3)
-        #r3 = cpv.distance(p1,p3)
-        
-        #r1 = numpy.linalg.norm( c1 - c2 )
-        #r2 = numpy.linalg.norm( c2 - c3 )
-        #r3 = numpy.linalg.norm( c1 - c3 )
-        r1 = util.distance( c2, c1 )
-        r2 = util.distance( c3, c2 )
-        r3 = util.distance( c3, c1 )
-        
-        small = 1.0e-10
-        #cnv   = 57.29577951
-        if r1 + r2 - r3 < small:
-            # printf("trig error %f\n",r3-r1-r2)
-            # This seems to happen occasionally for 180 angles 
-            theta = 180.0
-        else:
-            theta = math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
-        return theta;
 
     def bondLength(self,symbola, symbolb):
         """Return the bond length between two atoms of the given type"""
@@ -590,21 +559,19 @@ class BuildingBlock():
         return self._endGroupContacts[ endGroupIndex ]
         
 
-    def newBondPosition(self, targetEndGroupIndex, newBlock, newEndGroupIndex):
-        """Return the coord where NewBlock would coord its bonding atom if joining
-         to this one at targetEndGroupIndex by newEndGroupIndex
+    def newBondPosition(self, targetEndGroupIndex, symbol ):
+        """Return the position where a bond to an atom of type 'symbol'
+        would be placed if bonding to the target endgroup
          I'm sure this algorithm is clunky in the extreme...
         """
         
         targetEndGroup = self.coords[ targetEndGroupIndex ]
         targetContactIndex = self.endGroupContactIndex( targetEndGroupIndex )
         targetContact = self.coords[ targetContactIndex ]
-        
         targetSymbol = self.symbols[ targetEndGroupIndex ]
-        newSymbol = newBlock.symbols[ newEndGroupIndex ]
         
         # Get the bond length between these two atoms
-        bondLength = util.bondLength(targetSymbol, newSymbol)
+        bondLength = util.bondLength(targetSymbol, symbol)
         
         # vector from target EndGroup contact to Endgroup
         bondVec =  targetEndGroup - targetContact 
@@ -646,7 +613,7 @@ class BuildingBlock():
         """ Rotate the molecule about the given axis by the angle in radians
         """
         
-        rmat = self.rotation_matrix( axis, angle )
+        rmat = util.rotation_matrix( axis, angle )
         
         # loop through and change all coords
         for i,coord in enumerate( self.coords ):
@@ -654,17 +621,6 @@ class BuildingBlock():
         
         self._changed = True
 
-    def rotation_matrix(self, axis,angle):
-        """
-        http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector
-        """
-        
-        axis = axis/numpy.sqrt( numpy.dot(axis,axis) )
-        a = numpy.cos(angle/2)
-        b,c,d = -axis*numpy.sin(angle/2)
-        return numpy.array([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
-                         [2*(b*c+a*d), a*a+c*c-b*b-d*d, 2*(c*d-a*b)],
-                         [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]])
         
     def translate(self, tvector):
         """ translate the molecule by the given vector"""
@@ -872,7 +828,8 @@ class TestBuildingBlock(unittest.TestCase):
         
         ch4 = self.makeCh4()
         r = ch4.radius()
-        self.assertAlmostEqual(r, 1.78900031214, 7, "Incorrect radius: {}".format(str(r)) )
+        #jmht - check...- old was: 1.78900031214
+        self.assertAlmostEqual(r, 1.45942438719, 7, "Incorrect radius: {}".format(str(r)) )
         
     def testRotate(self):
         """

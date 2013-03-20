@@ -9,6 +9,7 @@ Created on Jan 15, 2013
 
 import cell
 import cPickle
+import sys
 
 
 INFILE = "../PAF_bb_typed.car" 
@@ -22,7 +23,7 @@ OUTFILE3 = "afterShimmy.xyz"
 # 35,10,10,10
 #
 #for paf: 4, 15, 15, 15
-nblocks = 30
+nblocks = 20
 CELLA = 40
 CELLB = 40
 CELLC = 40
@@ -37,6 +38,12 @@ mycell.cellAxis( CELLA, CELLB, CELLC )
 #import pdb
 #pdb.set_trace()
 mycell.seed( nblocks, INFILE )
+
+for i in range(10):
+    mycell.growBlock( mycell.initBlock.copy() )
+
+mycell.writeXyz( OUTFILE1 )
+sys.exit(1)
 
 pfile = open("pickle1.pkl","w")
 cPickle.dump(mycell,pfile)
