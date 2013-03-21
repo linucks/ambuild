@@ -558,12 +558,78 @@ def bondLength( symbol1,symbol2 ):
     print 'No data for bond length for %s-%s' % (symbol1,symbol2)
     return 1.0
 
+def dihedral(self, p1, p2, p3, p4):
+    """ From the CCP1GUI"""
+
+    #cnv=57.29577951
+
+    vec_ij = p1 - p2
+    vec_kj = p3 - p2
+    vec_kl = p3 - p4
+
+    # vec1 is the normal to the plane defined by atoms i, j, and k    
+    vec1 = numpy.cross(vec_ij,vec_kj)
+    magvec1 = numpy.dot(vec1,vec1)
+
+    #  vec2 is the normal to the plane defined by atoms j, k, and l
+    vec2 = numpy.cross(vec_kl,vec_kj)
+    magvec2 = numpy.dot(vec2,vec2)
+
+    # the definition of a dot product is used to find the angle between  
+    # vec1 and vec2 and hence the angle between the planes defined by    
+    # atoms i, j, k and j, k, l                                          
+    #                                                                    
+    # the factor of pi (180.0) is present since when we defined the      
+    # vectors vec1 and vec2, one used the right hand rule while the      
+    # other used the left hand rule                                      
+
+    dotprod = numpy.dot(vec1,vec2)
+    #print magvec1, magvec2
+    #print type(magvec1), type(magvec2)
+    fac = dotprod / math.sqrt(magvec1*magvec2)
+    if(fac > 1.0):
+        fac = 1.0
+    if(fac < -1.0):
+        fac = -1.0
+    dihed = 180.0 - RADIANS2DEGREES * math.acos(fac )
+
+    # the dot product between the bond between atoms i and j and the     
+    # normal to the plane defined by atoms j, k, and l is used to        
+    # determine whether or not the dihedral angle is clockwise or        
+    # anti_clockwise                                                     
+    #                                                                    
+    # if the dot product is positive, the rotation is clockwise          
+
+    sign_check = numpy.dot(vec_ij,vec2)
+    if( sign_check > 0.0):
+        dihed = dihed * -1.0
+
+    return dihed
+
 def distance(x,y):
     """
     Calculate the distance between two vectors - currently just use for testing
     Actual one lives in cell
     """
     return numpy.linalg.norm(y-x)
+
+def Xdistance(self, v1, v2 ):
+    """
+    Calculate the distance between two vectors in the cell
+    under periodic boundary conditions - from wikipedia entry
+    """
+    
+    dx = v2[0] - v1[0]
+    if math.fabs(dx) > self.A[0] * 0.5:
+        dx = dx - math.copysign( self.A[0], dx)
+    dy = v2[1] - v1[1]
+    if math.fabs(dy) > self.B[1] * 0.5:
+        dy = dy - math.copysign( self.B[1], dy)
+    dz = v2[2] - v1[2]
+    if math.fabs(dz) > self.C[2] * 0.5:
+        dz = dz - math.copysign( self.C[2], dz)
+    
+    return math.sqrt( dx*dx + dy*dy + dz*dz )
 
 
 def label2symbol( name ):
@@ -630,6 +696,7 @@ def vectorAngle( v1, v2):
     """ Calculate the angle between two vectors
     Return value in Radians
     A . B = |A|*|B|*cos(theta)
+    so: theta = arccos( X.Y / |X||Y| )
     Stolen from: http://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
     """
     
@@ -648,16 +715,6 @@ def vectorAngle( v1, v2):
             #return numpy.pi/RADIANS2DEGREES
     #return angle/RADIANS2DEGREES
     return angle
-
-def XvectorAngle( v1, v2 ):
-    """
-    Dot product of two vectors is the product of their lengths multiplied by the cosine of the
-    angle between them.
-    X.Y = |X||Y|cos( theta )
-    so: theta = arccos( X.Y / |X||Y| )
-    """
-    pass
-
 
 class TestCell(unittest.TestCase):
     

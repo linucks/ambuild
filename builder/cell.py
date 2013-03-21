@@ -466,87 +466,68 @@ class Cell():
         
         return 
 
-    def directedShimmy(self, nsteps=100, nmoves=50):
-        """ Shuffle the molecules about making bonds where necessary for nsteps
-        minimoves is number of sub-moves to attempt when the blocks are close
-        """
-        
-        #For writing out our progress
-        filename= "SHIMMY_0.xyz"
-        self.writeXyz( filename )
-        
-        for step in range( nsteps ):
-            
-            if len(self.blocks) == 1:
-                print "NO MORE BLOCKS TO BOND _ HOORAY!"
-                return
-            
-            #if not step % 100:
-            print "Step: {}".format(step)
-            print "BLOCKS",self.blocks.keys()
-            print "KEYS ",self.box1
-            filename = util.newFilename(filename)
-            self.writeXyz( filename )
-            
-            imove_block, istatic_block = self.randomBlockId(count=2)
-            move_block = self.blocks[imove_block]
-            static_block = self.blocks[istatic_block]
-            
-            # Copy the original coordinates so we can reject the move
-            # we copy the whole block so we don't need to recalculate
-            # anything - not sure if this quicker then saving the coords & updating tho
-            orig_block = copy.deepcopy( move_block )
-            
-            # Calculate how far to move
-            circ = move_block.radius() + static_block.radius()
-            radius = (circ/2) + self.atomMargin
-            
-            for move in range( nmoves ):
-                
-                # Remove the block from the cell so we don't check against itself
-                self.delBlock(imove_block)
-                
-                self.randomMoveAroundCenter( move_block, static_block.centroid(), radius )
-                
-                #Add the block so we can check for clashes/bonds
-                imove_block = self.addBlock(move_block)
-                
-                # Test for Clashes with other molecules
-                ok = self.checkMove( imove_block )
-                
-                # Break out if no clashes
-                if ok:
-                    print "Successful move ",move
-                    break
-                
-                # Put it back where we got it from
-                self.delBlock(imove_block)
-                imove_block = self.addBlock(orig_block)
-                
-                #End move loop
-            #End step loop
-        #End shimmy
-        return
+#    def directedShimmy(self, nsteps=100, nmoves=50):
+#        """ Shuffle the molecules about making bonds where necessary for nsteps
+#        minimoves is number of sub-moves to attempt when the blocks are close
+#        """
+#        
+#        #For writing out our progress
+#        filename= "SHIMMY_0.xyz"
+#        self.writeXyz( filename )
+#        
+#        for step in range( nsteps ):
+#            
+#            if len(self.blocks) == 1:
+#                print "NO MORE BLOCKS TO BOND _ HOORAY!"
+#                return
+#            
+#            #if not step % 100:
+#            print "Step: {}".format(step)
+#            print "BLOCKS",self.blocks.keys()
+#            print "KEYS ",self.box1
+#            filename = util.newFilename(filename)
+#            self.writeXyz( filename )
+#            
+#            imove_block, istatic_block = self.randomBlockId(count=2)
+#            move_block = self.blocks[imove_block]
+#            static_block = self.blocks[istatic_block]
+#            
+#            # Copy the original coordinates so we can reject the move
+#            # we copy the whole block so we don't need to recalculate
+#            # anything - not sure if this quicker then saving the coords & updating tho
+#            orig_block = copy.deepcopy( move_block )
+#            
+#            # Calculate how far to move
+#            circ = move_block.radius() + static_block.radius()
+#            radius = (circ/2) + self.atomMargin
+#            
+#            for move in range( nmoves ):
+#                
+#                # Remove the block from the cell so we don't check against itself
+#                self.delBlock(imove_block)
+#                
+#                self.randomMoveAroundCenter( move_block, static_block.centroid(), radius )
+#                
+#                #Add the block so we can check for clashes/bonds
+#                imove_block = self.addBlock(move_block)
+#                
+#                # Test for Clashes with other molecules
+#                ok = self.checkMove( imove_block )
+#                
+#                # Break out if no clashes
+#                if ok:
+#                    print "Successful move ",move
+#                    break
+#                
+#                # Put it back where we got it from
+#                self.delBlock(imove_block)
+#                imove_block = self.addBlock(orig_block)
+#                
+#                #End move loop
+#            #End step loop
+#        #End shimmy
+#        return
 
-    
-    def X2distance(self, v1, v2 ):
-        """
-        Calculate the distance between two vectors in the cell
-        under periodic boundary conditions - from wikipedia entry
-        """
-        
-        dx = v2[0] - v1[0]
-        if math.fabs(dx) > self.A[0] * 0.5:
-            dx = dx - math.copysign( self.A[0], dx)
-        dy = v2[1] - v1[1]
-        if math.fabs(dy) > self.B[1] * 0.5:
-            dy = dy - math.copysign( self.B[1], dy)
-        dz = v2[2] - v1[2]
-        if math.fabs(dz) > self.C[2] * 0.5:
-            dz = dz - math.copysign( self.C[2], dz)
-        
-        return math.sqrt( dx*dx + dy*dy + dz*dz )
-    
     def distance(self, v1, v2):
         """
         my attempt to do PBC
@@ -565,38 +546,30 @@ class Cell():
             dz = dz - math.copysign( self.C[2], dz)
             
         return math.sqrt( dx*dx + dy*dy + dz*dz )
-        
-    
-    def Xdistance(self, v1,v2):
-        """
-        Calculate the distance between two vectors - currently just use for testing
-        Actual one lives in cell
-        """
-        return numpy.linalg.norm(v2-v1)
-
-    def findClose(self, oblock, block):
-        """
-        Find the blocks around oblock that might be close to block if we were moving
-        it by the parameter used for the random move around block.
-        return a list of the indexes
-        """
-        
-        # Need to add the central block radius to the diameter of the sample block
-        # plus the margins
-        rb = block.radius()
-        ro = oblock.radius()
-        margin = ro + 2*rb + self.blockMargin + self.closeMargin
-        
-        centroid = oblock.centroid()
-        closeBlocks = []
-        # This should implicitly include oblock
-        for i,b in self.block.iteritems():
-            # See if we are close enough
-            dist = numpy.linalg.norm( centroid - b.centroid() )
-            if dist < margin + b.radius():
-                closeBlocks.append( i )
-        
-        return closeBlocks
+#        
+#    def findClose(self, oblock, block):
+#        """
+#        Find the blocks around oblock that might be close to block if we were moving
+#        it by the parameter used for the random move around block.
+#        return a list of the indexes
+#        """
+#        
+#        # Need to add the central block radius to the diameter of the sample block
+#        # plus the margins
+#        rb = block.radius()
+#        ro = oblock.radius()
+#        margin = ro + 2*rb + self.blockMargin + self.closeMargin
+#        
+#        centroid = oblock.centroid()
+#        closeBlocks = []
+#        # This should implicitly include oblock
+#        for i,b in self.block.iteritems():
+#            # See if we are close enough
+#            dist = numpy.linalg.norm( centroid - b.centroid() )
+#            if dist < margin + b.radius():
+#                closeBlocks.append( i )
+#        
+#        return closeBlocks
         
     def fromXyz(self, xyzFile ):
         """ Read in an xyz file containing a cell and recreate the cell object"""
@@ -710,7 +683,8 @@ class Cell():
         #print "got bondPos: {}".format( bondPos )
         
         # Move block1Contact to center so that block1Contact -> block1EndGroup defines
-        # the alignment we are after
+        # the alignment we are after- don't need to move whole block! - just get the 
+        # coord of the endGroup when shifted there
         block1.translate( -block1Contact )
         # Same for block2
         block2.translate( -block2Contact )
@@ -768,6 +742,8 @@ class Cell():
     def initCell(self,inputFile, incell=True):
         """
         Read in the first block from the input file and save it
+        as the initBlock
+        Also center the block in the cell
         """
         
         ib = buildingBlock.BuildingBlock()
@@ -793,167 +769,6 @@ class Cell():
         self.setInitBlock(ib)
         print "initCell - block radius: ",ib.radius()
         return
-    
-    def XXgrowBlock(self):
-        
-        # For comparing angles
-        small = 1.0e-8
-        
-        block1 = self.blocks[ 0 ]
-        block1EndGroup = block1.coords[1]
-        block1Contact = block1.coords[0]
-        
-        block2 = self.blocks[ 1 ]
-        block2EndGroup = block2.coords[1]
-        block2Contact = block2.coords[0]
-        
-        
-        # Move block1Contact to center so that block1Contact -> block1EndGroup defines
-        # the alignment we are after
-        block1.translate( -block1Contact )
-        
-        # Same for block2
-        block2.translate( -block2Contact )
-        
-        
-        # Find the angle this makes with the target orientation in the XY direction
-        newXY = block2EndGroup.copy()
-        newXY[2] = 0
-        targetXY = block1EndGroup.copy()
-        targetXY[2] = 0
-        angle = util.vectorAngle(newXY, targetXY)
-        if not ( ( -small < angle < small ) or  ( numpy.pi-small < angle < numpy.pi+small ) ):
-            rotAxis = numpy.cross(newXY,targetXY,)
-            rotAxis = rotAxis/numpy.linalg.norm(rotAxis)
-            print "rot XY {}".format(rotAxis)
-            print "GOT ANGLE XY: {}".format( angle*util.RADIANS2DEGREES )
-            block2.rotate( rotAxis, -angle )
-        
-        # Check it worked
-        # Get new coordinate - can't use old as the object as the rotation changes the objects
-        block2EndGroup = block2.coords[ 1 ]
-        newXY = block2EndGroup.copy()
-        newXY[2] = 0
-        angle = util.vectorAngle(newXY, targetXY)
-        print "GOT ANGLEXY AFTER: {}".format( angle*util.RADIANS2DEGREES)
-        
-        
-        # Find the angle this makes with the target orientation in the YZ direction
-        #block2EndGroup = block2.coords[ 1 ]
-        newYZ = block2EndGroup.copy()
-        newYZ[1] = 0
-        targetYZ = block1EndGroup.copy()
-        targetYZ[1] = 0
-        angle = util.vectorAngle(newYZ, targetYZ)
-        if not ( ( -small < angle < small ) or  ( numpy.pi-small < angle < numpy.pi+small ) ):
-            print "GOT ANGLE YZ B4: {}".format( angle*util.RADIANS2DEGREES )
-            rotAxis = numpy.cross(newYZ,targetYZ,)
-            rotAxis = rotAxis/numpy.linalg.norm(rotAxis)
-            print "rot YZ {}".format(rotAxis)
-            print "GOT ANGLE YZ: {}".format( angle*util.RADIANS2DEGREES )
-            block2.rotate( rotAxis, -angle )
-        
-        # Check it worked
-        # Get new coordinate - can't use old as the object as the rotation changes the objects
-        block2EndGroup = block2.coords[ 1 ]
-        newYZ = block2EndGroup.copy()
-        newYZ[2] = 0
-        angle = util.vectorAngle(newYZ, targetYZ)
-        print "GOT ANGLEYZ AFTER: {}".format( angle*util.RADIANS2DEGREES)
- 
- 
-        # Find the angle this makes with the target orientation in the XZ direction
-        #block2EndGroup = block2.coords[ 1 ]
-        newXZ = block2EndGroup.copy()
-        newXZ[1] = 0
-        targetXZ = block1EndGroup.copy()
-        targetXZ[1] = 0
-        angle = util.vectorAngle(newXZ, targetXZ)
-        if not ( ( -small < angle < small ) or  ( numpy.pi-small < angle < numpy.pi+small ) ):
-            print "GOT ANGLE XZ: B4 {}".format( angle*util.RADIANS2DEGREES )
-            rotAxis = numpy.cross(newXZ,targetXZ,)
-            rotAxis = rotAxis/numpy.linalg.norm(rotAxis)
-            print "rot XZ {}".format(rotAxis)
-            print "GOT ANGLE XZ: {}".format( angle*util.RADIANS2DEGREES )
-            block2.rotate( rotAxis, -angle )
-        
-        # Check it worked
-        # Get new coordinate - can't use old as the object as the rotation changes the objects
-        block2EndGroup = block2.coords[ 1 ]
-        newXZ = block2EndGroup.copy()
-        newXZ[2] = 0
-        angle = util.vectorAngle(newXZ, targetXZ)
-        print "GOT ANGLE XZ AFTER: {}".format( angle*util.RADIANS2DEGREES)
-        
-        ##End growBlock
-        
-
-    def _recreateBlocks(self, labels, coords):
-        """Given a list of labels and coordinates, recreate the blocks
-        Uses a stoopid but simple connectivity algorithm
-        """
-        
-        toler=0.5
-        
-        bonds = []
-        
-        for i,i_coord in enumerate( coords ):
-            i_symbol = util.label2symbol( labels[i] )
-            #zi = util.SYMBOL_TO_NUMBER[ i_symbol ]
-            #ri = util.COVALENT_RADII[ zi ]
-            
-            # Start from j so we don't loop over the same atoms twice
-            for j in range( i ):
-                j_coord = coords[ j ]
-                j_symbol = util.label2symbol( labels[j] )
-                #zj = util.SYMBOL_TO_NUMBER[ j_symbol ]
-                #rj = util.COVALENT_RADII[ zj ]
-                bondLength = util.bondLength(i_symbol, j_symbol) + toler
-                dist = numpy.linalg.norm( i_coord - j_coord )
-                if dist <= bondLength:
-                    #print "bondLength({}|{}): {}".format(i_symbol,j_symbol,bondLength)
-                    #print "dist: {}".format(dist)
-                    print "Added bond {}:{}".format(i,j)
-                    # Got bond so add it to the list
-                    bonds.append( (i,j) )
-                    
-        print "GOT {} BONDS".format(bonds)
-                    
-        #End loop through coordinates
-        
-        # Add first atom to first block
-        blocks=[]
-        blocks.append( [bonds[0][0]] )
-        
-        # Now loop through the bonds and create the blocks
-        for (i,j) in bonds:
-            found = False
-            for k,block in enumerate(blocks):
-                #print "Checking block[{}] {}".format(k,block)
-                if i in block:
-                    #print "{} in block but {} not so adding {}".format(i,j,j)
-                    block.append( j )
-                    found=True
-                    break
-                elif j in block:
-                    block.append( i )
-                    #print "{} in block but {} not so adding {}".format(j,i,i)
-                    found=True
-                    break
-                elif j in block and i in block:
-                    raise RuntimeError, "GOT TWO BONDS FOR INDEXES {}:{}".format(i,j)
-            #End loop over blocks
-        
-            if not found:
-                # New block
-                blocks.append( [i,j] )
-                #print "Added atoms {} and {} to NEW BLOCK {}".format(i,j,len(blocks)-1)
- 
-        print "Got blocks: {}".format(len(blocks))
-        
-        # Now create the new blocks
-        # for block in blocks:
-        
         
     def randomBlockId(self,count=1):
         """Return count random block ids"""
@@ -966,8 +781,6 @@ class Cell():
                 if myid not in ids:
                     ids.append(myid)
             return ids
-
-        
     
     def randomMove(self, block, buffer=None ):
         """Randomly move the given block
@@ -1009,9 +822,7 @@ class Cell():
         
         #print "After rotate centroid at: {}".format( block.centroid() )
         
-        
     def randomMoveAroundCenter(self, move_block, center, radius ):
-        
         """
         Move the move_block to a random point so that the its centroid is withiin
         radius of the center

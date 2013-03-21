@@ -131,6 +131,11 @@ class BuildingBlock():
         
         self.update()
 
+
+    def bondLength(self,symbola, symbolb):
+        """Return the bond length between two atoms of the given type"""
+        return self._labels2bondlength[symbola][symbolb]
+    
         
     def createFromArgs(self, coords, labels, endGroups, endGroupContacts ):
         """ Create from given arguments
@@ -356,10 +361,15 @@ class BuildingBlock():
     def copy( self ):
         """
         Create a copy of ourselves and return it.
-        OLD - Tried using deepcopy, but this took forever - I think this is because the distance functions'
-        reference to the cell is causing the cell to be copied as well.
+        Hit problem when passing in the distance function from the cell as the deepcopy
+        also had a copy of the cell
         """
         return copy.deepcopy(self)
+
+    def endGroupContactIndex(self, endGroupIndex ):
+        """Return the index of the contact atom for this endGroup"""
+        return self._endGroupContacts[ endGroupIndex ]
+        
 
     def fillData(self):
         """ Fill the data arrays from the label """
@@ -398,38 +408,6 @@ class BuildingBlock():
                 bond_length = util.bondLength( i_symbol , j_symbol )
                 self._labels2bondlength[ i_symbol ][ j_symbol ] = bond_length
 
-    
-    def XXXfindEndGroupContacts(self):
-        """
-        work out an atom connected to the endGroup so that we can define the angle 
-        for bonding
-        """
-        
-        MARGIN = 0.1 
-        
-        # Trundle through all the endGroups
-        for e in self.endGroups:
-            e_coord = self.coords[e]
-            e_symbol = self.symbols[e]
-            
-            # Loop through all atoms
-            for i, coord in enumerate( self.coords ):
-                
-                # Ignore self
-                if i == e:
-                    continue
-                
-                i_symbol = self.symbols[i]
-                bond_length = util.bondLength( i_symbol , e_symbol )
-                
-                # See if these are bonded
-                #if ( bond_length - MARGIN < numpy.linalg.norm( coord - e_coord ) < bond_length + MARGIN ):
-                if ( bond_length - MARGIN < self.distance( e_coord, coord ) < bond_length + MARGIN ):
-                    
-                    # Found a bonded atom so add it to the list and move on
-                    self._endGroupContacts[e] = i
-                    break
-    
     def fromCarFile(self, carFile):
         """"Abbie did this.
         Gulp...
@@ -469,7 +447,6 @@ class BuildingBlock():
         
         self.createFromLabelAndCoords( labels, coords )
 
-
     def fromXyzFile(self, xyzFile ):
         """"Jens did this.
         """
@@ -502,62 +479,15 @@ class BuildingBlock():
 
         self.createFromLabelAndCoords( labels, coords )
 
-    def bondLength(self,symbola, symbolb):
-        """Return the bond length between two atoms of the given type"""
-        return self._labels2bondlength[symbola][symbolb]
-    
-    def dihedral(self, p1, p2, p3, p4):
-        """ From the CCP1GUI"""
-
-        #cnv=57.29577951
-
-        vec_ij = p1 - p2
-        vec_kj = p3 - p2
-        vec_kl = p3 - p4
-
-        # vec1 is the normal to the plane defined by atoms i, j, and k    
-        vec1 = numpy.cross(vec_ij,vec_kj)
-        magvec1 = numpy.dot(vec1,vec1)
-
-        #  vec2 is the normal to the plane defined by atoms j, k, and l
-        vec2 = numpy.cross(vec_kl,vec_kj)
-        magvec2 = numpy.dot(vec2,vec2)
-
-        # the definition of a dot product is used to find the angle between  
-        # vec1 and vec2 and hence the angle between the planes defined by    
-        # atoms i, j, k and j, k, l                                          
-        #                                                                    
-        # the factor of pi (180.0) is present since when we defined the      
-        # vectors vec1 and vec2, one used the right hand rule while the      
-        # other used the left hand rule                                      
-
-        dotprod = numpy.dot(vec1,vec2)
-        #print magvec1, magvec2
-        #print type(magvec1), type(magvec2)
-        fac = dotprod / math.sqrt(magvec1*magvec2)
-        if(fac > 1.0):
-            fac = 1.0
-        if(fac < -1.0):
-            fac = -1.0
-        dihed = 180.0 - util.RADIANS2DEGREES * math.acos(fac )
-
-        # the dot product between the bond between atoms i and j and the     
-        # normal to the plane defined by atoms j, k, and l is used to        
-        # determine whether or not the dihedral angle is clockwise or        
-        # anti_clockwise                                                     
-        #                                                                    
-        # if the dot product is positive, the rotation is clockwise          
-
-        sign_check = numpy.dot(vec_ij,vec2)
-        if( sign_check > 0.0):
-            dihed = dihed * -1.0
-
-        return dihed
-
-    def endGroupContactIndex(self, endGroupIndex ):
-        """Return the index of the contact atom for this endGroup"""
-        return self._endGroupContacts[ endGroupIndex ]
+    def maxAtomRadius(self):
+        """Return the maxium atom radius
+        """
         
+        rmax=0
+        for r in self.atom_radii:
+            if r>rmax:
+                rmax=r
+        return rmax
 
     def newBondPosition(self, targetEndGroupIndex, symbol ):
         """Return the position where a bond to an atom of type 'symbol'
@@ -584,20 +514,6 @@ class BuildingBlock():
         newPosition = targetEndGroup + diff
         
         return newPosition
-    
-    def maxAtomRadius(self):
-        """Return the maxium atom radius
-        """
-        
-        rmax=0
-        for r in self.atom_radii:
-            if r>rmax:
-                rmax=r
-        return rmax
-    
-    def randomEndGroupIndex(self):
-        """Return a randomly picked endgroup"""
-        return random.choice( self.endGroups )
  
     def radius(self):
         
@@ -608,7 +524,10 @@ class BuildingBlock():
         
         return self._radius
 
-
+    def randomEndGroupIndex(self):
+        """Return a randomly picked endgroup"""
+        return random.choice( self.endGroups )
+    
     def rotate( self, axis, angle ):
         """ Rotate the molecule about the given axis by the angle in radians
         """
@@ -621,7 +540,6 @@ class BuildingBlock():
         
         self._changed = True
 
-        
     def translate(self, tvector):
         """ translate the molecule by the given vector"""
         
@@ -640,6 +558,14 @@ class BuildingBlock():
         """
         self.translate( position - self.centroid() )
         
+    def update(self):
+        """
+        Run any methods that need to be done when the coordinates are changed
+        """
+        # Recalculate the data for this new block
+        self.calcCenterOfMassAndGeometry()
+        self.calcRadius()
+        
     def writeXyz(self,name=None):
         
         if not name:
@@ -654,14 +580,6 @@ class BuildingBlock():
                 f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(self.labels[i]), c[0], c[1], c[2]))
         
         print "Wrote file: {0}".format(fpath)
-        
-    def update(self):
-        """
-        Run any methods that need to be done when the coordinates are changed
-        """
-        # Recalculate the data for this new block
-        self.calcCenterOfMassAndGeometry()
-        self.calcRadius()
         
     def __str__(self):
         """

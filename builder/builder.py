@@ -39,7 +39,7 @@ mycell.cellAxis( CELLA, CELLB, CELLC )
 #pdb.set_trace()
 mycell.seed( nblocks, INFILE )
 mycell.writeXyz( OUTFILE1 )
-for i in range(40):
+for i in range(100):
     mycell.growBlock( mycell.initBlock.copy() )
 
 mycell.writeXyz( OUTFILE2 )
