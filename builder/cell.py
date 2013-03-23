@@ -141,9 +141,9 @@ class Cell():
         
         blockEndGroup = block.coords[ iblockEndGroup ]
         
-        print "alignBlocks BEFORE"
-        print blockEndGroup
-        print refVector
+#        print "alignBlocks BEFORE"
+#        print blockEndGroup
+#        print refVector
         
         # Makes no sense if they are the same already...
         if numpy.array_equal(blockEndGroup,refVector):
@@ -166,9 +166,9 @@ class Cell():
         
         blockEndGroup = block.coords[ iblockEndGroup ]
         
-        print "alignBlocks AFTER"
-        print blockEndGroup
-        print refVector
+#        print "alignBlocks AFTER"
+#        print blockEndGroup
+#        print refVector
         return
     
     def X_alignAxis(self, block, endGroupIndex, targetVector, axisLabel=None ):
