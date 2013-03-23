@@ -40,7 +40,7 @@ mycell.cellAxis( CELLA, CELLB, CELLC )
 mycell.seed( nblocks, INFILE )
 mycell.writeXyz( OUTFILE1 )
 for i in range(100):
-    mycell.growBlock( mycell.initBlock.copy() )
+    mycell.randomGrowBlock( mycell.initBlock.copy() )
 
 mycell.writeXyz( OUTFILE2 )
 sys.exit(1)

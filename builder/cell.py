@@ -131,56 +131,44 @@ class Cell():
                 #self.box3[key] = surround
         return blockid
     
-    def alignBlocks(self, block1, block1EndGroupIndex, block2, block2EndGroupIndex):
+    def alignBlocks(self, block, iblockEndGroup, refVector ):
         """
         Align block2, so that the bond defined by the endGroup on block 2 is aligned with
-        the bond defined by the endGroup on block 1
+        the refVector
         
-        This assumes that the blocks have already been positioned with the contact atoms at the origin
-        so the vector is just defined by the position of the endgroup
+        This assumes that the block has already been positioned with the contact atoms at the origin
         """
         
+        blockEndGroup = block.coords[ iblockEndGroup ]
         
-        # Aign with each axis in turn. The axis to align to is just the coord of bock1EndGroup
-        #self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="x" )
-        #self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="y" )
-        #self._alignAxis(block2, block2EndGroupIndex, block1EndGroup, axisLabel="z" )
-        # Above doesn't work as each rotation isn't orthogonal to the others. Here's how you are
-        # _supposed_ to do it...
-        
-        block1EndGroup = block1.coords[ block1EndGroupIndex ]
-        block2EndGroup = block2.coords[ block2EndGroupIndex ]
-        
-#        print "alignBlocks BEFORE"
-#        print block1EndGroup
-#        print block2EndGroup
+        print "alignBlocks BEFORE"
+        print blockEndGroup
+        print refVector
         
         # Makes no sense if they are the same already...
-        if numpy.array_equal(block1EndGroup,block2EndGroup):
-            print "alignBlocks - blocks already aligned. May not be a problem, but you should know..."
+        if numpy.array_equal(blockEndGroup,refVector):
+            print "alignBlocks - block already aligned along vector. May not be a problem, but you should know..."
             return
         
         # Calculate normlised cross product to find an axis orthogonal 
         # to both that we can rotate about
-        cross = numpy.cross( block1EndGroup, block2EndGroup )
+        cross = numpy.cross( refVector, blockEndGroup )
         ncross = cross / numpy.linalg.norm( cross )
         
         if numpy.array_equal( cross, [0,0,0]):
             raise RuntimeError,"alignBlocks - vectors are parallel or one is zero"
         
         # Find angle
-        angle = util.vectorAngle(block1EndGroup, block2EndGroup)
+        angle = util.vectorAngle(refVector, blockEndGroup)
         
         # Rotate
-        block2.rotate( ncross, angle )
+        block.rotate( ncross, angle )
         
-#        block1EndGroup = block1.coords[ block1EndGroupIndex ]
-#        block2EndGroup = block2.coords[ block2EndGroupIndex ]
-#        
-#        print "alignBlocks AFTER"
-#        print block1EndGroup
-#        print block2EndGroup
-
+        blockEndGroup = block.coords[ iblockEndGroup ]
+        
+        print "alignBlocks AFTER"
+        print blockEndGroup
+        print refVector
         return
     
     def X_alignAxis(self, block, endGroupIndex, targetVector, axisLabel=None ):
@@ -652,88 +640,85 @@ class Cell():
         return blocks
 
 
-    def growBlock(self, block2):
+    def growBlock(self, block, iblockEndGroup, iblockS, iblockSEndGroup):
         """
-        Bond block2 to a randomly chosen block at randomly chosen endGroups in each
+        Bond block to blockS, using the given endGroups
+        
+        Arguments:
+        block: the block we are attaching
+        iblockEndGroup: the index of the endGroup to use for the bond
+        iblockS: the id of the block we are bonding to in the dict of cell blocks
+        iblockSEndGroup: the index of the endGroup to use for the bond
         """
 
-        # Select 2 random blocks
-        block1id = self.randomBlockId()
-        block1 = self.blocks[ block1id ]
+        print "Growblock Adding to block: {0}".format(iblockS)
+        blockS = self.blocks[ iblockS ]
         
-        print "Growblock Adding to block: {0}".format(block1id)
+        # The vector we want to align along is the vector from the contact
+        # to the endGroup
+        blockSEndGroup =  blockS.coords[ iblockSEndGroup ]
+        iblockSContact =  blockS.endGroupContactIndex( iblockSEndGroup )
+        blockSContact  =  blockS.coords[ iblockSContact ]
+        refVector      =  blockSEndGroup - blockSContact
         
-        # pick random endgroup and contact in target
-        block1EndGroupIndex = block1.randomEndGroupIndex()
-        
-        # Need to copy this so we can remember it - otherwise it changes with the moves
-        block1ContactIndex = block1.endGroupContactIndex( block1EndGroupIndex )
-        block1Contact = block1.coords[ block1ContactIndex ].copy()
-        
-        # pick random endGroup on the new block
-        block2EndGroupIndex = block2.randomEndGroupIndex()
-        block2ContactIndex = block2.endGroupContactIndex( block2EndGroupIndex )
-        block2Contact = block2.coords[ block2ContactIndex ].copy()
+        # Get the contact - need to copy this so we can remember it -
+        # otherwise it changes with the moves
+        iblockContact = block.endGroupContactIndex( iblockEndGroup )
+        blockContact = block.coords[ iblockContact ].copy()
         
         # get the coord where the next block should bond
         # symbol of endGroup tells us the sort of bond we are making which determines
         # the bond length
-        symbol = block2.symbols[block2EndGroupIndex]
-        bondPos = block1.newBondPosition( block1EndGroupIndex, symbol )
+        symbol = block.symbols[ iblockEndGroup ]
+        bondPos = blockS.newBondPosition( iblockSEndGroup, symbol )
         #print "got bondPos: {}".format( bondPos )
         
-        # Move block1Contact to center so that block1Contact -> block1EndGroup defines
-        # the alignment we are after- don't need to move whole block! - just get the 
-        # coord of the endGroup when shifted there
-        block1.translate( -block1Contact )
-        # Same for block2
-        block2.translate( -block2Contact )
+        # Shift block so contact at center, so the vector of the endGroup can be
+        # aligned with the refVector
+        block.translate( -blockContact )
         
-        # Align along the block1 bond
-        self.alignBlocks( block1, block1EndGroupIndex, block2, block2EndGroupIndex)
-        
-        # Move block1 back to its original coord
-        block1.translate( block1Contact )
+        # Align along the blockS bond
+        self.alignBlocks( block, iblockEndGroup, refVector )
         
         # Now turn the second block around
         # - need to get the new vectors as these will have changed due to the moves
-        block2EndGroup = block2.coords[ block2EndGroupIndex ]
+        blockEndGroup = block.coords[ iblockEndGroup ]
         
         # Find vector perpendicular to the bond axis
         # Dot product needs to be 0
         # xu + yv + zw = 0 - set u and v to 1, so w = (x + y)/z
         # vector is 1, 1, w
-        w =  -1.0 * ( block2EndGroup[0] + block2EndGroup[1] ) / block2EndGroup[2]
+        w =  -1.0 * ( blockEndGroup[0] + blockEndGroup[1] ) / blockEndGroup[2]
         orth = numpy.array( [1.0, 1.0, w] )
         
         # Find axis that we can rotate about
-        rotAxis = numpy.cross(block2EndGroup,orth)
+        rotAxis = numpy.cross(blockEndGroup,orth)
         
         # Rotate by 180
-        block2.rotate( rotAxis, numpy.pi )
+        block.rotate( rotAxis, numpy.pi )
         
         # Now need to place the endGroup at the bond coord - at the moment
         # the contact atom is on the origin so we need to subtract the vector to the endGroup
         # from the translation vector
         
         #jmht FIX!
-        block2.translate( bondPos + block2EndGroup )
+        block.translate( bondPos + blockEndGroup )
         
-        # Now add block2 to the cell so we can check for clashes
-        block2_id = self.addBlock(block2)
+        # Now add block to the cell so we can check for clashes
+        block_id = self.addBlock(block)
         
         # Check it doesn't clash - could try rotating about the dihedral
-        if not self.checkMove(block2_id):
+        if not self.checkMove(block_id):
 #            # jmht - just for checking
 #            for i in range(len(block1.coords)):
 #                block1.labels[i] = 'F'
-#            for i in range(len(block2.coords)):
-#                block2.labels[i] = 'F'
+#            for i in range(len(block.coords)):
+#                block.labels[i] = 'F'
 #            self.writeXyz("failedBond.xyz")
 #            self.writeXyz("failedBondP.xyz",periodic=True)
 #            sys.exit(1)
             
-            self.delBlock(block2_id)
+            self.delBlock(block_id)
             return False
         else:
             return True
@@ -781,6 +766,28 @@ class Cell():
                 if myid not in ids:
                     ids.append(myid)
             return ids
+    
+    def randomGrowBlock(self, block):
+        """
+        Attach the given block to a randomly selected block, at randomly
+        selected endGroups in each
+        """
+        
+        # Select a random block to bond to
+        iblockS = self.randomBlockId()
+        blockS = self.blocks[ iblockS ]
+        
+        print "Growblock Adding to block: {0}".format( iblockS )
+        
+        # pick random endgroup and contact in target
+        iblockSEndGroup = blockS.randomEndGroupIndex()
+        
+        # pick random endGroup on the block we are attaching
+        iblockEndGroup = block.randomEndGroupIndex()
+        
+        # now attach it
+        self.growBlock(block, iblockEndGroup, iblockS, iblockSEndGroup)
+        
     
     def randomMove(self, block, buffer=None ):
         """Randomly move the given block
@@ -1155,45 +1162,40 @@ class TestCell(unittest.TestCase):
         
         # Get the two blocks
         ids = cell.blocks.keys()
-        block1 = cell.blocks[ ids[0] ]
-        block2 = cell.blocks[ ids[1] ]
-        
-        # Get two end Groups
-        iblock1EG=block1.randomEndGroupIndex()
-        iblock2EG=block2.randomEndGroupIndex()
+        blockS = cell.blocks[ ids[0] ]
+        block = cell.blocks[ ids[1] ]
         
         # Get the atoms that define things
-        iblock1Contact = block1.endGroupContactIndex( iblock1EG )
-        block1Contact = block1.coords[ iblock1Contact ]
-        iblock2Contact = block2.endGroupContactIndex( iblock2EG )
-        block2Contact = block2.coords[ iblock2Contact ]
+        iblockSEndGroup = blockS.randomEndGroupIndex()
+        blockSEndGroup = blockS.coords[ iblockSEndGroup ]
+        iblockSContact = blockS.endGroupContactIndex( iblockSEndGroup )
+        blockSContact = blockS.coords[ iblockSContact ]
         
-        # Move block1Contact to center so that block1Contact -> block1EndGroup defines
-        # the alignment we are after
-        block1.translate( -block1Contact )
+        iblockEndGroup=block.randomEndGroupIndex()
+        iblockContact = block.endGroupContactIndex( iblockEndGroup )
+        blockContact = block.coords[ iblockContact ]
         
-        # Same for block2
-        block2.translate( -block2Contact )
+        # we want to align along block1Contact -> block1EndGroup
+        refVector = blockSEndGroup - blockSContact 
         
-        cell.alignBlocks( block1, iblock1EG, block2, iblock2EG )
+        # Position block so contact is at origin
+        block.translate( -blockContact )
+        
+        cell.alignBlocks( block, iblockEndGroup, refVector )
         
         # Check the relevant atoms are in the right place
-        #block1 = cell.blocks[ ids[0] ]
-        #block2 = cell.blocks[  ids[1] ]
-        block1EndGroup = block1.coords[ iblock1EG ]
-        block2EndGroup = block2.coords[ iblock2EG ]
-        block1Contact = block1.coords[  iblock1Contact ]
-        block2Contact = block2.coords[  iblock2Contact ]
+        blockEndGroup = block.coords[ iblockEndGroup ]
+        blockContact = block.coords[  iblockContact ]
+        
+        newVector = blockEndGroup - blockContact
         
         # Normalise two vectors so we can compare them
-        b1EGnorm = block1EndGroup / numpy.linalg.norm(block1EndGroup)
-        b2EGnorm = block2EndGroup / numpy.linalg.norm(block2EndGroup)
+        newNorm = newVector / numpy.linalg.norm(newVector)
+        refNorm = refVector / numpy.linalg.norm(refVector)
         
         # Slack tolerances - need to work out why...
-        self.assertTrue( numpy.allclose( b1EGnorm, b2EGnorm),
-                         msg="End Group incorrectly positioned: {0} | {1}".format(block1EndGroup, block2EndGroup )  )
-        self.assertTrue( numpy.allclose( block1Contact, block2Contact),
-                         msg="Contact atom incorrectly positioned: {0} | {1}".format(block1Contact, block2Contact ))
+        self.assertTrue( numpy.allclose( newNorm, refNorm),
+                         msg="End Group incorrectly positioned: {0} | {1}".format(newNorm, refNorm )  )
 
     def XtestCellIO(self):
         """Check we can write out and then read in a cell
@@ -1279,7 +1281,7 @@ class TestCell(unittest.TestCase):
 
         nblocks=10
         for i in range( nblocks ):
-            ok = cell.growBlock( cell.initBlock.copy() )
+            ok = cell.randomGrowBlock( cell.initBlock.copy() )
             #cell.writeXyz("JENS"+str(i)+".xyz")
             if not ok:
                 print "Failed to add block"
