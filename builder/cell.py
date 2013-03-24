@@ -6,6 +6,7 @@ Created on Jan 15, 2013
 
 import collections
 import copy
+import logging
 import math
 import os
 import random
@@ -294,11 +295,11 @@ class Cell():
                 # THINK ABOUT BETTER SHORT BOND LENGTH CHECK
                 if  bond_length - self.bondMargin < self.distance( coord, ocoord ) < bond_length + self.bondMargin:
                     
-                    print "Possible bond for ",iatom,ioblock,ioatom
+                    #print "Possible bond for ",iatom,ioblock,ioatom
                     # Possible bond so check the angle
                     icontact = block.endGroupContactIndex( iatom )
                     contact = block.coords[icontact]
-                    print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( contact, coord, ocoord )
+                    #print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( contact, coord, ocoord )
                     angle = util.angle( contact, coord, ocoord )
                     #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
                     
@@ -639,10 +640,94 @@ class Cell():
         
         return blocks
 
-
     def growBlock(self, block, iblockEndGroup, iblockS, iblockSEndGroup):
         """
-        Bond block to blockS, using the given endGroups
+        Bond block so it can bond to blockS, using the given endGroups
+        
+        Arguments:
+        block: the block we are attaching
+        iblockEndGroup: the index of the endGroup to use for the bond
+        iblockS: the id of the block we are bonding to in the dict of cell blocks
+        iblockSEndGroup: the index of the endGroup to use for the bond
+        
+        We take responsibility for adding and removing the block from the cell on 
+        success or failure
+        """
+        self.positionGrowBlock(block, iblockEndGroup, iblockS, iblockSEndGroup)
+        
+        # Now add block to the cell so we can check for clashes
+        block_id = self.addBlock(block)
+        
+        # Check it doesn't clash
+        if self.checkMove(block_id):
+            return True
+        
+        # Didn't work so try rotating the block about the bond to see if that lets it fit
+        
+        # Determine the axis and center to rotate about
+        blockEndGroup = block.coords[ iblockEndGroup ]
+        blockS = self.blocks[ iblockS ]
+        blockSEndGroup = blockS.coords[ iblockSEndGroup ]
+        axis = blockSEndGroup - blockEndGroup
+        center = blockSEndGroup
+        
+        step = math.pi/18 # 10 degree increments
+        for angle in util.frange( step, math.pi*2, step):
+            
+            #print "growBlock rotating as clash: {}".format(angle*util.RADIANS2DEGREES)
+            
+            # remove the block from the cell
+            self.delBlock(block_id)
+            
+            # rotate by increment
+            block.rotate( axis, angle, center=center)
+            
+            # add it and check
+            self.addBlock(block)
+            
+            if self.checkMove(block_id):
+                print "growBlock rotate worked"
+                return True
+        
+        # remove the block from the cell
+        self.delBlock(block_id)
+        return False
+
+    def initCell(self,inputFile, incell=True):
+        """
+        Read in the first block from the input file and save it
+        as the initBlock
+        Also center the block in the cell
+        """
+        
+        ib = buildingBlock.BuildingBlock()
+        ib.fromCarFile( inputFile )
+        
+        if incell:
+            # Make sure it is positioned in the cell - if not keep moving it about randomly till
+            # it fits
+            while True:
+                print "moving initblock"
+                #print "{} | {} | {} | {}".format( ib.centroid()[0], ib.centroid()[1], ib.centroid()[2], ib.radius()  )
+                if ib.centroid()[0] - ib.radius() < 0 or \
+                   ib.centroid()[0] + ib.radius() > self.A[0] or \
+                   ib.centroid()[1] - ib.radius() < 0 or \
+                   ib.centroid()[1] + ib.radius() > self.B[1] or \
+                   ib.centroid()[2] - ib.radius() < 0 or \
+                   ib.centroid()[2] + ib.radius() > self.C[2]:
+                    self.randomMove(ib, buffer=ib.radius())
+                else:
+                    # Its in!
+                    break
+
+        self.setInitBlock(ib)
+        print "initCell - block radius: ",ib.radius()
+        return
+    
+        
+    def positionGrowBlock(self, block, iblockEndGroup, iblockS, iblockSEndGroup):
+        """
+        Position block so it can bond to blockS, using the given endGroups
         
         Arguments:
         block: the block we are attaching
@@ -651,7 +736,6 @@ class Cell():
         iblockSEndGroup: the index of the endGroup to use for the bond
         """
 
-        print "Growblock Adding to block: {0}".format(iblockS)
         blockS = self.blocks[ iblockS ]
         
         # The vector we want to align along is the vector from the contact
@@ -692,7 +776,7 @@ class Cell():
         orth = numpy.array( [1.0, 1.0, w] )
         
         # Find axis that we can rotate about
-        rotAxis = numpy.cross(blockEndGroup,orth)
+        rotAxis = numpy.cross( blockEndGroup, orth )
         
         # Rotate by 180
         block.rotate( rotAxis, numpy.pi )
@@ -700,60 +784,8 @@ class Cell():
         # Now need to place the endGroup at the bond coord - at the moment
         # the contact atom is on the origin so we need to subtract the vector to the endGroup
         # from the translation vector
-        
         #jmht FIX!
         block.translate( bondPos + blockEndGroup )
-        
-        # Now add block to the cell so we can check for clashes
-        block_id = self.addBlock(block)
-        
-        # Check it doesn't clash - could try rotating about the dihedral
-        if not self.checkMove(block_id):
-#            # jmht - just for checking
-#            for i in range(len(block1.coords)):
-#                block1.labels[i] = 'F'
-#            for i in range(len(block.coords)):
-#                block.labels[i] = 'F'
-#            self.writeXyz("failedBond.xyz")
-#            self.writeXyz("failedBondP.xyz",periodic=True)
-#            sys.exit(1)
-            
-            self.delBlock(block_id)
-            return False
-        else:
-            return True
-        
-    
-    def initCell(self,inputFile, incell=True):
-        """
-        Read in the first block from the input file and save it
-        as the initBlock
-        Also center the block in the cell
-        """
-        
-        ib = buildingBlock.BuildingBlock()
-        ib.fromCarFile( inputFile )
-        
-        if incell:
-            # Make sure it is positioned in the cell - if not keep moving it about randomly till
-            # it fits
-            while True:
-                print "moving initblock"
-                #print "{} | {} | {} | {}".format( ib.centroid()[0], ib.centroid()[1], ib.centroid()[2], ib.radius()  )
-                if ib.centroid()[0] - ib.radius() < 0 or \
-                   ib.centroid()[0] + ib.radius() > self.A[0] or \
-                   ib.centroid()[1] - ib.radius() < 0 or \
-                   ib.centroid()[1] + ib.radius() > self.B[1] or \
-                   ib.centroid()[2] - ib.radius() < 0 or \
-                   ib.centroid()[2] + ib.radius() > self.C[2]:
-                    self.randomMove(ib, buffer=ib.radius())
-                else:
-                    # Its in!
-                    break
-
-        self.setInitBlock(ib)
-        print "initCell - block radius: ",ib.radius()
-        return
         
     def randomBlockId(self,count=1):
         """Return count random block ids"""
@@ -777,7 +809,7 @@ class Cell():
         iblockS = self.randomBlockId()
         blockS = self.blocks[ iblockS ]
         
-        print "Growblock Adding to block: {0}".format( iblockS )
+        print "randomGrowblock Adding to block: {0}".format( iblockS )
         
         # pick random endgroup and contact in target
         iblockSEndGroup = blockS.randomEndGroupIndex()
@@ -1289,6 +1321,43 @@ class TestCell(unittest.TestCase):
         self.assertEqual(1,len(cell.blocks), "Growing blocks found {0} blocks".format( len(cell.blocks) ) )
             
         #cell.writeXyz("JENS.xyz", label=False)
+        
+    def XtestRotateBlock(self):
+        """Test we can add a block correctly"""
+        
+        pass
+        
+        CELLA = 30
+        CELLB = 30
+        CELLC = 30
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        cell.seed( 1, "../PAF_bb_typed.car" )
+        cell.writeXyz("1.xyz")
+        
+        block = cell.initBlock.copy()
+        iblockEndGroup = block.randomEndGroupIndex()
+        blockEndGroup = block.coords[ iblockEndGroup ]
+        
+        iblockS = cell.blocks.keys()[0]
+        blockS = cell.blocks[ iblockS ]
+        iblockSEndGroup = blockS.randomEndGroupIndex()
+        blockSEndGroup = blockS.coords[ iblockSEndGroup ]
+        
+        cell.positionGrowBlock(block, iblockEndGroup, iblockS, iblockSEndGroup)
+        
+        bid = cell.addBlock(block)
+        cell.writeXyz("2.xyz")
+        cell.delBlock(bid)
+        
+        axis = blockSEndGroup - blockEndGroup
+        center = blockSEndGroup
+        block.rotate( axis, math.pi*2, center=center)
+        
+        bid = cell.addBlock(block)
+        cell.writeXyz("3.xyz")
+        
         
     def testSeed(self):
         """Test we can seed correctly"""

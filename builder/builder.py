@@ -17,6 +17,7 @@ INFILE = "../PAF_bb_typed.car"
 #INFILE = "./afterSeed.bust.xyz"
 OUTFILE1 = "afterSeed.xyz"
 OUTFILE2 = "afterGrow.xyz"
+OUTFILE2a = "afterGrowP.xyz"
 #OUTFILE2 = "../SHIMMY_0_lab.xyz"
 OUTFILE3 = "afterShimmy.xyz"
 # for ch4: 4,4,4,4
@@ -32,17 +33,18 @@ STEPS = 1000
 MOVES=100
 
 # Create Cell and seed it with the blocks
-mycell = cell.Cell()
+mycell = cell.Cell( atomMargin=1.0, boxMargin=1.2, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
 mycell.cellAxis( CELLA, CELLB, CELLC )
 
 #import pdb
 #pdb.set_trace()
 mycell.seed( nblocks, INFILE )
 mycell.writeXyz( OUTFILE1 )
-for i in range(1000):
+for i in range(100):
     mycell.randomGrowBlock( mycell.initBlock.copy() )
 
 mycell.writeXyz( OUTFILE2 )
+mycell.writeXyz( OUTFILE2a, periodic=True )
 sys.exit(1)
 
 pfile = open("pickle1.pkl","w")

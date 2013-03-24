@@ -528,15 +528,23 @@ class BuildingBlock():
         """Return a randomly picked endgroup"""
         return random.choice( self.endGroups )
     
-    def rotate( self, axis, angle ):
+    def rotate( self, axis, angle, center=None ):
         """ Rotate the molecule about the given axis by the angle in radians
         """
+        
+        if center==None:
+            center = numpy.array([0,0,0])
         
         rmat = util.rotation_matrix( axis, angle )
         
         # loop through and change all coords
+        # Need to check that the center bit is the best way of doing this-
+        # am almost certainly doing more ops than needed
         for i,coord in enumerate( self.coords ):
-            self.coords[i] = numpy.dot( rmat, coord )
+            #self.coords[i] = numpy.dot( rmat, coord )
+            coord = coord - center
+            coord = numpy.dot( rmat, coord )
+            self.coords[i] = coord + center
         
         self._changed = True
 

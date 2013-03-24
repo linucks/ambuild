@@ -521,7 +521,7 @@ def angle( c1, c2, c3 ):
     r2 = distance( c3, c2 )
     r3 = distance( c3, c1 )
     
-    print r1,r2,r3
+    #print r1,r2,r3
     
     small = 1.0e-10
     #cnv   = 57.29577951
@@ -532,7 +532,7 @@ def angle( c1, c2, c3 ):
     else:
         theta = math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
         
-    print "ANGLE THETA IS ",theta
+    #print "ANGLE THETA IS ",theta
     return theta;
 
 def bondLength( symbol1,symbol2 ):
@@ -631,6 +631,14 @@ def Xdistance(self, v1, v2 ):
     
     return math.sqrt( dx*dx + dy*dy + dz*dz )
 
+def frange(start, stop, step):
+    """
+    Range function that works with floating points
+    http://stackoverflow.com/questions/4189766/python-range-with-step-of-type-float
+    """
+    while start < stop:
+        yield start
+        start += step
 
 def label2symbol( name ):
     """ Determine the element type of an atom from its name, e.g. Co_2b -> Co
