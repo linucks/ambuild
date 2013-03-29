@@ -34,8 +34,6 @@ class BuildingBlock():
     def __init__( self, infile=None ):
         '''
         Constructor
-        Distance is the cells distance function used to calculate the distance between two vectors
-        - passed in through constructor as we may be under periodic bounduary conditions.
         '''
         
         self.coords = []
@@ -502,16 +500,16 @@ class BuildingBlock():
         return self._mass
                 
 
-    def newBondPosition(self, targetEndGroupIndex, symbol ):
+    def newBondPosition(self, idxTargetEG, symbol ):
         """Return the position where a bond to an atom of type 'symbol'
         would be placed if bonding to the target endgroup
          I'm sure this algorithm is clunky in the extreme...
         """
         
-        targetEndGroup = self.coords[ targetEndGroupIndex ]
-        targetContactIndex = self.endGroupContactIndex( targetEndGroupIndex )
+        targetEndGroup = self.coords[ idxTargetEG ]
+        targetContactIndex = self.endGroupContactIndex( idxTargetEG )
         targetContact = self.coords[ targetContactIndex ]
-        targetSymbol = self.symbols[ targetEndGroupIndex ]
+        targetSymbol = self.symbols[ idxTargetEG ]
         
         # Get the bond length between these two atoms
         bondLength = util.bondLength(targetSymbol, symbol)

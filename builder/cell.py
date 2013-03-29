@@ -93,11 +93,10 @@ class Cell():
     
     def addBlock( self, block):
         """
-        Add the block and the calculate the boxes for all atoms.
+        Add the block and put all atoms in their cells
         
         Args:
         block -- block to add
-        blockid -- the id to use for the block - otherwise we use the python id
         
         Returns:
         index of the new block in the list
@@ -109,10 +108,10 @@ class Cell():
         """
         
         # The index of the new block
-        blockid = id(block)
+        idxBlock = id(block)
         
         # Add to the dict
-        self.blocks[ blockid ] = block
+        self.blocks[ idxBlock ] = block
         
         #print "nbox ",self.numBoxA,self.numBoxB,self.numBoxC
         for icoord,coord in enumerate(block.coords):
@@ -129,21 +128,16 @@ class Cell():
             c=int( math.floor( z / self.boxSize ) )
             
             key = (a,b,c)
-            #print "NEW KEY ",key
-            block.atomCell[icoord] = key
+            block.atomCell[ icoord ] = key
             try:
-                self.box1[key].append( (blockid,icoord) )
-                #print "APPENDING KEY ",key,blockid,icoord
+                self.box1[ key ].append( ( idxBlock, icoord ) )
             except KeyError:
-                #print "ADDING KEY ",key,blockid,icoord
                 # Add to main list
-                self.box1[key] = [(blockid,icoord)]
+                self.box1[ key ] = [ ( idxBlock, icoord ) ]
                 # Map surrounding boxes
-                self.box3[key] = self.surroundBoxes(key)
-                #surround = self.surroundBoxes(key)
-                #print "SURROUND ",surround
-                #self.box3[key] = surround
-        return blockid
+                self.box3[ key ] = self.surroundBoxes( key )
+                
+        return idxBlock
     
     def alignBlocks(self, block, iblockEndGroup, refVector ):
         """
@@ -169,7 +163,7 @@ class Cell():
         cross = numpy.cross( refVector, blockEndGroup )
         ncross = cross / numpy.linalg.norm( cross )
         
-        if numpy.array_equal( cross, [0,0,0]):
+        if numpy.array_equal( cross, [0,0,0] ):
             raise RuntimeError,"alignBlocks - vectors are parallel or one is zero"
         
         # Find angle
@@ -183,49 +177,6 @@ class Cell():
 #        print "alignBlocks AFTER"
 #        print blockEndGroup
 #        print refVector
-        return
-    
-    def X_alignAxis(self, block, endGroupIndex, targetVector, axisLabel=None ):
-        """
-        Align the given block so that the bond defined by the endGroupIndex
-        is aligned with the targetVector along the given axis
-        """
-        
-        if axisLabel.lower() == "x":
-            axis = numpy.array( [1,0,0] )
-        elif axisLabel.lower() == "y":
-            axis = numpy.array( [0,1,0] )
-        elif axisLabel.lower() == "z":
-            axis = numpy.array( [0,0,1] )
-        else:
-            raise RuntimeError,"Unrecognised Axis!"
-        
-        # For comparing angles
-        small = 1.0e-8
-        
-        # Find the angle targetVector makes with the axis
-        tvAngle = util.vectorAngle(targetVector, axis)
-        #print "tvAngle: {}".format(tvAngle)
-        
-        # Find angle the block makes with axis
-        blockEndGroup = block.coords[ endGroupIndex ]
-        bAngle = util.vectorAngle(blockEndGroup, axis)
-        #print "bAngle b4: {}".format(bAngle)
-        
-        # Need to rotate block on X-axis by tvAngle-bAngle
-        angle = tvAngle-bAngle
-        
-        #print "Got angle: {}".format(angle*util.RADIANS2DEGREES)
-        
-        if not ( ( -small < angle < small ) or  ( numpy.pi-small < angle < numpy.pi+small ) ):
-            rotAxis = numpy.cross( blockEndGroup, axis)
-            #print "rotAxis {}".format(rotAxis)
-            block.rotate( rotAxis, angle )
-        
-        #blockEndGroup = block.coords[ endGroupIndex ]
-        #bAngle = util.vectorAngle(blockEndGroup, axis)
-        #print "bAngle after: {}".format(bAngle)
-        #print block
         return
 
     def bondBlock(self, bond):
@@ -267,7 +218,6 @@ class Cell():
         See if we've finished according to our criteria
         """
         
-        
         print "Got density: ",self.density()
         if self.density() < self.targetDensity:
             return True
@@ -278,14 +228,16 @@ class Cell():
         
         return False
 
-    def checkMove(self,iblock):
+    def checkMove(self,idxBlock):
         """
         See what happened with this move
         
         Return:
+        True if the move succeeded
         """
+        
         # Get a list of the close atoms
-        close = self.closeAtoms(iblock)
+        close = self.closeAtoms(idxBlock)
         
         #print "GOT {} CLOSE ATOMS ".format(len(close))
         
@@ -298,7 +250,7 @@ class Cell():
         bondAngle = self.bondAngle / util.RADIANS2DEGREES
         
         # Get the block
-        block = self.blocks[iblock]
+        block = self.blocks[idxBlock]
         
         bonds = [] # list of possible bond atoms
         for ( iatom, ioblock, ioatom ) in close:
@@ -308,7 +260,7 @@ class Cell():
             oblock = self.blocks[ioblock]
             coord = block.coords[iatom]
             ocoord = oblock.coords[ioatom]
-            #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(iatom,iblock, ioatom,ioblock,self.distance( coord, ocoord ) )
+            #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(iatom,idxBlock, ioatom,ioblock,self.distance( coord, ocoord ) )
             
             # First see if both atoms are endGroups
             if iatom in block.endGroups and ioatom in oblock.endGroups:
@@ -333,7 +285,7 @@ class Cell():
                     #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
                     
                     if ( bondAngle-bondAngleMargin < angle < bondAngle+bondAngleMargin ):
-                        bonds.append( (iblock, iatom, ioblock, ioatom) )
+                        bonds.append( (idxBlock, iatom, ioblock, ioatom) )
                     else:
                         self.logger.debug( "Cannot bond due to angle: {}".format(angle  * util.RADIANS2DEGREES) )
                         return False
@@ -797,7 +749,7 @@ class Cell():
             # Make sure it is positioned in the cell - if not keep moving it about randomly till
             # it fits
             while True:
-                print "moving initblock"
+                self.logger.debug( "moving initblock" )
                 #print "{} | {} | {} | {}".format( ib.centroid()[0], ib.centroid()[1], ib.centroid()[2], ib.radius()  )
                 if ib.centroid()[0] - ib.radius() < 0 or \
                    ib.centroid()[0] + ib.radius() > self.A[0] or \
@@ -811,7 +763,7 @@ class Cell():
                     break
 
         self.setInitBlock(ib)
-        print "initCell - block radius: ",ib.radius()
+        self.logger.debug( "initCell - block radius: {0}".format( ib.radius() ) )
         return
     
     def _joinBlocks(self):
@@ -942,6 +894,8 @@ class Cell():
         # from the translation vector
         #jmht FIX!
         block.translate( bondPos + blockEndGroup )
+        
+        return
         
     def randomBlockId(self,count=1):
         """Return count random block ids"""
@@ -1088,10 +1042,10 @@ class Cell():
                 #print "RANDOM TO MOVE TO: {}".format( newblock.centroid() )
                 
                 #Add the block so we can check for clashes/bonds
-                iblock = self.addBlock(newblock)
+                idxBlock = self.addBlock(newblock)
                 
                 # Test for Clashes with other molecules
-                ok = self.checkMove( iblock )
+                ok = self.checkMove( idxBlock )
                 
                 # Break out of try loop if no clashes
                 if ok:
@@ -1100,7 +1054,7 @@ class Cell():
                     break
                 
                 # Unsuccessful so remove the block from cell
-                self.delBlock(iblock)
+                self.delBlock(idxBlock)
                 
                 # increment tries counter
                 tries += 1
@@ -1109,6 +1063,7 @@ class Cell():
         # End of loop to seed cell
         
         self.logger.info("After seed numBlocks: {0} ({1})".format( len(self.blocks), self.numBlocks ) )
+        return
     # End seed
     
     def setInitBlock(self,block):
@@ -1341,7 +1296,7 @@ class Cell():
             fpath = os.path.abspath(f.name)
             f.writelines( xyz )
             
-        print "Wrote cell file: {0}".format(fpath)
+        self.logger.info( "Wrote cell file: {0}".format(fpath) )
     
     def __str__(self):
         """
