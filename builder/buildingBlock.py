@@ -105,10 +105,11 @@ class BuildingBlock():
         self.labels.extend( block.labels )
         
         #jmht hack
-        print "CHANGING LABEL TO Cl AS BONDING! "
-        for i,l in enumerate(self.labels):
-            if l[0] == 'H':
-                self.labels[i] = 'Cl'+l[1:]
+#        print "CHANGING LABEL TO Cl AS BONDING! "
+#        for i,l in enumerate(self.labels):
+#            if l[0] == 'H':
+#                self.labels[i] = 'Cl'+l[1:]
+
         self.symbols.extend( block.symbols )
         self.masses.extend( block.masses )
         self.atomCell.extend( block.atomCell )

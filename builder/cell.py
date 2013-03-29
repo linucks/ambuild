@@ -35,6 +35,9 @@ class Cell():
         self.B = None
         self.C = None
         
+        # For time being origin always 0,0,0
+        self.origin = numpy.array([0,0,0], dtype=numpy.float64 )
+        
         # additional distance to add on to the characteristic bond length
         # when checking whether 2 atoms are close enough to bond
         self.bondMargin = bondMargin
@@ -77,6 +80,8 @@ class Cell():
         # dictionary mapping id of the block to the block - can't use a list and indices
         # as we add and remove blocks and need to keep track of them
         self.blocks = {}
+        
+        self.logger = self._setupLogging()
     
     def addBlock( self, block):
         """
@@ -432,6 +437,8 @@ class Cell():
         Remove the block with the given index from the cell
         """
         
+        #print "Deleting block: {} from {}".format(blockId,self.blocks.keys())
+        
         block =  self.blocks[blockId]
         
         # Remove each atom from the list
@@ -640,9 +647,9 @@ class Cell():
         
         return blocks
 
-    def growBlock(self, block, iblockEndGroup, iblockS, iblockSEndGroup):
+    def _growBlock(self, block, iblockEndGroup, iblockS, iblockSEndGroup):
         """
-        Bond block so it can bond to blockS, using the given endGroups
+        Position block so it can bond to blockS, using the given endGroups
         
         Arguments:
         block: the block we are attaching
@@ -674,7 +681,7 @@ class Cell():
         step = math.pi/18 # 10 degree increments
         for angle in util.frange( step, math.pi*2, step):
             
-            #print "growBlock rotating as clash: {}".format(angle*util.RADIANS2DEGREES)
+            #print "_growBlock rotating as clash: {}".format(angle*util.RADIANS2DEGREES)
             
             # remove the block from the cell
             self.delBlock(block_id)
@@ -686,12 +693,46 @@ class Cell():
             self.addBlock(block)
             
             if self.checkMove(block_id):
-                print "growBlock rotate worked"
+                self.logger.debug("_growBlock rotate worked")
                 return True
         
         # remove the block from the cell
         self.delBlock(block_id)
         return False
+    
+    def growNewBlocks(self, toGrow, maxTries=50 ):
+        """
+        Add toGrow new blocks to the cell based on the initBlock
+        
+        Args:
+        toGrow: number of blocks to add
+        maxTries: number of tries to add before we give up
+        """
+        
+        self.logger.info( "Growing {0} new blocks".format( toGrow ) )
+        
+        added=0
+        tries=0
+        while added < toGrow:
+            
+            if tries > maxTries:
+                self.logger.critical("growNewBlocks - exceeded maxtries when joining blocks!" )
+                False
+            
+            newblock = self.initBlock.copy()
+            
+            # Apply random rotation in 3 axes to randomise the orientation before we align
+            self.randomRotateBlock( newblock )
+            
+            ok = self.randomGrowBlock( newblock )
+            
+            if ok:
+                added+=1
+                tries=0
+            else:
+                tries+=1
+        
+        return True
 
     def initCell(self,inputFile, incell=True):
         """
@@ -715,7 +756,7 @@ class Cell():
                    ib.centroid()[1] + ib.radius() > self.B[1] or \
                    ib.centroid()[2] - ib.radius() < 0 or \
                    ib.centroid()[2] + ib.radius() > self.C[2]:
-                    self.randomMove(ib, buffer=ib.radius())
+                    self.randomMoveBlock( ib, margin=ib.radius() )
                 else:
                     # Its in!
                     break
@@ -724,6 +765,70 @@ class Cell():
         print "initCell - block radius: ",ib.radius()
         return
     
+    def _joinBlocks(self):
+        """
+        See if we can join two randomly chosen blocks at random endGroups
+        """
+        idxMoveBlock = self.randomBlockId()
+        moveBlock = self.blocks[ idxMoveBlock ]
+        
+        # Copy the original block so we can replace it if the join fails
+        blockCopy = moveBlock.copy()
+        
+        # Remove from cell so we don't check against itself and pick a different out
+        self.delBlock( idxMoveBlock )
+        
+        idxStaticBlock = self.randomBlockId()
+        staticBlock =  self.blocks[ idxStaticBlock ]
+        
+        # pick random endgroup and contact in target
+        idxStaticBlockEG = staticBlock.randomEndGroupIndex()
+        
+        # pick random endGroup on the block we are attaching
+        idxMoveBlockEG = moveBlock.randomEndGroupIndex()
+        
+        # now attach it
+        ok = self._growBlock( moveBlock, idxMoveBlockEG, idxStaticBlock, idxStaticBlockEG )
+        
+        #mycell.randomRotateBlock( moveBlock )
+        if not ok:
+            self.addBlock( blockCopy )
+        
+        return ok
+    
+    def joinBlocks(self, toJoin, maxTries=50 ):
+        """
+        Try joining number of blocks together
+        
+        Args:
+        toJoin: number of blocks to join
+        maxTries: the maximum number of moves to try when joining
+        """
+        
+        self.logger.info( "Joining {0} new blocks".format( toJoin ) )
+        
+        added=0
+        tries=0
+        while added < toJoin:
+            
+            if len ( self.blocks ) == 1:
+                self.logger.info("joinBlocks - no more blocks to join!")
+                return False
+            
+            if tries > maxTries:
+                self.logger.critical("joinBlocks - exceeded maxtries when joining blocks!")
+                False
+            
+            # now attach it
+            ok = self._joinBlocks()
+            
+            if ok:
+                added+=1
+                tries=0
+            else:
+                tries+=1
+        
+        return True
         
     def positionGrowBlock(self, block, iblockEndGroup, iblockS, iblockSEndGroup):
         """
@@ -806,33 +911,32 @@ class Cell():
         """
         
         # Select a random block to bond to
-        iblockS = self.randomBlockId()
-        blockS = self.blocks[ iblockS ]
+        idxStaticBlock = self.randomBlockId()
+        staticBlock = self.blocks[ idxStaticBlock ]
         
-        print "randomGrowblock Adding to block: {0}".format( iblockS )
+        self.logger.debug( "randomGrowblock Adding to block: {0}".format( idxStaticBlock ) )
         
         # pick random endgroup and contact in target
-        iblockSEndGroup = blockS.randomEndGroupIndex()
+        idxStaticBlockEG = staticBlock.randomEndGroupIndex()
         
         # pick random endGroup on the block we are attaching
         iblockEndGroup = block.randomEndGroupIndex()
         
         # now attach it
-        self.growBlock(block, iblockEndGroup, iblockS, iblockSEndGroup)
+        return self._growBlock( block, iblockEndGroup, idxStaticBlock, idxStaticBlockEG )
         
     
-    def randomMove(self, block, buffer=None ):
+    def randomMoveBlock(self, block, margin=None ):
         """Randomly move the given block
-         Defintely needs more work on the rotation
          If buffer is given, use this as a buffer from the edges of the cell
          when selecting the coord
         """
         
         # Get coords of random point in the cell
-        if buffer:
-            x = random.uniform(buffer,self.A[0]-buffer)
-            y = random.uniform(buffer,self.B[1]-buffer)
-            z = random.uniform(buffer,self.C[2]-buffer)
+        if margin:
+            x = random.uniform(margin,self.A[0]-margin)
+            y = random.uniform(margin,self.B[1]-margin)
+            z = random.uniform(margin,self.C[2]-margin)
         else:
             x = random.uniform(0,self.A[0])
             y = random.uniform(0,self.B[1])
@@ -844,8 +948,26 @@ class Cell():
         
         # Move to origin, rotate there and then move to new coord
         # Use the cell axis definitions
-        origin = numpy.array([0,0,0], dtype=numpy.float64 )
-        block.translateCentroid( origin )
+        block.translateCentroid( self.origin )
+        
+        self.randomRotateBlock( block, atOrigin=True )
+        
+        # Now move to new coord
+        block.translateCentroid( coord )
+        
+        #print "After rotate centroid at: {}".format( block.centroid() )
+        
+    def randomRotateBlock( self, block, atOrigin=False ):
+        """Randomly rotate a block.
+        
+         Args:
+         block -- block to rotate
+         atOrigin -- flag to indicate if the block is already positioned at the origin
+        """
+        
+        if not atOrigin:
+            position = block.centroid()
+            block.translateCentroid( self.origin )
         
         angle = random.uniform( 0, 2*numpy.pi)
         block.rotate( self.A, angle )
@@ -856,10 +978,8 @@ class Cell():
         angle = random.uniform( 0, 2*numpy.pi)
         block.rotate(self.C, angle )
         
-        # Now move to new coord
-        block.translateCentroid( coord )
-        
-        #print "After rotate centroid at: {}".format( block.centroid() )
+        if not atOrigin:
+            block.translateCentroid( position )
         
     def randomMoveAroundCenter(self, move_block, center, radius ):
         """
@@ -874,24 +994,9 @@ class Cell():
         xyz = numpy.array( [x,y,z], dtype=numpy.float64 )
         coord = numpy.add( center, xyz )
         
-        # move to origin, rotate there and then move to new coord
-        # Use the cell axis definitions
-        origin = numpy.array([0,0,0], dtype=numpy.float64 )
-        move_block.translateCentroid( origin )
-        
-        # Make a random rotation
-        angle = random.uniform( 0, 2*numpy.pi)
-        move_block.rotate( self.A, angle )
-        
-        angle = random.uniform( 0, 2*numpy.pi)
-        move_block.rotate( self.B, angle )
-        
-        angle = random.uniform( 0, 2*numpy.pi)
-        move_block.rotate(self.C, angle )
-        
-        # Now move to new coord
         move_block.translateCentroid( coord )
         
+        self.randomRotateBlock( move_block )
         return
 
     def seed( self, nblocks, inputFile ):
@@ -906,9 +1011,9 @@ class Cell():
         
         # If it's just one, add the init block - after a random move
         block = self.initBlock.copy()
-        self.randomMove( block )
+        self.randomMoveBlock( block )
         self.addBlock( block )
-        print "Added block 1"
+        self.logger.debug("seed added block 1")
         if nblocks == 1:
             return
         
@@ -923,11 +1028,11 @@ class Cell():
             while not ok:
                 # quit on maxTries
                 if tries >= MAXTRIES:
-                    print "EXCEEDED MAXTRIES WHEN SEEDING"
+                    self.logger.critical("Exceeded maxtries when seeding")
                     sys.exit(1)
                 
                 # Move the block and rotate it
-                self.randomMove(newblock)
+                self.randomMoveBlock(newblock)
                 #print "RANDOM TO MOVE TO: {}".format( newblock.centroid() )
                 
                 #Add the block so we can check for clashes/bonds
@@ -938,7 +1043,7 @@ class Cell():
                 
                 # Break out of try loop if no clashes
                 if ok:
-                    print "Added block {0} after {1} tries.".format( seedCount+2, tries )
+                    self.logger.debug("seed added block {0} after {1} tries.".format( seedCount+2, tries ) )
                     break
                 
                 # Unsuccessful so remove the block from cell
@@ -949,6 +1054,8 @@ class Cell():
             
             # End Clash loop
         # End of loop to seed cell
+        
+        self.logger.info("Seed added {0}".format( nblocks ) )
     # End seed
     
     def setInitBlock(self,block):
@@ -969,6 +1076,49 @@ class Cell():
         self.initBlock = block
         return
     
+    def _setupLogging( self ):
+        """
+        Set up the various log files/console logging and return the logger
+        """
+        
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+        
+        # create file handler and set level to debug
+        fl = logging.FileHandler("ambuild.log")
+        fl.setLevel(logging.DEBUG)
+        
+        # create formatter for fl
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        
+        # add formatter to fl
+        fl.setFormatter(formatter)
+        
+        # add fl to logger
+        logger.addHandler(fl)
+        
+        # Now create console logger for outputting stuff
+        # create file handler and set level to debug
+        # Seems they changed the api in python 2.6->2.7
+        try:
+            cl = logging.StreamHandler(stream=sys.stdout)
+        except TypeError:
+            cl = logging.StreamHandler(strm=sys.stdout)
+
+        cl.setLevel(logging.INFO)
+
+        # create formatter for fl
+        # Always add a blank line after every print
+        formatter = logging.Formatter('%(message)s\n')
+
+        # add formatter to fl
+        cl.setFormatter(formatter)
+
+        # add fl to logger
+        logger.addHandler(cl)
+
+        return logger
+
     def surroundBoxes(self, key ):
         """
         return a list of the boxes surrounding the box with the given key
@@ -1071,7 +1221,7 @@ class Cell():
                 if stype == "block" or stype == "bond":
                     self.randomMoveAroundCenter( move_block, center, radius )
                 else:
-                    self.randomMove( move_block )
+                    self.randomMoveBlock( move_block )
                 
                 #Add the move_block back so we can check for clashes/bonds
                 icheck = self.addBlock(move_block)

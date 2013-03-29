@@ -7,4 +7,11 @@
 <pydev_pathproperty name="org.python.pydev.PROJECT_SOURCE_PATH">
 <path>/AmorphousBuilder</path>
 </pydev_pathproperty>
+<pydev_pathproperty name="org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH">
+<path>/Users/jmht/Documents/avogadro/openbabel/OBINSTALL/lib</path>
+</pydev_pathproperty>
+<pydev_variables_property name="org.python.pydev.PROJECT_VARIABLE_SUBSTITUTION">
+<key>DYLD_LIBRARY_PATH</key>
+<value>/Users/jmht/Documents/avogadro/openbabel/OBINSTALL/lib</value>
+</pydev_variables_property>
 </pydev_project>
