@@ -38,15 +38,18 @@ mycell.cellAxis( CELLA, CELLB, CELLC )
 #import pdb
 #pdb.set_trace()
 mycell.seed( 10, INFILE )
+mycell.checkFinished()
 mycell.writeXyz( "afterSeed.xyz" )
 
 ok = mycell.growNewBlocks(10, maxTries=50 )
+mycell.checkFinished()
 
 mycell.writeXyz( "afterGrow.xyz" )
 mycell.writeXyz( "afterGrowP.xyz", periodic=True )
 
 # now trying growing the individual blocks
 ok = mycell.joinBlocks( 5, maxTries=50 )
+mycell.checkFinished()
 
 mycell.writeXyz( "afterJoin.xyz" )
 mycell.writeXyz("afterJoinP.xyz", periodic=True )

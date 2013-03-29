@@ -36,7 +36,7 @@ class Cell():
         self.C = None
         
         # For time being origin always 0,0,0
-        self.origin = numpy.array([0,0,0], dtype=numpy.float64 )
+        self.origin = numpy.array( [0,0,0], dtype=numpy.float64 )
         
         # additional distance to add on to the characteristic bond length
         # when checking whether 2 atoms are close enough to bond
@@ -60,15 +60,23 @@ class Cell():
         
         self.bondAngleMargin = bondAngleMargin
         
+        self.targetDensity = 10
+        self.targetEndGroups = 100 # number of free endgroups left
+        
         # Dict mapping box key to a list of tuples defining the atoms in that box
         self.box1={}
         
         # Dict mapping key to list of boxes surrounding the keyed box
         self.box3={}
         
+        # the number of unit blocks - not the number of bonded blocks
+        self.numBlocks = 0
+        
         # max atom radius - used to calculate box size
         self.boxSize = None
         self.maxAtomR=None
+        self.blockMass = None # the mass of an individual block
+        
         # number of boxes in A,B,C axes - used for calculating PBC
         self.numBoxA = None
         self.numBoxB = None
@@ -253,7 +261,23 @@ class Cell():
             self.C = numpy.array( [0.0,0.0,C], dtype=numpy.float64 )
         else:
             return (A,B,C)
-    
+
+    def checkFinished(self):
+        """
+        See if we've finished according to our criteria
+        """
+        
+        
+        print "Got density: ",self.density()
+        if self.density() < self.targetDensity:
+            return True
+        
+        print "Got endGroups: ",self.endGroups()
+        if self.endGroups() < self.targetEndGroups:
+            return True
+        
+        return False
+
     def checkMove(self,iblock):
         """
         See what happened with this move
@@ -311,7 +335,7 @@ class Cell():
                     if ( bondAngle-bondAngleMargin < angle < bondAngle+bondAngleMargin ):
                         bonds.append( (iblock, iatom, ioblock, ioatom) )
                     else:
-                        print "Cannot bond due to angle: {}".format(angle  * util.RADIANS2DEGREES)
+                        self.logger.debug( "Cannot bond due to angle: {}".format(angle  * util.RADIANS2DEGREES) )
                         return False
                         
                 # Finished checking for bonds so move onto the next atoms
@@ -333,11 +357,31 @@ class Cell():
             #for bond in bonds:
             #    self.bondBlock(bond)
             self.bondBlock(bonds[0])
-            print "Added {} Bonds".format(len(bonds))
+            self.logger.info("Added bond: {}".format( bonds[0] ) )
         
         # Either got bonds or no clashes
         return True
-
+    
+    def density(self):
+        """
+        The density of the cell
+        """
+        
+        # each block has the same mass as we count unit blocks
+        
+        return ( self.numBlocks * self.blockMass ) / ( self.A[0] * self.B[1] * self.C[2] ) 
+    
+    def endGroups(self):
+        """
+        The number of free endGroups in the cell
+        """
+        
+        numEndGroups = 0
+        for idxBlock in self.blocks.keys():
+            block = self.blocks[ idxBlock ]
+            numEndGroups += len( block.endGroups )
+        
+        return numEndGroups
         
 #    def initCellLists(self):
 #        """
@@ -660,6 +704,7 @@ class Cell():
         We take responsibility for adding and removing the block from the cell on 
         success or failure
         """
+        
         self.positionGrowBlock(block, iblockEndGroup, iblockS, iblockSEndGroup)
         
         # Now add block to the cell so we can check for clashes
@@ -698,6 +743,7 @@ class Cell():
         
         # remove the block from the cell
         self.delBlock(block_id)
+        
         return False
     
     def growNewBlocks(self, toGrow, maxTries=50 ):
@@ -727,10 +773,13 @@ class Cell():
             ok = self.randomGrowBlock( newblock )
             
             if ok:
+                self.numBlocks += 1
                 added+=1
                 tries=0
             else:
                 tries+=1
+                
+        self.logger.info("After growNewBlocks numBlocks: {0} ({1})".format( len(self.blocks), self.numBlocks ) )
         
         return True
 
@@ -814,7 +863,7 @@ class Cell():
             if len ( self.blocks ) == 1:
                 self.logger.info("joinBlocks - no more blocks to join!")
                 return False
-            
+                
             if tries > maxTries:
                 self.logger.critical("joinBlocks - exceeded maxtries when joining blocks!")
                 False
@@ -827,6 +876,8 @@ class Cell():
                 tries=0
             else:
                 tries+=1
+        
+        self.logger.info("After joinBlocks numBlocks: {0} ({1})".format( len(self.blocks), self.numBlocks ) )
         
         return True
         
@@ -1013,6 +1064,7 @@ class Cell():
         block = self.initBlock.copy()
         self.randomMoveBlock( block )
         self.addBlock( block )
+        self.numBlocks += 1
         self.logger.debug("seed added block 1")
         if nblocks == 1:
             return
@@ -1044,6 +1096,7 @@ class Cell():
                 # Break out of try loop if no clashes
                 if ok:
                     self.logger.debug("seed added block {0} after {1} tries.".format( seedCount+2, tries ) )
+                    self.numBlocks += 1
                     break
                 
                 # Unsuccessful so remove the block from cell
@@ -1055,7 +1108,7 @@ class Cell():
             # End Clash loop
         # End of loop to seed cell
         
-        self.logger.info("Seed added {0}".format( nblocks ) )
+        self.logger.info("After seed numBlocks: {0} ({1})".format( len(self.blocks), self.numBlocks ) )
     # End seed
     
     def setInitBlock(self,block):
@@ -1072,6 +1125,8 @@ class Cell():
         self.numBoxA = int(math.ceil( self.A[0] / self.boxSize ) )
         self.numBoxB = int(math.ceil( self.B[1] / self.boxSize ) )
         self.numBoxC = int(math.ceil( self.C[2] / self.boxSize ) )
+        
+        self.blockMass = block.mass()
         
         self.initBlock = block
         return

@@ -75,6 +75,9 @@ class BuildingBlock():
         # The radius of the block assuming it is a circle centered on the COG
         self._radius = 0
         
+        # Total mass of the block
+        self._mass = None
+        
         # Flag to indicate if block has changed and parameters (such as centerOfMass)
         # need to be changed
         self._changed = True
@@ -92,7 +95,6 @@ class BuildingBlock():
         """Bond the two blocks at the given bond - tuple is indices of self and other bond
         """
         
-        print "Bonding Block"
         #print block
         #print "with"
         #print self
@@ -489,6 +491,16 @@ class BuildingBlock():
             if r>rmax:
                 rmax=r
         return rmax
+    
+    def mass(self):
+        """Total mass of the molecule
+        """
+        if not self._mass:
+            self._mass = 0.0
+            for m in self.masses:
+                self._mass += m
+        return self._mass
+                
 
     def newBondPosition(self, targetEndGroupIndex, symbol ):
         """Return the position where a bond to an atom of type 'symbol'
