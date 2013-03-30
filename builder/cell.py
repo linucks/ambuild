@@ -114,7 +114,7 @@ class Cell():
         self.blocks[ idxBlock ] = block
         
         #print "nbox ",self.numBoxA,self.numBoxB,self.numBoxC
-        for icoord,coord in enumerate(block.coords):
+        for idxCoord,coord in enumerate(block.coords):
             
             #print "ADDING COORD ",coord
             
@@ -128,12 +128,12 @@ class Cell():
             c=int( math.floor( z / self.boxSize ) )
             
             key = (a,b,c)
-            block.atomCell[ icoord ] = key
+            block.atomCell[ idxCoord ] = key
             try:
-                self.box1[ key ].append( ( idxBlock, icoord ) )
+                self.box1[ key ].append( ( idxBlock, idxCoord ) )
             except KeyError:
                 # Add to main list
-                self.box1[ key ] = [ ( idxBlock, icoord ) ]
+                self.box1[ key ] = [ ( idxBlock, idxCoord ) ]
                 # Map surrounding boxes
                 self.box3[ key ] = self.surroundBoxes( key )
                 
