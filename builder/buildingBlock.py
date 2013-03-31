@@ -14,8 +14,8 @@ https://github.com/patvarilly/periodic_kdtree
 '''
 
 # Python imports
-import os
 import copy
+import os
 import math
 import random
 import unittest
@@ -36,6 +36,18 @@ class BuildingBlock():
         Constructor
         '''
         
+        
+        # List of all the blocks that constitute this one
+        # start by adding ourselves - needs to be the instances we 
+        # we use these to loop over all coordinates, etc
+        self.blocks = [ self ]
+        
+        # The endGroups where the blocks are attached: id(block) : idxEG
+        self.blockEndGroups = {}
+        
+        # The id of the parent block of this one (if we have one)
+        self.parent = None
+        # the coordinates for this block - see __getattr__ for how coords are dealt with
         self.coords = []
         
         # ordered array of labels
@@ -61,6 +73,10 @@ class BuildingBlock():
         # A list of the indices of the atoms that are endGroups
         self.endGroups = []
         
+        # List of the indices of the atoms that define the angle for the endGroups - need
+        # to be in the same order as the endGroups
+        self.defAtom = []
+        
         # Dictionary mapping the index of an endGroup to an atom bonded to it
         # Required for finding the angle when we check bonds
         self._endGroupContacts = {}
@@ -70,7 +86,7 @@ class BuildingBlock():
         # Holds the center of geometry of the molecule
         self._centerOfGeometry = numpy.zeros( 3 )
         
-        # The radius of the block assuming it is a circle centered on the COG
+        # The radius of the block assuming it is a circle centered on the centroid
         self._radius = 0
         
         # Total mass of the block
@@ -87,7 +103,47 @@ class BuildingBlock():
                 self.fromXyzFile( infile )
             else:
                 raise RuntimeError("Unrecognised file suffix: {}".format(infile) )
-                
+            
+
+    def alignBond(self, idxBlockEG, refVector ):
+        """
+        Align this block, so that the bond defined by idxBlockEG is aligned with
+        the refVector
+        
+        This assumes that the block has already been positioned with the contact atom at the origin
+        """
+        
+        endGroup = self.coords[ idxBlockEG ]
+        
+#        print "alignBlock BEFORE"
+#        print blockEndGroup
+#        print refVector
+        
+        # Makes no sense if they are the same already...
+        if numpy.array_equal( endGroup, refVector ):
+            print "alignBlock - block already aligned along vector. May not be a problem, but you should know..."
+            return
+        
+        # Calculate normlised cross product to find an axis orthogonal 
+        # to both that we can rotate about
+        cross = numpy.cross( refVector, endGroup )
+        ncross = cross / numpy.linalg.norm( cross )
+        
+        if numpy.array_equal( cross, [0,0,0] ):
+            raise RuntimeError,"alignBlock - vectors are parallel or one is zero"
+        
+        # Find angle
+        angle = util.vectorAngle( refVector, endGroup )
+        
+        # Rotate
+        self.rotate( ncross, angle )
+        
+#        endGroup =self.coords[ idxBlockEG ]
+#        print "alignBlock AFTER"
+#        print blockEndGroup
+#        print refVector
+        return
+
     
     def bond (self, block, bond):
         """Bond the two blocks at the given bond - tuple is indices of self and other bond
@@ -132,6 +188,45 @@ class BuildingBlock():
         
         self.update()
 
+
+    def join( self, idxEG, block, idxBlockEG ):
+        """Bond block to this one at the endGroups specified by the two indices
+        """
+        
+        # Needed to work out how much to add to the block indices
+        lcoords = len(self.coords)
+        
+        self.coords.extend( block.coords )
+        self.atom_radii.extend( block.atom_radii )
+        self.labels.extend( block.labels )
+        
+        #jmht hack
+#        print "CHANGING LABEL TO Cl AS BONDING! "
+#        for i,l in enumerate(self.labels):
+#            if l[0] == 'H':
+#                self.labels[i] = 'Cl'+l[1:]
+
+        self.symbols.extend( block.symbols )
+        self.masses.extend( block.masses )
+        self.atomCell.extend( block.atomCell )
+        
+        # Need to remove the end groups used in the bond
+        i = self.endGroups.index( bond[0] )
+        self.endGroups.pop( i )
+        i = block.endGroups.index( bond[1] )
+        block.endGroups.pop( i )
+        
+        # Now add block to self, updating index
+        for i in block.endGroups:
+            self.endGroups.append( i+lcoords )
+        
+        del self._endGroupContacts[ bond[0] ]
+        del block._endGroupContacts[ bond[1] ]
+        
+        for k,v in block._endGroupContacts.iteritems():
+            self._endGroupContacts[ k+lcoords ] = v+lcoords
+        
+        self.update()
 
     def bondLength(self,symbola, symbolb):
         """Return the bond length between two atoms of the given type"""
@@ -500,6 +595,66 @@ class BuildingBlock():
         return self._mass
                 
 
+    def positionGrowBlock( self, idxBlockEG, growBlock, idxGrowBlockEG ):
+        """
+        Position growBlock so it can bond to us, using the given endGroups
+        
+        Arguments:
+        idxBlockEG: the index of the endGroup to use for the bond
+        growBlock: the block we are positioning
+        idxGrowBlockEG: the index of the endGroup to use for the bond
+        """
+
+        # The vector we want to align along is the vector from the contact
+        # to the endGroup
+        endGroup =  self.coords[ idxBlockEG ]
+        idxContact =  self.endGroupContactIndex( idxBlockEG )
+        contact  =  self.coords[ idxContact ]
+        refVector      =  endGroup - contact
+        
+        # Get the contact for the growBlock
+        idxGrowBlockContact = growBlock.endGroupContactIndex( idxGrowBlockEG )
+        growBlockContact = growBlock.coords[ idxGrowBlockContact ]
+        
+        # get the coord where the next block should bond
+        # symbol of endGroup tells us the sort of bond we are making which determines
+        # the bond length
+        symbol = growBlock.symbols[ idxGrowBlockEG ]
+        bondPos = self.newBondPosition( idxBlockEG, symbol )
+        #print "got bondPos: {}".format( bondPos )
+        
+        # Shift block so contact at center, so the vector of the endGroup can be
+        # aligned with the refVector
+        growBlock.translate( -growBlockContact )
+        
+        # Align along the staticBlock bond
+        growBlock.alignBond( idxGrowBlockEG, refVector )
+        
+        # Now turn the second block around
+        # - need to get the new vectors as these will have changed due to the moves
+        growBlockEG = growBlock.coords[ idxGrowBlockEG ]
+        
+        # Find vector perpendicular to the bond axis
+        # Dot product needs to be 0
+        # xu + yv + zw = 0 - set u and v to 1, so w = (x + y)/z
+        # vector is 1, 1, w
+        w =  -1.0 * ( growBlockEG[0] + growBlockEG[1] ) / growBlockEG[2]
+        orth = numpy.array( [1.0, 1.0, w] )
+        
+        # Find axis that we can rotate about
+        rotAxis = numpy.cross( growBlockEG, orth )
+        
+        # Rotate by 180
+        growBlock.rotate( rotAxis, numpy.pi )
+        
+        # Now need to place the endGroup at the bond coord - at the moment
+        # the contact atom is on the origin so we need to subtract the vector to the endGroup
+        # from the translation vector
+        #jmht FIX!
+        growBlock.translate( bondPos + growBlockEG )
+        
+        return
+
     def newBondPosition(self, idxTargetEG, symbol ):
         """Return the position where a bond to an atom of type 'symbol'
         would be placed if bonding to the target endgroup
@@ -548,26 +703,29 @@ class BuildingBlock():
         
         rmat = util.rotation_matrix( axis, angle )
         
-        # loop through and change all coords
+        # loop through all blocks and change all coords
         # Need to check that the center bit is the best way of doing this-
         # am almost certainly doing more ops than needed
-        for i,coord in enumerate( self.coords ):
-            #self.coords[i] = numpy.dot( rmat, coord )
-            coord = coord - center
-            coord = numpy.dot( rmat, coord )
-            self.coords[i] = coord + center
+        for block in self.blocks:
+            for i,coord in enumerate( block.coords ):
+                #self.coords[i] = numpy.dot( rmat, coord )
+                coord = coord - center
+                coord = numpy.dot( rmat, coord )
+                block.coords[i] = coord + center
         
         self._changed = True
 
     def translate(self, tvector):
         """ translate the molecule by the given vector"""
         
-        # Make sure its a numpy array
+        # Make sure its a numpy array - is this needed?
         if isinstance(tvector,list):
             tvector = numpy.array( tvector )
 
-        for i in range( len(self.coords) ):
-            self.coords[i] += tvector
+        for block in self.blocks:
+            # Use len as we don't need to return hthe coords
+            for i in range( len (block.coords ) ):
+                block.coords[i] += tvector
         
         self._changed = True
     
@@ -670,8 +828,45 @@ class TestBuildingBlock(unittest.TestCase):
         paf = self.makeCh4()
         self.assertTrue( paf._endGroupContacts == { 1:0, 2:0, 3:0, 4:0 }, "Incorrect reading of endGroup contacts")
         
+    def testAlignBlocks(self):
+        """Test we can align two blocks correctly"""
+    
+        block = self.makePaf()
+        blockS = block.copy()
         
+        # Get the atoms that define things
+        iblockSEndGroup = blockS.randomEndGroupIndex()
+        blockSEndGroup = blockS.coords[ iblockSEndGroup ]
+        iblockSContact = blockS.endGroupContactIndex( iblockSEndGroup )
+        blockSContact = blockS.coords[ iblockSContact ]
         
+        iblockEndGroup=block.randomEndGroupIndex()
+        iblockContact = block.endGroupContactIndex( iblockEndGroup )
+        blockContact = block.coords[ iblockContact ]
+        
+        # we want to align along block1Contact -> block1EndGroup
+        refVector = blockSEndGroup - blockSContact 
+        
+        # Position block so contact is at origin
+        block.translate( -blockContact )
+        
+        block.alignBond( iblockEndGroup, refVector )
+        
+        # Check the relevant atoms are in the right place
+        blockEndGroup = block.coords[ iblockEndGroup ]
+        blockContact = block.coords[  iblockContact ]
+        
+        newVector = blockEndGroup - blockContact
+        
+        # Normalise two vectors so we can compare them
+        newNorm = newVector / numpy.linalg.norm(newVector)
+        refNorm = refVector / numpy.linalg.norm(refVector)
+        
+        # Slack tolerances - need to work out why...
+        self.assertTrue( numpy.allclose( newNorm, refNorm),
+                         msg="End Group incorrectly positioned: {0} | {1}".format(newNorm, refNorm )  )
+        
+
     def testBond(self):
         """Test we can correctly bond two blocks at the given bond"""
         
@@ -789,8 +984,30 @@ class TestBuildingBlock(unittest.TestCase):
         self.assertTrue( numpy.allclose( ch4.coords[4], array2, rtol=1e-9, atol=1e-8 ),
                          msg="testRotate arrays after rotation incorrect.")
 
+    def testNew(self):
+        """
+        test new coordinate class
+        """
         
-
+        b1 = self.makeCh4()
+        b2 = b1.copy()
+        
+        idxB1EG = 2
+        idxB2EG = 3
+        
+        b1.positionGrowBlock( idxB1EG, b2, idxB2EG )
+        
+        print b1
+        print b2
+        
+        #b1.join( idxB1EG, b2, idxB2EG )
+        
+        #b1.writeXyz()
+        
+        
+        
+        
+        
 if __name__ == '__main__':
     """
     Run the unit tests

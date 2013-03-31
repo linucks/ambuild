@@ -4,7 +4,6 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
-import collections
 import copy
 import logging
 import math
@@ -139,23 +138,23 @@ class Cell():
                 
         return idxBlock
     
-    def alignBlocks(self, block, iblockEndGroup, refVector ):
+    def XalignBlock(self, block, idxBlockEG, refVector ):
         """
-        Align block2, so that the bond defined by the endGroup on block 2 is aligned with
+        Align block, so that the bond defined by idxBlocEG is aligned with
         the refVector
         
-        This assumes that the block has already been positioned with the contact atoms at the origin
+        This assumes that the block has already been positioned with the contact atom at the origin
         """
         
-        blockEndGroup = block.coords[ iblockEndGroup ]
+        blockEndGroup = block.coords[ idxBlockEG ]
         
-#        print "alignBlocks BEFORE"
+#        print "alignBlock BEFORE"
 #        print blockEndGroup
 #        print refVector
         
         # Makes no sense if they are the same already...
         if numpy.array_equal(blockEndGroup,refVector):
-            print "alignBlocks - block already aligned along vector. May not be a problem, but you should know..."
+            print "alignBlock - block already aligned along vector. May not be a problem, but you should know..."
             return
         
         # Calculate normlised cross product to find an axis orthogonal 
@@ -164,7 +163,7 @@ class Cell():
         ncross = cross / numpy.linalg.norm( cross )
         
         if numpy.array_equal( cross, [0,0,0] ):
-            raise RuntimeError,"alignBlocks - vectors are parallel or one is zero"
+            raise RuntimeError,"alignBlock - vectors are parallel or one is zero"
         
         # Find angle
         angle = util.vectorAngle(refVector, blockEndGroup)
@@ -172,9 +171,9 @@ class Cell():
         # Rotate
         block.rotate( ncross, angle )
         
-        blockEndGroup = block.coords[ iblockEndGroup ]
+        blockEndGroup = block.coords[ idxBlockEG ]
         
-#        print "alignBlocks AFTER"
+#        print "alignBlock AFTER"
 #        print blockEndGroup
 #        print refVector
         return
@@ -643,35 +642,37 @@ class Cell():
         
         return blocks
 
-    def _growBlock(self, block, iblockEndGroup, iblockS, iblockSEndGroup):
+    def _growBlock(self, growBlock, idxGrowBlockEG, idxStaticBlock, idxStaticBlockEG):
         """
-        Position block so it can bond to blockS, using the given endGroups
+        Position growBlock so it can bond to blockS, using the given endGroups
         
         Arguments:
-        block: the block we are attaching
-        iblockEndGroup: the index of the endGroup to use for the bond
-        iblockS: the id of the block we are bonding to in the dict of cell blocks
-        iblockSEndGroup: the index of the endGroup to use for the bond
+        growBlock: the growBlock we are attaching
+        idxGrowBlockEG: the index of the endGroup to use for the bond
+        idxStaticBlock: the id of the growBlock we are bonding to in the dict of cell blocks
+        idxStaticBlockEG: the index of the endGroup to use for the bond
         
-        We take responsibility for adding and removing the block from the cell on 
+        We take responsibility for adding and removing the growBlock from the cell on 
         success or failure
         """
         
-        self.positionGrowBlock(block, iblockEndGroup, iblockS, iblockSEndGroup)
+        #self.positionGrowBlock(growBlock, idxGrowBlockEG, idxStaticBlock, idxStaticBlockEG)
+        staticBlock = self.blocks[ idxStaticBlock ]
+        staticBlock.positionGrowBlock( idxStaticBlockEG, growBlock, idxGrowBlockEG )
         
-        # Now add block to the cell so we can check for clashes
-        block_id = self.addBlock(block)
+        # Now add growBlock to the cell so we can check for clashes
+        block_id = self.addBlock( growBlock )
         
         # Check it doesn't clash
         if self.checkMove(block_id):
             return True
         
-        # Didn't work so try rotating the block about the bond to see if that lets it fit
+        # Didn't work so try rotating the growBlock about the bond to see if that lets it fit
         
         # Determine the axis and center to rotate about
-        blockEndGroup = block.coords[ iblockEndGroup ]
-        blockS = self.blocks[ iblockS ]
-        blockSEndGroup = blockS.coords[ iblockSEndGroup ]
+        blockEndGroup = growBlock.coords[ idxGrowBlockEG ]
+        blockS = self.blocks[ idxStaticBlock ]
+        blockSEndGroup = blockS.coords[ idxStaticBlockEG ]
         axis = blockSEndGroup - blockEndGroup
         center = blockSEndGroup
         
@@ -680,20 +681,20 @@ class Cell():
             
             #print "_growBlock rotating as clash: {}".format(angle*util.RADIANS2DEGREES)
             
-            # remove the block from the cell
+            # remove the growBlock from the cell
             self.delBlock(block_id)
             
             # rotate by increment
-            block.rotate( axis, angle, center=center)
+            growBlock.rotate( axis, angle, center=center)
             
             # add it and check
-            self.addBlock(block)
+            self.addBlock(growBlock)
             
             if self.checkMove(block_id):
                 self.logger.debug("_growBlock rotate worked")
                 return True
         
-        # remove the block from the cell
+        # remove the growBlock from the cell
         self.delBlock(block_id)
         
         return False
@@ -833,48 +834,47 @@ class Cell():
         
         return True
         
-    def positionGrowBlock(self, block, iblockEndGroup, iblockS, iblockSEndGroup):
+    def XpositionGrowBlock( self, block, idxBlockEG, idxStaticBlock, idxStaticBlockEG ):
         """
-        Position block so it can bond to blockS, using the given endGroups
+        Position block so it can bond to staticBlock, using the given endGroups
         
         Arguments:
         block: the block we are attaching
-        iblockEndGroup: the index of the endGroup to use for the bond
-        iblockS: the id of the block we are bonding to in the dict of cell blocks
-        iblockSEndGroup: the index of the endGroup to use for the bond
+        idxBlockEG: the index of the endGroup to use for the bond
+        idxStaticBlock: the id of the block we are bonding to in the dict of cell blocks
+        idxStaticBlockEG: the index of the endGroup to use for the bond
         """
 
-        blockS = self.blocks[ iblockS ]
+        staticBlock = self.blocks[ idxStaticBlock ]
         
         # The vector we want to align along is the vector from the contact
         # to the endGroup
-        blockSEndGroup =  blockS.coords[ iblockSEndGroup ]
-        iblockSContact =  blockS.endGroupContactIndex( iblockSEndGroup )
-        blockSContact  =  blockS.coords[ iblockSContact ]
-        refVector      =  blockSEndGroup - blockSContact
+        staticBlockEG =  staticBlock.coords[ idxStaticBlockEG ]
+        idxStaticBlockContact =  staticBlock.endGroupContactIndex( idxStaticBlockEG )
+        staticBlockContact  =  staticBlock.coords[ idxStaticBlockContact ]
+        refVector      =  staticBlockEG - staticBlockContact
         
-        # Get the contact - need to copy this so we can remember it -
-        # otherwise it changes with the moves
-        iblockContact = block.endGroupContactIndex( iblockEndGroup )
-        blockContact = block.coords[ iblockContact ].copy()
+        # Get the contact
+        idxBlockContact = block.endGroupContactIndex( idxBlockEG )
+        blockContact = block.coords[ idxBlockContact ]
         
         # get the coord where the next block should bond
         # symbol of endGroup tells us the sort of bond we are making which determines
         # the bond length
-        symbol = block.symbols[ iblockEndGroup ]
-        bondPos = blockS.newBondPosition( iblockSEndGroup, symbol )
+        symbol = block.symbols[ idxBlockEG ]
+        bondPos = staticBlock.newBondPosition( idxStaticBlockEG, symbol )
         #print "got bondPos: {}".format( bondPos )
         
         # Shift block so contact at center, so the vector of the endGroup can be
         # aligned with the refVector
         block.translate( -blockContact )
         
-        # Align along the blockS bond
-        self.alignBlocks( block, iblockEndGroup, refVector )
+        # Align along the staticBlock bond
+        self.alignBlock( block, idxBlockEG, refVector )
         
         # Now turn the second block around
         # - need to get the new vectors as these will have changed due to the moves
-        blockEndGroup = block.coords[ iblockEndGroup ]
+        blockEndGroup = block.coords[ idxBlockEG ]
         
         # Find vector perpendicular to the bond axis
         # Dot product needs to be 0
@@ -925,10 +925,10 @@ class Cell():
         idxStaticBlockEG = staticBlock.randomEndGroupIndex()
         
         # pick random endGroup on the block we are attaching
-        iblockEndGroup = block.randomEndGroupIndex()
+        idxBlockEG = block.randomEndGroupIndex()
         
         # now attach it
-        return self._growBlock( block, iblockEndGroup, idxStaticBlock, idxStaticBlockEG )
+        return self._growBlock( block, idxBlockEG, idxStaticBlock, idxStaticBlockEG )
         
     
     def randomMoveBlock(self, block, margin=None ):
@@ -1339,56 +1339,6 @@ class TestCell(unittest.TestCase):
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
         
-    def testAlignBlocks(self):
-        """Test we can align two blocks correctly"""
-        
-        CELLA = 30
-        CELLB = 30
-        CELLC = 30
-        
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        #block = self.makeCh4( cell )
-        cell.seed( 2, "../PAF_bb_typed.car" )
-        
-        # Get the two blocks
-        ids = cell.blocks.keys()
-        blockS = cell.blocks[ ids[0] ]
-        block = cell.blocks[ ids[1] ]
-        
-        # Get the atoms that define things
-        iblockSEndGroup = blockS.randomEndGroupIndex()
-        blockSEndGroup = blockS.coords[ iblockSEndGroup ]
-        iblockSContact = blockS.endGroupContactIndex( iblockSEndGroup )
-        blockSContact = blockS.coords[ iblockSContact ]
-        
-        iblockEndGroup=block.randomEndGroupIndex()
-        iblockContact = block.endGroupContactIndex( iblockEndGroup )
-        blockContact = block.coords[ iblockContact ]
-        
-        # we want to align along block1Contact -> block1EndGroup
-        refVector = blockSEndGroup - blockSContact 
-        
-        # Position block so contact is at origin
-        block.translate( -blockContact )
-        
-        cell.alignBlocks( block, iblockEndGroup, refVector )
-        
-        # Check the relevant atoms are in the right place
-        blockEndGroup = block.coords[ iblockEndGroup ]
-        blockContact = block.coords[  iblockContact ]
-        
-        newVector = blockEndGroup - blockContact
-        
-        # Normalise two vectors so we can compare them
-        newNorm = newVector / numpy.linalg.norm(newVector)
-        refNorm = refVector / numpy.linalg.norm(refVector)
-        
-        # Slack tolerances - need to work out why...
-        self.assertTrue( numpy.allclose( newNorm, refNorm),
-                         msg="End Group incorrectly positioned: {0} | {1}".format(newNorm, refNorm )  )
-
     def XtestCellIO(self):
         """Check we can write out and then read in a cell
         """
