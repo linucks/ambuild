@@ -569,10 +569,10 @@ class Cell():
         # Need to initialise cell from first block
         initBlock = False
         for labels,coords in blocks:
-            block = buildingBlock.BuildingBlock()
+            block = buildingBlock.Block()
             block.createFromLabelAndCoords( labels, coords )
             if not initBlock:
-                self.setInitBlock(block.copy())
+                self.setInitBlock( block.copy() )
                 initBlock=True
             self.addBlock(block)
         
@@ -743,7 +743,7 @@ class Cell():
         Also center the block in the cell
         """
         
-        ib = buildingBlock.BuildingBlock()
+        ib = buildingBlock.Block()
         ib.fromCarFile( inputFile )
         
         if incell:
@@ -1335,7 +1335,7 @@ class TestCell(unittest.TestCase):
     def makePaf(self, cell):
         """Return the PAF molecule for testing"""
         
-        paf = self.buildingBlock.BuildingBlock()
+        paf = self.buildingBlock.Block()
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
         

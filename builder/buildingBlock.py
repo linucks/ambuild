@@ -16,7 +16,6 @@ https://github.com/patvarilly/periodic_kdtree
 # Python imports
 import copy
 import os
-import math
 import random
 import unittest
 
@@ -26,7 +25,7 @@ import numpy
 # local imports
 import util
 
-class BuildingBlock():
+class Block():
     '''
     classdocs
     '''
@@ -75,7 +74,7 @@ class BuildingBlock():
         
         # List of the indices of the atoms that define the angle for the endGroups - need
         # to be in the same order as the endGroups
-        self.defAtom = []
+        self.angleAtoms = []
         
         # Dictionary mapping the index of an endGroup to an atom bonded to it
         # Required for finding the angle when we check bonds
@@ -115,33 +114,38 @@ class BuildingBlock():
         
         endGroup = self.coords[ idxBlockEG ]
         
-#        print "alignBlock BEFORE"
-#        print blockEndGroup
-#        print refVector
+        # Check neither is zero
+        if numpy.array_equal( refVector, [0,0,0] ) or numpy.array_equal( endGroup, [0,0,0] ):
+            raise RuntimeError, "alignBlock - one of the vectors is zero!\nrefVector: {0} endGroup: {1}".format( refVector, endGroup )
         
-        # Makes no sense if they are the same already...
-        if numpy.array_equal( endGroup, refVector ):
+        # Makes no sense if they are already aligned
+        if numpy.array_equal( endGroup/numpy.linalg.norm(endGroup), refVector/numpy.linalg.norm(refVector) ):
             print "alignBlock - block already aligned along vector. May not be a problem, but you should know..."
             return
-        
-        # Calculate normlised cross product to find an axis orthogonal 
+
+#        print "alignBlock BEFORE: {0} | {1}".format( endGroup, refVector )
+
+        # Calculate normalised cross product to find an axis orthogonal 
         # to both that we can rotate about
         cross = numpy.cross( refVector, endGroup )
-        ncross = cross / numpy.linalg.norm( cross )
         
         if numpy.array_equal( cross, [0,0,0] ):
-            raise RuntimeError,"alignBlock - vectors are parallel or one is zero"
-        
-        # Find angle
-        angle = util.vectorAngle( refVector, endGroup )
-        
-        # Rotate
-        self.rotate( ncross, angle )
-        
+            # They must be already aligned but anti-parallel, so we flip
+            print "alignBlock - vectors are anti-parallel so flipping"
+            self.flip( refVector )
+        else:
+            
+            # Find angle
+            angle = util.vectorAngle( refVector, endGroup )
+            
+            # Normalised cross to rotate about
+            ncross = cross / numpy.linalg.norm( cross )
+            
+            # Rotate
+            self.rotate( ncross, angle )
+            
 #        endGroup =self.coords[ idxBlockEG ]
-#        print "alignBlock AFTER"
-#        print blockEndGroup
-#        print refVector
+#        print "alignBlock AFTER: {0} | {1}".format( endGroup, refVector )
         return
 
     
@@ -188,29 +192,109 @@ class BuildingBlock():
         
         self.update()
 
-
     def join( self, idxEG, block, idxBlockEG ):
         """Bond block to this one at the endGroups specified by the two indices
+        endGroup = [ 7, 12, 17, 22 ]
+        defAtom = [ 5, 6, 7, 8 ]
+        
+        idxEndGroup = randomEndGroupIndex()
+        
+        endGroup = block.coords[ block.endGroups[idxEndGroup] ]
+        
+        angleAtom = block.coords[ block.angleAtoms[idxEndGroup] ]
+        
+              H1
+              |
+              C0
+          /  |  \
+        H2   H3  H4
+        
+              H1             H6
+              |              |
+             C0             C5
+          /  |  \        /  |  \
+        H2   H3  H4 -- H7   H8  H9
+        
+        CH4 - 1
+        endGroups = [ 1,2,3,4 ]
+        angleAtoms = [ 0,0,0,0 ]
+        bondedEndGroups = []
+        
+        CH4 - 2
+        endGroups = [ 1,2,3,4 ]
+        angleAtoms = [ 0,0,0,0 ]
+        bondedEndGroups = []
+        
+        join 2,3 
+        endGroups = [ 1,2,4,6,7,8 ]
+        angleAtoms = [ 0,0,0,5,5,5 ]
+        
+        
+        # Need to remember the endGroups/angleAtoms for each block
+        # First is this block - although not used unless all blocks removed to leave us with ourselves
+        blockEndGroups = [  [ 1,2,3,4 ], [ 1,2,3,4 ] ]
+        blockAngleAtoms = [ [ 0,0,0,0 ], [ 0,0,0,0 ] ]
+        
+        So remove the bond we are making from both blocks and then add the new endGroups/angleAtoms
+        # Remember the actual indices of the endGroups for the parent block in the bondedEndGroups array of tuples
+        bondedEndGroups.append(  ( endGroups.pop( 2 ), angleAtoms.pop( 2 ) ) )
+        
+        # Add the new free endgroups and their angleAtoms to the array - we increment their indices accordingly
+        for i, EG in enumerate( block.endGroups ):
+            endGroups.append( EG + start )
+            angleAtoms.append( block.angleAtoms[i] + start )
+            
+        
+        # random
+        0 1 2 3
+        H-C=C-H
+        endGroups = [ 0,3 ]
+        angleAtoms = [ 1,2 ]
+        
+        0 1 2 3 4 5 6 7
+        H-C=C-H_H-C=C-H
+        endGroups = [ 0, 7 ]
+        angleAtoms = [ 1, 6 ]
+        
+        0 1 2 3 4 5 6 7 8 9 1011
+        H-C=C-H_H-C=C-H_H-C=C-H
+        endGroups = [ 0, 11 ]
+        angleAtoms = [ 1, 10 ]
+        
+        removeBlock( 0 )
+        0 1 2 3 4 5 6 7
+        H-C=C-H_H-C=C-H
+        endGroups = [ 0, 7 ]
+        angleAtoms = [ 1, 6 ]
+        
+        and 
+        0 1 2 3
+        H-C=C-H
+        endGroups = [ 0,3 ]
+        angleAtoms = [ 1,2 ]
+        
+        
+        
         """
         
         # Needed to work out how much to add to the block indices
-        lcoords = len(self.coords)
+        start = len( self.coords )
+        end = len( block.coords )
         
+        # Keep track of where the new block starts and ends so we can remove it
+        self.blocks.append[ (start, end)  ]
+        
+        # Add all the data structures together
         self.coords.extend( block.coords )
         self.atom_radii.extend( block.atom_radii )
         self.labels.extend( block.labels )
-        
-        #jmht hack
-#        print "CHANGING LABEL TO Cl AS BONDING! "
-#        for i,l in enumerate(self.labels):
-#            if l[0] == 'H':
-#                self.labels[i] = 'Cl'+l[1:]
-
         self.symbols.extend( block.symbols )
         self.masses.extend( block.masses )
         self.atomCell.extend( block.atomCell )
         
         # Need to remove the end groups used in the bond
+        self.bondedEndGroups.append( )
+        
         i = self.endGroups.index( bond[0] )
         self.endGroups.pop( i )
         i = block.endGroups.index( bond[1] )
@@ -218,13 +302,13 @@ class BuildingBlock():
         
         # Now add block to self, updating index
         for i in block.endGroups:
-            self.endGroups.append( i+lcoords )
+            self.endGroups.append( i+start )
         
         del self._endGroupContacts[ bond[0] ]
         del block._endGroupContacts[ bond[1] ]
         
         for k,v in block._endGroupContacts.iteritems():
-            self._endGroupContacts[ k+lcoords ] = v+lcoords
+            self._endGroupContacts[ k+start ] = v+start
         
         self.update()
 
@@ -341,63 +425,6 @@ class BuildingBlock():
         # Set radius
         self._radius = dist + atomR
         
-    def XcanBond( self, block, bondMargin=None, bondAngle=None ):
-        """
-        See if we can form a bond with the given block.
-        Return the indicies of the two atoms (self and then other)
-        or False if the molecules cannot bond but do not clash
-        If the blocks clash (are close but cannot bond) we return
-        the string "clash" to indicate a clash and that the move should be
-        rejected
-        """
-        
-        assert bondAngle
-        
-        # Might be able to bond so loop through all atoms and check
-        # We only accept the case where just one pair of atoms is close enough to bond
-        # more than one is considered a failure
-        # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
-        bond = None
-        for i, c in enumerate( self.coords ):
-            #i_radius = self.atom_radii[i]
-            i_symbol = self.symbols[i]
-            for j, b in enumerate( block.coords ):
-                #j_radius = block.atom_radii[j]
-                j_symbol = block.symbols[j]
-                bond_length = self.bondLength( i_symbol, j_symbol )
-                #bond_length = util.bondLength( i_symbol, j_symbol )
-                #if ( numpy.linalg.norm( c - b ) < bond_length + bondMargin ):
-                if ( self.distance( b,c ) < bond_length + bondMargin ):
-                    # Check if both atoms are end groups
-                    if not ( i in self.endGroups and j in block.endGroups ):
-                        # 2 atoms close enough to bond but they are not end groups
-                        return "clash"
-                        
-                    # Close enough to bond
-                    if bond:
-                        # Already got one so this is no good
-                        return "clash"
-                    bond = (i,j)
-        
-        if not bond:
-            return False
-        
-        # Got a bond so check the angle
-        icontact = self.endGroupContactIndex( bond[0] )
-        contact = self.coords[ icontact ]
-        sgatom = self.coords[ bond[0] ] 
-        bgatom = block.coords[ bond[1] ] 
-        angle = util.angle( contact, sgatom, bgatom )
-        
-#       angle = self.dihedral( ibcoord, igcoord, jgcoord, jbcoord )
-        
-        print "Got bond angle D: {}".format(angle)
-        
-        if ( bondAngle-15 < angle < bondAngle+15 ):
-            return bond
-        else:
-            print "Cannot bond due to angle"
-            return "clash"
         
     def centroid(self):
         """
@@ -420,40 +447,6 @@ class BuildingBlock():
         
         return self._centerOfMass
     
-    def Xclash( self, block, blockMargin=2.0, atomMargin=1.0 ):
-        """ See if this molecule clashes (overlaps) with the given one
-        by checking the atomic radii 
-        """
-        
-        # First check if these two molecules are within range assuming they 
-        # are circular, centered on the COG and with the given radius
-        if not self.close(block, blockMargin=blockMargin):
-            return False
-        
-        # Within range, so see if any atoms actually do overlap
-        # Do this with scipy and no loops when we optimise
-        for i, c in enumerate( self.coords ):
-            i_radius = self.atom_radii[i]
-            for j, b in enumerate( block.coords ):
-                j_radius = block.atom_radii[j]
-                #if ( numpy.linalg.norm( c - b ) < i_radius + j_radius + atomMargin ):
-                if ( self.distance( b, c ) < i_radius + j_radius + atomMargin ):
-                    return True
-                
-        return False
-    
-    def Xclose( self, block, blockMargin=2.0 ):
-        """Return true of false depending on whether two blocks are close enough to bond/clash.
-        Works from the overall radii of the two blocks
-        Margin is allowed gap between their respective radii
-        """
-        #dist = numpy.linalg.norm( self.centroid() - block.centroid() )
-        dist = self.distance( block.centroid(), self.centroid() )
-        if ( dist < self.radius() + block.radius() + blockMargin ):
-            return True
-        else:
-            return False
-    
     def copy( self ):
         """
         Create a copy of ourselves and return it.
@@ -466,6 +459,25 @@ class BuildingBlock():
         """Return the index of the contact atom for this endGroup"""
         return self._endGroupContacts[ endGroupIndex ]
         
+    def flip( self, fvector ):
+        """Rotate perpendicular to fvector so we  facing the opposite way along the fvector
+        """
+        
+        # Find vector perpendicular to the bond axis
+        # Dot product needs to be 0
+        # xu + yv + zw = 0 - set u and v to 1, so w = (x + y)/z
+        # vector is 1, 1, w
+        w =  -1.0 * ( fvector[0] + fvector[1] ) / fvector[2]
+        orth = numpy.array( [1.0, 1.0, w] )
+        
+        # Find axis that we can rotate about
+        rotAxis = numpy.cross( fvector, orth )
+        
+        # Rotate by 180
+        self.rotate( rotAxis, numpy.pi )
+        
+        return
+
 
     def fillData(self):
         """ Fill the data arrays from the label """
@@ -634,18 +646,8 @@ class BuildingBlock():
         # - need to get the new vectors as these will have changed due to the moves
         growBlockEG = growBlock.coords[ idxGrowBlockEG ]
         
-        # Find vector perpendicular to the bond axis
-        # Dot product needs to be 0
-        # xu + yv + zw = 0 - set u and v to 1, so w = (x + y)/z
-        # vector is 1, 1, w
-        w =  -1.0 * ( growBlockEG[0] + growBlockEG[1] ) / growBlockEG[2]
-        orth = numpy.array( [1.0, 1.0, w] )
-        
-        # Find axis that we can rotate about
-        rotAxis = numpy.cross( growBlockEG, orth )
-        
-        # Rotate by 180
-        growBlock.rotate( rotAxis, numpy.pi )
+        # Flip by 180 along bond axis
+        growBlock.flip( growBlockEG )
         
         # Now need to place the endGroup at the bond coord - at the moment
         # the contact atom is on the origin so we need to subtract the vector to the endGroup
@@ -797,17 +799,17 @@ class TestBuildingBlock(unittest.TestCase):
 #        
 #        endGroupContacts = { 1:0, 2:0, 3:0, 4:0 }
 #        
-#        ch4 = BuildingBlock()
+#        ch4 = Block()
 #        ch4.createFromArgs( coords, labels, endGroups, endGroupContacts )
 
-        ch4 = BuildingBlock()
+        ch4 = Block()
         ch4.fromXyzFile("../ch4.xyz")
         return ch4
     
     def makePaf(self):
         """Return the PAF molecule for testing"""
         
-        paf = BuildingBlock()
+        paf = Block()
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
     
@@ -984,21 +986,39 @@ class TestBuildingBlock(unittest.TestCase):
         self.assertTrue( numpy.allclose( ch4.coords[4], array2, rtol=1e-9, atol=1e-8 ),
                          msg="testRotate arrays after rotation incorrect.")
 
+    def makeH2C2(self):
+        """
+        Return H2C2 molecule for testing
+        """
+        coords = [ 
+                  numpy.array([  0.000000,  0.000000,  0.000000 ] ),
+                  numpy.array([  0.000000,  0.000000,  1.000000 ]),
+                  numpy.array([  0.000000,  0.000000,  2.000000 ]),
+                  numpy.array([  0.000000,  0.000000,  3.000000 ]),
+                  ]
+
+        labels = [ 'H', 'C', 'C', 'H' ]
+        endGroups = [ 0, 3 ]
+        endGroupContacts = { 0:1, 3:2 }
+        b = Block()
+        b.createFromArgs( coords, labels, endGroups, endGroupContacts )
+        return b
+        
     def testNew(self):
         """
         test new coordinate class
         """
         
-        b1 = self.makeCh4()
+        b1 = self.makeH2C2()
         b2 = b1.copy()
         
-        idxB1EG = 2
+        idxB1EG = 0
         idxB2EG = 3
         
         b1.positionGrowBlock( idxB1EG, b2, idxB2EG )
         
-        print b1
-        print b2
+        #print b1
+        #print b2
         
         #b1.join( idxB1EG, b2, idxB2EG )
         
