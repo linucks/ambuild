@@ -385,6 +385,8 @@ class Cell():
         
         #print "box1 ",self.box1
         
+        #jmht - this is where we would check to make sure we exclude blocks that are part of the parent
+        
         block=self.blocks[iblock]
         for icoord,coord in enumerate(block.coords):
             
