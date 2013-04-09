@@ -138,45 +138,6 @@ class Cell():
                 
         return idxBlock
     
-    def XalignBlock(self, block, idxBlockEG, refVector ):
-        """
-        Align block, so that the bond defined by idxBlocEG is aligned with
-        the refVector
-        
-        This assumes that the block has already been positioned with the contact atom at the origin
-        """
-        
-        blockEndGroup = block.coords[ idxBlockEG ]
-        
-#        print "alignBlock BEFORE"
-#        print blockEndGroup
-#        print refVector
-        
-        # Makes no sense if they are the same already...
-        if numpy.array_equal(blockEndGroup,refVector):
-            print "alignBlock - block already aligned along vector. May not be a problem, but you should know..."
-            return
-        
-        # Calculate normlised cross product to find an axis orthogonal 
-        # to both that we can rotate about
-        cross = numpy.cross( refVector, blockEndGroup )
-        ncross = cross / numpy.linalg.norm( cross )
-        
-        if numpy.array_equal( cross, [0,0,0] ):
-            raise RuntimeError,"alignBlock - vectors are parallel or one is zero"
-        
-        # Find angle
-        angle = util.vectorAngle(refVector, blockEndGroup)
-        
-        # Rotate
-        block.rotate( ncross, angle )
-        
-        blockEndGroup = block.coords[ idxBlockEG ]
-        
-#        print "alignBlock AFTER"
-#        print blockEndGroup
-#        print refVector
-        return
 
     def bondBlock(self, bond):
         """ Bond the second block to the first and update the data structures"""
@@ -221,8 +182,8 @@ class Cell():
         if self.density() < self.targetDensity:
             return True
         
-        print "Got endGroups: ",self.endGroups()
-        if self.endGroups() < self.targetEndGroups:
+        print "Got _endGroups: ",self._endGroups()
+        if self._endGroups() < self.targetEndGroups:
             return True
         
         return False
@@ -261,8 +222,8 @@ class Cell():
             ocoord = oblock.coords[ioatom]
             #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(iatom,idxBlock, ioatom,ioblock,self.distance( coord, ocoord ) )
             
-            # First see if both atoms are endGroups
-            if iatom in block.endGroups and ioatom in oblock.endGroups:
+            # First see if both atoms are _endGroups
+            if iatom in block._endGroups and ioatom in oblock._endGroups:
                 # Checking for a bond
                 # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
                 osymbol = oblock.symbols[ioatom]
@@ -277,7 +238,9 @@ class Cell():
                     
                     #print "Possible bond for ",iatom,ioblock,ioatom
                     # Possible bond so check the angle
-                    icontact = block.endGroupContactIndex( iatom )
+                    #icontact = block.endGroupContactIndex( iatom )
+                    idx = block._endGroups.index( iatom )
+                    icontact = block._angleAtoms[ idx ]
                     contact = block.coords[icontact]
                     #print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( contact, coord, ocoord )
                     angle = util.angle( contact, coord, ocoord )
@@ -322,15 +285,15 @@ class Cell():
         
         return ( self.numBlocks * self.blockMass ) / ( self.A[0] * self.B[1] * self.C[2] ) 
     
-    def endGroups(self):
+    def _endGroups(self):
         """
-        The number of free endGroups in the cell
+        The number of free _endGroups in the cell
         """
         
         numEndGroups = 0
         for idxBlock in self.blocks.keys():
             block = self.blocks[ idxBlock ]
-            numEndGroups += len( block.endGroups )
+            numEndGroups += len( block._endGroups )
         
         return numEndGroups
         
@@ -646,7 +609,7 @@ class Cell():
 
     def _growBlock(self, growBlock, idxGrowBlockEG, idxStaticBlock, idxStaticBlockEG):
         """
-        Position growBlock so it can bond to blockS, using the given endGroups
+        Position growBlock so it can bond to blockS, using the given _endGroups
         
         Arguments:
         growBlock: the growBlock we are attaching
@@ -771,7 +734,7 @@ class Cell():
     
     def _joinBlocks(self):
         """
-        See if we can join two randomly chosen blocks at random endGroups
+        See if we can join two randomly chosen blocks at random _endGroups
         """
         idxMoveBlock = self.randomBlockId()
         moveBlock = self.blocks[ idxMoveBlock ]
@@ -838,7 +801,7 @@ class Cell():
         
     def XpositionGrowBlock( self, block, idxBlockEG, idxStaticBlock, idxStaticBlockEG ):
         """
-        Position block so it can bond to staticBlock, using the given endGroups
+        Position block so it can bond to staticBlock, using the given _endGroups
         
         Arguments:
         block: the block we are attaching
@@ -914,7 +877,7 @@ class Cell():
     def randomGrowBlock(self, block):
         """
         Attach the given block to a randomly selected block, at randomly
-        selected endGroups in each
+        selected _endGroups in each
         """
         
         # Select a random block to bond to

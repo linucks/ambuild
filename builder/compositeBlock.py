@@ -19,9 +19,18 @@ class CompositeBlock( buildingBlock.Block ):
     '''
     classdocs
     
-    API:
+    Parent must know about all child blocks
     
-    endGroup( idxEndGroup )
+    call methods such as endGroup recursively - how to count how many _endGroups?
+        
+        
+    
+    def randomBlock(): - part of cell
+    
+    
+    def newBlock(): - part of cell
+        
+    
     
     newBlock() - create a new block
     
@@ -42,10 +51,88 @@ class CompositeBlock( buildingBlock.Block ):
         
         block = buildingBlock.Block( infile=inputFile )
         
-        # List of all the blocks that this one contains
+        # List of all the blocks that this one contains - will be as many as there are _endGroups
+        # For terminal blocks (those not containing other blocks we need to be careful we don't
+        # iterate through these
+        # Needs to filled with Nones for as many _endGroups as there are on init
         self.blocks = [ block ]
         
+        # List of all blocks contained or linked to this one - includes iterating over sub-blocks
+        self.allBlocks = [ block ]
+        
+        # The block containing this one or None if we are the top block/an isolated block
+        self.parent = None
+        
+        # List of the atoms that are available to bond
+        self._endGroups = []
+        
+        # List of the atoms that define the angle for the bonds (same order as _endGroups)
+        self._angleAtoms = []
+        
+        
+        
+    def endGroup( self, idxEndGroup ):
+        i,j = self._endGroups[ idxEndGroup ]
+        block = self.blocks[i]
+        return block.coords[ block._endGroups[j] ]
+        
+    
+    def endGroupAngleAtom( self, idxEndGroup ):
+        i,j = self._angleAtoms[ idxEndGroup ]
+        block = self.blocks[i]
+        return block.coords[ block._angleAtom[j] ]
+        
+    
+    def bondBlock( self, idxEndGroup, newBlock, idxNewBlockEndGroup ):
+        """ Add newBlock to this one
+        """
+        
+        if newBlock not in self.blocks:
+            self.blocks[ idxEndGroup ] = newBlock
+        else:
+            # Circular fragment
+            print "Block was already in self"
+            
+        # Now add all subblocks to this one
+        for block in newBlock.blocks:
+            if block:
+                self.allBlocks += block.allBlocks
+            
+        newBlock.blocks[ idxNewBlockEndGroup ] = self
+        
+        self.update( newBlock )
+            
+#    def removeBlock( self, block ):
+#        """Delete the block from this one"""
+#        self.blocks.pop( block )
+#        self.bondedEndGroups.pop( ?? ) 
+#        self.update()
+        
+    def update( self, newBlock ):
+        if self.parent:
+            self.parent.update( newBlock )
+        else:
+            self._update( newBlock )
+    
+    def _update( self, newBlock ):
+        """Set the list of _endGroups"""
+        
+        if newBlock in self.blocks:
+            raise RuntimeError, "Bonding block that is already in this - must fix..."
+        
+        # Loop over every block contained in this and all subBlocks
+        for i, block in enumerate( self.allBlocks ):
+            for j in range( len(block._endGroups) ):
+                # Don't add _endGroups where there is a block attached
+                if not block.blocks[j]:
+                    self._endGroups.append(  (i, j) )
+                    self._angleAtoms.append( (i, j) )
 
+    def rotate(self, foo):
+        """For any block"""
+        for block in self.allBlocks:
+            block._rotate( foo )
+        
     def alignBond(self, idxBlockEG, refVector ):
         """
         Align this block, so that the bond defined by idxBlockEG is aligned with
@@ -92,15 +179,15 @@ class CompositeBlock( buildingBlock.Block ):
 
 
     def join( self, idxEG, block, idxBlockEG ):
-        """Bond block to this one at the endGroups specified by the two indices
+        """Bond block to this one at the _endGroups specified by the two indices
         endGroup = [ 7, 12, 17, 22 ]
         defAtom = [ 5, 6, 7, 8 ]
         
         idxEndGroup = randomEndGroupIndex()
         
-        endGroup = block.coords[ block.endGroups[idxEndGroup] ]
+        endGroup = block.coords[ block._endGroups[idxEndGroup] ]
         
-        angleAtom = block.coords[ block.angleAtoms[idxEndGroup] ]
+        angleAtom = block.coords[ block._angleAtoms[idxEndGroup] ]
         
               H1
               |
@@ -115,62 +202,62 @@ class CompositeBlock( buildingBlock.Block ):
         H2   H3  H4 -- H7   H8  H9
         
         CH4 - 1
-        endGroups = [ 1,2,3,4 ]
-        angleAtoms = [ 0,0,0,0 ]
+        _endGroups = [ 1,2,3,4 ]
+        _angleAtoms = [ 0,0,0,0 ]
         bondedEndGroups = []
         
         CH4 - 2
-        endGroups = [ 1,2,3,4 ]
-        angleAtoms = [ 0,0,0,0 ]
+        _endGroups = [ 1,2,3,4 ]
+        _angleAtoms = [ 0,0,0,0 ]
         bondedEndGroups = []
         
         join 2,3 
-        endGroups = [ 1,2,4,6,7,8 ]
-        angleAtoms = [ 0,0,0,5,5,5 ]
+        _endGroups = [ 1,2,4,6,7,8 ]
+        _angleAtoms = [ 0,0,0,5,5,5 ]
         
         
-        # Need to remember the endGroups/angleAtoms for each block
+        # Need to remember the _endGroups/_angleAtoms for each block
         # First is this block - although not used unless all blocks removed to leave us with ourselves
         blockEndGroups = [  [ 1,2,3,4 ], [ 1,2,3,4 ] ]
         blockAngleAtoms = [ [ 0,0,0,0 ], [ 0,0,0,0 ] ]
         
-        So remove the bond we are making from both blocks and then add the new endGroups/angleAtoms
-        # Remember the actual indices of the endGroups for the parent block in the bondedEndGroups array of tuples
-        bondedEndGroups.append(  ( endGroups.pop( 2 ), angleAtoms.pop( 2 ) ) )
+        So remove the bond we are making from both blocks and then add the new _endGroups/_angleAtoms
+        # Remember the actual indices of the _endGroups for the parent block in the bondedEndGroups array of tuples
+        bondedEndGroups.append(  ( _endGroups.pop( 2 ), _angleAtoms.pop( 2 ) ) )
         
-        # Add the new free endgroups and their angleAtoms to the array - we increment their indices accordingly
-        for i, EG in enumerate( block.endGroups ):
-            endGroups.append( EG + start )
-            angleAtoms.append( block.angleAtoms[i] + start )
+        # Add the new free endgroups and their _angleAtoms to the array - we increment their indices accordingly
+        for i, EG in enumerate( block._endGroups ):
+            _endGroups.append( EG + start )
+            _angleAtoms.append( block._angleAtoms[i] + start )
             
         
         # random
         0 1 2 3
         H-C=C-H
-        endGroups = [ 0,3 ]
-        angleAtoms = [ 1,2 ]
+        _endGroups = [ 0,3 ]
+        _angleAtoms = [ 1,2 ]
         
         0 1 2 3 4 5 6 7
         H-C=C-H_H-C=C-H
-        endGroups = [ 0, 7 ]
-        angleAtoms = [ 1, 6 ]
+        _endGroups = [ 0, 7 ]
+        _angleAtoms = [ 1, 6 ]
         
         0 1 2 3 4 5 6 7 8 9 1011
         H-C=C-H_H-C=C-H_H-C=C-H
-        endGroups = [ 0, 11 ]
-        angleAtoms = [ 1, 10 ]
+        _endGroups = [ 0, 11 ]
+        _angleAtoms = [ 1, 10 ]
         
         removeBlock( 0 )
         0 1 2 3 4 5 6 7
         H-C=C-H_H-C=C-H
-        endGroups = [ 0, 7 ]
-        angleAtoms = [ 1, 6 ]
+        _endGroups = [ 0, 7 ]
+        _angleAtoms = [ 1, 6 ]
         
         and 
         0 1 2 3
         H-C=C-H
-        endGroups = [ 0,3 ]
-        angleAtoms = [ 1,2 ]
+        _endGroups = [ 0,3 ]
+        _angleAtoms = [ 1,2 ]
         
         
         
@@ -194,20 +281,20 @@ class CompositeBlock( buildingBlock.Block ):
         # Need to remove the end groups used in the bond
         self.bondedEndGroups.append( )
         
-        i = self.endGroups.index( bond[0] )
-        self.endGroups.pop( i )
-        i = block.endGroups.index( bond[1] )
-        block.endGroups.pop( i )
+        i = self._endGroups.index( bond[0] )
+        self._endGroups.pop( i )
+        i = block._endGroups.index( bond[1] )
+        block._endGroups.pop( i )
         
         # Now add block to self, updating index
-        for i in block.endGroups:
-            self.endGroups.append( i+start )
+        for i in block._endGroups:
+            self._endGroups.append( i+start )
         
-        del self._endGroupContacts[ bond[0] ]
-        del block._endGroupContacts[ bond[1] ]
+        del self._angleAtoms[ bond[0] ]
+        del block._angleAtoms[ bond[1] ]
         
-        for k,v in block._endGroupContacts.iteritems():
-            self._endGroupContacts[ k+start ] = v+start
+        for k,v in block._angleAtoms.iteritems():
+            self._angleAtoms[ k+start ] = v+start
         
         self.update()
 
@@ -241,9 +328,10 @@ class CompositeBlock( buildingBlock.Block ):
         """
         return copy.deepcopy(self)
 
+
     def endGroupContactIndex(self, endGroupIndex ):
         """Return the index of the contact atom for this endGroup"""
-        return self._endGroupContacts[ endGroupIndex ]
+        return self._angleAtoms[ endGroupIndex ]
         
     def flip( self, fvector ):
         """Rotate perpendicular to fvector so we  facing the opposite way along the fvector
@@ -395,7 +483,7 @@ class CompositeBlock( buildingBlock.Block ):
 
     def positionGrowBlock( self, idxBlockEG, growBlock, idxGrowBlockEG ):
         """
-        Position growBlock so it can bond to us, using the given endGroups
+        Position growBlock so it can bond to us, using the given _endGroups
         
         Arguments:
         idxBlockEG: the index of the endGroup to use for the bond
@@ -480,7 +568,7 @@ class CompositeBlock( buildingBlock.Block ):
 
     def randomEndGroupIndex(self):
         """Return a randomly picked endgroup"""
-        return random.choice( self.endGroups )
+        return random.choice( self._endGroups )
     
     def rotate( self, axis, angle, center=None ):
         """ Rotate the molecule about the given axis by the angle in radians
@@ -574,10 +662,10 @@ class TestCompositeBlock(unittest.TestCase):
 #                  ]
 #
 #        labels = [ 'H', 'C', 'C', 'H' ]
-#        endGroups = [ 0, 3 ]
+#        _endGroups = [ 0, 3 ]
 #        endGroupContacts = { 0:1, 3:2 }
 #        b = buildingBlock.Block()
-#        b.createFromArgs( coords, labels, endGroups, endGroupContacts )
+#        b.createFromArgs( coords, labels, _endGroups, endGroupContacts )
         
         
         cb = CompositeBlock( inputFile="../h2c2.xyz" )
