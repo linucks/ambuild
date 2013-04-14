@@ -114,44 +114,6 @@ class Block():
             else:
                 raise RuntimeError("Unrecognised file suffix: {}".format(infile) )
 
-    def angleAtomCoord( self, idxEndGroup ):
-        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
-        block = self.allBlocks[ idxBlock ]
-        return block._angleAtomCoord( idxBlockEndGroup )
-
-    def _angleAtomCoord( self, idxEndGroup ):
-        return self._coords[ self._angleAtomCoordIdx( idxEndGroup ) ]
-    
-    def _angleAtomCoordIdx( self, idxEndGroup ):
-        return self._myAngleAtoms[ idxEndGroup ]
-
-    def endGroupCoord( self, idxEndGroup ):
-        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
-        block = self.allBlocks[ idxBlock ]
-        return block._endGroupCoord( idxBlockEndGroup )
-    
-    def endGroupCoordIdx( self, idxEndGroup ):
-        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
-        block = self.allBlocks[ idxBlock ]
-        return block._endGroupCoordIdx( idxBlockEndGroup )
-
-    def _endGroupCoord(self, idxEndGroup):
-        """Return the coordinate of the endGroup with the given index."""
-        return self._coords[ self._endGroupCoordIdx( idxEndGroup ) ]
-    
-    def _endGroupCoordIdx(self, idxEndGroup):
-        """Return the index of the coordinate of the endGroup with the given index."""
-        return self._myEndGroups[ idxEndGroup ]
-
-    def endGroupSymbol( self, idxEndGroup ):
-        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
-        block = self.allBlocks[ idxBlock ]
-        return block._endGroupSymbol( idxBlockEndGroup )
-
-    def _endGroupSymbol(self, idxEndGroup ):
-        """Return the symbol of this endGroup"""
-        return self._symbols[ self._endGroupCoordIdx( idxEndGroup ) ]   
-
     def addBlock( self, idxEndGroup, addBlock, idxAddBlockEndGroup ):
         """ Add newBlock to this one
         """
@@ -179,50 +141,17 @@ class Block():
         block._blocks[ idxBlockEndGroup ] = self
         
         self.update()
-            
-    def removeBlock( self, block ):
-        """Remove the block from this one"""
-        
-        assert block in self.allBlocks
-        
-        block = self.allBlocks.pop( self.allBlocks.index( block ) )
-        parent = block.parent
-        assert block in parent._blocks
-        idx = parent._blocks.index( block )
-        parent._blocks[ idx ] = None
-        self.update()
-        return block
-        
-    def update( self ):
-        if self.parent:
-            self.parent.update()
-        else:
-            self._update()
+
+    def angleAtomCoord( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
+        block = self.allBlocks[ idxBlock ]
+        return block._angleAtomCoord( idxBlockEndGroup )
+
+    def _angleAtomCoord( self, idxEndGroup ):
+        return self._coords[ self._angleAtomCoordIdx( idxEndGroup ) ]
     
-    def _update( self  ):
-        """Set the list of _endGroups & update data for new block"""
-        
-        # get list of all _blocks
-        self.allBlocks = [ self ]
-        for block in self._blocks:
-            if block:
-                assert block != self
-                self.allBlocks += block.allBlocks
-        
-        self._endGroups = []
-        self._angleAtoms = []
-        # Loop over every block contained in this and all subBlocks
-        for i, block in enumerate( self.allBlocks ):
-            for j in range( len(block._myEndGroups) ):
-                # Don't add _endGroups where there is a block attached
-                if not block._blocks[j]:
-                    self._endGroups.append(  (i, j) )
-                    self._angleAtoms.append( (i, j) )
-                    
-        # Recalculate the data for this new block
-        self._calcCenters()
-        #self._calcRadius()
-        
+    def _angleAtomCoordIdx( self, idxEndGroup ):
+        return self._myAngleAtoms[ idxEndGroup ]
 
     def alignBond(self, idxBlockEG, refVector ):
         """
@@ -403,7 +332,7 @@ class Block():
             self._centroid += block._myCentroid
             self._centerOfMass += block._myCenterOfMass
         
-    def _calcMyRadius(self):
+    def _calcRadius(self):
         """
         Calculate a simple size metric of the block so that we can screen for whether
         two _blocks are within touching distance
@@ -420,13 +349,16 @@ class Block():
         cog = self.centroid()
         
         distances = []
-        for coord in self._coords:
-            #distances.append( numpy.linalg.norm(coord-cog) )
-            distances.append( util.distance(cog, coord) )
+        for block in self.allBlocks:
+            for i, coord in enumerate(block._coords):
+                #distances.append( numpy.linalg.norm(coord-cog) )
+                distances.append( util.distance(cog, coord) )
             
         imax = numpy.argmax( distances )
         dist = distances[ imax ]
-        atomR = self._atom_radii[ imax ]
+        
+        # Add on the radius of the largest atom
+        atomR = self.maxAtomRadius()
         
         # Set radius
         self._radius = dist + atomR
@@ -461,7 +393,34 @@ class Block():
         also had a copy of the cell
         """
         return copy.deepcopy(self)
+
+    def endGroupCoord( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
+        block = self.allBlocks[ idxBlock ]
+        return block._endGroupCoord( idxBlockEndGroup )
     
+    def endGroupCoordIdx( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
+        block = self.allBlocks[ idxBlock ]
+        return block._endGroupCoordIdx( idxBlockEndGroup )
+
+    def _endGroupCoord(self, idxEndGroup):
+        """Return the coordinate of the endGroup with the given index."""
+        return self._coords[ self._endGroupCoordIdx( idxEndGroup ) ]
+    
+    def _endGroupCoordIdx(self, idxEndGroup):
+        """Return the index of the coordinate of the endGroup with the given index."""
+        return self._myEndGroups[ idxEndGroup ]
+
+    def endGroupSymbol( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
+        block = self.allBlocks[ idxBlock ]
+        return block._endGroupSymbol( idxBlockEndGroup )
+
+    def _endGroupSymbol(self, idxEndGroup ):
+        """Return the symbol of this endGroup"""
+        return self._symbols[ self._endGroupCoordIdx( idxEndGroup ) ]
+
     def flip( self, fvector ):
         """Rotate perpendicular to fvector so we  facing the opposite way along the fvector
         """
@@ -480,7 +439,6 @@ class Block():
         self.rotate( rotAxis, numpy.pi )
         
         return
-
 
     def fillData(self):
         """ Fill the data arrays from the label """
@@ -590,22 +548,49 @@ class Block():
     def maxAtomRadius(self):
         """Return the maxium atom radius
         """
-        
         rmax=0
-        for r in self._atom_radii:
-            if r>rmax:
-                rmax=r
+        for block in self.allBlocks:
+            for r in block._atom_radii:
+                if r > rmax:
+                    rmax=r
         return rmax
     
     def mass(self):
         """Total mass of the molecule
         """
         if not self._mass:
-            self._mass = 0.0
-            for m in self._masses:
-                self._mass += m
+            mass = 0.0
+            for block in self.allBlocks:
+                for m in block._masses:
+                    mass += m
+            self._mass = mass
+            
         return self._mass
-                
+
+    def newBondPosition(self, idxTargetEG, symbol ):
+        """Return the position where a bond to an atom of type 'symbol'
+        would be placed if bonding to the target endgroup
+         I'm sure this algorithm is clunky in the extreme...
+        """
+        
+        targetEndGroup = self.endGroupCoord( idxTargetEG )
+        targetContact = self.angleAtomCoord( idxTargetEG )
+        targetSymbol = self.endGroupSymbol( idxTargetEG )
+        
+        # Get the bond length between these two atoms
+        bondLength = util.bondLength( targetSymbol, symbol )
+        
+        # vector from target EndGroup contact to Endgroup
+        bondVec =  targetEndGroup - targetContact 
+        
+        # Now extend it by Bondlength
+        vLength = numpy.linalg.norm( bondVec )
+        ratio = ( vLength + bondLength ) / vLength
+        newVec = bondVec * ratio
+        diff = newVec-bondVec
+        newPosition = targetEndGroup + diff
+        
+        return newPosition
 
     def positionGrowBlock( self, idxBlockEG, growBlock, idxGrowBlockEG ):
         """
@@ -657,31 +642,6 @@ class Block():
         
         return
 
-    def newBondPosition(self, idxTargetEG, symbol ):
-        """Return the position where a bond to an atom of type 'symbol'
-        would be placed if bonding to the target endgroup
-         I'm sure this algorithm is clunky in the extreme...
-        """
-        
-        targetEndGroup = self.endGroupCoord( idxTargetEG )
-        targetContact = self.angleAtomCoord( idxTargetEG )
-        targetSymbol = self.endGroupSymbol( idxTargetEG )
-        
-        # Get the bond length between these two atoms
-        bondLength = util.bondLength( targetSymbol, symbol )
-        
-        # vector from target EndGroup contact to Endgroup
-        bondVec =  targetEndGroup - targetContact 
-        
-        # Now extend it by Bondlength
-        vLength = numpy.linalg.norm( bondVec )
-        ratio = ( vLength + bondLength ) / vLength
-        newVec = bondVec * ratio
-        diff = newVec-bondVec
-        newPosition = targetEndGroup + diff
-        
-        return newPosition
- 
     def radius(self):
         
         if self._changed:
@@ -724,6 +684,19 @@ class Block():
         if not atOrigin:
             self.translateCentroid( position )
 
+    def removeBlock( self, block ):
+        """Remove the block from this one"""
+        
+        assert block in self.allBlocks
+        
+        block = self.allBlocks.pop( self.allBlocks.index( block ) )
+        parent = block.parent
+        assert block in parent._blocks
+        idx = parent._blocks.index( block )
+        parent._blocks[ idx ] = None
+        self.update()
+        return block
+
     def rotate( self, axis, angle, center=None ):
         """ Rotate the molecule about the given axis by the angle in radians
         """
@@ -765,6 +738,35 @@ class Block():
         """
         self.translate( position - self.centroid() )
         
+    def update( self ):
+        if self.parent:
+            self.parent.update()
+        else:
+            self._update()
+    
+    def _update( self  ):
+        """Set the list of _endGroups & update data for new block"""
+        
+        # get list of all _blocks
+        self.allBlocks = [ self ]
+        for block in self._blocks:
+            if block:
+                assert block != self
+                self.allBlocks += block.allBlocks
+        
+        self._endGroups = []
+        self._angleAtoms = []
+        # Loop over every block contained in this and all subBlocks
+        for i, block in enumerate( self.allBlocks ):
+            for j in range( len(block._myEndGroups) ):
+                # Don't add _endGroups where there is a block attached
+                if not block._blocks[j]:
+                    self._endGroups.append(  (i, j) )
+                    self._angleAtoms.append( (i, j) )
+                    
+        # Recalculate the data for this new block
+        self._calcCenters()
+        self._calcRadius()
         
     def writeXyz(self,name=None):
         
