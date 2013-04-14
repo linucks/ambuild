@@ -100,7 +100,7 @@ class Cell():
         Returns:
         index of the new block in the list
         
-        jmht  - rather then the check here, we could create a copy of the coords of the 
+        jmht  - rather then the check here, we could create a copy of the _coords of the 
         block in the cell and then use these when checking distances - this way we wouldn't
         need to use PBC in the distance check, which would possibly be quicker at the expense of
         storing 2 sets of coordinates, which is negligible - test!
@@ -113,7 +113,7 @@ class Cell():
         self.blocks[ idxBlock ] = block
         
         #print "nbox ",self.numBoxA,self.numBoxB,self.numBoxC
-        for idxCoord,coord in enumerate(block.coords):
+        for idxCoord,coord in enumerate(block._coords):
             
             #print "ADDING COORD ",coord
             
@@ -144,7 +144,7 @@ class Cell():
         
         iblock, iatom, ioblock, ioatom = bond
         block = self.blocks[iblock]
-        lenbcoords = len(block.coords)
+        lenbcoords = len(block._coords)
         oblock = self.blocks[ioblock]
         block.bond( oblock, (iatom, ioatom) )
         
@@ -215,21 +215,20 @@ class Cell():
         bonds = [] # list of possible bond atoms
         for ( iatom, ioblock, ioatom ) in close:
             
-            symbol = block.symbols[iatom]
-            radius = block.atom_radii[iatom]
+            symbol = block._symbols[iatom]
+            radius = block._atom_radii[iatom]
             oblock = self.blocks[ioblock]
-            coord = block.coords[iatom]
-            ocoord = oblock.coords[ioatom]
+            coord = block._coords[iatom]
+            ocoord = oblock._coords[ioatom]
             #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(iatom,idxBlock, ioatom,ioblock,self.distance( coord, ocoord ) )
             
             # First see if both atoms are _endGroups
             if iatom in block._endGroups and ioatom in oblock._endGroups:
                 # Checking for a bond
                 # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
-                osymbol = oblock.symbols[ioatom]
+                osymbol = oblock._symbols[ioatom]
                 
-                # This uses -the 'optimised' bond lenght check - probably uneeded
-                bond_length = block.bondLength( symbol, osymbol )
+                bond_length = util.bondLength( symbol, osymbol )
                 
                 #print "CHECKING BOND ATOMS ",bond_length,self.distance( coord, ocoord )
                 
@@ -241,7 +240,7 @@ class Cell():
                     #icontact = block.endGroupContactIndex( iatom )
                     idx = block._endGroups.index( iatom )
                     icontact = block._angleAtoms[ idx ]
-                    contact = block.coords[icontact]
+                    contact = block._coords[icontact]
                     #print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( contact, coord, ocoord )
                     angle = util.angle( contact, coord, ocoord )
                     #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
@@ -256,7 +255,7 @@ class Cell():
                 continue
            
             # No bond so just check if the two atoms are close enough for a clash
-            oradius = oblock.atom_radii[ioatom]
+            oradius = oblock._atom_radii[ioatom]
             #d = self.distance( coord, ocoord )
             #l = radius+oradius+self.atomMargin
             if self.distance( coord, ocoord ) < radius+oradius+self.atomMargin:
@@ -315,7 +314,7 @@ class Cell():
 #        
 #        # Build up a list of which atoms are in each box
 #        for iblock,block in enumerate(self.blocks):
-#            for icoord,coord in enumerate(block.coords):
+#            for icoord,coord in enumerate(block._coords):
 #                a=int( math.floor( coord[0] / boxSize ) )
 #                b=int( math.floor( coord[1] / boxSize ) ) 
 #                c=int( math.floor( coord[2] / boxSize ) )
@@ -351,7 +350,7 @@ class Cell():
         #jmht - this is where we would check to make sure we exclude blocks that are part of the parent
         
         block=self.blocks[iblock]
-        for icoord,coord in enumerate(block.coords):
+        for icoord,coord in enumerate(block._coords):
             
             # Get the box this atom is in
             key = block.atomCell[icoord]
@@ -376,7 +375,7 @@ class Cell():
                         continue
                     
                     oblock = self.blocks[ioblock]
-                    ocoord = oblock.coords[iocoord]
+                    ocoord = oblock._coords[iocoord]
                     #print "AGAINST        [{}] {}: {} : {}".format(sbox,ioblock, iocoord,ocoord)
                     #x = ocoord[0] % self.A[0]
                     #y = ocoord[1] % self.B[1]
@@ -450,7 +449,7 @@ class Cell():
 #            
 #            # Copy the original coordinates so we can reject the move
 #            # we copy the whole block so we don't need to recalculate
-#            # anything - not sure if this quicker then saving the coords & updating tho
+#            # anything - not sure if this quicker then saving the _coords & updating tho
 #            orig_block = copy.deepcopy( move_block )
 #            
 #            # Calculate how far to move
@@ -547,7 +546,7 @@ class Cell():
         This routine sets the axes and returns a list of the labels and coordinates
         """
         
-        # Each block is a list of [label, coords
+        # Each block is a list of [label, _coords
         blocks = []
         labels=[]
         coords=[]
@@ -635,9 +634,9 @@ class Cell():
         # Didn't work so try rotating the growBlock about the bond to see if that lets it fit
         
         # Determine the axis and center to rotate about
-        blockEndGroup = growBlock.coords[ idxGrowBlockEG ]
+        blockEndGroup = growBlock._coords[ idxGrowBlockEG ]
         blockS = self.blocks[ idxStaticBlock ]
-        blockSEndGroup = blockS.coords[ idxStaticBlockEG ]
+        blockSEndGroup = blockS._coords[ idxStaticBlockEG ]
         axis = blockSEndGroup - blockEndGroup
         center = blockSEndGroup
         
@@ -814,14 +813,14 @@ class Cell():
         
         # The vector we want to align along is the vector from the contact
         # to the endGroup
-        staticBlockEG =  staticBlock.coords[ idxStaticBlockEG ]
+        staticBlockEG =  staticBlock._coords[ idxStaticBlockEG ]
         idxStaticBlockContact =  staticBlock.endGroupContactIndex( idxStaticBlockEG )
-        staticBlockContact  =  staticBlock.coords[ idxStaticBlockContact ]
+        staticBlockContact  =  staticBlock._coords[ idxStaticBlockContact ]
         refVector      =  staticBlockEG - staticBlockContact
         
         # Get the contact
         idxBlockContact = block.endGroupContactIndex( idxBlockEG )
-        blockContact = block.coords[ idxBlockContact ]
+        blockContact = block._coords[ idxBlockContact ]
         
         # get the coord where the next block should bond
         # symbol of endGroup tells us the sort of bond we are making which determines
@@ -839,7 +838,7 @@ class Cell():
         
         # Now turn the second block around
         # - need to get the new vectors as these will have changed due to the moves
-        blockEndGroup = block.coords[ idxBlockEG ]
+        blockEndGroup = block._coords[ idxBlockEG ]
         
         # Find vector perpendicular to the bond axis
         # Dot product needs to be 0
@@ -902,7 +901,7 @@ class Cell():
          when selecting the coord
         """
         
-        # Get coords of random point in the cell
+        # Get _coords of random point in the cell
         if margin:
             x = random.uniform(margin,self.A[0]-margin)
             y = random.uniform(margin,self.B[1]-margin)
@@ -1169,7 +1168,7 @@ class Cell():
             move_block = self.blocks[imove_block]
             
             # Copy the original coordinates so we can reject the move
-            orig_coords = copy.deepcopy( move_block.coords )
+            orig_coords = copy.deepcopy( move_block._coords )
             
             center = None
             if stype == "block":
@@ -1213,7 +1212,7 @@ class Cell():
                 else:
                     # Put it back where we got it from
                     self.delBlock( imove_block )
-                    move_block.coords = copy.deepcopy(orig_coords)
+                    move_block._coords = copy.deepcopy(orig_coords)
                     move_block.update()
                     icheck = self.addBlock(move_block)
                     if icheck != imove_block:
@@ -1239,7 +1238,7 @@ class Cell():
         natoms=0
         xyz = ""
         for i,block in self.blocks.iteritems():
-            for j, c in enumerate( block.coords ):
+            for j, c in enumerate( block._coords ):
                 if label:
                     xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format(block.labels[j], i), c[0], c[1], c[2] )
                 else:
@@ -1319,7 +1318,7 @@ class TestCell(unittest.TestCase):
         cell.seed( nblocks, "../PAF_bb_typed.car" )
         
         # Remember a coordinate for checking
-        test_coord = cell.blocks[3].coords[4]
+        test_coord = cell.blocks[3]._coords[4]
         
         self.assertEqual( nblocks, len(cell.blocks), "Incorrect number of cell blocks at start: {}".format( len(cell.blocks) ))
         
@@ -1331,7 +1330,7 @@ class TestCell(unittest.TestCase):
         newCell.fromXyz( outfile )
         self.assertEqual( nblocks, len(newCell.blocks), "Incorrect number of cell blocks after read: {}".format(len(newCell.blocks) ))
         
-        self.assertTrue( numpy.allclose( test_coord, cell.blocks[3].coords[4], rtol=1e-9, atol=1e-9 ),
+        self.assertTrue( numpy.allclose( test_coord, cell.blocks[3]._coords[4], rtol=1e-9, atol=1e-9 ),
                          msg="Incorrect testCoordinate of cell.")
         
         
@@ -1413,12 +1412,12 @@ class TestCell(unittest.TestCase):
         
         block = cell.initBlock.copy()
         iblockEndGroup = block.randomEndGroupIndex()
-        blockEndGroup = block.coords[ iblockEndGroup ]
+        blockEndGroup = block._coords[ iblockEndGroup ]
         
         iblockS = cell.blocks.keys()[0]
         blockS = cell.blocks[ iblockS ]
         iblockSEndGroup = blockS.randomEndGroupIndex()
-        blockSEndGroup = blockS.coords[ iblockSEndGroup ]
+        blockSEndGroup = blockS._coords[ iblockSEndGroup ]
         
         cell.positionGrowBlock(block, iblockEndGroup, iblockS, iblockSEndGroup)
         
@@ -1457,7 +1456,7 @@ class TestCell(unittest.TestCase):
         
         bad = []
         for i,b in cell.blocks.iteritems():
-            for c in b.coords:
+            for c in b._coords:
                 if ( 0-radius > c[0] > CELLA[0]+ radius ) or \
                    ( 0-radius > c[1] > CELLB[1]+ radius ) or \
                    ( 0-radius > c[2] > CELLC[2]+ radius ):
@@ -1608,14 +1607,14 @@ class TestCell(unittest.TestCase):
         
 #        closeList =  cell.closeAtoms(block1_id)
 #        for iatom, ioblock, ioatom in closeList:
-#            b1c = block1.coords[iatom]
-#            b2c = cell.blocks[ioblock].coords[ioatom]
+#            b1c = block1._coords[iatom]
+#            b2c = cell.blocks[ioblock]._coords[ioatom]
 #            distance = cell.distance(b1c,b2c)
 #            print "{}: {} -> {}:{} = {}".format(iatom,b1c,ioatom,b2c,distance)
             
         # Distance measured with Avogadro so it MUST be right...
         refd = 0.673354948616
-        distance = cell.distance(block1.coords[1], cell.blocks[block2_id].coords[3])
+        distance = cell.distance(block1._coords[1], cell.blocks[block2_id]._coords[3])
         self.assertAlmostEqual(refd,distance,12,"Closest atoms: {}".format(distance))
 
 if __name__ == '__main__':

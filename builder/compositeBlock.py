@@ -19,7 +19,7 @@ class CompositeBlock( buildingBlock.Block ):
     '''
     classdocs
     
-    Parent must know about all child blocks
+    Parent must know about all child _blocks
     
     call methods such as endGroup recursively - how to count how many _endGroups?
         
@@ -51,60 +51,67 @@ class CompositeBlock( buildingBlock.Block ):
         
         block = buildingBlock.Block( infile=inputFile )
         
-        # List of all the blocks that this one contains - will be as many as there are _endGroups
-        # For terminal blocks (those not containing other blocks we need to be careful we don't
+        # List of all the _blocks that this one contains - will be as many as there are _endGroups
+        # For terminal _blocks (those not containing other _blocks we need to be careful we don't
         # iterate through these
         # Needs to filled with Nones for as many _endGroups as there are on init
-        self.blocks = [ block ]
+        self._blocks = [ block ]
         
-        # List of all blocks contained or linked to this one - includes iterating over sub-blocks
+        # List of all _blocks contained or linked to this one - includes iterating over sub-_blocks
         self.allBlocks = [ block ]
         
         # The block containing this one or None if we are the top block/an isolated block
         self.parent = None
         
         # List of the atoms that are available to bond
-        self._endGroups = []
+        self.endGroups = []
         
         # List of the atoms that define the angle for the bonds (same order as _endGroups)
-        self._angleAtoms = []
+        self.angleAtoms = []
         
         
-        
-    def endGroup( self, idxEndGroup ):
-        i,j = self._endGroups[ idxEndGroup ]
-        block = self.blocks[i]
-        return block.coords[ block._endGroups[j] ]
-        
+    def endGroupCoord( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self.endGroups[ idxEndGroup ]
+        block = self._blocks[ idxBlock ]
+        return block._endGroupCoord( idxBlockEndGroup )
     
-    def endGroupAngleAtom( self, idxEndGroup ):
-        i,j = self._angleAtoms[ idxEndGroup ]
-        block = self.blocks[i]
-        return block.coords[ block._angleAtom[j] ]
-        
+    def endGroupCoordIdx( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self.endGroups[ idxEndGroup ]
+        block = self._blocks[ idxBlock ]
+        return block._endGroupCoordIdx( idxBlockEndGroup )
+    
+    def endGroupSymbol( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self.endGroups[ idxEndGroup ]
+        block = self._blocks[ idxBlock ]
+        return block._endGroupSymbol( idxBlockEndGroup )
+    
+    def _angleAtomCoord( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self.endGroups[ idxEndGroup ]
+        block = self._blocks[ idxBlock ]
+        return block._angleAtomCoord( idxBlockEndGroup )
     
     def bondBlock( self, idxEndGroup, newBlock, idxNewBlockEndGroup ):
         """ Add newBlock to this one
         """
         
-        if newBlock not in self.blocks:
-            self.blocks[ idxEndGroup ] = newBlock
+        if newBlock not in self._blocks:
+            self._blocks[ idxEndGroup ] = newBlock
         else:
             # Circular fragment
             print "Block was already in self"
             
         # Now add all subblocks to this one
-        for block in newBlock.blocks:
+        for block in newBlock._blocks:
             if block:
                 self.allBlocks += block.allBlocks
             
-        newBlock.blocks[ idxNewBlockEndGroup ] = self
+        newBlock._blocks[ idxNewBlockEndGroup ] = self
         
         self.update( newBlock )
             
 #    def removeBlock( self, block ):
 #        """Delete the block from this one"""
-#        self.blocks.pop( block )
+#        self._blocks.pop( block )
 #        self.bondedEndGroups.pop( ?? ) 
 #        self.update()
         
@@ -115,18 +122,24 @@ class CompositeBlock( buildingBlock.Block ):
             self._update( newBlock )
     
     def _update( self, newBlock ):
-        """Set the list of _endGroups"""
+        """Set the list of _endGroups & update data for new block"""
         
-        if newBlock in self.blocks:
+        if newBlock in self._blocks:
             raise RuntimeError, "Bonding block that is already in this - must fix..."
         
         # Loop over every block contained in this and all subBlocks
         for i, block in enumerate( self.allBlocks ):
             for j in range( len(block._endGroups) ):
                 # Don't add _endGroups where there is a block attached
-                if not block.blocks[j]:
+                if not block._blocks[j]:
                     self._endGroups.append(  (i, j) )
                     self._angleAtoms.append( (i, j) )
+                    
+                    
+        # Recalculate the data for this new block
+        self._calcCenters()
+        self._calcRadius()
+        
 
     def rotate(self, foo):
         """For any block"""
@@ -141,7 +154,7 @@ class CompositeBlock( buildingBlock.Block ):
         This assumes that the block has already been positioned with the contact atom at the origin
         """
         
-        endGroup = self.coords[ idxBlockEG ]
+        endGroup = self._coords[ idxBlockEG ]
         
         # Check neither is zero
         if numpy.array_equal( refVector, [0,0,0] ) or numpy.array_equal( endGroup, [0,0,0] ):
@@ -173,7 +186,7 @@ class CompositeBlock( buildingBlock.Block ):
             # Rotate
             self.rotate( ncross, angle )
             
-#        endGroup =self.coords[ idxBlockEG ]
+#        endGroup =self._coords[ idxBlockEG ]
 #        print "alignBlock AFTER: {0} | {1}".format( endGroup, refVector )
         return
 
@@ -185,9 +198,9 @@ class CompositeBlock( buildingBlock.Block ):
         
         idxEndGroup = randomEndGroupIndex()
         
-        endGroup = block.coords[ block._endGroups[idxEndGroup] ]
+        endGroup = block._coords[ block._endGroups[idxEndGroup] ]
         
-        angleAtom = block.coords[ block._angleAtoms[idxEndGroup] ]
+        angleAtom = block._coords[ block._angleAtoms[idxEndGroup] ]
         
               H1
               |
@@ -217,11 +230,11 @@ class CompositeBlock( buildingBlock.Block ):
         
         
         # Need to remember the _endGroups/_angleAtoms for each block
-        # First is this block - although not used unless all blocks removed to leave us with ourselves
+        # First is this block - although not used unless all _blocks removed to leave us with ourselves
         blockEndGroups = [  [ 1,2,3,4 ], [ 1,2,3,4 ] ]
         blockAngleAtoms = [ [ 0,0,0,0 ], [ 0,0,0,0 ] ]
         
-        So remove the bond we are making from both blocks and then add the new _endGroups/_angleAtoms
+        So remove the bond we are making from both _blocks and then add the new _endGroups/_angleAtoms
         # Remember the actual indices of the _endGroups for the parent block in the bondedEndGroups array of tuples
         bondedEndGroups.append(  ( _endGroups.pop( 2 ), _angleAtoms.pop( 2 ) ) )
         
@@ -264,14 +277,14 @@ class CompositeBlock( buildingBlock.Block ):
         """
         
         # Needed to work out how much to add to the block indices
-        start = len( self.coords )
-        end = len( block.coords )
+        start = len( self._coords )
+        end = len( block._coords )
         
         # Keep track of where the new block starts and ends so we can remove it
-        self.blocks.append[ (start, end)  ]
+        self._blocks.append[ (start, end)  ]
         
         # Add all the data structures together
-        self.coords.extend( block.coords )
+        self._coords.extend( block._coords )
         self.atom_radii.extend( block.atom_radii )
         self.labels.extend( block.labels )
         self.symbols.extend( block.symbols )
@@ -305,17 +318,17 @@ class CompositeBlock( buildingBlock.Block ):
         """
         
         if self._changed:
-            self.calcCenterOfMassAndGeometry()
+            self._calcCenters()
             self._changed = False
         
-        return self._centerOfGeometry
+        return self._centroid
         
     def centerOfMass(self):
         """
         Return or calculate the center of mass for the building block.
         """
         if self._changed:
-            self.calcCenterOfMassAndGeometry()
+            self._calcCenters()
             self._changed = False
         
         return self._centerOfMass
@@ -356,7 +369,7 @@ class CompositeBlock( buildingBlock.Block ):
     def fillData(self):
         """ Fill the data arrays from the label """
         
-        if len(self.labels) < len(self.coords):
+        if len(self.labels) < len(self._coords):
             raise RuntimeError("fillData needs labels filled!")
         
         symbol_types=[]
@@ -427,7 +440,7 @@ class CompositeBlock( buildingBlock.Block ):
                 
                 count+=1
         
-        self.createFromLabelAndCoords( labels, coords )
+        self.fromLabelAndCoords( labels, coords )
 
     def fromXyzFile(self, xyzFile ):
         """"Jens did this.
@@ -459,7 +472,7 @@ class CompositeBlock( buildingBlock.Block ):
                 
                 count += 1
 
-        self.createFromLabelAndCoords( labels, coords )
+        self.fromLabelAndCoords( labels, coords )
 
     def maxAtomRadius(self):
         """Return the maxium atom radius
@@ -493,14 +506,14 @@ class CompositeBlock( buildingBlock.Block ):
 
         # The vector we want to align along is the vector from the contact
         # to the endGroup
-        endGroup =  self.coords[ idxBlockEG ]
+        endGroup =  self._coords[ idxBlockEG ]
         idxContact =  self.endGroupContactIndex( idxBlockEG )
-        contact  =  self.coords[ idxContact ]
+        contact  =  self._coords[ idxContact ]
         refVector      =  endGroup - contact
         
         # Get the contact for the growBlock
         idxGrowBlockContact = growBlock.endGroupContactIndex( idxGrowBlockEG )
-        growBlockContact = growBlock.coords[ idxGrowBlockContact ]
+        growBlockContact = growBlock._coords[ idxGrowBlockContact ]
         
         # get the coord where the next block should bond
         # symbol of endGroup tells us the sort of bond we are making which determines
@@ -518,7 +531,7 @@ class CompositeBlock( buildingBlock.Block ):
         
         # Now turn the second block around
         # - need to get the new vectors as these will have changed due to the moves
-        growBlockEG = growBlock.coords[ idxGrowBlockEG ]
+        growBlockEG = growBlock._coords[ idxGrowBlockEG ]
         
         # Flip by 180 along bond axis
         growBlock.flip( growBlockEG )
@@ -537,9 +550,9 @@ class CompositeBlock( buildingBlock.Block ):
          I'm sure this algorithm is clunky in the extreme...
         """
         
-        targetEndGroup = self.coords[ idxTargetEG ]
+        targetEndGroup = self._coords[ idxTargetEG ]
         targetContactIndex = self.endGroupContactIndex( idxTargetEG )
-        targetContact = self.coords[ targetContactIndex ]
+        targetContact = self._coords[ targetContactIndex ]
         targetSymbol = self.symbols[ idxTargetEG ]
         
         # Get the bond length between these two atoms
@@ -560,8 +573,8 @@ class CompositeBlock( buildingBlock.Block ):
     def radius(self):
         
         if self._changed:
-            self.calcCenterOfMassAndGeometry()
-            self.calcRadius()
+            self._calcCenters()
+            self._calcRadius()
             self._changed = False
         
         return self._radius
@@ -579,15 +592,15 @@ class CompositeBlock( buildingBlock.Block ):
         
         rmat = util.rotation_matrix( axis, angle )
         
-        # loop through all blocks and change all coords
+        # loop through all _blocks and change all _coords
         # Need to check that the center bit is the best way of doing this-
         # am almost certainly doing more ops than needed
-        for block in self.blocks:
-            for i,coord in enumerate( block.coords ):
-                #self.coords[i] = numpy.dot( rmat, coord )
+        for block in self._blocks:
+            for i,coord in enumerate( block._coords ):
+                #self._coords[i] = numpy.dot( rmat, coord )
                 coord = coord - center
                 coord = numpy.dot( rmat, coord )
-                block.coords[i] = coord + center
+                block._coords[i] = coord + center
         
         self._changed = True
 
@@ -598,10 +611,10 @@ class CompositeBlock( buildingBlock.Block ):
         if isinstance(tvector,list):
             tvector = numpy.array( tvector )
 
-        for block in self.blocks:
-            # Use len as we don't need to return hthe coords
-            for i in range( len (block.coords ) ):
-                block.coords[i] += tvector
+        for block in self._blocks:
+            # Use len as we don't need to return hthe _coords
+            for i in range( len (block._coords ) ):
+                block._coords[i] += tvector
         
         self._changed = True
     
@@ -616,8 +629,8 @@ class CompositeBlock( buildingBlock.Block ):
         Run any methods that need to be done when the coordinates are changed
         """
         # Recalculate the data for this new block
-        self.calcCenterOfMassAndGeometry()
-        self.calcRadius()
+        self._calcCenters()
+        self._calcRadius()
         
     def writeXyz(self,name=None):
         
@@ -626,10 +639,10 @@ class CompositeBlock( buildingBlock.Block ):
             
         with open(name,"w") as f:
             fpath = os.path.abspath(f.name)
-            f.write( "{}\n".format(len(self.coords)) )
+            f.write( "{}\n".format(len(self._coords)) )
             f.write( "id={}\n".format(str(id(self))) )
                              
-            for i,c in enumerate(self.coords):
+            for i,c in enumerate(self._coords):
                 f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(self.labels[i]), c[0], c[1], c[2]))
         
         print "Wrote file: {0}".format(fpath)
@@ -640,9 +653,9 @@ class CompositeBlock( buildingBlock.Block ):
         """
         
         mystr = ""
-        mystr += "BlockID: {} with {} blocks\n".format( id(self), len(self.blocks) )
+        mystr += "BlockID: {} with {} _blocks\n".format( id(self), len(self._blocks) )
         
-        for block in self.blocks:
+        for block in self._blocks:
             mystr += str(block)
         
         return mystr
@@ -654,7 +667,7 @@ class TestCompositeBlock(unittest.TestCase):
         """
         Return H2C2 molecule for testing
         """
-#        coords = [ 
+#        _coords = [ 
 #                  numpy.array([  0.000000,  0.000000,  0.000000 ] ),
 #                  numpy.array([  0.000000,  0.000000,  1.000000 ]),
 #                  numpy.array([  0.000000,  0.000000,  2.000000 ]),
@@ -665,7 +678,7 @@ class TestCompositeBlock(unittest.TestCase):
 #        _endGroups = [ 0, 3 ]
 #        endGroupContacts = { 0:1, 3:2 }
 #        b = buildingBlock.Block()
-#        b.createFromArgs( coords, labels, _endGroups, endGroupContacts )
+#        b.createFromArgs( _coords, labels, _endGroups, endGroupContacts )
         
         
         cb = CompositeBlock( inputFile="../h2c2.xyz" )

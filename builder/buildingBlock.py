@@ -35,57 +35,72 @@ class Block():
         Constructor
         '''
         
+        # List of all the _blocks that constitute this one ordered by endGroups
+        # so a block bonded at the endGroup at index I is block I
+        self._blocks = []
         
-        # List of all the blocks that constitute this one
-        # start by adding ourselves - needs to be the instances we 
-        # we use these to loop over all coordinates, etc
-        self.blocks = [ self ]
+        # List of all _blocks contained or linked to this one - includes iterating over sub-_blocks
+        # We add ourselves to this list
+        self.allBlocks = [ self ]
         
-        # The _endGroups where the blocks are attached: id(block) : idxEG
+        # The _endGroups where the _blocks are attached: id(block) : idxEG
         self.blockEndGroups = {}
         
         # The id of the parent block of this one (if we have one)
         self.parent = None
-        # the coordinates for this block - see __getattr__ for how coords are dealt with
-        self.coords = []
         
-        # ordered array of labels
-        self.labels = []
+        # the coordinates for this block
+        self._coords = []
         
-        # ordered array of symbols (in upper case)
-        self.symbols = []
+        # ordered array of _labels
+        self._labels = []
         
-        # ordered array of masses
-        self.masses = []
+        # ordered array of _symbols (in upper case)
+        self._symbols = []
+        
+        # ordered array of _masses
+        self._masses = []
         
         # orderd array of atom radii
-        self.atom_radii = []
+        self._atom_radii = []
         
         # List of the cell (3-tuple) to which each atom belongs
         self.atomCell = []
         
-        # Dict of dicts mapping atom types to their bond lengths for this block
-        # used so we only check the types of atoms for this type of block
-        # For now we assume that both blocks have the same atom types
-        self._labels2bondlength = {}
-        
-        # A list of the indices of the atoms that are _endGroups
+        # A list of block, endGroup indices of the atoms that are _endGroups
         self._endGroups = []
+        
+        # The index of the local endGroups
+        self._myEndGroups = []
         
         # List of the indices of the atoms that define the angle for the _endGroups - need
         # to be in the same order as the _endGroups
         self._angleAtoms = []
+        self._myAngleAtoms = []
         
-        # Holds the center of mass of the molecule
+        # Holds the center of mass for the combined block
         self._centerOfMass = numpy.zeros( 3 )
-        # Holds the center of geometry of the molecule
-        self._centerOfGeometry = numpy.zeros( 3 )
         
-        # The radius of the block assuming it is a circle centered on the centroid
+        # Holds the center of mass for this block
+        self._myCenterOfMass = numpy.zeros( 3 )
+        
+        # Holds the centroid of the combined block
+        self._centroid = numpy.zeros( 3 )
+        
+        # Holds the centroid of this block
+        self._myCentroid = numpy.zeros( 3 )
+        
+        # The radius of the combined block assuming it is a circle centered on the centroid
         self._radius = 0
         
-        # Total mass of the block
+        # The radius of the combined block assuming it is a circle centered on the centroid
+        self._myRadius = 0
+        
+        # Total mass of the combined block
         self._mass = None
+        
+        # Total mass of this block
+        self._myMass = None
         
         # Flag to indicate if block has changed and parameters (such as centerOfMass)
         # need to be changed
@@ -98,7 +113,116 @@ class Block():
                 self.fromXyzFile( infile )
             else:
                 raise RuntimeError("Unrecognised file suffix: {}".format(infile) )
+
+    def angleAtomCoord( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
+        block = self.allBlocks[ idxBlock ]
+        return block._angleAtomCoord( idxBlockEndGroup )
+
+    def _angleAtomCoord( self, idxEndGroup ):
+        return self._coords[ self._angleAtomCoordIdx( idxEndGroup ) ]
+    
+    def _angleAtomCoordIdx( self, idxEndGroup ):
+        return self._myAngleAtoms[ idxEndGroup ]
+
+    def endGroupCoord( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
+        block = self.allBlocks[ idxBlock ]
+        return block._endGroupCoord( idxBlockEndGroup )
+    
+    def endGroupCoordIdx( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
+        block = self.allBlocks[ idxBlock ]
+        return block._endGroupCoordIdx( idxBlockEndGroup )
+
+    def _endGroupCoord(self, idxEndGroup):
+        """Return the coordinate of the endGroup with the given index."""
+        return self._coords[ self._endGroupCoordIdx( idxEndGroup ) ]
+    
+    def _endGroupCoordIdx(self, idxEndGroup):
+        """Return the index of the coordinate of the endGroup with the given index."""
+        return self._myEndGroups[ idxEndGroup ]
+
+    def endGroupSymbol( self, idxEndGroup ):
+        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
+        block = self.allBlocks[ idxBlock ]
+        return block._endGroupSymbol( idxBlockEndGroup )
+
+    def _endGroupSymbol(self, idxEndGroup ):
+        """Return the symbol of this endGroup"""
+        return self._symbols[ self._endGroupCoordIdx( idxEndGroup ) ]   
+
+    def addBlock( self, idxEndGroup, addBlock, idxAddBlockEndGroup ):
+        """ Add newBlock to this one
+        """
+        
+        if addBlock.parent:
+            raise RuntimeError,"addBlock has parent!"
+        addBlock.parent = self
+        
+        # update endGroups for self 
+        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
+        block = self.allBlocks[ idxBlock ]
+        block._blocks[ idxBlockEndGroup ] = addBlock
+        
+        
+        if not addBlock in self.allBlocks and not addBlock == self.parent:
+            # Add all subblocks to this one if we're not part of a circular fragment
+            block.allBlocks += addBlock.allBlocks
+        else:
+            # Circular fragment
+            raise RuntimeError, "addBlock  - addBlock was already in self"
+        
+        # update endGroups for addBlock
+        idxBlock, idxBlockEndGroup = addBlock._endGroups[ idxAddBlockEndGroup ]
+        block = addBlock.allBlocks[ idxBlock ]
+        block._blocks[ idxBlockEndGroup ] = self
+        
+        self.update()
             
+    def removeBlock( self, block ):
+        """Remove the block from this one"""
+        
+        assert block in self.allBlocks
+        
+        block = self.allBlocks.pop( self.allBlocks.index( block ) )
+        parent = block.parent
+        assert block in parent._blocks
+        idx = parent._blocks.index( block )
+        parent._blocks[ idx ] = None
+        self.update()
+        return block
+        
+    def update( self ):
+        if self.parent:
+            self.parent.update()
+        else:
+            self._update()
+    
+    def _update( self  ):
+        """Set the list of _endGroups & update data for new block"""
+        
+        # get list of all _blocks
+        self.allBlocks = [ self ]
+        for block in self._blocks:
+            if block:
+                assert block != self
+                self.allBlocks += block.allBlocks
+        
+        self._endGroups = []
+        self._angleAtoms = []
+        # Loop over every block contained in this and all subBlocks
+        for i, block in enumerate( self.allBlocks ):
+            for j in range( len(block._myEndGroups) ):
+                # Don't add _endGroups where there is a block attached
+                if not block._blocks[j]:
+                    self._endGroups.append(  (i, j) )
+                    self._angleAtoms.append( (i, j) )
+                    
+        # Recalculate the data for this new block
+        self._calcCenters()
+        #self._calcRadius()
+        
 
     def alignBond(self, idxBlockEG, refVector ):
         """
@@ -140,18 +264,12 @@ class Block():
             # Rotate
             self.rotate( ncross, angle )
             
-#        endGroup =self.coords[ idxBlockEG ]
+#        endGroup =self._coords[ idxBlockEG ]
 #        print "alignBlock AFTER: {0} | {1}".format( endGroup, refVector )
         return
-
-    def angleAtomCoord(self, idxEndGroup):
-        """Return the coordinate of the angleAtom for the endGroup with the given index."""
-        
-        idxCoord = self._angleAtoms[ idxEndGroup ]
-        return self.coords[ idxCoord ]
     
     def bond(self, block, bond):
-        """Bond the two blocks at the given bond - tuple is indices of self and other bond
+        """Bond the two _blocks at the given bond - tuple is indices of self and other bond
         """
         
         #print block
@@ -159,20 +277,20 @@ class Block():
         #print self
         
         # Needed to work out how much to add to the block indices
-        lcoords = len(self.coords)
+        lcoords = len(self._coords)
         
-        self.coords.extend( block.coords )
-        self.atom_radii.extend( block.atom_radii )
-        self.labels.extend( block.labels )
+        self._coords.extend( block._coords )
+        self._atom_radii.extend( block._atom_radii )
+        self._labels.extend( block._labels )
         
         #jmht hack
 #        print "CHANGING LABEL TO Cl AS BONDING! "
-#        for i,l in enumerate(self.labels):
+#        for i,l in enumerate(self._labels):
 #            if l[0] == 'H':
-#                self.labels[i] = 'Cl'+l[1:]
+#                self._labels[i] = 'Cl'+l[1:]
 
-        self.symbols.extend( block.symbols )
-        self.masses.extend( block.masses )
+        self._symbols.extend( block._symbols )
+        self._masses.extend( block._masses )
         self.atomCell.extend( block.atomCell )
         
         # Need to remove the end groups used in the bond
@@ -197,150 +315,22 @@ class Block():
             self._angleAtoms.append( i+lcoords )
             
         self.update()
-
-    def join( self, idxEG, block, idxBlockEG ):
-        """Bond block to this one at the _endGroups specified by the two indices
-        endGroup = [ 7, 12, 17, 22 ]
-        defAtom = [ 5, 6, 7, 8 ]
-        
-        idxEndGroup = randomEndGroupIndex()
-        
-        endGroup = block.coords[ block._endGroups[idxEndGroup] ]
-        
-        angleAtom = block.coords[ block._angleAtoms[idxEndGroup] ]
-        
-              H1
-              |
-              C0
-          /  |  \
-        H2   H3  H4
-        
-              H1             H6
-              |              |
-             C0             C5
-          /  |  \        /  |  \
-        H2   H3  H4 -- H7   H8  H9
-        
-        CH4 - 1
-        _endGroups = [ 1,2,3,4 ]
-        _angleAtoms = [ 0,0,0,0 ]
-        bondedEndGroups = []
-        
-        CH4 - 2
-        _endGroups = [ 1,2,3,4 ]
-        _angleAtoms = [ 0,0,0,0 ]
-        bondedEndGroups = []
-        
-        join 2,3 
-        _endGroups = [ 1,2,4,6,7,8 ]
-        _angleAtoms = [ 0,0,0,5,5,5 ]
-        
-        
-        # Need to remember the _endGroups/_angleAtoms for each block
-        # First is this block - although not used unless all blocks removed to leave us with ourselves
-        blockEndGroups = [  [ 1,2,3,4 ], [ 1,2,3,4 ] ]
-        blockAngleAtoms = [ [ 0,0,0,0 ], [ 0,0,0,0 ] ]
-        
-        So remove the bond we are making from both blocks and then add the new _endGroups/_angleAtoms
-        # Remember the actual indices of the _endGroups for the parent block in the bondedEndGroups array of tuples
-        bondedEndGroups.append(  ( _endGroups.pop( 2 ), _angleAtoms.pop( 2 ) ) )
-        
-        # Add the new free endgroups and their _angleAtoms to the array - we increment their indices accordingly
-        for i, EG in enumerate( block._endGroups ):
-            _endGroups.append( EG + start )
-            _angleAtoms.append( block._angleAtoms[i] + start )
-            
-        
-        # random
-        0 1 2 3
-        H-C=C-H
-        _endGroups = [ 0,3 ]
-        _angleAtoms = [ 1,2 ]
-        
-        0 1 2 3 4 5 6 7
-        H-C=C-H_H-C=C-H
-        _endGroups = [ 0, 7 ]
-        _angleAtoms = [ 1, 6 ]
-        
-        0 1 2 3 4 5 6 7 8 9 1011
-        H-C=C-H_H-C=C-H_H-C=C-H
-        _endGroups = [ 0, 11 ]
-        _angleAtoms = [ 1, 10 ]
-        
-        removeBlock( 0 )
-        0 1 2 3 4 5 6 7
-        H-C=C-H_H-C=C-H
-        _endGroups = [ 0, 7 ]
-        _angleAtoms = [ 1, 6 ]
-        
-        and 
-        0 1 2 3
-        H-C=C-H
-        _endGroups = [ 0,3 ]
-        _angleAtoms = [ 1,2 ]
-        
-        
-        
-        """
-        
-        # Needed to work out how much to add to the block indices
-        start = len( self.coords )
-        end = len( block.coords )
-        
-        # Keep track of where the new block starts and ends so we can remove it
-        self.blocks.append[ (start, end)  ]
-        
-        # Add all the data structures together
-        self.coords.extend( block.coords )
-        self.atom_radii.extend( block.atom_radii )
-        self.labels.extend( block.labels )
-        self.symbols.extend( block.symbols )
-        self.masses.extend( block.masses )
-        self.atomCell.extend( block.atomCell )
-        
-        # Need to remove the end groups used in the bond
-        self.bondedEndGroups.append( )
-        
-        i = self._endGroups.index( bond[0] )
-        self._endGroups.pop( i )
-        i = block._endGroups.index( bond[1] )
-        block._endGroups.pop( i )
-        
-        # Now add block to self, updating index
-        for i in block._endGroups:
-            self._endGroups.append( i+start )
-        
-        del self._angleAtoms[ bond[0] ]
-        del block._angleAtoms[ bond[1] ]
-        
-        for k,v in block._angleAtoms.iteritems():
-            self._angleAtoms[ k+start ] = v+start
-        
-        self.update()
-
-    def bondLength(self,symbola, symbolb):
-        """Return the bond length between two atoms of the given type"""
-        return self._labels2bondlength[symbola][symbolb]
-    
         
     def createFromArgs(self, coords, labels, endGroups, angleAtoms ):
         """ Create from given arguments
         """
         # could check if numpy array here
-        self.coords = coords
-        self.labels = labels
-        self._endGroups = endGroups
-        self._angleAtoms = angleAtoms
-        
-        # Fill atomCell list
-        self.atomCell = [None]*len(self.coords)
+        self._coords = coords
+        self._labels = labels
+        self._myEndGroups = endGroups
+        self._myAngleAtoms = angleAtoms
         
         self.fillData()
         
         self.update()
         
-    def createFromLabelAndCoords(self, labels, coords):
-        """ Given an array of labels and another of coords, create a block
+    def fromLabelAndCoords(self, labels, coords):
+        """ Given an array of _labels and another of _coords, create a block
         This requires determining the end groups and contacts from the label
         """
         
@@ -382,31 +372,41 @@ class Block():
         for label in egAaLabel:
             angleAtoms.append( aaLabel2index[ label ]  )
         
-        #self.createFromArgs(coords, labels, endGroups, endGroupContacts)
+        #self.createFromArgs(_coords, _labels, endGroups, endGroupContacts)
         self.createFromArgs( coords, labels, endGroups, angleAtoms )
   
-    def calcCenterOfMassAndGeometry(self):
-        """Calculate the center of mass and geometry
+    def _calcMyCenters(self):
+        """Calculate the center of mass and geometry for this block
         """
         
         sumG = numpy.zeros( 3 )
         sumM = numpy.zeros( 3 )
         
         totalMass = 0.0
-        for i, coord in enumerate( self.coords ):
-            mass = self.masses[i]
+        for i, coord in enumerate( self._coords ):
+            mass = self._masses[i]
             totalMass += mass
             sumG += coord
             sumM += mass * coord
         
-        self._centerOfGeometry = sumG / (i+1)
-        self._centerOfMass = sumM / totalMass
+        self._myCentroid = sumG / (i+1)
+        self._myCenterOfMass = sumM / totalMass
         
+    def _calcCenters(self): 
+        """ Calc center for the combined block
+        """
         
-    def calcRadius(self):
+        self._centroid = 0
+        self._centerOfMass = 0
+        for block in self.allBlocks:
+            block._calcMyCenters()
+            self._centroid += block._myCentroid
+            self._centerOfMass += block._myCenterOfMass
+        
+    def _calcMyRadius(self):
         """
         Calculate a simple size metric of the block so that we can screen for whether
-        two blocks are within touching distance
+        two _blocks are within touching distance
         
         First try a simple approach with a loop just to get a feel for things
         - Find the largest distance between any atom and the center of geometry
@@ -420,13 +420,13 @@ class Block():
         cog = self.centroid()
         
         distances = []
-        for coord in self.coords:
+        for coord in self._coords:
             #distances.append( numpy.linalg.norm(coord-cog) )
             distances.append( util.distance(cog, coord) )
             
         imax = numpy.argmax( distances )
         dist = distances[ imax ]
-        atomR = self.atom_radii[ imax ]
+        atomR = self._atom_radii[ imax ]
         
         # Set radius
         self._radius = dist + atomR
@@ -438,17 +438,18 @@ class Block():
         """
         
         if self._changed:
-            self.calcCenterOfMassAndGeometry()
+            self._calcCenters()
             self._changed = False
         
-        return self._centerOfGeometry
+        return self._centroid
+    
         
     def centerOfMass(self):
         """
-        Return or calculate the center of mass for the building block.
+        Return or calculate the center of mass for this building block.
         """
         if self._changed:
-            self.calcCenterOfMassAndGeometry()
+            self._calcCenters()
             self._changed = False
         
         return self._centerOfMass
@@ -460,18 +461,6 @@ class Block():
         also had a copy of the cell
         """
         return copy.deepcopy(self)
-
-    def endGroupCoord(self, idxEndGroup):
-        """Return the coordinate of the endGroup with the given index."""
-        return self.coords[ self.endGroupCoordIdx( idxEndGroup ) ]
-    
-    def endGroupCoordIdx(self, idxEndGroup):
-        """Return the index of the coordinate of the endGroup with the given index."""
-        return self._endGroups[ idxEndGroup ]
-    
-    def endGroupSymbol(self, idxEndGroup ):
-        """Return the symbol of this endGroup"""
-        return self.symbols[ self.endGroupCoordIdx( idxEndGroup ) ]
     
     def flip( self, fvector ):
         """Rotate perpendicular to fvector so we  facing the opposite way along the fvector
@@ -496,39 +485,36 @@ class Block():
     def fillData(self):
         """ Fill the data arrays from the label """
         
-        if len(self.labels) < len(self.coords):
-            raise RuntimeError("fillData needs labels filled!")
+        if len(self._labels) != len(self._coords):
+            raise RuntimeError("fillData needs _labels filled!")
+        
+        # fill empty block list
+        for _ in range( len( self._myEndGroups ) ):
+            self._blocks.append( None )
+        
+        # Fill atomCell list
+        self.atomCell = [None]*len(self._coords)
         
         symbol_types=[]
-        for label in self.labels:
+        for label in self._labels:
             
             # Symbols
             symbol = util.label2symbol( label )
-            self.symbols.append( symbol )
+            self._symbols.append( symbol )
             
             # For checking bonding
             if symbol not in symbol_types:
                 symbol_types.append(symbol)
                 
             # Masses
-            self.masses.append( util.ATOMIC_MASS[ symbol ] )
+            self._masses.append( util.ATOMIC_MASS[ symbol ] )
             
             # Radii
             z = util.SYMBOL_TO_NUMBER[ symbol ]
             r = util.COVALENT_RADII[z] * util.BOHR2ANGSTROM
-            self.atom_radii.append(r)
+            self._atom_radii.append(r)
             #print "ADDING R {} for label {}".format(r,label)
             
-            # Add bond lengths
-            
-        
-        # make a dict mapping all atom types to their bonds to speed lookups
-        # not sure if this actually saves anything...
-        for i_symbol in symbol_types:
-            self._labels2bondlength [ i_symbol ] = {}
-            for j_symbol in symbol_types:
-                bond_length = util.bondLength( i_symbol , j_symbol )
-                self._labels2bondlength[ i_symbol ][ j_symbol ] = bond_length
 
     def fromCarFile(self, carFile):
         """"Abbie did this.
@@ -567,7 +553,7 @@ class Block():
                 
                 count+=1
         
-        self.createFromLabelAndCoords( labels, coords )
+        self.fromLabelAndCoords( labels, coords )
 
     def fromXyzFile(self, xyzFile ):
         """"Jens did this.
@@ -599,14 +585,14 @@ class Block():
                 
                 count += 1
 
-        self.createFromLabelAndCoords( labels, coords )
+        self.fromLabelAndCoords( labels, coords )
 
     def maxAtomRadius(self):
         """Return the maxium atom radius
         """
         
         rmax=0
-        for r in self.atom_radii:
+        for r in self._atom_radii:
             if r>rmax:
                 rmax=r
         return rmax
@@ -616,7 +602,7 @@ class Block():
         """
         if not self._mass:
             self._mass = 0.0
-            for m in self.masses:
+            for m in self._masses:
                 self._mass += m
         return self._mass
                 
@@ -639,13 +625,13 @@ class Block():
         
         # Get the angleAtom for the growBlock
         #idxGrowBlockContact = growBlock._angleAtoms[ idxGrowBlockEG ]
-        #growBlockAngleAtom = growBlock.coords[ idxGrowBlockContact ]
+        #growBlockAngleAtom = growBlock._coords[ idxGrowBlockContact ]
         growBlockAngleAtom = growBlock.angleAtomCoord( idxGrowBlockEG )
         
         # get the coord where the next block should bond
         # symbol of endGroup tells us the sort of bond we are making which determines
         # the bond length
-        symbol = growBlock.symbols[ growBlock._endGroups[ idxGrowBlockEG ] ]
+        symbol = growBlock.endGroupSymbol( idxGrowBlockEG  )
         bondPos = self.newBondPosition( idxBlockEG, symbol )
         #print "got bondPos: {}".format( bondPos )
         
@@ -677,11 +663,9 @@ class Block():
          I'm sure this algorithm is clunky in the extreme...
         """
         
-        targetEndGroupIdx = self._endGroups[ idxTargetEG ] 
-        targetEndGroup = self.coords[ targetEndGroupIdx ]
-        targetContactIndex = self._angleAtoms[ idxTargetEG ]
-        targetContact = self.coords[ targetContactIndex ]
-        targetSymbol = self.symbols[ targetEndGroupIdx ]
+        targetEndGroup = self.endGroupCoord( idxTargetEG )
+        targetContact = self.angleAtomCoord( idxTargetEG )
+        targetSymbol = self.endGroupSymbol( idxTargetEG )
         
         # Get the bond length between these two atoms
         bondLength = util.bondLength( targetSymbol, symbol )
@@ -701,8 +685,8 @@ class Block():
     def radius(self):
         
         if self._changed:
-            self.calcCenterOfMassAndGeometry()
-            self.calcRadius()
+            self._calcCenters()
+            self._calcRadius()
             self._changed = False
         
         return self._radius
@@ -749,15 +733,15 @@ class Block():
         
         rmat = util.rotation_matrix( axis, angle )
         
-        # loop through all blocks and change all coords
+        # loop through all _blocks and change all _coords
         # Need to check that the center bit is the best way of doing this-
         # am almost certainly doing more ops than needed
-        for block in self.blocks:
-            for i,coord in enumerate( block.coords ):
-                #self.coords[i] = numpy.dot( rmat, coord )
+        for block in self.allBlocks:
+            for i,coord in enumerate( block._coords ):
+                #self._coords[i] = numpy.dot( rmat, coord )
                 coord = coord - center
                 coord = numpy.dot( rmat, coord )
-                block.coords[i] = coord + center
+                block._coords[i] = coord + center
         
         self._changed = True
 
@@ -768,10 +752,10 @@ class Block():
         if isinstance(tvector,list):
             tvector = numpy.array( tvector )
 
-        for block in self.blocks:
-            # Use len as we don't need to return hthe coords
-            for i in range( len (block.coords ) ):
-                block.coords[i] += tvector
+        for block in self.allBlocks:
+            # Use len as we don't need to return the _coords
+            for i in range( len (block._coords ) ):
+                block._coords[i] += tvector
         
         self._changed = True
     
@@ -781,26 +765,27 @@ class Block():
         """
         self.translate( position - self.centroid() )
         
-    def update(self):
-        """
-        Run any methods that need to be done when the coordinates are changed
-        """
-        # Recalculate the data for this new block
-        self.calcCenterOfMassAndGeometry()
-        self.calcRadius()
         
     def writeXyz(self,name=None):
         
         if not name:
             name = str(id(self))+".xyz"
             
+        
+        coords = []
+        labels = []
+        
+        for block in self.allBlocks:
+            coords += block._coords
+            labels += block._labels
+            
         with open(name,"w") as f:
             fpath = os.path.abspath(f.name)
-            f.write( "{}\n".format(len(self.coords)) )
-            f.write( "id={}\n".format(str(id(self))) )
+            f.write( "{}\n".format( len(coords) ) )
+            f.write( "id={}\n".format( str( id(self)  ) ) )
                              
-            for i,c in enumerate(self.coords):
-                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(self.labels[i]), c[0], c[1], c[2]))
+            for i,c in enumerate(coords):
+                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(labels[i]), c[0], c[1], c[2]))
         
         print "Wrote file: {0}".format(fpath)
         
@@ -811,24 +796,27 @@ class Block():
         
         mystr = ""
         mystr += "BlockID: {}\n".format(id(self))
-        mystr += "{}\n".format(len(self.coords))
-        for i,c in enumerate(self.coords):
-            #mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self.labels[i], c[0], c[1], c[2])
-            mystr += "{0:5} {1:0< 15} {2:0< 15} {3:0< 15} \n".format( self.labels[i], c[0], c[1], c[2])
+        mystr += "{}\n".format(len(self._coords))
+        for i,c in enumerate(self._coords):
+            #mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self._labels[i], c[0], c[1], c[2])
+            mystr += "{0:5} {1:0< 15} {2:0< 15} {3:0< 15} \n".format( self._labels[i], c[0], c[1], c[2])
             
-        mystr += "radius: {}\n".format( self.radius() )
+        #mystr += "radius: {}\n".format( self.radius() )
         mystr += "COM: {}\n".format( self._centerOfMass )
-        mystr += "COG: {}\n".format( self._centerOfGeometry )
+        mystr += "COG: {}\n".format( self._centroid )
         mystr += "_endGroups: {}\n".format( self._endGroups )
         mystr += "_angleAtoms: {}\n".format( self._angleAtoms )
-        
+        mystr += "_myEndGroups: {}\n".format( self._myEndGroups )
+        mystr += "_myAngleAtoms: {}\n".format( self._myAngleAtoms )
+        mystr += "_blocks: {}\n".format( self._blocks )
+        mystr += "allBlocks: {}\n".format( self.allBlocks )
         return mystr
     
     def __add__(self, other):
-        """Add two blocks - INCOMPLETE AND ONLY FOR TESTING"""
-        self.coords += other.coords
-        self.labels += other.labels
-        self.symbols += other.symbols
+        """Add two _blocks - INCOMPLETE AND ONLY FOR TESTING"""
+        self._coords += other._coords
+        self._labels += other._labels
+        self._symbols += other._symbols
         
         return self
         
@@ -838,25 +826,122 @@ class TestBuildingBlock(unittest.TestCase):
     def makeCh4(self):
         """Create a CH4 molecule for testing"""
         
-#        coords = [ numpy.array([  0.000000,  0.000000,  0.000000 ] ),
+#        _coords = [ numpy.array([  0.000000,  0.000000,  0.000000 ] ),
 #        numpy.array([  0.000000,  0.000000,  1.089000 ]),
 #        numpy.array([  1.026719,  0.000000, -0.363000 ]),
 #        numpy.array([ -0.513360, -0.889165, -0.363000 ]),
 #        numpy.array([ -0.513360,  0.889165, -0.363000 ]) ]
 #
 #        #numpy.array([ -0.513360,  0.889165, -0.363000 ]) ]
-#        labels = [ 'C', 'H', 'H', 'H', 'H' ]
+#        _labels = [ 'C', 'H', 'H', 'H', 'H' ]
 #        
 #        _endGroups = [ 1,2,3,4 ]
 #        
 #        endGroupContacts = { 1:0, 2:0, 3:0, 4:0 }
 #        
 #        ch4 = Block()
-#        ch4.createFromArgs( coords, labels, _endGroups, endGroupContacts )
+#        ch4.createFromArgs( _coords, _labels, _endGroups, endGroupContacts )
 
         ch4 = Block()
         ch4.fromXyzFile("../ch4.xyz")
         return ch4
+    
+    def testMakeCh4_3(self):
+        
+        ch4_1 = self.makeCh4()
+        
+        idxEG1 = 0
+        idxEG2 = 1
+        idxEG3 = 2
+        idxEG4 = 3
+        ch4_2 = ch4_1.copy()
+        ch4_3 = ch4_1.copy()
+        
+        #ch4_1.positionGrowBlock(idxEG1, ch4_2, idxEG2 )
+        #ch4_2.positionGrowBlock(idxEG3, ch4_3, idxEG4 )
+#        testb = ch4_1.copy()
+#        testb += ch4_2
+#        testb += ch4_3
+#        testb.writeXyz("join.xyz")
+
+        
+        ch4_1.addBlock(1, ch4_2, 3)
+        print ch4_1
+        
+    def testAdd1(self):
+        
+        ch4_1 = self.makeCh4()
+        ch4_2 = ch4_1.copy()
+        
+        idxEndGroup = 1
+        idxGrowBlockEndGroup = 3
+        ch4_1.addBlock( idxEndGroup, ch4_2, idxGrowBlockEndGroup )
+        
+        endGroups = [(0, 0), (0, 2), (0, 3), (1, 0), (1, 1), (1, 2)]
+        self.assertEqual( endGroups, ch4_1._endGroups )
+        
+        blocks = [ None, ch4_2, None, None ]
+        self.assertEqual( blocks, ch4_1._blocks )
+        
+        allBlocks = [ ch4_1, ch4_2 ]
+        self.assertEqual( allBlocks, ch4_1.allBlocks )
+        
+        
+    def testAdd2(self):
+        
+        ch4_1 = self.makeCh4()
+        ch4_2 = ch4_1.copy()
+        ch4_3 = ch4_1.copy()
+        
+        idxEndGroup = 1
+        idxGrowBlockEndGroup = 3
+        ch4_1.positionGrowBlock(idxEndGroup, ch4_2, idxGrowBlockEndGroup )
+        ch4_1.addBlock( idxEndGroup, ch4_2, idxGrowBlockEndGroup )
+        
+        idxEndGroup = 5
+        idxGrowBlockEndGroup = 1
+        ch4_1.positionGrowBlock(idxEndGroup, ch4_3, idxGrowBlockEndGroup )
+        ch4_1.addBlock( idxEndGroup, ch4_3, idxGrowBlockEndGroup )
+        
+        endGroups = [(0, 0), (0, 2), (0, 3), (1, 0), (1, 1), (2,0), (2,2), (2,3) ]
+        self.assertEqual( endGroups, ch4_1._endGroups )
+        
+        blocks = [ None, ch4_2, None, None ]
+        self.assertEqual( blocks, ch4_1._blocks )
+        
+        allBlocks = [ ch4_1, ch4_2, ch4_3 ]
+        self.assertEqual( allBlocks, ch4_1.allBlocks )
+        
+        ch4_1.writeXyz("bonded.xyz")
+        
+        
+    def testMultiAdd(self):
+        
+        ch4_1 = self.makeCh4()
+        ch4_2 = ch4_1.copy()
+        ch4_3 = ch4_1.copy()
+        
+        idxEndGroup = 1
+        idxGrowBlockEndGroup = 3
+        ch4_1.positionGrowBlock(idxEndGroup, ch4_2, idxGrowBlockEndGroup )
+        ch4_1.addBlock( idxEndGroup, ch4_2, idxGrowBlockEndGroup )
+        
+        idxEndGroup = 0
+        idxGrowBlockEndGroup = 4
+        ch4_3.positionGrowBlock(idxEndGroup, ch4_1, idxGrowBlockEndGroup )
+        ch4_3.addBlock( idxEndGroup, ch4_1, idxGrowBlockEndGroup )
+        
+        
+        #ch4_3.writeXyz("bonded2.xyz")
+        endGroups = [(0, 1), (0, 2), (0, 3), (1, 0), (1, 2), (1, 3), (2, 0), (2, 2)]
+        self.assertEqual( endGroups, ch4_3._endGroups )
+        
+        blocks = [ ch4_1, None, None, None ]
+        self.assertEqual( blocks, ch4_3._blocks )
+        
+        allBlocks = [ ch4_3, ch4_1, ch4_2 ]
+        self.assertEqual( allBlocks, ch4_3.allBlocks )
+        
     
     def makePaf(self):
         """Return the PAF molecule for testing"""
@@ -864,7 +949,6 @@ class TestBuildingBlock(unittest.TestCase):
         paf = Block()
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
-    
     
     def testAaaReadCar(self):
         """
@@ -880,10 +964,10 @@ class TestBuildingBlock(unittest.TestCase):
         """
         
         paf = self.makeCh4()
-        self.assertTrue( paf._angleAtoms == [0,0,0,0], "Incorrect reading of endGroup contacts")
+        self.assertTrue( paf._angleAtoms == [ 0, 0, 0, 0 ], "Incorrect reading of endGroup contacts")
         
     def testAlignBlocks(self):
-        """Test we can align two blocks correctly"""
+        """Test we can align two _blocks correctly"""
     
         blockS = self.makePaf()
         block = blockS.copy()
@@ -893,11 +977,11 @@ class TestBuildingBlock(unittest.TestCase):
         
         # Get the atoms that define things
         idxEndGroup = 2
-        blockSEndGroup = blockS.endGroupCoord( idxEndGroup )
-        blockSContact = blockS.angleAtomCoord( idxEndGroup )
+        blockSEndGroup = blockS._endGroupCoord( idxEndGroup )
+        blockSContact = blockS._angleAtomCoord( idxEndGroup )
         
         idxEndGroup = 3
-        blockContact = block.angleAtomCoord( idxEndGroup )
+        blockContact = block._angleAtomCoord( idxEndGroup )
         
         # we want to align along block1Contact -> block1EndGroup
         refVector = blockSEndGroup - blockSContact 
@@ -908,8 +992,8 @@ class TestBuildingBlock(unittest.TestCase):
         block.alignBond( idxEndGroup, refVector )
         
         # Check the relevant atoms are in the right place
-        blockEndGroup  = block.endGroupCoord( idxEndGroup )
-        blockContact = block.angleAtomCoord( idxEndGroup )
+        blockEndGroup  = block._endGroupCoord( idxEndGroup )
+        blockContact = block._angleAtomCoord( idxEndGroup )
         
         newVector = blockEndGroup - blockContact
         
@@ -937,15 +1021,14 @@ class TestBuildingBlock(unittest.TestCase):
         idxBlockEndGroup = 2
         idxGrowBlockEndGroup = 3
         
-        
         # Get position to check
-        newPos = blockS.newBondPosition( idxBlockEndGroup, growBlock.endGroupSymbol( idxGrowBlockEndGroup ) )
+        newPos = blockS.newBondPosition( idxBlockEndGroup, growBlock._endGroupSymbol( idxGrowBlockEndGroup ) )
         
         # Position the block
         blockS.positionGrowBlock( idxBlockEndGroup, growBlock, idxGrowBlockEndGroup )
         
         # After move, the endGroup of the growBlock should be at newPos
-        endGroupCoord = growBlock.endGroupCoord( idxGrowBlockEndGroup )
+        endGroupCoord = growBlock._endGroupCoord( idxGrowBlockEndGroup )
         self.assertTrue( numpy.allclose( newPos, endGroupCoord, rtol=1e-9, atol=1e-7 ),
                          msg="testCenterOfMass incorrect COM.")
         
@@ -955,7 +1038,7 @@ class TestBuildingBlock(unittest.TestCase):
 
 
     def XtestBond(self):
-        """Test we can correctly bond two blocks at the given bond"""
+        """Test we can correctly bond two _blocks at the given bond"""
         
         ch4 = self.makeCh4()
         m2 = ch4.copy()
@@ -989,16 +1072,6 @@ class TestBuildingBlock(unittest.TestCase):
         com = ch4.centerOfMass()
         self.assertTrue( numpy.allclose( correct, com, rtol=1e-9, atol=1e-7 ),
                          msg="testCenterOfMass incorrect COM.")
-        
-#        #m.writeXyz(name="after.xyz")
-#        print m
-#        print m.centerOfMass()
-#        m.translate([1,1,1])
-#        
-#        #m.writeXyz(name="trans.xyz")
-#        print m
-#        print m.centerOfMass()
-
 
     def testMove(self):
         """Test we can move correctly"""
@@ -1029,7 +1102,7 @@ class TestBuildingBlock(unittest.TestCase):
         
         ch4 = self.makeCh4()
         array1 = numpy.array([ -0.51336 ,  0.889165, -0.363 ])
-        self.assertTrue( numpy.array_equal( ch4.coords[4], array1 ),
+        self.assertTrue( numpy.array_equal( ch4._coords[4], array1 ),
                          msg="testRotate arrays before rotation incorrect.")
         
         axis = numpy.array([1,2,3])
@@ -1040,7 +1113,7 @@ class TestBuildingBlock(unittest.TestCase):
 
         # Need to use assertTrue as we get a numpy.bool returned and need to test this will
         # bool - assertIs fails
-        self.assertTrue( numpy.allclose( ch4.coords[4], array2, rtol=1e-9, atol=1e-8 ),
+        self.assertTrue( numpy.allclose( ch4._coords[4], array2, rtol=1e-9, atol=1e-8 ),
                          msg="testRotate arrays after rotation incorrect.")
 
     def makeH2C2(self):
