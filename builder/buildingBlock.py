@@ -196,54 +196,6 @@ class Block():
 #        endGroup =self._coords[ idxBlockEG ]
 #        print "alignBlock AFTER: {0} | {1}".format( endGroup, refVector )
         return
-    
-    def bond(self, block, bond):
-        """Bond the two _blocks at the given bond - tuple is indices of self and other bond
-        """
-        
-        #print block
-        #print "with"
-        #print self
-        
-        # Needed to work out how much to add to the block indices
-        lcoords = len(self._coords)
-        
-        self._coords.extend( block._coords )
-        self._atom_radii.extend( block._atom_radii )
-        self._labels.extend( block._labels )
-        
-        #jmht hack
-#        print "CHANGING LABEL TO Cl AS BONDING! "
-#        for i,l in enumerate(self._labels):
-#            if l[0] == 'H':
-#                self._labels[i] = 'Cl'+l[1:]
-
-        self._symbols.extend( block._symbols )
-        self._masses.extend( block._masses )
-        self.atomCell.extend( block.atomCell )
-        
-        # Need to remove the end groups used in the bond
-        #i = self._endGroups.index( bond[0] )
-        #self._endGroups.pop( i )
-        self._endGroups.pop( bond[0] )
-        #i = block._endGroups.index( bond[1] )
-        #block._endGroups.pop( i )
-        block._endGroups.pop( bond[1] )
-        
-        # Now add block to self, updating index
-        for i in block._endGroups:
-            self._endGroups.append( i+lcoords )
-        
-        del self._angleAtoms[ bond[0] ]
-        del block._angleAtoms[ bond[1] ]
-        
-        #for k,v in block._angleAtoms.iteritems():
-        #    self._angleAtoms[ k+lcoords ] = v+lcoords
-            
-        for i in block._angleAtoms:
-            self._angleAtoms.append( i+lcoords )
-            
-        self.update()
         
     def createFromArgs(self, coords, labels, endGroups, angleAtoms ):
         """ Create from given arguments
@@ -574,14 +526,14 @@ class Block():
         """
         
         targetEndGroup = self.endGroupCoord( idxTargetEG )
-        targetContact = self.angleAtomCoord( idxTargetEG )
+        targetAngleAtom = self.angleAtomCoord( idxTargetEG )
         targetSymbol = self.endGroupSymbol( idxTargetEG )
         
         # Get the bond length between these two atoms
         bondLength = util.bondLength( targetSymbol, symbol )
         
         # vector from target EndGroup contact to Endgroup
-        bondVec =  targetEndGroup - targetContact 
+        bondVec =  targetEndGroup - targetAngleAtom 
         
         # Now extend it by Bondlength
         vLength = numpy.linalg.norm( bondVec )
@@ -653,7 +605,6 @@ class Block():
 
     def randomEndGroupIndex(self):
         """Select a random endGroup - return the index in the _endGroup array"""
-        #return random.choice( self._endGroups )
         return random.randint( 0, len(self._endGroups)-1 )
 
     def randomRotate( self, origin=[0,0,0], atOrigin=False ):
@@ -683,6 +634,10 @@ class Block():
         
         if not atOrigin:
             self.translateCentroid( position )
+
+    def randomBlock(self):
+        """Return a random block"""
+        return random.choice( self.allBlocks )
 
     def removeBlock( self, block ):
         """Remove the block from this one"""
@@ -799,9 +754,16 @@ class Block():
         mystr = ""
         mystr += "BlockID: {}\n".format(id(self))
         mystr += "{}\n".format(len(self._coords))
-        for i,c in enumerate(self._coords):
+        
+        coords = []
+        labels = []
+        for block in self.allBlocks:
+            coords += block._coords
+            labels += block._labels
+            
+        for i,c in enumerate( coords ):
             #mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self._labels[i], c[0], c[1], c[2])
-            mystr += "{0:5} {1:0< 15} {2:0< 15} {3:0< 15} \n".format( self._labels[i], c[0], c[1], c[2])
+            mystr += "{0:5} {1:0< 15} {2:0< 15} {3:0< 15} \n".format( labels[i], c[0], c[1], c[2])
             
         #mystr += "radius: {}\n".format( self.radius() )
         mystr += "COM: {}\n".format( self._centerOfMass )
@@ -958,7 +920,8 @@ class TestBuildingBlock(unittest.TestCase):
         """
         
         paf = self.makePaf()
-        self.assertTrue( paf._angleAtoms == [ 1, 2, 3, 4 ], "Incorrect reading of endGroup contacts: {0}".format(paf._angleAtoms))
+        self.assertTrue( paf._endGroups == [(0, 0), (0, 1), (0, 2), (0, 3)],
+                         "Incorrect reading of endGroup contacts: {0}".format(paf._endGroups))
 
     def testAaaReadXyz(self):
         """
@@ -966,7 +929,8 @@ class TestBuildingBlock(unittest.TestCase):
         """
         
         paf = self.makeCh4()
-        self.assertTrue( paf._angleAtoms == [ 0, 0, 0, 0 ], "Incorrect reading of endGroup contacts")
+        self.assertTrue( paf._endGroups == [(0, 0), (0, 1), (0, 2), (0, 3)],
+                         "Incorrect reading of endGroup contacts: {0}".format(paf._endGroups))
         
     def testAlignBlocks(self):
         """Test we can align two _blocks correctly"""
@@ -1096,6 +1060,16 @@ class TestBuildingBlock(unittest.TestCase):
         r = ch4.radius()
         #jmht - check...- old was: 1.78900031214
         self.assertAlmostEqual(r, 1.45942438719, 7, "Incorrect radius: {}".format(str(r)) )
+        
+    def testMaxAtomRadius(self):
+        """
+        Test calculation of the radius
+        """
+        
+        ch4 = self.makeCh4()
+        r = ch4.maxAtomRadius()
+        #jmht - check...- old was: 1.78900031214
+        self.assertAlmostEqual(r, 0.70380574117, 7, "Incorrect radius: {}".format(str(r)) )
         
     def testRotate(self):
         """
