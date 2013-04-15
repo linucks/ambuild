@@ -534,7 +534,7 @@ class Cell():
         initBlock = False
         for labels,coords in blocks:
             block = buildingBlock.Block()
-            block.createFromLabelAndCoords( labels, coords )
+            block.fromLabelAndCoords( labels, coords )
             if not initBlock:
                 self.setInitBlock( block.copy() )
                 initBlock=True
@@ -634,9 +634,9 @@ class Cell():
         # Didn't work so try rotating the growBlock about the bond to see if that lets it fit
         
         # Determine the axis and center to rotate about
-        blockEndGroup = growBlock._coords[ idxGrowBlockEG ]
+        blockEndGroup = growBlock.endGroupCoord( idxGrowBlockEG )
         blockS = self.blocks[ idxStaticBlock ]
-        blockSEndGroup = blockS._coords[ idxStaticBlockEG ]
+        blockSEndGroup = blockS.endGroupCoord( idxStaticBlockEG )
         axis = blockSEndGroup - blockEndGroup
         center = blockSEndGroup
         
@@ -685,7 +685,7 @@ class Cell():
             newblock = self.initBlock.copy()
             
             # Apply random rotation in 3 axes to randomise the orientation before we align
-            self.randomRotateBlock( newblock )
+            newblock.randomRotate( origin=self.origin )
             
             ok = self.randomGrowBlock( newblock )
             
@@ -798,69 +798,6 @@ class Cell():
         
         return True
         
-    def XpositionGrowBlock( self, block, idxBlockEG, idxStaticBlock, idxStaticBlockEG ):
-        """
-        Position block so it can bond to staticBlock, using the given _endGroups
-        
-        Arguments:
-        block: the block we are attaching
-        idxBlockEG: the index of the endGroup to use for the bond
-        idxStaticBlock: the id of the block we are bonding to in the dict of cell blocks
-        idxStaticBlockEG: the index of the endGroup to use for the bond
-        """
-
-        staticBlock = self.blocks[ idxStaticBlock ]
-        
-        # The vector we want to align along is the vector from the contact
-        # to the endGroup
-        staticBlockEG =  staticBlock._coords[ idxStaticBlockEG ]
-        idxStaticBlockContact =  staticBlock.endGroupContactIndex( idxStaticBlockEG )
-        staticBlockContact  =  staticBlock._coords[ idxStaticBlockContact ]
-        refVector      =  staticBlockEG - staticBlockContact
-        
-        # Get the contact
-        idxBlockContact = block.endGroupContactIndex( idxBlockEG )
-        blockContact = block._coords[ idxBlockContact ]
-        
-        # get the coord where the next block should bond
-        # symbol of endGroup tells us the sort of bond we are making which determines
-        # the bond length
-        symbol = block.symbols[ idxBlockEG ]
-        bondPos = staticBlock.newBondPosition( idxStaticBlockEG, symbol )
-        #print "got bondPos: {}".format( bondPos )
-        
-        # Shift block so contact at center, so the vector of the endGroup can be
-        # aligned with the refVector
-        block.translate( -blockContact )
-        
-        # Align along the staticBlock bond
-        self.alignBlock( block, idxBlockEG, refVector )
-        
-        # Now turn the second block around
-        # - need to get the new vectors as these will have changed due to the moves
-        blockEndGroup = block._coords[ idxBlockEG ]
-        
-        # Find vector perpendicular to the bond axis
-        # Dot product needs to be 0
-        # xu + yv + zw = 0 - set u and v to 1, so w = (x + y)/z
-        # vector is 1, 1, w
-        w =  -1.0 * ( blockEndGroup[0] + blockEndGroup[1] ) / blockEndGroup[2]
-        orth = numpy.array( [1.0, 1.0, w] )
-        
-        # Find axis that we can rotate about
-        rotAxis = numpy.cross( blockEndGroup, orth )
-        
-        # Rotate by 180
-        block.rotate( rotAxis, numpy.pi )
-        
-        # Now need to place the endGroup at the bond coord - at the moment
-        # the contact atom is on the origin so we need to subtract the vector to the endGroup
-        # from the translation vector
-        #jmht FIX!
-        block.translate( bondPos + blockEndGroup )
-        
-        return
-        
     def randomBlockId(self,count=1):
         """Return count random block ids"""
         if count == 1:
@@ -893,8 +830,7 @@ class Cell():
         
         # now attach it
         return self._growBlock( block, idxBlockEG, idxStaticBlock, idxStaticBlockEG )
-        
-    
+
     def randomMoveBlock(self, block, margin=None ):
         """Randomly move the given block
          If buffer is given, use this as a buffer from the edges of the cell
@@ -919,36 +855,12 @@ class Cell():
         # Use the cell axis definitions
         block.translateCentroid( self.origin )
         
-        self.randomRotateBlock( block, atOrigin=True )
+        block.randomRotate( block, atOrigin=True, origin=self.origin )
         
         # Now move to new coord
         block.translateCentroid( coord )
         
         #print "After rotate centroid at: {}".format( block.centroid() )
-        
-    def randomRotateBlock( self, block, atOrigin=False ):
-        """Randomly rotate a block.
-        
-         Args:
-         block -- block to rotate
-         atOrigin -- flag to indicate if the block is already positioned at the origin
-        """
-        
-        if not atOrigin:
-            position = block.centroid()
-            block.translateCentroid( self.origin )
-        
-        angle = random.uniform( 0, 2*numpy.pi)
-        block.rotate( self.A, angle )
-        
-        angle = random.uniform( 0, 2*numpy.pi)
-        block.rotate( self.B, angle )
-        
-        angle = random.uniform( 0, 2*numpy.pi)
-        block.rotate(self.C, angle )
-        
-        if not atOrigin:
-            block.translateCentroid( position )
         
     def randomMoveAroundCenter(self, move_block, center, radius ):
         """
@@ -965,7 +877,7 @@ class Cell():
         
         move_block.translateCentroid( coord )
         
-        self.randomRotateBlock( move_block )
+        move_block.randomRotateBlock( origin=self.origin )
         return
 
     def seed( self, nblocks, inputFile ):
