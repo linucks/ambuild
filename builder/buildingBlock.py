@@ -163,7 +163,7 @@ class Block():
         # update endGroups for addBlock
         idxBlock, idxBlockAtom = addBlock._dataMap[ idxAddBlockAtom ]
         block = addBlock.allBlocks[ idxBlock ]
-        idxEndGroup = addBlock._myEndGroups.index( idxAddBlockAtom )
+        idxEndGroup = addBlock._myEndGroups.index( idxBlockAtom )
         block._blocks[ idxEndGroup ] = self
         
         self.update()
@@ -759,13 +759,13 @@ class Block():
         
         mystr = ""
         mystr += "BlockID: {}\n".format(id(self))
-        mystr += "{}\n".format(len(self._coords))
         
         coords = []
         labels = []
         for block in self.allBlocks:
             coords += block._coords
             labels += block._labels
+        mystr += "{}\n".format( len(coords) )
             
         for i,c in enumerate( coords ):
             #mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self._labels[i], c[0], c[1], c[2])
@@ -1004,7 +1004,7 @@ class TestBuildingBlock(unittest.TestCase):
         blockS.positionGrowBlock( idxBlockAtom, growBlock, idxGrowBlockAtom )
         
         # After move, the endGroup of the growBlock should be at newPos
-        endGroupCoord = growBlock._endGroupCoord( idxGrowBlockAtom )
+        endGroupCoord = growBlock.atomCoord( idxGrowBlockAtom )
         self.assertTrue( numpy.allclose( newPos, endGroupCoord, rtol=1e-9, atol=1e-7 ),
                          msg="testCenterOfMass incorrect COM.")
         

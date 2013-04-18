@@ -141,7 +141,7 @@ class Cell():
         return idxBlock
     
 
-    def bondBlock(self, bond):
+    def XbondBlock(self, bond):
         """ Bond the second block to the first and update the data structures"""
         
         iblock, iatom, ioblock, ioatom = bond
@@ -161,6 +161,27 @@ class Cell():
             self.box1[key][i] =  ( iblock, icoord+lenbcoords )
         
         del self.blocks[ioblock]
+        
+        return 
+    
+    def bondBlock(self, idxBlock, idxAtom, idxOblock, idxOatom ):
+        """ Bond the second block to the first and update the data structures
+        
+        Previously we manipulted the cell data structures directly - now we take the simpler
+        but cruder approach of deleting both blocks and then re-adding the joined one
+        """
+        
+        self.logger.debug("bondBlock: {0}".format( (idxBlock, idxAtom, idxOblock, idxOatom) ) )
+        
+        block = self.blocks[ idxBlock ]
+        oblock = self.blocks[ idxOblock ]
+        
+        self.delBlock( idxBlock )
+        self.delBlock( idxOblock )
+        
+        block.addBlock( idxAtom, oblock, idxOatom )
+        
+        self.addBlock( block )
         
         return 
     
@@ -217,15 +238,10 @@ class Cell():
         bonds = [] # list of possible bond atoms
         for ( idxAtom, idxOblock, idxOatom ) in close:
             
-            #symbol = block._symbols[idxAtom]
-            #radius = block._atomRadii[idxAtom]
-            #oblock = self.blocks[idxOblock]
-            #coord = block._coords[idxAtom]
-            #ocoord = oblock._coords[idxOatom]
             symbol = block.atomSymbol( idxAtom )
             radius = block.atomRadius( idxAtom )
-            oblock = self.blocks[idxOblock]
             coord = block.atomCoord( idxAtom )
+            oblock = self.blocks[ idxOblock ]
             ocoord = oblock.atomCoord( idxOatom )
             
             #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(idxAtom,idxBlock, idxOatom,idxOblock,self.distance( coord, ocoord ) )
@@ -235,7 +251,6 @@ class Cell():
             if block.isEndGroup( idxAtom ) and oblock.isEndGroup( idxOatom ):
                 # Checking for a bond
                 # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
-                #osymbol = oblock._symbols[idxOatom]
                 osymbol = oblock.atomSymbol( idxOatom )
                 
                 bond_length = util.bondLength( symbol, osymbol )
@@ -247,13 +262,7 @@ class Cell():
                     
                     #print "Possible bond for ",idxAtom,idxOblock,idxOatom
                     # Possible bond so check the angle
-                    #idx = block._endGroups.index( idxAtom )
-                    #icontact = block._angleAtoms[ idx ]
-                    #contact = block._coords[icontact]
-                    
-                    #FIXME!!!!!
-                    idxEndGroup = block.endGroupIdx( idxAtom )
-                    angleAtom = block.angleAtomCoord( idxEndGroup )
+                    angleAtom = block.angleAtom( idxAtom )
                     
                     #print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( contact, coord, ocoord )
                     angle = util.angle( angleAtom, coord, ocoord )
@@ -285,20 +294,14 @@ class Cell():
             # FIX _ JUST ONE BOND FOR NOW AS WE NEED TO THINK ABOUT DATA STRUCTURES
             #for bond in bonds:
             #    self.bondBlock(bond)
-            self.bondBlock(bonds[0])
+            idxBlock, idxAtom, idxOblock, idxOatom = bonds[0]
+            self.bondBlock( idxBlock, idxAtom, idxOblock, idxOatom )
+            block = self.blocks[ idxBlock ]
+            self.logger.debug(  "Block after bond: {0}".format( block ) )
             self.logger.info("Added bond: {}".format( bonds[0] ) )
         
         # Either got bonds or no clashes
         return True
-    
-    def density(self):
-        """
-        The density of the cell
-        """
-        
-        # each block has the same mass as we count unit blocks
-        
-        return ( self.numBlocks * self.blockMass ) / ( self.A[0] * self.B[1] * self.C[2] ) 
     
     def _endGroups(self):
         """
@@ -363,21 +366,19 @@ class Cell():
         
         #print "box1 ",self.box1
         
-        #jmht - this is where we would check to make sure we exclude blocks that are part of the parent
-        
         block=self.blocks[iblock]
         #for idxCoord,coord in enumerate( block._coords ):
         for idxCoord,coord in enumerate( block.iterCoord() ):
             
             # Get the box this atom is in
-            key = block.atomCell[idxCoord]
+            key = block.atomCell[ idxCoord ]
             #print "Close checking [{}] {}: {} : {}".format(key,iblock,idxCoord,coord)
             
             # Get a list of the boxes surrounding this one
             surrounding = self.box3[key]
             
             #For each box loop through all its atoms chekcking for clashes
-            for i,sbox in enumerate(surrounding):
+            for i, sbox in enumerate(surrounding):
                 
                 #print "KEY ",i,sbox
                 # For each box, get the list of the atoms as (block,coord) tuples
@@ -385,24 +386,24 @@ class Cell():
                 if not self.box1.has_key(sbox):
                     continue
                     
-                for (ioblock, iocoord) in self.box1[ sbox ]:
+                for (idxOblock, idxOcoord) in self.box1[ sbox ]:
                     
                     # Check we are not checking ourself - need to check block index too!
-                    if iblock == ioblock:
+                    if iblock == idxOblock:
                         continue
                     
-                    oblock = self.blocks[ioblock]
-                    #ocoord = oblock._coords[iocoord]
-                    ocoord = oblock.atomCoord( iocoord )
-                    #print "AGAINST        [{}] {}: {} : {}".format(sbox,ioblock, iocoord,ocoord)
+                    oblock = self.blocks[idxOblock]
+                    #ocoord = oblock._coords[idxOcoord]
+                    ocoord = oblock.atomCoord( idxOcoord )
+                    #print "AGAINST        [{}] {}: {} : {}".format(sbox,idxOblock, idxOcoord,ocoord)
                     #x = ocoord[0] % self.A[0]
                     #y = ocoord[1] % self.B[1]
                     #z = ocoord[2] % self.C[2]
                     #print "PBC: {}                         {}".format(self.distance( ocoord,coord ),[x,y,z] )
                     
                     if ( self.distance( ocoord,coord ) < self.boxSize ):
-                        #print "CLOSE {}-{}:({}) and {}-{}:({}): {}".format( iblock,idxCoord,coord,ioblock,iocoord,ocoord, self.distance( ocoord,coord ))
-                        contacts.append( ( idxCoord, ioblock, iocoord ) )
+                        #print "CLOSE {}-{}:({}) and {}-{}:({}): {}".format( iblock,idxCoord,coord,idxOblock,idxOcoord,ocoord, self.distance( ocoord,coord ))
+                        contacts.append( ( idxCoord, idxOblock, idxOcoord ) )
                         
         if len(contacts):
             return contacts
@@ -416,7 +417,7 @@ class Cell():
         
         #print "Deleting block: {} from {}".format(blockId,self.blocks.keys())
         
-        block =  self.blocks[blockId]
+        block =  self.blocks[ blockId ]
         
         # Remove each atom from the list
         keys = []
@@ -438,6 +439,15 @@ class Cell():
         del block
         
         return 
+
+    def density(self):
+        """
+        The density of the cell
+        """
+        
+        # each block has the same mass as we count unit blocks
+        
+        return ( self.numBlocks * self.blockMass ) / ( self.A[0] * self.B[1] * self.C[2] ) 
 
 #    def directedShimmy(self, nsteps=100, nmoves=50):
 #        """ Shuffle the molecules about making bonds where necessary for nsteps
@@ -624,37 +634,34 @@ class Cell():
         
         return blocks
 
-    def _growBlock(self, growBlock, idxGrowBlockEG, idxStaticBlock, idxStaticBlockEG):
+    def _growBlock(self, growBlock, idxGrowAtom, idxStaticBlock, idxStaticAtom):
         """
         Position growBlock so it can bond to blockS, using the given _endGroups
         
         Arguments:
-        growBlock: the growBlock we are attaching
-        idxGrowBlockEG: the index of the endGroup to use for the bond
-        idxStaticBlock: the id of the growBlock we are bonding to in the dict of cell blocks
-        idxStaticBlockEG: the index of the endGroup to use for the bond
+
         
         We take responsibility for adding and removing the growBlock from the cell on 
         success or failure
         """
         
-        #self.positionGrowBlock(growBlock, idxGrowBlockEG, idxStaticBlock, idxStaticBlockEG)
+        #self.positionGrowBlock(growBlock, idxGrowAtom, idxStaticBlock, idxStaticAtom)
         staticBlock = self.blocks[ idxStaticBlock ]
-        staticBlock.positionGrowBlock( idxStaticBlockEG, growBlock, idxGrowBlockEG )
+        staticBlock.positionGrowBlock( idxStaticAtom, growBlock, idxGrowAtom )
         
         # Now add growBlock to the cell so we can check for clashes
-        block_id = self.addBlock( growBlock )
+        blockId = self.addBlock( growBlock )
         
         # Check it doesn't clash
-        if self.checkMove(block_id):
+        if self.checkMove( blockId ):
             return True
         
         # Didn't work so try rotating the growBlock about the bond to see if that lets it fit
         
         # Determine the axis and center to rotate about
-        blockEndGroup = growBlock.endGroupCoord( idxGrowBlockEG )
+        blockEndGroup = growBlock.atomCoord( idxGrowAtom )
         blockS = self.blocks[ idxStaticBlock ]
-        blockSEndGroup = blockS.endGroupCoord( idxStaticBlockEG )
+        blockSEndGroup = blockS.atomCoord( idxStaticAtom )
         axis = blockSEndGroup - blockEndGroup
         center = blockSEndGroup
         
@@ -664,7 +671,7 @@ class Cell():
             #print "_growBlock rotating as clash: {}".format(angle*util.RADIANS2DEGREES)
             
             # remove the growBlock from the cell
-            self.delBlock(block_id)
+            self.delBlock(blockId)
             
             # rotate by increment
             growBlock.rotate( axis, angle, center=center)
@@ -672,12 +679,12 @@ class Cell():
             # add it and check
             self.addBlock(growBlock)
             
-            if self.checkMove(block_id):
+            if self.checkMove( blockId ):
                 self.logger.debug("_growBlock rotate worked")
                 return True
         
         # remove the growBlock from the cell
-        self.delBlock(block_id)
+        self.delBlock(blockId)
         
         return False
     
@@ -838,14 +845,17 @@ class Cell():
         idxStaticBlock = self.randomBlockId()
         staticBlock = self.blocks[ idxStaticBlock ]
         
-        self.logger.debug( "randomGrowblock Adding to block: {0}".format( idxStaticBlock ) )
-        
         # pick random endgroup and contact in target
         idxStaticBlockEG = staticBlock.randomEndGroup()
+        
+        self.logger.debug( "initBlock: {0}".format(self.initBlock))
+        self.logger.debug( "static block: {0}".format(staticBlock))
+        self.logger.debug( "block: {0}".format(block))
         
         # pick random endGroup on the block we are attaching
         idxBlockEG = block.randomEndGroup()
         
+        self.logger.debug( "randomGrowblock calling _growBlock: {0}".format( (block, idxBlockEG, idxStaticBlock, idxStaticBlockEG) ) )
         # now attach it
         return self._growBlock( block, idxBlockEG, idxStaticBlock, idxStaticBlockEG )
 
@@ -913,7 +923,7 @@ class Cell():
         self.randomMoveBlock( block )
         self.addBlock( block )
         self.numBlocks += 1
-        self.logger.debug("seed added block 1")
+        self.logger.debug("seed added first block: {0}".format( id(block) ) )
         if nblocks == 1:
             return
         
@@ -960,7 +970,7 @@ class Cell():
         return
     # End seed
     
-    def setInitBlock(self,block):
+    def setInitBlock(self, block ):
         """
         Set the init block
         """
@@ -1168,9 +1178,10 @@ class Cell():
         natoms=0
         xyz = ""
         for i,block in self.blocks.iteritems():
-            for j, c in enumerate( block._coords ):
+            for j, c in enumerate( block.iterCoord() ):
                 if label:
-                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format(block.labels[j], i), c[0], c[1], c[2] )
+                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format( block.atomLabel(j),
+                                                                                                       c[0], c[1], c[2] ) )
                 else:
                     if periodic:
                         # PBC
@@ -1178,9 +1189,10 @@ class Cell():
                         y = c[1] % self.B[1]
                         z = c[2] % self.C[2]
                         #xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.symbols[j], c[0], c[1], c[2] )
-                        xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(  util.label2symbol(block.labels[j]), x, y, z )
+                        xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol( block.atomLabel(j) ), x, y, z )
                     else:
-                        xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(block.labels[j]), c[0], c[1], c[2] )
+                        xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol( block.atomLabel(j) ),
+                                                                                     c[0], c[1], c[2] )
                 natoms += 1
         
         # Write out natoms and axes as title
@@ -1395,7 +1407,7 @@ class TestCell(unittest.TestCase):
         
         self.assertEqual( 0, len(bad), "Got {} blocks outside cell: {}".format( len(bad), bad ) )
         
-        
+        #cell.writeXyz("seedTest.xyz")
         
     def testCloseAtoms(self):
         
