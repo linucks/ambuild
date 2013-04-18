@@ -297,7 +297,7 @@ class Cell():
             idxBlock, idxAtom, idxOblock, idxOatom = bonds[0]
             self.bondBlock( idxBlock, idxAtom, idxOblock, idxOatom )
             block = self.blocks[ idxBlock ]
-            self.logger.debug(  "Block after bond: {0}".format( block ) )
+            #self.logger.debug(  "Block after bond: {0}".format( block ) )
             self.logger.info("Added bond: {}".format( bonds[0] ) )
         
         # Either got bonds or no clashes
@@ -848,9 +848,9 @@ class Cell():
         # pick random endgroup and contact in target
         idxStaticBlockEG = staticBlock.randomEndGroup()
         
-        self.logger.debug( "initBlock: {0}".format(self.initBlock))
-        self.logger.debug( "static block: {0}".format(staticBlock))
-        self.logger.debug( "block: {0}".format(block))
+        #self.logger.debug( "initBlock: {0}".format(self.initBlock))
+        #self.logger.debug( "static block: {0}".format(staticBlock))
+        #self.logger.debug( "block: {0}".format(block))
         
         # pick random endGroup on the block we are attaching
         idxBlockEG = block.randomEndGroup()
