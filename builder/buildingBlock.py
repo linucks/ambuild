@@ -43,11 +43,11 @@ class Block():
         # We add ourselves to this list
         self.allBlocks = [ self ]
         
-        # The _endGroups where the _blocks are attached: id(block) : idxEG
-        self.blockEndGroups = {}
-        
         # The id of the parent block of this one (if we have one)
         self.parent = None
+        
+        # list of tuples of ( idxBlock, idxData ) mapping the block and index into the block array where the data lives
+        self._dataMap = []
         
         # the coordinates for this block
         self._coords = []
@@ -62,7 +62,7 @@ class Block():
         self._masses = []
         
         # orderd array of atom radii
-        self._atom_radii = []
+        self._atomRadii = []
         
         # List of the cell (3-tuple) to which each atom belongs
         self.atomCell = []
@@ -75,7 +75,6 @@ class Block():
         
         # List of the indices of the atoms that define the angle for the _endGroups - need
         # to be in the same order as the _endGroups
-        self._angleAtoms = []
         self._myAngleAtoms = []
         
         # Holds the center of mass for the combined block
@@ -114,46 +113,70 @@ class Block():
             else:
                 raise RuntimeError("Unrecognised file suffix: {}".format(infile) )
 
-    def addBlock( self, idxEndGroup, addBlock, idxAddBlockEndGroup ):
+# new
+    def atomCoord(self, idxAtom ):
+        idxBlock, idxData = self._dataMap[ idxAtom ]
+        return self.allBlocks[ idxBlock ]._coords[ idxData ]
+    
+    def atomLabel(self, idxAtom ):
+        idxBlock, idxData = self._dataMap[ idxAtom ]
+        return self.allBlocks[ idxBlock ]._labels[ idxData ]
+    
+    def atomMass(self, idxAtom ):
+        idxBlock, idxData = self._dataMap[ idxAtom ]
+        return self.allBlocks[ idxBlock ]._masses[ idxData ]
+    
+    def atomRadius(self, idxAtom ):
+        idxBlock, idxData = self._dataMap[ idxAtom ]
+        return self.allBlocks[ idxBlock ]._atomRadii[ idxData ]
+    
+    def atomSymbol(self, idxAtom):
+        idxBlock, idxData = self._dataMap[ idxAtom ]
+        return self.allBlocks[ idxBlock ]._symbols[ idxData ]
+    
+    def iterCoord(self):
+        """Generator to return the coordinates"""
+        for idx in range( len(self._dataMap) ):
+            yield self.atomCoord( idx )
+
+    def addBlock( self, idxAtom, addBlock, idxAddBlockAtom ):
         """ Add newBlock to this one
         """
         
         if addBlock.parent:
-            raise RuntimeError,"addBlock has parent!"
+            raise RuntimeError, "addBlock has parent!"
         addBlock.parent = self
         
         # update endGroups for self 
-        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
+        idxBlock, idxBlockAtom = self._dataMap[ idxAtom ]
         block = self.allBlocks[ idxBlock ]
-        block._blocks[ idxBlockEndGroup ] = addBlock
+        idxEndGroup = block._myEndGroups.index( idxBlockAtom )
+        block._blocks[ idxEndGroup ] = addBlock
         
-        
+        # Add addBlock to the list of blocks contained in this one
         if not addBlock in self.allBlocks and not addBlock == self.parent:
-            # Add all subblocks to this one if we're not part of a circular fragment
             block.allBlocks += addBlock.allBlocks
         else:
             # Circular fragment
             raise RuntimeError, "addBlock  - addBlock was already in self"
         
         # update endGroups for addBlock
-        idxBlock, idxBlockEndGroup = addBlock._endGroups[ idxAddBlockEndGroup ]
+        idxBlock, idxBlockAtom = addBlock._dataMap[ idxAddBlockAtom ]
         block = addBlock.allBlocks[ idxBlock ]
-        block._blocks[ idxBlockEndGroup ] = self
+        idxEndGroup = addBlock._myEndGroups.index( idxAddBlockAtom )
+        block._blocks[ idxEndGroup ] = self
         
         self.update()
 
-    def angleAtomCoord( self, idxEndGroup ):
-        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
+    def angleAtom( self, idxAtom ):
+        """Return the coordinate for the angleAtom of the given atom"""
+        idxBlock, idxBlockAtom = self._dataMap[ idxAtom ]
         block = self.allBlocks[ idxBlock ]
-        return block._angleAtomCoord( idxBlockEndGroup )
+        idxEndGroup = block._myEndGroups.index( idxBlockAtom )
+        idxAngleAtom = block._myAngleAtoms[ idxEndGroup ]
+        return block._coords[ idxAngleAtom ]
 
-    def _angleAtomCoord( self, idxEndGroup ):
-        return self._coords[ self._angleAtomCoordIdx( idxEndGroup ) ]
-    
-    def _angleAtomCoordIdx( self, idxEndGroup ):
-        return self._myAngleAtoms[ idxEndGroup ]
-
-    def alignBond(self, idxBlockEG, refVector ):
+    def alignBond(self, idxAtom, refVector ):
         """
         Align this block, so that the bond defined by idxBlockEG is aligned with
         the refVector
@@ -161,7 +184,7 @@ class Block():
         This assumes that the block has already been positioned with the contact atom at the origin
         """
         
-        endGroup = self.endGroupCoord( idxBlockEG )
+        endGroup = self.atomCoord( idxAtom )
         
         # Check neither is zero
         if numpy.array_equal( refVector, [0,0,0] ) or numpy.array_equal( endGroup, [0,0,0] ):
@@ -346,33 +369,6 @@ class Block():
         """
         return copy.deepcopy(self)
 
-    def endGroupCoord( self, idxEndGroup ):
-        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
-        block = self.allBlocks[ idxBlock ]
-        return block._endGroupCoord( idxBlockEndGroup )
-    
-    def endGroupCoordIdx( self, idxEndGroup ):
-        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
-        block = self.allBlocks[ idxBlock ]
-        return block._endGroupCoordIdx( idxBlockEndGroup )
-
-    def _endGroupCoord(self, idxEndGroup):
-        """Return the coordinate of the endGroup with the given index."""
-        return self._coords[ self._endGroupCoordIdx( idxEndGroup ) ]
-    
-    def _endGroupCoordIdx(self, idxEndGroup):
-        """Return the index of the coordinate of the endGroup with the given index."""
-        return self._myEndGroups[ idxEndGroup ]
-
-    def endGroupSymbol( self, idxEndGroup ):
-        idxBlock, idxBlockEndGroup = self._endGroups[ idxEndGroup ]
-        block = self.allBlocks[ idxBlock ]
-        return block._endGroupSymbol( idxBlockEndGroup )
-
-    def _endGroupSymbol(self, idxEndGroup ):
-        """Return the symbol of this endGroup"""
-        return self._symbols[ self._endGroupCoordIdx( idxEndGroup ) ]
-
     def flip( self, fvector ):
         """Rotate perpendicular to fvector so we  facing the opposite way along the fvector
         """
@@ -402,8 +398,9 @@ class Block():
         for _ in range( len( self._myEndGroups ) ):
             self._blocks.append( None )
         
+        # now in -update
         # Fill atomCell list
-        self.atomCell = [None]*len(self._coords)
+        #self.atomCell = [None]*len(self._coords)
         
         symbol_types=[]
         for label in self._labels:
@@ -422,7 +419,7 @@ class Block():
             # Radii
             z = util.SYMBOL_TO_NUMBER[ symbol ]
             r = util.COVALENT_RADII[z] * util.BOHR2ANGSTROM
-            self._atom_radii.append(r)
+            self._atomRadii.append(r)
             #print "ADDING R {} for label {}".format(r,label)
             
 
@@ -496,13 +493,17 @@ class Block():
                 count += 1
 
         self.fromLabelAndCoords( labels, coords )
+        
+    def isEndGroup(self, idxAtom):
+        """Return True if this atom is an endGroup - doesn't check if free"""
+        return idxAtom in self._endGroups
 
     def maxAtomRadius(self):
         """Return the maxium atom radius
         """
         rmax=0
         for block in self.allBlocks:
-            for r in block._atom_radii:
+            for r in block._atomRadii:
                 if r > rmax:
                     rmax=r
         return rmax
@@ -519,15 +520,15 @@ class Block():
             
         return self._mass
 
-    def newBondPosition(self, idxTargetEG, symbol ):
+    def newBondPosition(self, idxAtom, symbol ):
         """Return the position where a bond to an atom of type 'symbol'
         would be placed if bonding to the target endgroup
          I'm sure this algorithm is clunky in the extreme...
         """
         
-        targetEndGroup = self.endGroupCoord( idxTargetEG )
-        targetAngleAtom = self.angleAtomCoord( idxTargetEG )
-        targetSymbol = self.endGroupSymbol( idxTargetEG )
+        targetEndGroup = self.atomCoord( idxAtom )
+        targetAngleAtom = self.angleAtom( idxAtom )
+        targetSymbol = self.atomSymbol( idxAtom )
         
         # Get the bond length between these two atoms
         bondLength = util.bondLength( targetSymbol, symbol )
@@ -544,32 +545,30 @@ class Block():
         
         return newPosition
 
-    def positionGrowBlock( self, idxBlockEG, growBlock, idxGrowBlockEG ):
+    def positionGrowBlock( self, idxAtom, growBlock, idxGrowAtom ):
         """
         Position growBlock so it can bond to us, using the given _endGroups
         
         Arguments:
-        idxBlockEG: the index of the endGroup to use for the bond
+        idxAtom: the index of the endGroup atom to use for the bond
         growBlock: the block we are positioning
-        idxGrowBlockEG: the index of the endGroup to use for the bond
+        idxGrowAtom: the index of the endGroup to use for the bond
         """
 
         # The vector we want to align along is the vector from the angleAtom
         # to the endGroup
-        endGroup = self.endGroupCoord( idxBlockEG )
-        angleAtom = self.angleAtomCoord( idxBlockEG )
+        endGroup = self.atomCoord( idxAtom )
+        angleAtom = self.angleAtom( idxAtom )
         refVector =  endGroup - angleAtom
         
         # Get the angleAtom for the growBlock
-        #idxGrowBlockContact = growBlock._angleAtoms[ idxGrowBlockEG ]
-        #growBlockAngleAtom = growBlock._coords[ idxGrowBlockContact ]
-        growBlockAngleAtom = growBlock.angleAtomCoord( idxGrowBlockEG )
+        growBlockAngleAtom = growBlock.angleAtom( idxGrowAtom )
         
         # get the coord where the next block should bond
         # symbol of endGroup tells us the sort of bond we are making which determines
         # the bond length
-        symbol = growBlock.endGroupSymbol( idxGrowBlockEG  )
-        bondPos = self.newBondPosition( idxBlockEG, symbol )
+        symbol = growBlock.atomSymbol( idxGrowAtom )
+        bondPos = self.newBondPosition( idxAtom, symbol )
         #print "got bondPos: {}".format( bondPos )
         
         # Shift block so angleAtom at center, so the vector of the endGroup can be
@@ -577,11 +576,11 @@ class Block():
         growBlock.translate( -growBlockAngleAtom )
         
         # Align along the staticBlock bond
-        growBlock.alignBond( idxGrowBlockEG, refVector )
+        growBlock.alignBond( idxGrowAtom, refVector )
         
         # Now turn the second block around
         # - need to get the new vectors as these will have changed due to the moves
-        growBlockEG = growBlock.endGroupCoord( idxGrowBlockEG )
+        growBlockEG = growBlock.atomCoord( idxGrowAtom )
         
         # Flip by 180 along bond axis
         growBlock.flip( growBlockEG )
@@ -603,9 +602,9 @@ class Block():
         
         return self._radius
 
-    def randomEndGroupIndex(self):
-        """Select a random endGroup - return the index in the _endGroup array"""
-        return random.randint( 0, len(self._endGroups)-1 )
+    def randomEndGroup(self):
+        """Randomly select at atom that is an endGroup - return index in global array"""
+        return random.choice( self._endGroups )
 
     def randomRotate( self, origin=[0,0,0], atOrigin=False ):
         """Randomly rotate a block.
@@ -709,15 +708,22 @@ class Block():
                 assert block != self
                 self.allBlocks += block.allBlocks
         
+        self._dataMap = []
         self._endGroups = []
-        self._angleAtoms = []
+        count=0
         # Loop over every block contained in this and all subBlocks
         for i, block in enumerate( self.allBlocks ):
-            for j in range( len(block._myEndGroups) ):
-                # Don't add _endGroups where there is a block attached
-                if not block._blocks[j]:
-                    self._endGroups.append(  (i, j) )
-                    self._angleAtoms.append( (i, j) )
+            for j in range( len(block._coords) ):
+                self._dataMap.append( (i, j) )
+                # Check if is a free endGroup
+                if j in block._myEndGroups:
+                    idx = block._myEndGroups.index( j )
+                    if not block._blocks[ idx ]:
+                        self._endGroups.append( count )
+                count+=1
+        
+        # Fill atomCell list
+        self.atomCell = [None]*len( self._dataMap )
                     
         # Recalculate the data for this new block
         self._calcCenters()
@@ -769,7 +775,6 @@ class Block():
         mystr += "COM: {}\n".format( self._centerOfMass )
         mystr += "COG: {}\n".format( self._centroid )
         mystr += "_endGroups: {}\n".format( self._endGroups )
-        mystr += "_angleAtoms: {}\n".format( self._angleAtoms )
         mystr += "_myEndGroups: {}\n".format( self._myEndGroups )
         mystr += "_myAngleAtoms: {}\n".format( self._myAngleAtoms )
         mystr += "_blocks: {}\n".format( self._blocks )
@@ -808,6 +813,12 @@ class TestBuildingBlock(unittest.TestCase):
 
         ch4 = Block()
         ch4.fromXyzFile("../ch4.xyz")
+        
+        endGroups = [ 1, 2, 3, 4 ]
+        self.assertEqual( endGroups, ch4._myEndGroups )
+        self.assertEqual( ch4._endGroups, ch4._myEndGroups )
+        angleAtoms = [ 0, 0, 0, 0, ]
+        self.assertEqual( angleAtoms, ch4._myAngleAtoms )
         return ch4
     
     def testMakeCh4_3(self):
@@ -830,18 +841,18 @@ class TestBuildingBlock(unittest.TestCase):
 
         
         ch4_1.addBlock(1, ch4_2, 3)
-        print ch4_1
+        #print ch4_1
         
     def testAdd1(self):
         
         ch4_1 = self.makeCh4()
         ch4_2 = ch4_1.copy()
         
-        idxEndGroup = 1
-        idxGrowBlockEndGroup = 3
-        ch4_1.addBlock( idxEndGroup, ch4_2, idxGrowBlockEndGroup )
+        idxAtom = 2
+        idxGrowBlockAtom = 3
+        ch4_1.addBlock( idxAtom, ch4_2, idxGrowBlockAtom )
         
-        endGroups = [(0, 0), (0, 2), (0, 3), (1, 0), (1, 1), (1, 2)]
+        endGroups = [ 1, 3, 4, 6, 7, 9 ]
         self.assertEqual( endGroups, ch4_1._endGroups )
         
         blocks = [ None, ch4_2, None, None ]
@@ -850,24 +861,24 @@ class TestBuildingBlock(unittest.TestCase):
         allBlocks = [ ch4_1, ch4_2 ]
         self.assertEqual( allBlocks, ch4_1.allBlocks )
         
-        
     def testAdd2(self):
         
         ch4_1 = self.makeCh4()
         ch4_2 = ch4_1.copy()
         ch4_3 = ch4_1.copy()
         
-        idxEndGroup = 1
-        idxGrowBlockEndGroup = 3
-        ch4_1.positionGrowBlock(idxEndGroup, ch4_2, idxGrowBlockEndGroup )
-        ch4_1.addBlock( idxEndGroup, ch4_2, idxGrowBlockEndGroup )
+        idxEndAtom = 2
+        idxGrowBlockAtom = 3
+        ch4_1.positionGrowBlock( idxEndAtom, ch4_2, idxGrowBlockAtom )
+        ch4_1.addBlock( idxEndAtom, ch4_2, idxGrowBlockAtom )
         
-        idxEndGroup = 5
-        idxGrowBlockEndGroup = 1
-        ch4_1.positionGrowBlock(idxEndGroup, ch4_3, idxGrowBlockEndGroup )
-        ch4_1.addBlock( idxEndGroup, ch4_3, idxGrowBlockEndGroup )
         
-        endGroups = [(0, 0), (0, 2), (0, 3), (1, 0), (1, 1), (2,0), (2,2), (2,3) ]
+        idxEndAtom = 9
+        idxGrowBlockAtom = 1
+        ch4_1.positionGrowBlock(idxEndAtom, ch4_3, idxGrowBlockAtom )
+        ch4_1.addBlock( idxEndAtom, ch4_3, idxGrowBlockAtom )
+        
+        endGroups = [ 1, 3, 4, 6, 7, 12, 13, 14 ]
         self.assertEqual( endGroups, ch4_1._endGroups )
         
         blocks = [ None, ch4_2, None, None ]
@@ -876,7 +887,7 @@ class TestBuildingBlock(unittest.TestCase):
         allBlocks = [ ch4_1, ch4_2, ch4_3 ]
         self.assertEqual( allBlocks, ch4_1.allBlocks )
         
-        ch4_1.writeXyz("bonded.xyz")
+        #ch4_1.writeXyz("bonded.xyz")
         
         
     def testMultiAdd(self):
@@ -885,19 +896,18 @@ class TestBuildingBlock(unittest.TestCase):
         ch4_2 = ch4_1.copy()
         ch4_3 = ch4_1.copy()
         
-        idxEndGroup = 1
-        idxGrowBlockEndGroup = 3
-        ch4_1.positionGrowBlock(idxEndGroup, ch4_2, idxGrowBlockEndGroup )
-        ch4_1.addBlock( idxEndGroup, ch4_2, idxGrowBlockEndGroup )
+        idxAtom = 2
+        idxGrowBlockAtom = 4
+        ch4_1.positionGrowBlock(idxAtom, ch4_2, idxGrowBlockAtom )
+        ch4_1.addBlock( idxAtom, ch4_2, idxGrowBlockAtom )
         
-        idxEndGroup = 0
-        idxGrowBlockEndGroup = 4
-        ch4_3.positionGrowBlock(idxEndGroup, ch4_1, idxGrowBlockEndGroup )
-        ch4_3.addBlock( idxEndGroup, ch4_1, idxGrowBlockEndGroup )
-        
+        idxAtom = 1
+        idxGrowBlockAtom = 4
+        ch4_3.positionGrowBlock(idxAtom, ch4_1, idxGrowBlockAtom )
+        ch4_3.addBlock( idxAtom, ch4_1, idxGrowBlockAtom )
         
         #ch4_3.writeXyz("bonded2.xyz")
-        endGroups = [(0, 1), (0, 2), (0, 3), (1, 0), (1, 2), (1, 3), (2, 0), (2, 2)]
+        endGroups = [ 2, 3, 4, 6, 8, 11, 12, 13 ]
         self.assertEqual( endGroups, ch4_3._endGroups )
         
         blocks = [ ch4_1, None, None, None ]
@@ -920,7 +930,7 @@ class TestBuildingBlock(unittest.TestCase):
         """
         
         paf = self.makePaf()
-        self.assertTrue( paf._endGroups == [(0, 0), (0, 1), (0, 2), (0, 3)],
+        self.assertTrue( paf._endGroups == [7, 12, 17, 22],
                          "Incorrect reading of endGroup contacts: {0}".format(paf._endGroups))
 
     def testAaaReadXyz(self):
@@ -928,9 +938,9 @@ class TestBuildingBlock(unittest.TestCase):
         Test we can read an xyz file - needs to come first
         """
         
-        paf = self.makeCh4()
-        self.assertTrue( paf._endGroups == [(0, 0), (0, 1), (0, 2), (0, 3)],
-                         "Incorrect reading of endGroup contacts: {0}".format(paf._endGroups))
+        ch4 = self.makeCh4()
+        self.assertTrue( ch4._endGroups == [ 1, 2, 3, 4 ],
+                         "Incorrect reading of endGroup contacts: {0}".format(ch4._endGroups))
         
     def testAlignBlocks(self):
         """Test we can align two _blocks correctly"""
@@ -942,26 +952,26 @@ class TestBuildingBlock(unittest.TestCase):
         block.randomRotate()
         
         # Get the atoms that define things
-        idxEndGroup = 2
-        blockSEndGroup = blockS._endGroupCoord( idxEndGroup )
-        blockSContact = blockS._angleAtomCoord( idxEndGroup )
+        idxSatom = 17
+        blockSEndGroup = blockS.atomCoord( idxSatom )
+        blockSangleAtom = blockS.angleAtom( idxSatom )
         
-        idxEndGroup = 3
-        blockContact = block._angleAtomCoord( idxEndGroup )
+        idxAtom = 7
+        blockAngleAtom = block.angleAtom( idxAtom )
         
         # we want to align along block1Contact -> block1EndGroup
-        refVector = blockSEndGroup - blockSContact 
+        refVector = blockSEndGroup - blockSangleAtom 
         
         # Position block so contact is at origin
-        block.translate( -blockContact )
+        block.translate( -blockAngleAtom )
         
-        block.alignBond( idxEndGroup, refVector )
+        block.alignBond( idxAtom, refVector )
         
         # Check the relevant atoms are in the right place
-        blockEndGroup  = block._endGroupCoord( idxEndGroup )
-        blockContact = block._angleAtomCoord( idxEndGroup )
+        blockEndGroup  = block.atomCoord( idxAtom )
+        blockAngleAtom = block.angleAtom( idxAtom )
         
-        newVector = blockEndGroup - blockContact
+        newVector = blockEndGroup - blockAngleAtom
         
         # Normalise two vectors so we can compare them
         newNorm = newVector / numpy.linalg.norm(newVector)
@@ -984,17 +994,17 @@ class TestBuildingBlock(unittest.TestCase):
 #        testb.writeXyz("b4.xyz")
         
         # Get the atoms that define things
-        idxBlockEndGroup = 2
-        idxGrowBlockEndGroup = 3
+        idxBlockAtom = 7
+        idxGrowBlockAtom = 12
         
         # Get position to check
-        newPos = blockS.newBondPosition( idxBlockEndGroup, growBlock._endGroupSymbol( idxGrowBlockEndGroup ) )
+        newPos = blockS.newBondPosition( idxBlockAtom, growBlock.atomSymbol( idxGrowBlockAtom ) )
         
         # Position the block
-        blockS.positionGrowBlock( idxBlockEndGroup, growBlock, idxGrowBlockEndGroup )
+        blockS.positionGrowBlock( idxBlockAtom, growBlock, idxGrowBlockAtom )
         
         # After move, the endGroup of the growBlock should be at newPos
-        endGroupCoord = growBlock._endGroupCoord( idxGrowBlockEndGroup )
+        endGroupCoord = growBlock._endGroupCoord( idxGrowBlockAtom )
         self.assertTrue( numpy.allclose( newPos, endGroupCoord, rtol=1e-9, atol=1e-7 ),
                          msg="testCenterOfMass incorrect COM.")
         

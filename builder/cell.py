@@ -12,6 +12,7 @@ import random
 import sys
 import unittest
 
+# External modules
 import numpy
 
 # Our modules
@@ -113,7 +114,8 @@ class Cell():
         self.blocks[ idxBlock ] = block
         
         #print "nbox ",self.numBoxA,self.numBoxB,self.numBoxC
-        for idxCoord,coord in enumerate(block._coords):
+        #for idxCoord,coord in enumerate(block._coords):
+        for idxCoord,coord in enumerate( block.iterCoord() ):
             
             #print "ADDING COORD ",coord
             
@@ -213,20 +215,28 @@ class Cell():
         block = self.blocks[idxBlock]
         
         bonds = [] # list of possible bond atoms
-        for ( iatom, ioblock, ioatom ) in close:
+        for ( idxAtom, idxOblock, idxOatom ) in close:
             
-            symbol = block._symbols[iatom]
-            radius = block._atom_radii[iatom]
-            oblock = self.blocks[ioblock]
-            coord = block._coords[iatom]
-            ocoord = oblock._coords[ioatom]
-            #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(iatom,idxBlock, ioatom,ioblock,self.distance( coord, ocoord ) )
+            #symbol = block._symbols[idxAtom]
+            #radius = block._atomRadii[idxAtom]
+            #oblock = self.blocks[idxOblock]
+            #coord = block._coords[idxAtom]
+            #ocoord = oblock._coords[idxOatom]
+            symbol = block.atomSymbol( idxAtom )
+            radius = block.atomRadius( idxAtom )
+            oblock = self.blocks[idxOblock]
+            coord = block.atomCoord( idxAtom )
+            ocoord = oblock.atomCoord( idxOatom )
+            
+            #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(idxAtom,idxBlock, idxOatom,idxOblock,self.distance( coord, ocoord ) )
             
             # First see if both atoms are _endGroups
-            if iatom in block._endGroups and ioatom in oblock._endGroups:
+            #if idxAtom in block._endGroups and idxOatom in oblock._endGroups:
+            if block.isEndGroup( idxAtom ) and oblock.isEndGroup( idxOatom ):
                 # Checking for a bond
                 # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
-                osymbol = oblock._symbols[ioatom]
+                #osymbol = oblock._symbols[idxOatom]
+                osymbol = oblock.atomSymbol( idxOatom )
                 
                 bond_length = util.bondLength( symbol, osymbol )
                 
@@ -235,18 +245,22 @@ class Cell():
                 # THINK ABOUT BETTER SHORT BOND LENGTH CHECK
                 if  bond_length - self.bondMargin < self.distance( coord, ocoord ) < bond_length + self.bondMargin:
                     
-                    #print "Possible bond for ",iatom,ioblock,ioatom
+                    #print "Possible bond for ",idxAtom,idxOblock,idxOatom
                     # Possible bond so check the angle
-                    #icontact = block.endGroupContactIndex( iatom )
-                    idx = block._endGroups.index( iatom )
-                    icontact = block._angleAtoms[ idx ]
-                    contact = block._coords[icontact]
+                    #idx = block._endGroups.index( idxAtom )
+                    #icontact = block._angleAtoms[ idx ]
+                    #contact = block._coords[icontact]
+                    
+                    #FIXME!!!!!
+                    idxEndGroup = block.endGroupIdx( idxAtom )
+                    angleAtom = block.angleAtomCoord( idxEndGroup )
+                    
                     #print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( contact, coord, ocoord )
-                    angle = util.angle( contact, coord, ocoord )
+                    angle = util.angle( angleAtom, coord, ocoord )
                     #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
                     
                     if ( bondAngle-bondAngleMargin < angle < bondAngle+bondAngleMargin ):
-                        bonds.append( (idxBlock, iatom, ioblock, ioatom) )
+                        bonds.append( (idxBlock, idxAtom, idxOblock, idxOatom) )
                     else:
                         self.logger.debug( "Cannot bond due to angle: {}".format(angle  * util.RADIANS2DEGREES) )
                         return False
@@ -255,7 +269,9 @@ class Cell():
                 continue
            
             # No bond so just check if the two atoms are close enough for a clash
-            oradius = oblock._atom_radii[ioatom]
+            #oradius = oblock._atomRadii[idxOatom]
+            oradius = oblock.atomRadius( idxOatom )
+            
             #d = self.distance( coord, ocoord )
             #l = radius+oradius+self.atomMargin
             if self.distance( coord, ocoord ) < radius+oradius+self.atomMargin:
@@ -334,7 +350,7 @@ class Cell():
         
     def closeAtoms(self, iblock):
         """
-        Find all atoms that are close to the atom in the given block.
+        Find all atoms that are close to the atoms in the given block.
         
         Args:
         iblock: index of the block in self.blocks
@@ -350,11 +366,12 @@ class Cell():
         #jmht - this is where we would check to make sure we exclude blocks that are part of the parent
         
         block=self.blocks[iblock]
-        for icoord,coord in enumerate(block._coords):
+        #for idxCoord,coord in enumerate( block._coords ):
+        for idxCoord,coord in enumerate( block.iterCoord() ):
             
             # Get the box this atom is in
-            key = block.atomCell[icoord]
-            #print "Close checking [{}] {}: {} : {}".format(key,iblock,icoord,coord)
+            key = block.atomCell[idxCoord]
+            #print "Close checking [{}] {}: {} : {}".format(key,iblock,idxCoord,coord)
             
             # Get a list of the boxes surrounding this one
             surrounding = self.box3[key]
@@ -375,7 +392,8 @@ class Cell():
                         continue
                     
                     oblock = self.blocks[ioblock]
-                    ocoord = oblock._coords[iocoord]
+                    #ocoord = oblock._coords[iocoord]
+                    ocoord = oblock.atomCoord( iocoord )
                     #print "AGAINST        [{}] {}: {} : {}".format(sbox,ioblock, iocoord,ocoord)
                     #x = ocoord[0] % self.A[0]
                     #y = ocoord[1] % self.B[1]
@@ -383,8 +401,8 @@ class Cell():
                     #print "PBC: {}                         {}".format(self.distance( ocoord,coord ),[x,y,z] )
                     
                     if ( self.distance( ocoord,coord ) < self.boxSize ):
-                        #print "CLOSE {}-{}:({}) and {}-{}:({}): {}".format( iblock,icoord,coord,ioblock,iocoord,ocoord, self.distance( ocoord,coord ))
-                        contacts.append( (icoord, ioblock,iocoord) )
+                        #print "CLOSE {}-{}:({}) and {}-{}:({}): {}".format( iblock,idxCoord,coord,ioblock,iocoord,ocoord, self.distance( ocoord,coord ))
+                        contacts.append( ( idxCoord, ioblock, iocoord ) )
                         
         if len(contacts):
             return contacts
@@ -748,10 +766,10 @@ class Cell():
         staticBlock =  self.blocks[ idxStaticBlock ]
         
         # pick random endgroup and contact in target
-        idxStaticBlockEG = staticBlock.randomEndGroupIndex()
+        idxStaticBlockEG = staticBlock.randomEndGroup()
         
         # pick random endGroup on the block we are attaching
-        idxMoveBlockEG = moveBlock.randomEndGroupIndex()
+        idxMoveBlockEG = moveBlock.randomEndGroup()
         
         # now attach it
         ok = self._growBlock( moveBlock, idxMoveBlockEG, idxStaticBlock, idxStaticBlockEG )
@@ -823,10 +841,10 @@ class Cell():
         self.logger.debug( "randomGrowblock Adding to block: {0}".format( idxStaticBlock ) )
         
         # pick random endgroup and contact in target
-        idxStaticBlockEG = staticBlock.randomEndGroupIndex()
+        idxStaticBlockEG = staticBlock.randomEndGroup()
         
         # pick random endGroup on the block we are attaching
-        idxBlockEG = block.randomEndGroupIndex()
+        idxBlockEG = block.randomEndGroup()
         
         # now attach it
         return self._growBlock( block, idxBlockEG, idxStaticBlock, idxStaticBlockEG )
@@ -855,7 +873,7 @@ class Cell():
         # Use the cell axis definitions
         block.translateCentroid( self.origin )
         
-        block.randomRotate( block, atOrigin=True, origin=self.origin )
+        block.randomRotate( origin=self.origin, atOrigin=True )
         
         # Now move to new coord
         block.translateCentroid( coord )
@@ -1089,8 +1107,8 @@ class Cell():
                 radius = (circ/2) + self.atomMargin
                 center = static_block.centroid()
             elif stype == "bond":
-                staticEndGroupIndex = static_block.randomEndGroupIndex()
-                moveEndGroupIndex = move_block.randomEndGroupIndex()
+                staticEndGroupIndex = static_block.randomEndGroup()
+                moveEndGroupIndex = move_block.randomEndGroup()
                 center = static_block.newBondPosition( staticEndGroupIndex, move_block, moveEndGroupIndex)
                 # jmht - this is wrong!
                 radius = self.atomMargin
@@ -1323,12 +1341,12 @@ class TestCell(unittest.TestCase):
         cell.writeXyz("1.xyz")
         
         block = cell.initBlock.copy()
-        iblockEndGroup = block.randomEndGroupIndex()
+        iblockEndGroup = block.randomEndGroup()
         blockEndGroup = block._coords[ iblockEndGroup ]
         
         iblockS = cell.blocks.keys()[0]
         blockS = cell.blocks[ iblockS ]
-        iblockSEndGroup = blockS.randomEndGroupIndex()
+        iblockSEndGroup = blockS.randomEndGroup()
         blockSEndGroup = blockS._coords[ iblockSEndGroup ]
         
         cell.positionGrowBlock(block, iblockEndGroup, iblockS, iblockSEndGroup)
