@@ -95,6 +95,10 @@ class Block():
         # The radius of the combined block assuming it is a circle centered on the centroid
         self._myRadius = 0
         
+        # maximum Atom Radius
+        self._maxAtomRadius = 0
+        self._myMaxAtomRadius = 0
+        
         # Total mass of the combined block
         self._mass = None
         
@@ -324,8 +328,11 @@ class Block():
         cog = self.centroid()
         
         distances = []
+        self._maxAtomRadius = 0
         for block in self.allBlocks:
-            for i, coord in enumerate(block._coords):
+            if self._myMaxAtomRadius > self._maxAtomRadius:
+                self._maxAtomRadius = self._myMaxAtomRadius
+            for coord in block._coords:
                 #distances.append( numpy.linalg.norm(coord-cog) )
                 distances.append( util.distance(cog, coord) )
             
@@ -420,6 +427,9 @@ class Block():
             z = util.SYMBOL_TO_NUMBER[ symbol ]
             r = util.COVALENT_RADII[z] * util.BOHR2ANGSTROM
             self._atomRadii.append(r)
+            # Remember the largest
+            if r > self._myMaxAtomRadius:
+                self._myMaxAtomRadius = r
             #print "ADDING R {} for label {}".format(r,label)
             
 
@@ -501,12 +511,11 @@ class Block():
     def maxAtomRadius(self):
         """Return the maxium atom radius
         """
-        rmax=0
-        for block in self.allBlocks:
-            for r in block._atomRadii:
-                if r > rmax:
-                    rmax=r
-        return rmax
+        
+        if self._maxAtomRadius != 0:
+            return self._maxAtomRadius
+        
+        raise RuntimeError,"maxAtomRadius not calculated!"
     
     def mass(self):
         """Total mass of the molecule
@@ -1069,7 +1078,8 @@ class TestBuildingBlock(unittest.TestCase):
         ch4 = self.makeCh4()
         r = ch4.radius()
         #jmht - check...- old was: 1.78900031214
-        self.assertAlmostEqual(r, 1.45942438719, 7, "Incorrect radius: {}".format(str(r)) )
+        # or maybe: 1.45942438719
+        self.assertAlmostEqual(r, 1.79280605406, 7, "Incorrect radius: {}".format(str(r)) )
         
     def testMaxAtomRadius(self):
         """
