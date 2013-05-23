@@ -29,54 +29,34 @@ CELLA = 40
 CELLB = 40
 CELLC = 40
 
-STEPS = 1000
-TRIES=100
 
 # Create Cell and seed it with the blocks
 mycell = cell.Cell( atomMargin=1.0, boxMargin=1.2, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
 mycell.cellAxis( CELLA, CELLB, CELLC )
 
-#import pdb
-#pdb.set_trace()
 mycell.seed( 15, INFILE )
-mycell.checkFinished()
-mycell.writeXyz( "afterSeed.xyz" )
+#mycell.checkFinished()
+mycell.dump()
 
-ok = mycell.growNewBlocks(15, maxTries=50 )
-mycell.checkFinished()
-mycell.writeXyz( "afterGrowP.xyz", periodic=True )
+while True:
+    
+    for i in range(10):
+        
+        print "Growing new blocks in loop {0}".format(i)
+        ok = mycell.growNewBlocks(15, maxTries=50 )
+        mycell.dump()
+        if not ok:
+            print "FAILED TO GROW"
+        #mycell.checkFinished()
 
-# now trying growing the individual blocks
-ok = mycell.joinBlocks( 10, maxTries=50 )
-mycell.checkFinished()
-
-mycell.writeXyz( "afterJoin.xyz" )
-mycell.writeXyz("afterJoinP.xyz", periodic=True )
-
-#mycell.writeXyz("canBond.xyz", label=False)
-#pfile = open("pickle1.pkl","w")
-#cPickle.dump(mycell,pfile)
-#pfile.close()
-sys.exit(0)
-
-#stype - 3 types: "bond", "block" or None (random)
-#mycell.shimmy(nsteps=STEPS, nmoves=MOVES, stype=None)
-mycell.writeXyz( OUTFILE3 )
-mycell.writeXyz( OUTFILE3a, periodic=True )
-
-pfile = open("pickle2.pkl","w")
-cPickle.dump(mycell,pfile)
-pfile.close()
-
-
-## Loop through as many shimmy stages as required
-#while True:
-#    OUTFILE=util.newFilename(OUTFILE)
-#    #cell.shimmy( nsteps=STEPS, nmoves=NMOVES, bondAngle=BONDANGLE  )
-#    new_cell.directedShimmy( nsteps=STEPS, nmoves=NMOVES, bondAngle=BONDANGLE )
-#    new_cell.write( OUTFILE )
-#    response = raw_input('Do we have to do this _again_? (y/n)')
-#    if response.lower() == 'n':
-#        break
+        ok = mycell.joinBlocks( 10, maxTries=50 )
+        print "Joining new blocks in loop {0}".format(i)
+        mycell.dump()
+        if not ok:
+            print "FAILED TO JOIN"
+        
+    response = raw_input('Do we have to do this _again_? (y/n)')
+    if response.lower() == 'n':
+        break
     
 
