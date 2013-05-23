@@ -12,9 +12,10 @@ import cPickle
 import sys
 
 
-INFILE = "../PAF_bb_typed.car" 
+INFILE = "/Users/abbietrewin/Dropbox/AmorphousBuilder/PAF_bb_typed.car" 
 #INFILE = "../ch4_typed.car" 
 #INFILE = "./afterSeed.bust.xyz"
+
 #OUTFILE1 = "afterSeed.xyz"
 #OUTFILE2 = "afterGrow.xyz"
 #OUTFILE2a = "afterGrowP.xyz"
@@ -29,7 +30,7 @@ CELLB = 40
 CELLC = 40
 
 STEPS = 1000
-MOVES=100
+TRIES=100
 
 # Create Cell and seed it with the blocks
 mycell = cell.Cell( atomMargin=1.0, boxMargin=1.2, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
@@ -43,8 +44,6 @@ mycell.writeXyz( "afterSeed.xyz" )
 
 ok = mycell.growNewBlocks(15, maxTries=50 )
 mycell.checkFinished()
-
-mycell.writeXyz( "afterGrow.xyz" )
 mycell.writeXyz( "afterGrowP.xyz", periodic=True )
 
 # now trying growing the individual blocks
@@ -61,10 +60,13 @@ mycell.writeXyz("afterJoinP.xyz", periodic=True )
 sys.exit(0)
 
 #stype - 3 types: "bond", "block" or None (random)
-mycell.shimmy(nsteps=STEPS, nmoves=MOVES, stype=None)
+#mycell.shimmy(nsteps=STEPS, nmoves=MOVES, stype=None)
 mycell.writeXyz( OUTFILE3 )
 mycell.writeXyz( OUTFILE3a, periodic=True )
 
+pfile = open("pickle2.pkl","w")
+cPickle.dump(mycell,pfile)
+pfile.close()
 
 
 ## Loop through as many shimmy stages as required
