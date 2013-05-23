@@ -5,6 +5,7 @@ Created on Jan 15, 2013
 '''
 
 import copy
+import cPickle
 import logging
 import math
 import os
@@ -89,7 +90,9 @@ class Cell():
         # as we add and remove blocks and need to keep track of them
         self.blocks = {}
         
-        self.logger = self._setupLogging()
+        self._setupLogging()
+        
+        self.fileCount=0
     
     def addBlock( self, block):
         """
@@ -439,7 +442,7 @@ class Cell():
         del block
         
         return 
-
+        
     def density(self):
         """
         The density of the cell
@@ -529,7 +532,17 @@ class Cell():
             dz = dz - math.copysign( self.C[2], dz)
             
         return math.sqrt( dx*dx + dy*dy + dz*dz )
-#        
+
+    def dump(self,prefix="cell"):
+        """Write out our current state"""
+        
+        self.fileCount+=1
+        prefix=prefix+"_{0}".format(self.fileCount)
+        self.writeXyz(prefix+".xyz",periodic=False)
+        self.writeXyz(prefix+"_P.xyz",periodic=True)
+        self.writePickle(prefix+".pkl")
+        return
+        
 #    def findClose(self, oblock, block):
 #        """
 #        Find the blocks around oblock that might be close to block if we were moving
@@ -705,7 +718,7 @@ class Cell():
             
             if tries > maxTries:
                 self.logger.critical("growNewBlocks - exceeded maxtries when joining blocks!" )
-                False
+                return False
             
             newblock = self.initBlock.copy()
             
@@ -808,7 +821,7 @@ class Cell():
                 
             if tries > maxTries:
                 self.logger.critical("joinBlocks - exceeded maxtries when joining blocks!")
-                False
+                return False
             
             # now attach it
             ok = self._joinBlocks()
@@ -908,7 +921,7 @@ class Cell():
         move_block.randomRotateBlock( origin=self.origin )
         return
 
-    def seed( self, nblocks, inputFile ):
+    def seed( self, nblocks, inputFile, maxTries=1000 ):
         """ Seed a cell with nblocks based on the block that will be created
         from the input block
         """
@@ -927,7 +940,6 @@ class Cell():
         if nblocks == 1:
             return
         
-        MAXTRIES = 1000
         # Loop through the nblocks adding the blocks to
         # the cell - nblocks-1 as we've already added the first
         for seedCount in range( nblocks-1 ):
@@ -937,7 +949,7 @@ class Cell():
             ok = False
             while not ok:
                 # quit on maxTries
-                if tries >= MAXTRIES:
+                if tries >= maxTries:
                     self.logger.critical("Exceeded maxtries when seeding")
                     sys.exit(1)
                 
@@ -1031,7 +1043,7 @@ class Cell():
         # add fl to logger
         logger.addHandler(cl)
 
-        return logger
+        self.logger = logger
 
     def surroundBoxes(self, key ):
         """
@@ -1086,7 +1098,7 @@ class Cell():
                 filename = util.newFilename(filename)
                 print "NO MORE BLOCKS!\nResult in file: {}".format(filename)
                 self.writeXyz( filename )
-                self.writeXyz( os.path.splitext(filename)[0]+"incell.xyz", periodic=True )
+                self.writeXyz( os.path.splitext(filename)[0]+"_incell.xyz", periodic=True )
                 self.writeXyz( filename+".lab", label=True )
                 break
             
@@ -1096,7 +1108,7 @@ class Cell():
                 filename = util.newFilename(filename)
                 self.writeXyz( filename )
                 self.writeXyz( filename+".lab", label=True )
-                self.writeXyz( os.path.splitext(filename)[0]+"incell.xyz", periodic=True )
+                self.writeXyz( os.path.splitext(filename)[0]+"_incell.xyz", periodic=True )
                 
             istatic_block = None
             if stype == "block" or stype == "bond":
@@ -1169,6 +1181,21 @@ class Cell():
         
         return
         #End shimmy
+      
+    def writePickle( self, fileName=None ):
+        """Pickle ourselves"""
+        
+        if not fileName:
+            fileName="cell.pkl"
+        
+        # Need to close all open filehandles
+        logging.shutdown()
+        
+        pfile = open( fileName, "w" )
+        cPickle.dump(self,pfile)
+        pfile.close()
+        
+        return
              
     def writeXyz(self, ofile, label=False, periodic=False ):
         """Write out the cell atoms to an xyz file
@@ -1212,6 +1239,24 @@ class Cell():
             s+= str(block)
             
         return s
+    
+    def __getstate__(self):
+        """
+        Return a dict of objects we want to pickle.
+        
+        This is required as we can't pickle objects containing a logger as they have
+        file handles (can remove by calling logging.shutdown() ) and lock objects (not removed
+        by calling shutdown)."""
+        
+        # Return everything bar our logger
+        d = dict(self.__dict__)
+        del d['logger']
+        return d
+    
+    def __setstate__(self, d):
+        """Called when we are unpickled """
+        self.__dict__.update(d)
+        self._setupLogging()
     
     
 class TestCell(unittest.TestCase):
