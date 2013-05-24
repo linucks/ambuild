@@ -921,9 +921,16 @@ class Cell():
         move_block.randomRotateBlock( origin=self.origin )
         return
 
-    def seed( self, nblocks, inputFile, maxTries=1000 ):
+    def seed( self, nblocks, inputFile, maxTries=5000 ):
         """ Seed a cell with nblocks based on the block that will be created
-        from the input block
+        from the input block.
+        
+        Args:
+        nblocks -- number of blocks to add
+        inputFile -- the input file containing the block we are filling this cell with
+        maxTries 
+        
+        Return the number of blocks we added
         """
         
         if self.A == None or self.B == None or self.C == None:
@@ -938,7 +945,7 @@ class Cell():
         self.numBlocks += 1
         self.logger.debug("seed added first block: {0}".format( id(block) ) )
         if nblocks == 1:
-            return
+            return self.numBlocks
         
         # Loop through the nblocks adding the blocks to
         # the cell - nblocks-1 as we've already added the first
@@ -951,7 +958,7 @@ class Cell():
                 # quit on maxTries
                 if tries >= maxTries:
                     self.logger.critical("Exceeded maxtries when seeding")
-                    sys.exit(1)
+                    return self.numBlocks
                 
                 # Move the block and rotate it
                 self.randomMoveBlock(newblock)
@@ -979,7 +986,7 @@ class Cell():
         # End of loop to seed cell
         
         self.logger.info("After seed numBlocks: {0} ({1})".format( len(self.blocks), self.numBlocks ) )
-        return
+        return self.numBlocks
     # End seed
     
     def setInitBlock(self, block ):

@@ -12,7 +12,7 @@ import cPickle
 import sys
 
 
-INFILE = "/Users/abbietrewin/Dropbox/AmorphousBuilder/PAF_bb_typed.car" 
+INFILE = "/Users/abbietrewin/Dropbox/AmorphousBuilder/pyrene_typed.car" 
 #INFILE = "../ch4_typed.car" 
 #INFILE = "./afterSeed.bust.xyz"
 
@@ -34,27 +34,35 @@ CELLC = 40
 mycell = cell.Cell( atomMargin=1.0, boxMargin=1.2, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
 mycell.cellAxis( CELLA, CELLB, CELLC )
 
-mycell.seed( 15, INFILE )
+seedCount=150
+added = mycell.seed( seedCount, INFILE )
+if added != seedCount:
+    response = raw_input('Tried to seed with {0} but could only add {0}. Continue? (y/n)'.format(seedCount,added))
+    if response.lower() == 'n':
+        sys.exit(1)
+    
 #mycell.checkFinished()
 mycell.dump()
 
 while True:
     
-    for i in range(10):
+    for i in range(40):
         
         print "Growing new blocks in loop {0}".format(i)
-        ok = mycell.growNewBlocks(15, maxTries=50 )
+        ok = mycell.growNewBlocks(1, maxTries=50 )
         mycell.dump()
         if not ok:
             print "FAILED TO GROW"
         #mycell.checkFinished()
 
-        ok = mycell.joinBlocks( 10, maxTries=50 )
+        ok = mycell.joinBlocks( 20, maxTries=5000 )
         print "Joining new blocks in loop {0}".format(i)
         mycell.dump()
         if not ok:
             print "FAILED TO JOIN"
         
+    print "Got density: ",mycell.density()
+    print "Got _endGroups: ",mycell._endGroups()
     response = raw_input('Do we have to do this _again_? (y/n)')
     if response.lower() == 'n':
         break
