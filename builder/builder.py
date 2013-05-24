@@ -37,7 +37,7 @@ mycell.cellAxis( CELLA, CELLB, CELLC )
 seedCount=150
 added = mycell.seed( seedCount, INFILE )
 if added != seedCount:
-    response = raw_input('Tried to seed with {0} but could only add {0}. Continue? (y/n)'.format(seedCount,added))
+    response = raw_input('Tried to seed with {0} but could only add {1}. Continue? (y/n)'.format(seedCount,added))
     if response.lower() == 'n':
         sys.exit(1)
     
