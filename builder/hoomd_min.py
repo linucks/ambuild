@@ -51,5 +51,6 @@ if False:
 fire=integrate.mode_minimize_rigid_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
 
 while not(fire.has_converged()):
-    xml = dump.mol2(filename="dump",period=10)
+    #xml = dump.mol2(filename="dump",period=10)
+    xml = dump.dcd(filename="trajectory.dcd",period=10)
     run(100)
