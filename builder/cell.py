@@ -161,6 +161,8 @@ class Cell():
         self.delBlock( idxOblock )
         
         self.logger.debug("before bond: {0} - {1}".format( idxBlock, block._bonds) )
+        if block == oblock:
+            self.logger.info("self-bondeded block: {0}".format( (idxBlock, idxAtom, idxOblock, idxOatom) ) )
         block.bondBlock( idxAtom, oblock, idxOatom )
         self.logger.debug("after bond: {0} - {1}".format( idxBlock, block._bonds) )
         
@@ -272,15 +274,11 @@ class Cell():
     
         # Here no atoms clash and we have a list of possible bonds - so bond'em!
         if len(bonds):
-            if len(bonds) > 1:
-                raise RuntimeError,"JENS FIX FOR MULTIPLE BONDS!!!"
-            # FIX _ JUST ONE BOND FOR NOW AS WE NEED TO THINK ABOUT DATA STRUCTURES
-            #for bond in bonds:
-            #    self.bondBlock(bond)
-            idxOblock, idxOatom, idxBlock, idxAtom = bonds[0]
-            self.bondBlock( idxOblock, idxOatom, idxBlock, idxAtom )
-            #self.logger.debug(  "Block after bond: {0}".format( block ) )
-            self.logger.info("Added bond: {}".format( bonds[0] ) )
+            for bond in bonds:
+                idxOblock, idxOatom, idxBlock, idxAtom = bond
+                self.bondBlock( idxOblock, idxOatom, idxBlock, idxAtom )
+                #self.logger.debug(  "Block after bond: {0}".format( block ) )
+                self.logger.info("Added bond: {}".format( bonds[0] ) )
         
         # Either got bonds or no clashes
         return True
@@ -711,6 +709,7 @@ class Cell():
             if ok:
                 self.numBlocks += 1
                 added+=1
+                self.logger.info("Added block {0} after {1} tries.".format( added, tries ) )
                 tries=0
             else:
                 tries+=1
