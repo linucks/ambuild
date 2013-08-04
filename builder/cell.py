@@ -12,6 +12,7 @@ import os
 import random
 import sys
 import unittest
+import xml.etree.ElementTree as ET
 
 # External modules
 import numpy
@@ -88,6 +89,7 @@ class Cell():
         
         # dictionary mapping id of the block to the block - can't use a list and indices
         # as we add and remove blocks and need to keep track of them
+        # NEED TO MAKE INTO AN ORDERED DICT
         self.blocks = {}
         
         self._setupLogging()
@@ -143,30 +145,6 @@ class Cell():
                 
         return idxBlock
     
-
-    def XbondBlock(self, bond):
-        """ Bond the second block to the first and update the data structures"""
-        
-        iblock, iatom, ioblock, ioatom = bond
-        block = self.blocks[iblock]
-        lenbcoords = len(block._coords)
-        oblock = self.blocks[ioblock]
-        block.bond( oblock, (iatom, ioatom) )
-        
-        # Update the cells of the new block - WRITE TEST!
-        #print self.box1
-        #print "iblock, ioblock ",iblock,ioblock
-        for icoord, key in enumerate(oblock.atomCell):
-            #print "CHECKING ",icoord,key
-            i = self.box1[key].index( ( ioblock, icoord )  )
-            #print "UPDATING INDEX ",i
-            # NEED TO UPDATE INDEX OF NEW COORD
-            self.box1[key][i] =  ( iblock, icoord+lenbcoords )
-        
-        del self.blocks[ioblock]
-        
-        return 
-    
     def bondBlock(self, idxBlock, idxAtom, idxOblock, idxOatom ):
         """ Bond the second block to the first and update the data structures
         
@@ -182,7 +160,9 @@ class Cell():
         self.delBlock( idxBlock )
         self.delBlock( idxOblock )
         
-        block.addBlock( idxAtom, oblock, idxOatom )
+        self.logger.debug("before bond: {0} - {1}".format( idxBlock, block._bonds) )
+        block.bondBlock( idxAtom, oblock, idxOatom )
+        self.logger.debug("after bond: {0} - {1}".format( idxBlock, block._bonds) )
         
         self.addBlock( block )
         
@@ -272,7 +252,7 @@ class Cell():
                     #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
                     
                     if ( bondAngle-bondAngleMargin < angle < bondAngle+bondAngleMargin ):
-                        bonds.append( (idxBlock, idxAtom, idxOblock, idxOatom) )
+                        bonds.append( (idxOblock, idxOatom, idxBlock, idxAtom, ) )
                     else:
                         self.logger.debug( "Cannot bond due to angle: {}".format(angle  * util.RADIANS2DEGREES) )
                         return False
@@ -297,9 +277,8 @@ class Cell():
             # FIX _ JUST ONE BOND FOR NOW AS WE NEED TO THINK ABOUT DATA STRUCTURES
             #for bond in bonds:
             #    self.bondBlock(bond)
-            idxBlock, idxAtom, idxOblock, idxOatom = bonds[0]
-            self.bondBlock( idxBlock, idxAtom, idxOblock, idxOatom )
-            block = self.blocks[ idxBlock ]
+            idxOblock, idxOatom, idxBlock, idxAtom = bonds[0]
+            self.bondBlock( idxOblock, idxOatom, idxBlock, idxAtom )
             #self.logger.debug(  "Block after bond: {0}".format( block ) )
             self.logger.info("Added bond: {}".format( bonds[0] ) )
         
@@ -570,7 +549,7 @@ class Cell():
     def fromXyz(self, xyzFile ):
         """ Read in an xyz file containing a cell and recreate the cell object"""
         
-        blocks = self._readXyz(xyzFile)
+        blocks = self._readXyz( xyzFile )
         # Need to initialise cell from first block
         initBlock = False
         for labels,coords in blocks:
@@ -665,6 +644,8 @@ class Cell():
         # Now add growBlock to the cell so we can check for clashes
         blockId = self.addBlock( growBlock )
         
+        #print "before checkmove ",self.blocks
+        
         # Check it doesn't clash
         if self.checkMove( blockId ):
             return True
@@ -716,7 +697,7 @@ class Cell():
         tries=0
         while added < toGrow:
             
-            if tries > maxTries:
+            if tries >= maxTries:
                 self.logger.critical("growNewBlocks - exceeded maxtries when joining blocks!" )
                 return False
             
@@ -745,12 +726,19 @@ class Cell():
         Also center the block in the cell
         """
         
-        ib = buildingBlock.Block()
-        ib.fromCarFile( inputFile )
+        ib = buildingBlock.Block( inputFile )
+        #ib.fromCarFile( inputFile )
         
         if incell:
             # Make sure it is positioned in the cell - if not keep moving it about randomly till
             # it fits
+            # Check there is enough space
+            if ib.radius() * 3 >= self.A[0] or ib.radius() * 3 >= self.B[1] or ib.radius() * 3 >= self.C[2]:
+                raise RuntimeError, "Cannot fit block with radius {0} into cell [{1}, {2}, {3}]!".format( ib.radius(),
+                                                                                                          self.A[0],
+                                                                                                          self.B[1],
+                                                                                                          self.C[2]
+                                                                                                           )
             while True:
                 self.logger.debug( "moving initblock" )
                 #print "{} | {} | {} | {}".format( ib.centroid()[0], ib.centroid()[1], ib.centroid()[2], ib.radius()  )
@@ -760,7 +748,7 @@ class Cell():
                    ib.centroid()[1] + ib.radius() > self.B[1] or \
                    ib.centroid()[2] - ib.radius() < 0 or \
                    ib.centroid()[2] + ib.radius() > self.C[2]:
-                    self.randomMoveBlock( ib, margin=ib.radius() )
+                    self.randomMoveBlock( ib, margin=ib.radius() / 2 )
                 else:
                     # Its in!
                     break
@@ -855,8 +843,11 @@ class Cell():
         """
         
         # Select a random block to bond to
+        #print "blocks is ",self.blocks
         idxStaticBlock = self.randomBlockId()
         staticBlock = self.blocks[ idxStaticBlock ]
+        
+        #print "static block is ", idxStaticBlock
         
         # pick random endgroup and contact in target
         idxStaticBlockEG = staticBlock.randomEndGroup()
@@ -868,7 +859,7 @@ class Cell():
         # pick random endGroup on the block we are attaching
         idxBlockEG = block.randomEndGroup()
         
-        self.logger.debug( "randomGrowblock calling _growBlock: {0}".format( (block, idxBlockEG, idxStaticBlock, idxStaticBlockEG) ) )
+        self.logger.debug( "randomGrowblock calling _growBlock: {0}".format( (id(block), idxBlockEG, idxStaticBlock, idxStaticBlockEG) ) )
         # now attach it
         return self._growBlock( block, idxBlockEG, idxStaticBlock, idxStaticBlockEG )
 
@@ -877,7 +868,6 @@ class Cell():
          If buffer is given, use this as a buffer from the edges of the cell
          when selecting the coord
         """
-        
         # Get _coords of random point in the cell
         if margin:
             x = random.uniform(margin,self.A[0]-margin)
@@ -1018,7 +1008,7 @@ class Cell():
         logger.setLevel(logging.DEBUG)
         
         # create file handler and set level to debug
-        fl = logging.FileHandler("ambuild.log")
+        fl = logging.FileHandler("ambuild.log", mode='w')
         fl.setLevel(logging.DEBUG)
         
         # create formatter for fl
@@ -1237,7 +1227,74 @@ class Cell():
             f.writelines( xyz )
             
         self.logger.info( "Wrote cell file: {0}".format(fpath) )
-    
+        
+    def XwriteHoomdXml(self, ofile ):
+        """Write out a HOOMD Blue XML file.
+        
+        
+        """
+        root = ET.Element('hoomd_xml')
+        config = ET.SubElement(root, "configuration", timestep="0")
+        
+        e = ET.SubElement(config, "box", Lx=str(self.A[0]), Ly=str(self.B[1]), Lz=str(self.C[2]) )
+        
+        angle=""
+        body="\n"
+        bond="\n"
+        diameter="\n"
+        mass="\n"
+        position="\n"
+        type="\n" # Need to have type separate from label
+        
+        blockCount=-1
+        for idxBlock, block in self.blocks.iteritems():
+            idxLastBlock=None
+            for i, coord in enumerate(block.iterCoord()):
+                 
+                diameter += "{0}\n".format( block.atomRadius( i ) )
+                position += "{0} {1} {2}\n".format( coord[0], coord[1], coord[2] )
+                mass += "{0}\n".format( block.atomMass( i ) )
+                type += "{0}\n".format( block.atomSymbol( i ) )
+                
+                # Each subBlock is a rigid body
+                idxThisBlock, idxData = block._dataMap[i]
+                if idxThisBlock != idxLastBlock:
+                    idxLastBlock = idxThisBlock
+                    blockCount+=1
+                    
+                body += "{0}\n".format( blockCount )
+                
+                # bonds
+                if block.isEndGroup( i ):
+                    print "END GROUP"
+                    bt = block.getBond( i )
+                    if bt:
+                        print "GOT BOND"
+                        (i1, i2) = bt
+                        bond += "{0}-{1} {2} {3}\n".format( block.atomSymbol(i1), block.atomSymbol(i2), i1, i2 )
+
+                
+        
+        e = ET.SubElement(config, "position" )
+        e.text = position
+        e = ET.SubElement(config, "diameter" )
+        e.text = diameter
+        e = ET.SubElement(config, "type" )
+        e.text = type
+        e = ET.SubElement(config, "mass" )
+        e.text = mass
+        e = ET.SubElement(config, "body" )
+        e.text = body
+        e = ET.SubElement(config, "bond" )
+        e.text = body
+        
+        tree = ET.ElementTree(root)
+        
+        #ET.dump(tree)
+        
+        #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
+        #tree.write( ofile )
+
     def __str__(self):
         """
         """
@@ -1269,7 +1326,7 @@ class Cell():
 class TestCell(unittest.TestCase):
     
     # Import only here as only needed for testing
-    import buildingBlock
+    #import block
 
     def makeCh4(self, cell):
         """Create a CH4 molecule for testing"""
@@ -1386,9 +1443,10 @@ class TestCell(unittest.TestCase):
             if not ok:
                 print "Failed to add block"
 
+        #cell.writeXyz("JENS.xyz")
         self.assertEqual(1,len(cell.blocks), "Growing blocks found {0} blocks".format( len(cell.blocks) ) )
-            
-        #cell.writeXyz("JENS.xyz", label=False)
+        
+        #cell.writeHoomdXml("hoomd.xml")
         
     def XtestRotateBlock(self):
         """Test we can add a block correctly"""
@@ -1450,7 +1508,7 @@ class TestCell(unittest.TestCase):
         
         bad = []
         for i,b in cell.blocks.iteritems():
-            for c in b._coords:
+            for c in b.iterCoord():
                 if ( 0-radius > c[0] > CELLA[0]+ radius ) or \
                    ( 0-radius > c[1] > CELLB[1]+ radius ) or \
                    ( 0-radius > c[2] > CELLC[2]+ radius ):
@@ -1479,12 +1537,12 @@ class TestCell(unittest.TestCase):
         block1_id = cell.addBlock(block1)
         
         block2=cell.initBlock.copy()
-        b2 = numpy.array([2.2,2.2,2.2], dtype=numpy.float64 )
+        b2 = numpy.array( [ 2.2, 2.2, 2.2 ], dtype=numpy.float64 )
         block2.translateCentroid( b2 )
         block2_id = cell.addBlock(block2)
         
         closeList =  cell.closeAtoms(block1_id)
-        refPairs = [(0, 3), (1, 3), (2, 3)] # Also used to check PBC
+        refPairs = [ (0, 3), (1, 3), (2, 3) ] # Also used to check PBC
         closePairs = []
         for iatom, ioblock, ioatom in closeList:
             closePairs.append( (iatom,ioatom) )
@@ -1540,7 +1598,7 @@ class TestCell(unittest.TestCase):
 #
 #        self.assertEqual(closePairs, [(0, 2), (1, 2), (3, 0), (3, 2), (4, 0), (4, 2)], "Periodic boundary: ".format(closePairs))
 
-    def testBonding(self):
+    def XtestBonding(self):
         
         cell = Cell( )
         cell.fromXyz("canBond_lab.xyz")
@@ -1575,7 +1633,7 @@ class TestCell(unittest.TestCase):
          (4, 1, 1), (1, 0, 0), (1, 0, 4), (1, 0, 1), (1, 4, 0), (1, 4, 4), (1, 4, 1), (1, 1, 0), (1, 1, 4), (1, 1, 1)]
         self.assertEqual(s, sb , "periodic: {0}".format( sb ) )
         
-    def XtestCloseDistance(self):
+    def testCloseDistance(self):
         """
         Test distance and close together
         """
@@ -1608,8 +1666,8 @@ class TestCell(unittest.TestCase):
             
         # Distance measured with Avogadro so it MUST be right...
         refd = 0.673354948616
-        distance = cell.distance(block1._coords[1], cell.blocks[block2_id]._coords[3])
-        self.assertAlmostEqual(refd,distance,12,"Closest atoms: {}".format(distance))
+        distance = cell.distance( block1.atomCoord(1), cell.blocks[ block2_id ].atomCoord(3) )
+        self.assertAlmostEqual( refd, distance, 12, "Closest atoms: {}".format(distance) )
 
 if __name__ == '__main__':
     """
