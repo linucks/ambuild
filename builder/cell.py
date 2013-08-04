@@ -1227,15 +1227,14 @@ class Cell():
             
         self.logger.info( "Wrote cell file: {0}".format(fpath) )
         
-    def XwriteHoomdXml(self, ofile ):
+    def writeHoomdXml(self, ofile ):
         """Write out a HOOMD Blue XML file.
-        
-        
         """
-        root = ET.Element('hoomd_xml')
-        config = ET.SubElement(root, "configuration", timestep="0")
         
-        e = ET.SubElement(config, "box", Lx=str(self.A[0]), Ly=str(self.B[1]), Lz=str(self.C[2]) )
+        root = ET.Element( 'hoomd_xml', version="1.4" )
+        config = ET.SubElement( root, "configuration", timestep="0" )
+        
+        e = ET.SubElement( config, "box", Lx=str(self.A[0]), Ly=str(self.B[1]), Lz=str(self.C[2]) )
         
         angle=""
         body="\n"
@@ -1245,35 +1244,37 @@ class Cell():
         position="\n"
         type="\n" # Need to have type separate from label
         
-        blockCount=-1
+        atomCount=0
+        fragCount=0
+        bonds = [] # list of tuples
         for idxBlock, block in self.blocks.iteritems():
-            idxLastBlock=None
-            for i, coord in enumerate(block.iterCoord()):
-                 
-                diameter += "{0}\n".format( block.atomRadius( i ) )
-                position += "{0} {1} {2}\n".format( coord[0], coord[1], coord[2] )
-                mass += "{0}\n".format( block.atomMass( i ) )
-                type += "{0}\n".format( block.atomSymbol( i ) )
+            
+            # Here we can add the bonds between fragments
+            for fbond in block._bonds:
+                s1 = block.atomSymbol( fbond[0] )
+                s2 = block.atomSymbol( fbond[1] )
+                bond += "{0}-{1} {2} {3}\n".format( s1, s2, fbond[0]+atomCount, fbond[1]+atomCount )
                 
-                # Each subBlock is a rigid body
-                idxThisBlock, idxData = block._dataMap[i]
-                if idxThisBlock != idxLastBlock:
-                    idxLastBlock = idxThisBlock
-                    blockCount+=1
+            for frag in block._fragments:
+                
+                for k, coord in enumerate( frag._coords ):
                     
-                body += "{0}\n".format( blockCount )
-                
-                # bonds
-                if block.isEndGroup( i ):
-                    print "END GROUP"
-                    bt = block.getBond( i )
-                    if bt:
-                        print "GOT BOND"
-                        (i1, i2) = bt
-                        bond += "{0}-{1} {2} {3}\n".format( block.atomSymbol(i1), block.atomSymbol(i2), i1, i2 )
+                    # Place coord in periodic box
+                    x = ( coord[0] % self.A[0] ) - ( self.A[0] / 2 )
+                    y = ( coord[1] % self.B[1] ) - ( self.B[1] / 2 )
+                    z = ( coord[2] % self.C[2] ) - ( self.C[2] / 2 )
 
-                
-        
+                    diameter += "{0}\n".format( frag._atomRadii[ k ] )
+                    #position += "{0} {1} {2}\n".format( coord[0], coord[1], coord[2] )
+                    position += "{0} {1} {2}\n".format( x, y, z )
+                    mass += "{0}\n".format( frag._masses[ k ] )
+                    type += "{0}\n".format( frag._symbols[ k ] )
+                    body += "{0}\n".format( fragCount )
+
+                    atomCount += 1
+                    
+                fragCount += 1
+
         e = ET.SubElement(config, "position" )
         e.text = position
         e = ET.SubElement(config, "diameter" )
@@ -1285,14 +1286,18 @@ class Cell():
         e = ET.SubElement(config, "body" )
         e.text = body
         e = ET.SubElement(config, "bond" )
-        e.text = body
+        e.text = bond
         
         tree = ET.ElementTree(root)
         
-        #ET.dump(tree)
+        ET.dump(tree)
         
         #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
-        #tree.write( ofile )
+        f = open(ofile,'w')
+        tree.write( ofile )
+        f.close()
+        
+        return
 
     def __str__(self):
         """
@@ -1667,6 +1672,24 @@ class TestCell(unittest.TestCase):
         refd = 0.673354948616
         distance = cell.distance( block1.atomCoord(1), cell.blocks[ block2_id ].atomCoord(3) )
         self.assertAlmostEqual( refd, distance, 12, "Closest atoms: {}".format(distance) )
+
+    def testWriteHoomdblueXml(self):
+        """
+        Test distance and close together
+        """
+        CELLA = 30
+        CELLB = 30
+        CELLC = 30
+        seedCount=10
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        added = cell.seed( seedCount, "../PAF_bb_typed.car" )
+        ok = cell.growNewBlocks(10, maxTries=10 )
+        
+        cell.writeHoomdXml("ambi_hoomd.xml")
+  
+
 
 if __name__ == '__main__':
     """
