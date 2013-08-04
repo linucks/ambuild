@@ -4,11 +4,15 @@
 """
 
 """
-from hoomd_script import *
 import math
+import sys
+
+from hoomd_script import *
+
+filename="hoomd.xml"
 
 # read in the file
-init.read_xml(filename="FOO.xml")
+init.read_xml(filename=filename)
 
 def calculateR0( ri, rj, chiI, chiJ, bondorder ):
     # precompute the equilibrium geometry
@@ -31,7 +35,7 @@ def calculateR0( ri, rj, chiI, chiJ, bondorder ):
 # example4.xml defines a single polymer: use the same force field as in example 3
 # force field setup
 harmonic = bond.harmonic()
-harmonic.set_coeff('water_h_o', k=330.0, r0=0.84)
+harmonic.bond_coeff.set('C-C', k=330.0, r0=5.84)
 
 if False:
     # dump every few steps
@@ -43,7 +47,9 @@ if False:
     integrate.nvt(group=all, T=1.2, tau=0.5)
     run(100)
 
-fire=integrate.mode_minimize_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
+#fire=integrate.mode_minimize_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
+fire=integrate.mode_minimize_rigid_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
+
 while not(fire.has_converged()):
-    xml = dump.mol2(filename="dump",period=1)
+    xml = dump.mol2(filename="dump",period=10)
     run(100)

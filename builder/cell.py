@@ -1687,7 +1687,7 @@ class TestCell(unittest.TestCase):
         added = cell.seed( seedCount, "../PAF_bb_typed.car" )
         ok = cell.growNewBlocks(10, maxTries=10 )
         
-        cell.writeHoomdXml("ambi_hoomd.xml")
+        cell.writeHoomdXml("hoomd.xml")
   
 
 
