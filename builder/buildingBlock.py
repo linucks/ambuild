@@ -32,12 +32,20 @@ class Bond(object):
     """An object to hold all info on a bond
     """
     def __init__(self):
+        
         self.block1 = None
         self.frag1 = None
-        self.atom1Idx = None
+        self.frag1atomIdx = None # fragment index 
+        self.frag1angleIdx = None
+        self.atom1Idx = None # index in whole block
+        self.angle1Idx = None
+        
         self.block2 = None
         self.frag2 = None
+        self.frag2atomIdx = None
+        self.frag2angleIdx = None
         self.atom2Idx = None
+        self.angle2Idx = None
         
     def __str__(self):
         """
@@ -48,10 +56,10 @@ class Bond(object):
         
         mystr += "block1: {0}\n".format( id(self.block1) )
         mystr += "frag1: {0}\n".format( self.frag1 )
-        mystr += "atomIdx1: {0}\n".format( self.atom1Idx )
+        mystr += "atomIdx1: {0}\n".format( self.frag1atomIdx )
         mystr += "block2: {0}\n".format( id(self.block2) )
         mystr += "frag2: {0}\n".format( self.frag2 )
-        mystr += "atomIdx2: {0} ]\n".format( self.atom2Idx )
+        mystr += "atomIdx2: {0} ]\n".format( self.frag2atomIdx )
         
         return mystr
 
@@ -97,10 +105,6 @@ class Block(object):
         self._dataMap = []
         
         # The list of all bonds in this block and all subblocks
-        self._allBonds = []
-        
-        # The indexes (ordered according to the _dataMap) of the atoms that are involved in bonds
-        # How to relate to the bonds if we want to add properties to bonds?
         self._bonds = []
         
         # The list of atoms that are endGroups and their corresponding angleAtoms
@@ -199,16 +203,20 @@ class Block(object):
         
         idxFrag1, idxAtomFrag1 = self._dataMap[ idxAtom1 ]
         frag1 = self._fragments[ idxFrag1 ]
+        
         idxFrag2, idxAtomFrag2 = addBlock._dataMap[ idxAtom2 ]
         frag2 = addBlock._fragments[ idxFrag2 ]
         
         bond = Bond()
         bond.block1 = self
         bond.frag1 = frag1
-        bond.atom1Idx = idxAtomFrag1
+        bond.frag1atomIdx = idxAtomFrag1
+        bond.frag1angleIdx = frag1.angleAtom( idxAtomFrag1 )
+        
         bond.block2 = addBlock
         bond.frag2 = frag2
-        bond.atom2Idx = idxAtomFrag2
+        bond.frag2atomIdx = idxAtomFrag2
+        bond.frag2angleIdx = frag2.angleAtom( idxAtomFrag2 )
         
         self._myBonds.append( bond )
          
@@ -321,17 +329,17 @@ class Block(object):
 
     def _getBonds(self):
         """Return all bonds for this block"""
-        self._allBonds = []
+        self._bonds = []
         for bond in self._myBonds:
             
             # First add the bonds to this block
-            self._allBonds.append( bond )
+            self._bonds.append( bond )
             
             # Then add the bonds in the bonded blocks - excluding those to ourselves
             if bond.block2 != self:
-                self._allBonds += bond.block2._getBonds()
+                self._bonds += bond.block2._getBonds()
             
-        return self._allBonds
+        return self._bonds
         
     def isEndGroup(self, idxAtom):
         """Return True if this atom is an endGroup - doesn't check if free"""
@@ -534,11 +542,11 @@ class Block(object):
         
         # get list of all fragments
         # recursively loop across all local bonds
-        self._allBonds = self._getBonds()
+        self._bonds = self._getBonds()
         
         # From the list of all bonds get a list of all blocks - excluding this one
         blocks = []
-        for bond in self._allBonds:
+        for bond in self._bonds:
             if bond.block2 not in blocks and bond.block2 != self:
                 blocks.append( bond.block2 )
         
@@ -576,22 +584,21 @@ class Block(object):
                 
                 count += 1
         
-        # Have dataMap so now get bonds
-        self._bonds = []
-        for bond in self._allBonds:
+        # Have dataMap so now set bond indices
+        for bond in self._bonds:
             
             idxFrag1 = self._fragments.index( bond.frag1 )
-            i1 = self._dataMap.index( (idxFrag1, bond.atom1Idx) )
+            bond.atom1Idx = self._dataMap.index( (idxFrag1, bond.frag1atomIdx) )
+            bond.angle1Idx = self._dataMap.index( (idxFrag1, bond.frag1angleIdx) )
             
             idxFrag2 = self._fragments.index( bond.frag2 )
-            i2 = self._dataMap.index( (idxFrag2, bond.atom2Idx) )
-            
-            self._bonds.append( (i1, i2) )
+            bond.atom2Idx = self._dataMap.index( (idxFrag2, bond.frag2atomIdx) )
+            bond.angle2Idx = self._dataMap.index( (idxFrag2, bond.frag2angleIdx) )
             
             # Remove these atoms from our endGroups
-            i = self._endGroups.index( i1 )
+            i = self._endGroups.index( bond.atom1Idx )
             self._endGroups.pop( i )
-            i = self._endGroups.index( i2 )
+            i = self._endGroups.index( bond.atom2Idx )
             self._endGroups.pop( i )
             
         
@@ -716,9 +723,9 @@ class TestBlock(unittest.TestCase):
         angleAtoms = [0, 0, 0, 0, 5, 5, 5, 5]
         self.assertEqual( angleAtoms, ch4_1._angleAtoms )
         
-        
-        bonds = [ (2, 8) ]
-        self.assertEqual( bonds, ch4_1._bonds )
+        ref_bonds = [ (2, 8) ]
+        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bonds ]
+        self.assertEqual( ref_bonds, bonds )
         
         return
     
@@ -744,8 +751,9 @@ class TestBlock(unittest.TestCase):
         angleAtoms = [0, 0, 0, 0, 5, 5, 5, 5, 10, 10, 10, 10]
         self.assertEqual( angleAtoms, ch4_1._angleAtoms )
         
-        bonds = [ (2, 8), (9, 11) ]
-        self.assertEqual( bonds, ch4_1._bonds )
+        ref_bonds = [ (2, 8), (9, 11) ]
+        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bonds ]
+        self.assertEqual( ref_bonds, bonds )
         
         return
 
@@ -753,7 +761,6 @@ class TestBlock(unittest.TestCase):
         """First pass"""
         
         
-        print "HELLO!"
         infile="../ch4.xyz"
         ch4_1 = Block( infile )
         ch4_2 = Block( infile )
@@ -773,8 +780,9 @@ class TestBlock(unittest.TestCase):
         angleAtoms = [0, 0, 0, 0, 5, 5, 5, 5]
         self.assertEqual( angleAtoms, ch4_1._angleAtoms )
          
-        bonds = [(1, 6), (2, 9)]
-        self.assertEqual( bonds, ch4_1._bonds )
+        ref_bonds = [ (1, 6), (2, 9) ]
+        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bonds ]
+        self.assertEqual( ref_bonds, bonds )
          
         return
 
