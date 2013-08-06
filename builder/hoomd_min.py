@@ -32,11 +32,18 @@ def calculateR0( ri, rj, chiI, chiJ, bondorder ):
 # Otherwise, this is equation 6 from the UFF paper.
 # kb = KCAL332 * parA.dVal[PAR_Z] * parB.dVal[PAR_Z] / (r0 * r0 * r0);
 
-# example4.xml defines a single polymer: use the same force field as in example 3
-# force field setup
-harmonic = bond.harmonic()
-harmonic.bond_coeff.set('C-C', k=330.0, r0=5.84)
+bharmonic = bond.harmonic()
+bharmonic.bond_coeff.set('C-C', k=330.0, r0=5.84)
 
+aharmonic = angle.harmonic()
+aharmonic.set_coeff('C-C-C', k=330.0, t0=math.pi)
+
+# simple lennard jones potential
+lj = pair.lj(r_cut=10.0)
+lj.pair_coeff.set('C', 'C', epsilon=0.15, sigma=4.00)
+lj.pair_coeff.set('C', 'H', epsilon=0.0055, sigma=3.00)
+lj.pair_coeff.set('H', 'H', epsilon=0.02, sigma=2.00)
+    
 if False:
     # dump every few steps
     dump.mol2(filename="jens_h2o.mol2", period=10)
@@ -48,9 +55,12 @@ if False:
     run(100)
 
 #fire=integrate.mode_minimize_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
-fire=integrate.mode_minimize_rigid_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
+fire = integrate.mode_minimize_rigid_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
 
-while not(fire.has_converged()):
-    #xml = dump.mol2(filename="dump",period=10)
-    xml = dump.dcd(filename="trajectory.dcd",period=10)
-    run(100)
+xml = dump.dcd(filename="trajectory.dcd",period=10)
+run(10000)
+
+# while not(fire.has_converged()):
+# #    #xml = dump.mol2(filename="dump",period=10)
+#     xml = dump.dcd(filename="trajectory.dcd",period=10)
+#     run(100)
