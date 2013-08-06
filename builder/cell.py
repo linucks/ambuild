@@ -1236,7 +1236,7 @@ class Cell():
         
         e = ET.SubElement( config, "box", Lx=str(self.A[0]), Ly=str(self.B[1]), Lz=str(self.C[2]) )
         
-        angle=""
+        angle="\n"
         body="\n"
         bond="\n"
         diameter="\n"
@@ -1246,14 +1246,15 @@ class Cell():
         
         atomCount=0
         fragCount=0
-        bonds = [] # list of tuples
         for idxBlock, block in self.blocks.iteritems():
             
             # Here we can add the bonds between fragments
             for fbond in block._bonds:
-                s1 = block.atomSymbol( fbond[0] )
-                s2 = block.atomSymbol( fbond[1] )
-                bond += "{0}-{1} {2} {3}\n".format( s1, s2, fbond[0]+atomCount, fbond[1]+atomCount )
+                s1 = block.atomSymbol( fbond.atom1Idx )
+                s2 = block.atomSymbol( fbond.atom2Idx )
+                sa = block.atomSymbol( fbond.angle1Idx )
+                bond += "{0}-{1} {2} {3}\n".format( s1, s2, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+                angle += "{0}-{1}-{2} {3} {4} {5}\n".format( sa, s1, s2, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
                 
             for frag in block._fragments:
                 
@@ -1264,8 +1265,9 @@ class Cell():
                     y = ( coord[1] % self.B[1] ) - ( self.B[1] / 2 )
                     z = ( coord[2] % self.C[2] ) - ( self.C[2] / 2 )
 
-                    diameter += "{0}\n".format( frag._atomRadii[ k ] )
-                    #position += "{0} {1} {2}\n".format( coord[0], coord[1], coord[2] )
+                    # For time being use zero so just under LJ potential & bond
+                    #diameter += "{0}\n".format( frag._atomRadii[ k ] )
+                    diameter += "{0}\n".format( 0.1 )
                     position += "{0} {1} {2}\n".format( x, y, z )
                     mass += "{0}\n".format( frag._masses[ k ] )
                     type += "{0}\n".format( frag._symbols[ k ] )
@@ -1287,6 +1289,8 @@ class Cell():
         e.text = body
         e = ET.SubElement(config, "bond" )
         e.text = bond
+        e = ET.SubElement(config, "angle" )
+        e.text = angle
         
         tree = ET.ElementTree(root)
         
@@ -1636,6 +1640,7 @@ class TestCell(unittest.TestCase):
         (0, 1, 1), (4, 0, 0), (4, 0, 4), (4, 0, 1), (4, 4, 0), (4, 4, 4), (4, 4, 1), (4, 1, 0), (4, 1, 4),
          (4, 1, 1), (1, 0, 0), (1, 0, 4), (1, 0, 1), (1, 4, 0), (1, 4, 4), (1, 4, 1), (1, 1, 0), (1, 1, 4), (1, 1, 1)]
         self.assertEqual(s, sb , "periodic: {0}".format( sb ) )
+        return
         
     def testCloseDistance(self):
         """
@@ -1672,6 +1677,8 @@ class TestCell(unittest.TestCase):
         refd = 0.673354948616
         distance = cell.distance( block1.atomCoord(1), cell.blocks[ block2_id ].atomCoord(3) )
         self.assertAlmostEqual( refd, distance, 12, "Closest atoms: {}".format(distance) )
+        
+        return
 
     def testWriteHoomdblueXml(self):
         """
@@ -1688,8 +1695,8 @@ class TestCell(unittest.TestCase):
         ok = cell.growNewBlocks(10, maxTries=10 )
         
         cell.writeHoomdXml("hoomd.xml")
-  
-
+        
+        return
 
 if __name__ == '__main__':
     """
