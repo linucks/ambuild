@@ -10,6 +10,7 @@ import logging
 import math
 import os
 import random
+import subprocess # only for the hoomd min hack
 import sys
 import unittest
 import xml.etree.ElementTree as ET
@@ -822,6 +823,144 @@ class Cell():
         self.logger.info("After joinBlocks numBlocks: {0} ({1})".format( len(self.blocks), self.numBlocks ) )
         
         return True
+    
+    def optimiseGeometry(self):
+        """A dirty filthy hack..."""
+        
+        hoomd_script="/Users/jmht/Documents/abbie/AMBI/ambuild/builder/hoomd_min.py"
+        pfile = "/Users/jmht/Documents/abbie/AMBI/ambuild/builder/positions.pkl"
+        
+        # Write out the xml file
+        self.writeHoomdXml(filename="hoomd.xml")
+        
+        # Run the script
+        subprocess.check_call( [ hoomd_script ] )
+        
+        # read back the positions
+        f = open( pfile, 'r' )
+        positions = cPickle.load( f )
+        f.close()
+
+        # Read back in the particle positions
+        atomCount=0
+        fragCount=0
+        for block in self.blocks.itervalues():
+            for frag in block._fragments:
+                for k in range( len(frag._coords) ):
+                    
+                    x, y, z  = positions[ atomCount ]
+                    
+                    # Place coords back in periodic box
+                    frag._coords[k][0] = x  + ( self.A[0] / 2 )
+                    frag._coords[k][1] = y  + ( self.B[1] / 2 )
+                    frag._coords[k][2] = z  + ( self.C[2] / 2 )
+
+                    atomCount += 1
+                    
+                fragCount += 1
+        
+        return
+    
+    def optimiseGeometryOneDay(self):
+        """Optimise the geometry with hoomdblue"""
+        
+        # First calculate number of atoms
+        natoms=0
+        for block in self.blocks.itervalues():
+            for frag in block._fragments:
+                natoms += len( frag._coords )
+        
+        system = init.create_empty( N=natoms, box=( self.A[0], self.B[1], self.C[2] ) )
+        
+        # Now add the particles
+        atomCount=0
+        fragCount=0
+        for block in self.blocks.itervalues():
+            
+            # Here we can add the bonds between fragments
+            for fbond in block._bonds:
+                s1 = block.atomSymbol( fbond.atom1Idx )
+                s2 = block.atomSymbol( fbond.atom2Idx )
+                sa = block.atomSymbol( fbond.angle1Idx )
+                system.bonds.add( "{0}-{1}".format( s1, s2), fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+                system.angles.add( "{0}-{1}-{2}".format( sa, s1, s2 ), fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+                
+            for frag in block._fragments:
+                
+                for k, coord in enumerate( frag._coords ):
+                    
+                    # Place coord in periodic box
+                    x = ( coord[0] % self.A[0] ) - ( self.A[0] / 2 )
+                    y = ( coord[1] % self.B[1] ) - ( self.B[1] / 2 )
+                    z = ( coord[2] % self.C[2] ) - ( self.C[2] / 2 )
+
+                    # For time being use zero so just under LJ potential & bond
+                    #diameter += "{0}\n".format( frag._atomRadii[ k ] )
+                    
+                    system.particles[ atomCount ].diameter = 0.0
+                    system.particles[ atomCount ].position = ( x, y, z )
+                    system.particles[ atomCount ].mass = frag._masses[ k ]
+                    system.particles[ atomCount ].type = frag._symbols[ k ]
+                    system.particles[ atomCount ].body = fragCount
+                    
+                    atomCount += 1
+                    
+                fragCount += 1
+        
+        # Now set up the simulation
+        bharmonic = bond.harmonic()
+        bharmonic.bond_coeff.set('C-C', k=330.0, r0=5.84)
+        
+        aharmonic = angle.harmonic()
+        aharmonic.set_coeff('C-C-C', k=330.0, t0=math.pi)
+        
+        # simple lennard jones potential
+        lj = pair.lj(r_cut=10.0)
+        lj.pair_coeff.set('C', 'C', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('C', 'H', epsilon=0.0055, sigma=3.00)
+        lj.pair_coeff.set('H', 'H', epsilon=0.02, sigma=2.00)
+        
+        #fire=integrate.mode_minimize_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
+        fire = integrate.mode_minimize_rigid_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
+        
+        # Run to completion
+        count = 0
+        failed=False
+        while not(fire.has_converged()):
+            #dcd = dump.dcd(filename="trajectory.dcd",period=100)
+            dcd = dump.dcd(filename="trajectory.dcd",period=100,unwrap_full=True,unwrap_rigid=True)
+            mol2 = dump.mol2(filename="trajectory",period=1000)
+            run(1000)
+            count += 1
+            if count > 20:
+                print "TOO MANY ITERATIONS!"
+                failed=True
+                break
+            
+        
+        # Check if done
+        if failed:
+            raise RuntimeError, "Failed to converge!"
+        
+        # Read back in the particle positions
+        atomCount=0
+        fragCount=0
+        for block in self.blocks.itervalues():
+            for frag in block._fragments:
+                for k in range( len(frag._coords) ):
+                    
+                    x, y, z  = system.particles[ atomCount ].position
+                    
+                    # Place coords back in periodic box
+                    frag._coords[k][0] = x  + ( self.A[0] / 2 )
+                    frag._coords[k][1] = y  + ( self.B[1] / 2 )
+                    frag._coords[k][2] = z  + ( self.C[2] / 2 )
+
+                    atomCount += 1
+                    
+                fragCount += 1
+                
+        return
         
     def randomBlockId(self,count=1):
         """Return count random block ids"""
@@ -1227,7 +1366,7 @@ class Cell():
             
         self.logger.info( "Wrote cell file: {0}".format(fpath) )
         
-    def writeHoomdXml(self, ofile ):
+    def writeHoomdXml(self, filename="hoomd.xml" ):
         """Write out a HOOMD Blue XML file.
         """
         
@@ -1294,12 +1433,12 @@ class Cell():
         
         tree = ET.ElementTree(root)
         
-        ET.dump(tree)
+        #ET.dump(tree)
         
         #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
-        f = open(ofile,'w')
-        tree.write( ofile )
-        f.close()
+        #f = open(ofile,'w')
+        tree.write( filename )
+        #f.close()
         
         return
 
@@ -1694,7 +1833,28 @@ class TestCell(unittest.TestCase):
         added = cell.seed( seedCount, "../PAF_bb_typed.car" )
         ok = cell.growNewBlocks(10, maxTries=10 )
         
-        cell.writeHoomdXml("hoomd.xml")
+        cell.writeHoomdXml( filename="hoomd.xml" )
+        cell.dump()
+        
+        return
+    
+    def testOptimiseGeometry(self):
+        """
+        Test distance and close together
+        """
+        CELLA = 30
+        CELLB = 30
+        CELLC = 30
+        seedCount=3
+        
+        cell = Cell()
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        added = cell.seed( seedCount, "../PAF_bb_typed.car" )
+        ok = cell.growNewBlocks(3, maxTries=10 )
+        
+        cell.dump()
+        cell.optimiseGeometry()
+        cell.dump()
         
         return
 
