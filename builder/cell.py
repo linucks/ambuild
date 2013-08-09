@@ -19,8 +19,9 @@ import xml.etree.ElementTree as ET
 import numpy
 
 # Our modules
-import util
 import buildingBlock
+#import hoomdblue
+import util
 
 class Cell():
     '''
@@ -77,7 +78,7 @@ class Cell():
         
         # max atom radius - used to calculate box size
         self.boxSize = None
-        self.maxAtomR=None
+        self.maxAtomRadius=-1
         self.blockMass = None # the mass of an individual block
         
         # number of boxes in A,B,C axes - used for calculating PBC
@@ -88,9 +89,13 @@ class Cell():
         # first block is kept separate as everything is built up from it
         self.initBlock = None
         
+        # NEW!
+        self.initBlocks = {} # blockType -> initBlock
+        self.bondTypes = []
+        
         # dictionary mapping id of the block to the block - can't use a list and indices
         # as we add and remove blocks and need to keep track of them
-        # NEED TO MAKE INTO AN ORDERED DICT
+        # MAKE INTO AN ORDERED DICT?
         self.blocks = {}
         
         self._setupLogging()
@@ -145,6 +150,38 @@ class Cell():
                 self.box3[ key ] = self.surroundBoxes( key )
                 
         return idxBlock
+    
+    def addBondType( self, bondtype ):
+        """what it says"""
+        
+        t = tuple( bondtype.split("-") )
+        
+        if len(t) != 2:
+            raise RuntimeError,"Error adding BondType {0} - string needs to be of form 'A-B'".format( t )
+        
+        if t in self.bondTypes:
+            raise RuntimeError,"Adding an existing bond type: {0}".format( t )
+        
+        self.bondTypes.append( t )
+        
+        return
+    
+    def addInitBlock( self, btype='A', filename="../PAF_bb_typed.car" ):
+        """add a block of type btype from the file filename"""
+        
+        # Create block from file
+        block = buildingBlock.Block( filename )
+        
+        # Place the block in the cell
+        self.positionInCell( block )
+        
+        # Add to initBlocks
+        self.initBlocks[ btype ] = block
+        
+        # Update cell parameters for this block
+        self.updateFromBlock( block )
+        
+        return
     
     def bondBlock(self, idxBlock, idxAtom, idxOblock, idxOatom ):
         """ Bond the second block to the first and update the data structures
@@ -719,42 +756,28 @@ class Cell():
         
         return True
 
-    def initCell(self,inputFile, incell=True):
+    def initCell( self, inputFile, incell=True ):
         """
         Read in the first block from the input file and save it
         as the initBlock
         Also center the block in the cell
         """
-        
-        ib = buildingBlock.Block( inputFile )
-        #ib.fromCarFile( inputFile )
-        
-        if incell:
-            # Make sure it is positioned in the cell - if not keep moving it about randomly till
-            # it fits
-            # Check there is enough space
-            if ib.radius() * 3 >= self.A[0] or ib.radius() * 3 >= self.B[1] or ib.radius() * 3 >= self.C[2]:
-                raise RuntimeError, "Cannot fit block with radius {0} into cell [{1}, {2}, {3}]!".format( ib.radius(),
-                                                                                                          self.A[0],
-                                                                                                          self.B[1],
-                                                                                                          self.C[2]
-                                                                                                           )
-            while True:
-                self.logger.debug( "moving initblock" )
-                #print "{} | {} | {} | {}".format( ib.centroid()[0], ib.centroid()[1], ib.centroid()[2], ib.radius()  )
-                if ib.centroid()[0] - ib.radius() < 0 or \
-                   ib.centroid()[0] + ib.radius() > self.A[0] or \
-                   ib.centroid()[1] - ib.radius() < 0 or \
-                   ib.centroid()[1] + ib.radius() > self.B[1] or \
-                   ib.centroid()[2] - ib.radius() < 0 or \
-                   ib.centroid()[2] + ib.radius() > self.C[2]:
-                    self.randomMoveBlock( ib, margin=ib.radius() / 2 )
-                else:
-                    # Its in!
-                    break
 
-        self.setInitBlock(ib)
-        self.logger.debug( "initCell - block radius: {0}".format( ib.radius() ) )
+        # Create block from file
+        block = buildingBlock.Block( inputFile )
+        
+        # Place the block in the cell
+        self.positionInCell( block )
+        
+        # Add to initBlocks
+        #self.initBlocks[ btype ] = block
+        self.initBlock = block
+        self.blockMass = block.mass()
+        
+        # Update cell parameters for this block
+        self.updateFromBlock( block )
+
+        self.logger.debug( "initCell - block radius: {0}".format( block.radius() ) )
         return
     
     def _joinBlocks(self):
@@ -824,7 +847,7 @@ class Cell():
         
         return True
     
-    def optimiseGeometry(self):
+    def optimiseGeometryHack(self):
         """A dirty filthy hack..."""
         
         hoomd_script="/Users/jmht/Documents/abbie/AMBI/ambuild/builder/hoomd_min.py"
@@ -861,107 +884,138 @@ class Cell():
         
         return
     
-    def optimiseGeometryOneDay(self):
-        """Optimise the geometry with hoomdblue"""
-        
-        # First calculate number of atoms
-        natoms=0
-        for block in self.blocks.itervalues():
-            for frag in block._fragments:
-                natoms += len( frag._coords )
-        
-        system = init.create_empty( N=natoms, box=( self.A[0], self.B[1], self.C[2] ) )
-        
-        # Now add the particles
-        atomCount=0
-        fragCount=0
-        for block in self.blocks.itervalues():
-            
-            # Here we can add the bonds between fragments
-            for fbond in block._bonds:
-                s1 = block.atomSymbol( fbond.atom1Idx )
-                s2 = block.atomSymbol( fbond.atom2Idx )
-                sa = block.atomSymbol( fbond.angle1Idx )
-                system.bonds.add( "{0}-{1}".format( s1, s2), fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
-                system.angles.add( "{0}-{1}-{2}".format( sa, s1, s2 ), fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
-                
-            for frag in block._fragments:
-                
-                for k, coord in enumerate( frag._coords ):
-                    
-                    # Place coord in periodic box
-                    x = ( coord[0] % self.A[0] ) - ( self.A[0] / 2 )
-                    y = ( coord[1] % self.B[1] ) - ( self.B[1] / 2 )
-                    z = ( coord[2] % self.C[2] ) - ( self.C[2] / 2 )
+#     def optimiseGeometry(self):
+#         """Optimise the geometry with hoomdblue"""
+#         
+#         # First calculate number of atoms
+#         natoms=0
+#         for block in self.blocks.itervalues():
+#             for frag in block._fragments:
+#                 natoms += len( frag._coords )
+#         
+#         system = hoomdblue.init.create_empty( N=natoms, box=( self.A[0], self.B[1], self.C[2] ) 
+# 
+# #      n_particle_types = 1,
+# #      n_bond_types = 0,
+# #      n_angle_types = 0,
+# 
+#         # Now add the particles
+#         atomCount=0
+#         fragCount=0
+#         for block in self.blocks.itervalues():
+#             
+#             # Here we can add the bonds between fragments
+#             for fbond in block._bonds:
+#                 s1 = block.atomSymbol( fbond.atom1Idx )
+#                 s2 = block.atomSymbol( fbond.atom2Idx )
+#                 sa = block.atomSymbol( fbond.angle1Idx )
+#                 system.bonds.add( "{0}-{1}".format( s1, s2), fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+#                 system.angles.add( "{0}-{1}-{2}".format( sa, s1, s2 ), fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+#                 
+#             for frag in block._fragments:
+#                 
+#                 for k, coord in enumerate( frag._coords ):
+#                     
+#                     # Place coord in periodic box
+#                     x = ( coord[0] % self.A[0] ) - ( self.A[0] / 2 )
+#                     y = ( coord[1] % self.B[1] ) - ( self.B[1] / 2 )
+#                     z = ( coord[2] % self.C[2] ) - ( self.C[2] / 2 )
+# 
+#                     # For time being use zero so just under LJ potential & bond
+#                     #diameter += "{0}\n".format( frag._atomRadii[ k ] )
+#                     
+#                     system.particles[ atomCount ].diameter = 0.0
+#                     system.particles[ atomCount ].position = ( x, y, z )
+#                     system.particles[ atomCount ].mass = frag._masses[ k ]
+#                     system.particles[ atomCount ].type = frag._symbols[ k ]
+#                     system.particles[ atomCount ].body = fragCount
+#                     
+#                     atomCount += 1
+#                     
+#                 fragCount += 1
+# 
+#         # Now set up the simulation
+#         bharmonic = hoomdblue.bond.harmonic()
+#         bharmonic.bond_coeff.set('C-C', k=330.0, r0=5.84)
+#         
+#         aharmonic = hoomdblue.angle.harmonic()
+#         aharmonic.set_coeff('C-C-C', k=330.0, t0=math.pi)
+#         
+#         # simple lennard jones potential
+#         lj = hoomdblue.pair.lj(r_cut=10.0)
+#         lj.pair_coeff.set('C', 'C', epsilon=0.15, sigma=4.00)
+#         lj.pair_coeff.set('C', 'H', epsilon=0.0055, sigma=3.00)
+#         lj.pair_coeff.set('H', 'H', epsilon=0.02, sigma=2.00)
+# 
+#         #fire=integrate.mode_minimize_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
+#         fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
+#         
+#         # Run to completion
+#         count = 0
+#         failed=False
+#         while not(fire.has_converged()):
+#             #dcd = dump.dcd(filename="trajectory.dcd",period=100)
+#             dcd = hoomdblue.dump.dcd(filename="trajectory.dcd",period=100,unwrap_full=True,unwrap_rigid=True)
+#             mol2 = hoomdblue.dump.mol2(filename="trajectory",period=1000)
+#             hoomdblue.run(1000)
+#             count += 1
+#             if count > 20:
+#                 print "TOO MANY ITERATIONS!"
+#                 failed=True
+#                 break
+#             
+#         
+#         # Check if done
+#         if failed:
+#             raise RuntimeError, "Failed to converge!"
+#         
+#         # Read back in the particle positions
+#         atomCount=0
+#         fragCount=0
+#         for block in self.blocks.itervalues():
+#             for frag in block._fragments:
+#                 for k in range( len(frag._coords) ):
+#                     
+#                     x, y, z  = system.particles[ atomCount ].position
+#                     
+#                     # Place coords back in periodic box
+#                     frag._coords[k][0] = x  + ( self.A[0] / 2 )
+#                     frag._coords[k][1] = y  + ( self.B[1] / 2 )
+#                     frag._coords[k][2] = z  + ( self.C[2] / 2 )
+# 
+#                     atomCount += 1
+#                     
+#                 fragCount += 1
+#                 
+#         return
 
-                    # For time being use zero so just under LJ potential & bond
-                    #diameter += "{0}\n".format( frag._atomRadii[ k ] )
-                    
-                    system.particles[ atomCount ].diameter = 0.0
-                    system.particles[ atomCount ].position = ( x, y, z )
-                    system.particles[ atomCount ].mass = frag._masses[ k ]
-                    system.particles[ atomCount ].type = frag._symbols[ k ]
-                    system.particles[ atomCount ].body = fragCount
-                    
-                    atomCount += 1
-                    
-                fragCount += 1
+    def positionInCell(self, block):
+        """Make sure the given block is positioned within the cell"""
         
-        # Now set up the simulation
-        bharmonic = bond.harmonic()
-        bharmonic.bond_coeff.set('C-C', k=330.0, r0=5.84)
+        bradius = block.radius()
         
-        aharmonic = angle.harmonic()
-        aharmonic.set_coeff('C-C-C', k=330.0, t0=math.pi)
-        
-        # simple lennard jones potential
-        lj = pair.lj(r_cut=10.0)
-        lj.pair_coeff.set('C', 'C', epsilon=0.15, sigma=4.00)
-        lj.pair_coeff.set('C', 'H', epsilon=0.0055, sigma=3.00)
-        lj.pair_coeff.set('H', 'H', epsilon=0.02, sigma=2.00)
-        
-        #fire=integrate.mode_minimize_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
-        fire = integrate.mode_minimize_rigid_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
-        
-        # Run to completion
-        count = 0
-        failed=False
-        while not(fire.has_converged()):
-            #dcd = dump.dcd(filename="trajectory.dcd",period=100)
-            dcd = dump.dcd(filename="trajectory.dcd",period=100,unwrap_full=True,unwrap_rigid=True)
-            mol2 = dump.mol2(filename="trajectory",period=1000)
-            run(1000)
-            count += 1
-            if count > 20:
-                print "TOO MANY ITERATIONS!"
-                failed=True
-                break
+        # Check there is enough space
+        if bradius * 3 >= self.A[0] or bradius * 3 >= self.B[1] or bradius * 3 >= self.C[2]:
+            raise RuntimeError, "Cannot fit block with radius {0} into cell [{1}, {2}, {3}]!".format( bradius,
+                                                                                                      self.A[0],
+                                                                                                      self.B[1],
+                                                                                                      self.C[2]
+                                                                                                       )
             
+        # get a range for x, y and z that would fit the block in the cell, pick random values within that
+        # and stick the block there
+        x = random.uniform( bradius+self.boxMargin, self.A[0]-bradius-self.boxMargin )
+        y = random.uniform( bradius+self.boxMargin, self.B[1]-bradius-self.boxMargin )
+        z = random.uniform( bradius+self.boxMargin, self.C[2]-bradius-self.boxMargin )
         
-        # Check if done
-        if failed:
-            raise RuntimeError, "Failed to converge!"
+        coord = numpy.array([x,y,z], dtype=numpy.float64 )
         
-        # Read back in the particle positions
-        atomCount=0
-        fragCount=0
-        for block in self.blocks.itervalues():
-            for frag in block._fragments:
-                for k in range( len(frag._coords) ):
-                    
-                    x, y, z  = system.particles[ atomCount ].position
-                    
-                    # Place coords back in periodic box
-                    frag._coords[k][0] = x  + ( self.A[0] / 2 )
-                    frag._coords[k][1] = y  + ( self.B[1] / 2 )
-                    frag._coords[k][2] = z  + ( self.C[2] / 2 )
-
-                    atomCount += 1
-                    
-                fragCount += 1
-                
+        block.translateCentroid( coord )
+        
+        self.logger.debug( "positionInCell block moved to: {0}".format( block.centroid() ) )
+        
         return
-        
+
     def randomBlockId(self,count=1):
         """Return count random block ids"""
         if count == 1:
@@ -1115,27 +1169,6 @@ class Cell():
         
         self.logger.info("After seed numBlocks: {0} ({1})".format( len(self.blocks), self.numBlocks ) )
         return self.numBlocks
-    # End seed
-    
-    def setInitBlock(self, block ):
-        """
-        Set the init block
-        """
-        self.maxAtomR=block.maxAtomRadius()
-        if self.maxAtomR <= 0:
-            raise RuntimeError,"Error setting initBlock"
-        
-        self.boxSize = ( self.maxAtomR * 2 ) + self.atomMargin
-        
-        #jmht - ceil or floor
-        self.numBoxA = int(math.ceil( self.A[0] / self.boxSize ) )
-        self.numBoxB = int(math.ceil( self.B[1] / self.boxSize ) )
-        self.numBoxC = int(math.ceil( self.C[2] / self.boxSize ) )
-        
-        self.blockMass = block.mass()
-        
-        self.initBlock = block
-        return
     
     def _setupLogging( self ):
         """
@@ -1316,7 +1349,33 @@ class Cell():
         
         return
         #End shimmy
-      
+
+    def updateFromBlock(self, block ):
+        """Update cell parameters from the block"""
+        
+        if block.maxAtomRadius <= 0:
+            raise RuntimeError,"Error updating cell from block"
+        
+        if block.maxAtomRadius() > self.maxAtomRadius:
+            self.maxAtomRadius = block.maxAtomRadius()
+            
+            # What happens to already added blocks if we call this after we've added them?
+            # Not sure so being safe...
+            if len( self.blocks ) > 0:
+                raise RuntimeError,"Adding initblock after blocks have been added - not sure what to do!"
+            
+            self.boxSize = ( self.maxAtomRadius * 2 ) + self.atomMargin
+            
+            #jmht - ceil or floor
+            self.numBoxA = int(math.ceil( self.A[0] / self.boxSize ) )
+            self.numBoxB = int(math.ceil( self.B[1] / self.boxSize ) )
+            self.numBoxC = int(math.ceil( self.C[2] / self.boxSize ) )
+            
+            # Need to think about how to handle mass with multiple blocks
+            #self.blockMass = block.mass()
+            
+        return
+
     def writePickle( self, fileName=None ):
         """Pickle ourselves"""
         
@@ -1500,7 +1559,25 @@ class TestCell(unittest.TestCase):
         paf = self.buildingBlock.Block()
         paf.fromCarFile("../PAF_bb_typed.car")
         return paf
+
+    def XtestBlockTypes(self):
+        """Test we can add a block correctly"""
         
+        CELLA = 30
+        CELLB = 30
+        CELLC = 30
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        
+        cell.addInitBlock( btype='A', filename="../PAF_bb_typed.car" )
+        cell.addBondType( 'A-A' )
+        
+        cell.seed( 1,  )
+        cell.writeXyz("1.xyz")
+        
+        return
+
     def XtestCellIO(self):
         """Check we can write out and then read in a cell
         """
@@ -1530,142 +1607,7 @@ class TestCell(unittest.TestCase):
         
         self.assertTrue( numpy.allclose( test_coord, cell.blocks[3]._coords[4], rtol=1e-9, atol=1e-9 ),
                          msg="Incorrect testCoordinate of cell.")
-        
-        
-    def testDistance(self):
-        """Test the distance under periodic boundary conditions"""
-        
-        CELLA = 10
-        CELLB = 10
-        CELLC = 10
-        
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        v1 = [ 2.46803012, 1.67131881, 1.96745421]
-        v2 = [ 1.07988345, 0.10567109, 1.64897769]
-        
-        nv1 = numpy.array( v1 )
-        nv2 = numpy.array( v2 )
-        
-        dc1 = cell.distance(nv1,nv2)
-        dn = numpy.linalg.norm(nv2-nv1)
-        self.assertEqual( dc1, dn, "Distance within cell:{} | {}".format(dc1,dn) )
-        
-        x = v2[0] + 2 * CELLA
-        y = v2[1] + 2 * CELLB
-        z = v2[2] + 2 * CELLC
-        nv2 = numpy.array([ x, y, z ])
-        dc2 = cell.distance(nv1,nv2)
-        self.assertAlmostEqual( dc1, dc2, 11,"Distance across multiple cells +ve: {} | {}".format(dc1,dc2) )
-        
-        x = v2[0] - 2 * CELLA
-        y = v2[1] - 2 * CELLB
-        z = v2[2] - 2 * CELLC
-        nv2 = numpy.array([ x, y, z ])
-        dc3 = cell.distance(nv1,nv2)
-        self.assertAlmostEqual( dc1, dc3, 11, "Distance across multiple cells -ve: {} | {}".format(dc1,dc3) )
-        
-        v1 = numpy.array([ 0.0, 0.0, 0.0 ])
-        v2 = numpy.array([ 0.0, 0.0, 8.0 ])
-        dc = cell.distance(v1,v2)
-        self.assertEqual( dc, 2.0, "Distance across boundary cell:{}".format(dc) )
-        
-    def testGrowBlock(self):
-        """Test we can add a block correctly"""
-        
-        CELLA = 30
-        CELLB = 30
-        CELLC = 30
-        
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        cell.seed( 1, "../PAF_bb_typed.car" )
-        #cell.writeXyz("JENS.xyz")
 
-        nblocks=10
-        for i in range( nblocks ):
-            ok = cell.randomGrowBlock( cell.initBlock.copy() )
-            #cell.writeXyz("JENS"+str(i)+".xyz")
-            if not ok:
-                print "Failed to add block"
-
-        #cell.writeXyz("JENS.xyz")
-        self.assertEqual(1,len(cell.blocks), "Growing blocks found {0} blocks".format( len(cell.blocks) ) )
-        
-        #cell.writeHoomdXml("hoomd.xml")
-        
-    def XtestRotateBlock(self):
-        """Test we can add a block correctly"""
-        
-        pass
-        
-        CELLA = 30
-        CELLB = 30
-        CELLC = 30
-        
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        cell.seed( 1, "../PAF_bb_typed.car" )
-        cell.writeXyz("1.xyz")
-        
-        block = cell.initBlock.copy()
-        iblockEndGroup = block.randomEndGroup()
-        blockEndGroup = block._coords[ iblockEndGroup ]
-        
-        iblockS = cell.blocks.keys()[0]
-        blockS = cell.blocks[ iblockS ]
-        iblockSEndGroup = blockS.randomEndGroup()
-        blockSEndGroup = blockS._coords[ iblockSEndGroup ]
-        
-        cell.positionGrowBlock(block, iblockEndGroup, iblockS, iblockSEndGroup)
-        
-        bid = cell.addBlock(block)
-        cell.writeXyz("2.xyz")
-        cell.delBlock(bid)
-        
-        axis = blockSEndGroup - blockEndGroup
-        center = blockSEndGroup
-        block.rotate( axis, math.pi*2, center=center)
-        
-        bid = cell.addBlock(block)
-        cell.writeXyz("3.xyz")
-        
-        
-    def testSeed(self):
-        """Test we can seed correctly"""
-        
-        
-        nblocks = 10
-        CELLA = 50
-        CELLB = 50
-        CELLC = 50
-        
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        #ch4 = self.makeCh4( cell )
-        cell.seed( nblocks, "../PAF_bb_typed.car" )
-        
-        self.assertEqual( nblocks, len(cell.blocks), "Incorrect number of cell blocks" )
-        
-        # Check no block is outside the unit cell
-        # We seed by the centroid so the edges could stick out by radius
-        #radius = ch4.radius()
-        radius = cell.initBlock.radius()
-        
-        bad = []
-        for i,b in cell.blocks.iteritems():
-            for c in b.iterCoord():
-                if ( 0-radius > c[0] > CELLA[0]+ radius ) or \
-                   ( 0-radius > c[1] > CELLB[1]+ radius ) or \
-                   ( 0-radius > c[2] > CELLC[2]+ radius ):
-                    
-                    bad.append( b )
-        
-        self.assertEqual( 0, len(bad), "Got {} blocks outside cell: {}".format( len(bad), bad ) )
-        
-        #cell.writeXyz("seedTest.xyz")
-        
     def testCloseAtoms(self):
         
         CELLA = 30
@@ -1745,42 +1687,6 @@ class TestCell(unittest.TestCase):
 #
 #        self.assertEqual(closePairs, [(0, 2), (1, 2), (3, 0), (3, 2), (4, 0), (4, 2)], "Periodic boundary: ".format(closePairs))
 
-    def XtestBonding(self):
-        
-        cell = Cell( )
-        cell.fromXyz("canBond_lab.xyz")
-        ib1 = cell.blocks.keys()[0]
-        ok = cell.checkMove(ib1)
-        #for b in cell.blocks.keys():
-        #    print cell.checkMove(b)
-
-    def testSurroundBoxes(self):
-        """
-        """
-        cell = Cell( )
-        cell.cellAxis( A=5, B=5, C=5 )
-        # box size=1 - need to set manually as not reading in a block
-        cell.maxAtomR = 0.5
-        cell.atomMargin = 0.0
-        
-        cell.boxSize = ( cell.maxAtomR * 2 ) + cell.atomMargin
-        cell.numBoxA = int(math.floor( cell.A[0] / cell.boxSize ) )
-        cell.numBoxB = int(math.floor( cell.B[1] / cell.boxSize ) )
-        cell.numBoxC = int(math.floor( cell.C[2] / cell.boxSize ) )
-        
-        s = [(2, 2, 2), (2, 2, 1), (2, 2, 3), (2, 1, 2), (2, 1, 1), (2, 1, 3), (2, 3, 2), (2, 3, 1), 
-         (2, 3, 3), (1, 2, 2), (1, 2, 1), (1, 2, 3), (1, 1, 2), (1, 1, 1), (1, 1, 3), (1, 3, 2),
-          (1, 3, 1), (1, 3, 3), (3, 2, 2), (3, 2, 1), (3, 2, 3), (3, 1, 2), (3, 1, 1), (3, 1, 3), 
-          (3, 3, 2), (3, 3, 1), (3, 3, 3)]
-        self.assertEqual(s, cell.surroundBoxes( (2,2,2) ), "in center")
-        
-        sb = cell.surroundBoxes( (0,0,0) )
-        s = [ (0, 0, 0), (0, 0, 4), (0, 0, 1), (0, 4, 0), (0, 4, 4), (0, 4, 1), (0, 1, 0), (0, 1, 4), 
-        (0, 1, 1), (4, 0, 0), (4, 0, 4), (4, 0, 1), (4, 4, 0), (4, 4, 4), (4, 4, 1), (4, 1, 0), (4, 1, 4),
-         (4, 1, 1), (1, 0, 0), (1, 0, 4), (1, 0, 1), (1, 4, 0), (1, 4, 4), (1, 4, 1), (1, 1, 0), (1, 1, 4), (1, 1, 1)]
-        self.assertEqual(s, sb , "periodic: {0}".format( sb ) )
-        return
-        
     def testCloseDistance(self):
         """
         Test distance and close together
@@ -1819,6 +1725,154 @@ class TestCell(unittest.TestCase):
         
         return
 
+    def testDistance(self):
+        """Test the distance under periodic boundary conditions"""
+        
+        CELLA = 10
+        CELLB = 10
+        CELLC = 10
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        
+        v1 = [ 2.46803012, 1.67131881, 1.96745421]
+        v2 = [ 1.07988345, 0.10567109, 1.64897769]
+        
+        nv1 = numpy.array( v1 )
+        nv2 = numpy.array( v2 )
+        
+        dc1 = cell.distance(nv1,nv2)
+        dn = numpy.linalg.norm(nv2-nv1)
+        self.assertEqual( dc1, dn, "Distance within cell:{} | {}".format(dc1,dn) )
+        
+        x = v2[0] + 2 * CELLA
+        y = v2[1] + 2 * CELLB
+        z = v2[2] + 2 * CELLC
+        nv2 = numpy.array([ x, y, z ])
+        dc2 = cell.distance(nv1,nv2)
+        self.assertAlmostEqual( dc1, dc2, 11,"Distance across multiple cells +ve: {} | {}".format(dc1,dc2) )
+        
+        x = v2[0] - 2 * CELLA
+        y = v2[1] - 2 * CELLB
+        z = v2[2] - 2 * CELLC
+        nv2 = numpy.array([ x, y, z ])
+        dc3 = cell.distance(nv1,nv2)
+        self.assertAlmostEqual( dc1, dc3, 11, "Distance across multiple cells -ve: {} | {}".format(dc1,dc3) )
+        
+        v1 = numpy.array([ 0.0, 0.0, 0.0 ])
+        v2 = numpy.array([ 0.0, 0.0, 8.0 ])
+        dc = cell.distance(v1,v2)
+        self.assertEqual( dc, 2.0, "Distance across boundary cell:{}".format(dc) )
+        
+    def testGrowBlock(self):
+        """Test we can add a block correctly"""
+        
+        CELLA = 30
+        CELLB = 30
+        CELLC = 30
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        cell.seed( 1, "../PAF_bb_typed.car" )
+        #cell.writeXyz("JENS.xyz")
+
+        nblocks=10
+        for i in range( nblocks ):
+            ok = cell.randomGrowBlock( cell.initBlock.copy() )
+            #cell.writeXyz("JENS"+str(i)+".xyz")
+            if not ok:
+                print "Failed to add block"
+
+        #cell.writeXyz("JENS.xyz")
+        self.assertEqual(1,len(cell.blocks), "Growing blocks found {0} blocks".format( len(cell.blocks) ) )
+        
+        #cell.writeHoomdXml("hoomd.xml")
+        
+        return
+    
+    def XtestOptimiseGeometry(self):
+        """
+        Test distance and close together
+        """
+        CELLA = 30
+        CELLB = 30
+        CELLC = 30
+        seedCount=3
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        added = cell.seed( seedCount, "../PAF_bb_typed.car" )
+        ok = cell.growNewBlocks(3, maxTries=10 )
+        
+        cell.dump()
+        cell.optimiseGeometry()
+        cell.dump()
+        
+        return
+    
+    def testSeed(self):
+        """Test we can seed correctly"""
+        
+        
+        nblocks = 10
+        CELLA = 50
+        CELLB = 50
+        CELLC = 50
+        
+        cell = Cell( )
+        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        #ch4 = self.makeCh4( cell )
+        cell.seed( nblocks, "../PAF_bb_typed.car" )
+        
+        self.assertEqual( nblocks, len(cell.blocks), "Incorrect number of cell blocks" )
+        
+        # Check no block is outside the unit cell
+        # We seed by the centroid so the edges could stick out by radius
+        #radius = ch4.radius()
+        radius = cell.initBlock.radius()
+        
+        bad = []
+        for i,b in cell.blocks.iteritems():
+            for c in b.iterCoord():
+                if ( 0-radius > c[0] > CELLA[0]+ radius ) or \
+                   ( 0-radius > c[1] > CELLB[1]+ radius ) or \
+                   ( 0-radius > c[2] > CELLC[2]+ radius ):
+                    
+                    bad.append( b )
+        
+        self.assertEqual( 0, len(bad), "Got {} blocks outside cell: {}".format( len(bad), bad ) )
+        
+        #cell.writeXyz("seedTest.xyz")
+        
+        return
+
+    def testSurroundBoxes(self):
+        """
+        """
+        cell = Cell( )
+        cell.cellAxis( A=5, B=5, C=5 )
+        # box size=1 - need to set manually as not reading in a block
+        cell.maxAtomRadius = 0.5
+        cell.atomMargin = 0.0
+        
+        cell.boxSize = ( cell.maxAtomRadius * 2 ) + cell.atomMargin
+        cell.numBoxA = int(math.floor( cell.A[0] / cell.boxSize ) )
+        cell.numBoxB = int(math.floor( cell.B[1] / cell.boxSize ) )
+        cell.numBoxC = int(math.floor( cell.C[2] / cell.boxSize ) )
+        
+        s = [(2, 2, 2), (2, 2, 1), (2, 2, 3), (2, 1, 2), (2, 1, 1), (2, 1, 3), (2, 3, 2), (2, 3, 1), 
+         (2, 3, 3), (1, 2, 2), (1, 2, 1), (1, 2, 3), (1, 1, 2), (1, 1, 1), (1, 1, 3), (1, 3, 2),
+          (1, 3, 1), (1, 3, 3), (3, 2, 2), (3, 2, 1), (3, 2, 3), (3, 1, 2), (3, 1, 1), (3, 1, 3), 
+          (3, 3, 2), (3, 3, 1), (3, 3, 3)]
+        self.assertEqual(s, cell.surroundBoxes( (2,2,2) ), "in center")
+        
+        sb = cell.surroundBoxes( (0,0,0) )
+        s = [ (0, 0, 0), (0, 0, 4), (0, 0, 1), (0, 4, 0), (0, 4, 4), (0, 4, 1), (0, 1, 0), (0, 1, 4), 
+        (0, 1, 1), (4, 0, 0), (4, 0, 4), (4, 0, 1), (4, 4, 0), (4, 4, 4), (4, 4, 1), (4, 1, 0), (4, 1, 4),
+         (4, 1, 1), (1, 0, 0), (1, 0, 4), (1, 0, 1), (1, 4, 0), (1, 4, 4), (1, 4, 1), (1, 1, 0), (1, 1, 4), (1, 1, 1)]
+        self.assertEqual(s, sb , "periodic: {0}".format( sb ) )
+        return
+        
     def testWriteHoomdblueXml(self):
         """
         Test distance and close together
@@ -1837,26 +1891,7 @@ class TestCell(unittest.TestCase):
         cell.dump()
         
         return
-    
-    def testOptimiseGeometry(self):
-        """
-        Test distance and close together
-        """
-        CELLA = 30
-        CELLB = 30
-        CELLC = 30
-        seedCount=3
-        
-        cell = Cell()
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        added = cell.seed( seedCount, "../PAF_bb_typed.car" )
-        ok = cell.growNewBlocks(3, maxTries=10 )
-        
-        cell.dump()
-        cell.optimiseGeometry()
-        cell.dump()
-        
-        return
+
 
 if __name__ == '__main__':
     """
