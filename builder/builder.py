@@ -26,9 +26,9 @@ OUTFILE3a = "afterShimmyP.xyz"
 # 35,10,10,10
 #
 #for paf: 4, 15, 15, 15
-CELLA = 30
-CELLB = 30
-CELLC = 30
+CELLA = 50
+CELLB = 50
+CELLC = 50
 
 
 # Create Cell and seed it with the blocks
@@ -40,8 +40,9 @@ mycell.addInitBlock( filename="../ch4_typed.car", fragmentType='B' )
 mycell.addBondType( 'A-B' )
 #mycell.addBondType( 'A-A' )
 
-mycell.seed( 5 )
-ok = mycell.growNewBlocks(30, maxTries=500 )
+mycell.seed( 10 )
+ok = mycell.growNewBlocks( 20, maxTries=500 )
+ok = mycell.joinBlocks( 10, maxTries=500 )
 
 mycell.dump()
 

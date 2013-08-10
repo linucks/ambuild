@@ -832,21 +832,43 @@ class Cell():
         
         FIX FOR fragmenTypes!
         """
-        idxMoveBlock = self.randomBlockId()
-        moveBlock = self.blocks[ idxMoveBlock ]
-        # pick random endGroup on the block we are attaching
-        idxMoveBlockEG = moveBlock.randomEndGroup()
+        
+        
+        
+        
+        
+        MAXCOUNT=30
+        count=0
+        while True:
+            
+            count += 1
+            if count > MAXCOUNT:
+                self.logger.debug( "_joinBlocks failed to find blocks after {0} moves".format( MAXCOUNT ) )
+                return False
+            
+            idxMoveBlock, idxMoveBlockEG = self.randomBlockEndGroupIdxs( fragmentType=None )
+            moveBlock = self.blocks[ idxMoveBlock ]
+            
+            fragType = moveBlock.atomFragType( idxMoveBlockEG )
+            res = self.randomBlockEndGroupIdxs( fragmentType=fragType )
+            if not res:
+                continue
+            
+            # It worked so get the block and check we've got something different
+            idxStaticBlock, idxStaticBlockEG = res
+            if idxStaticBlock != idxMoveBlock:
+                break
+            
+        staticBlock = self.blocks[ idxStaticBlock ]
         
         # Copy the original block so we can replace it if the join fails
         blockCopy = moveBlock.copy()
         
         # Remove from cell so we don't check against itself and pick a different out
         self.delBlock( idxMoveBlock )
-        
-        idxStaticBlock = self.randomBlockId( fragmentTypes=moveBlock._fragmentTypes )
-        staticBlock =  self.blocks[ idxStaticBlock ]
-        # pick random endgroup and contact in target
-        idxStaticBlockEG = staticBlock.randomEndGroup( fragmentTypes=moveBlock._fragmentTypes )
+
+        self.logger.debug( "_joinBlock calling _growBlock: {0} {1} {2} {3}".format( idxMoveBlock, idxMoveBlockEG, idxStaticBlock, idxStaticBlockEG) )
+        self.logger.debug( "endGroup types are: {0} {1}".format( moveBlock.atomFragType( idxMoveBlockEG ), staticBlock.atomFragType( idxStaticBlockEG ) ) )
         
         # now attach it
         ok = self._growBlock( moveBlock, idxMoveBlockEG, idxStaticBlock, idxStaticBlockEG )
@@ -1091,9 +1113,8 @@ class Cell():
 
         MAXCOUNT=30
         count=0
-        while count < MAXCOUNT:
+        while True:
             count+=1
-            
             if count > MAXCOUNT:
                 self.logger.info("randomBlockEndGroupIdxs could not find block after {0} tries".format(MAXCOUNT) )
                 return False
@@ -1108,7 +1129,6 @@ class Cell():
                 break
         
         return ( blockIdx, endGroupIdx )
-        
     
     def randomGrowBlock(self, block):
         """
