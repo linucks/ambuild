@@ -833,9 +833,9 @@ class Cell():
         FIX FOR fragmenTypes!
         """
         idxMoveBlock = self.randomBlockId()
-        if not idxMoveBlock:
-            return False
         moveBlock = self.blocks[ idxMoveBlock ]
+        # pick random endGroup on the block we are attaching
+        idxMoveBlockEG = moveBlock.randomEndGroup()
         
         # Copy the original block so we can replace it if the join fails
         blockCopy = moveBlock.copy()
@@ -844,24 +844,10 @@ class Cell():
         self.delBlock( idxMoveBlock )
         
         idxStaticBlock = self.randomBlockId( fragmentTypes=moveBlock._fragmentTypes )
-        if not idxStaticBlock:
-            self.addBlock( blockCopy )
-            return False
-        
         staticBlock =  self.blocks[ idxStaticBlock ]
-        
         # pick random endgroup and contact in target
         idxStaticBlockEG = staticBlock.randomEndGroup( fragmentTypes=moveBlock._fragmentTypes )
-        if not idxStaticBlockEG:
-            self.addBlock( blockCopy )
-            return False
         
-        # pick random endGroup on the block we are attaching
-        idxMoveBlockEG = moveBlock.randomEndGroup( fragmentTypes=staticBlock._fragmentTypes )
-        if not idxMoveBlockEG:
-            self.addBlock( blockCopy )
-            return False
-
         # now attach it
         ok = self._growBlock( moveBlock, idxMoveBlockEG, idxStaticBlock, idxStaticBlockEG )
         
@@ -1089,6 +1075,40 @@ class Cell():
             return blockIdxs[ 0 ]
         else:
             return blockIdxs
+        
+    
+    def randomBlockEndGroupIdxs(self, fragmentType=None ):
+        """Return a the index of a random block and a random endGroup index.
+        If fragmentType is given, make sure the block/endGroup can bond to a fragment
+        of the given type."""
+        
+        if not fragmentType:
+            # Don't care so just return anything
+            blockIdx = self.randomBlockId()
+            block = self.blocks[ blockIdx ]
+            endGroupIdx = block.randomEndGroup()
+            return ( blockIdx, endGroupIdx )
+
+        MAXCOUNT=30
+        count=0
+        while count < MAXCOUNT:
+            count+=1
+            
+            if count > MAXCOUNT:
+                self.logger.info("randomBlockEndGroupIdxs could not find block after {0} tries".format(MAXCOUNT) )
+                return False
+            
+            blockIdx = self.randomBlockId()
+            block = self.blocks[ blockIdx ]
+            endGroupIdx = block.randomEndGroup()
+            fragType = block.atomFragType( endGroupIdx )
+        
+            # Find what this can bond go
+            if fragType in self.allowedFragTypes( fragmentType ):
+                break
+        
+        return ( blockIdx, endGroupIdx )
+        
     
     def randomGrowBlock(self, block):
         """
@@ -1098,51 +1118,17 @@ class Cell():
         
         # Select a random block to bond to - make sure that the given selected block
         # can bond to the block we were given
-        MAXCOUNT=30
-        count=0
-        allowedFrags = []
-        while count < MAXCOUNT:
-            count+=1
-            
-            if count > MAXCOUNT:
-                self.logger.info("randomGrowBlock could not find block after {0} tries".format(MAXCOUNT) )
-                return False
-            
-            idxStaticBlock = self.randomBlockId()
-            staticBlock = self.blocks[ idxStaticBlock ]
-            idxStaticBlockEG = staticBlock.randomEndGroup()
-            fragType = staticBlock.atomFragType( idxStaticBlockEG )
+        # Could loop here for different endGroups
+        idxBlockEG = block.randomEndGroup()
+        fragType = block.atomFragType( idxBlockEG )
+        res = self.randomBlockEndGroupIdxs( fragmentType=fragType )
+        if not res:
+            return False
         
-            # Find what this can bond go
-            allowedFrags = self.allowedFragTypes( fragType )
-            got=False
-            for f in block._fragmentTypes:
-                if f in allowedFrags:
-                    got=True
-                    break
-            if got:
-                break
+        # unpack tuple
+        idxStaticBlock, idxStaticBlockEG = res
+        staticBlock = self.blocks[ idxStaticBlock ] # just for printing
         
-        #self.logger.debug( "initBlock: {0}".format(self.initBlock))
-        #self.logger.debug( "static block: {0}".format(staticBlock))
-        #self.logger.debug( "block: {0}".format(block))
-        
-        # pick random endGroup on the block we are attaching
-        count=0
-        idxBlockEG = None
-        while count < MAXCOUNT:
-            count+=1
-            
-            if count > MAXCOUNT:
-                
-                self.logger.info("randomGrowBlock could not find endGroup to bond to after {0} tries".format(MAXCOUNT) )
-                return False
-
-            idxBlockEG = block.randomEndGroup()
-            fragType = block.atomFragType( idxBlockEG )
-            if fragType not in allowedFrags:
-                continue
-    
         self.logger.debug( "randomGrowblock calling _growBlock: {0}".format( (id(block), idxBlockEG, idxStaticBlock, idxStaticBlockEG) ) )
         self.logger.debug( "endGroup types are: {0} {1}".format( block.atomFragType( idxBlockEG ), staticBlock.atomFragType( idxStaticBlockEG ) ) )
         # now attach it

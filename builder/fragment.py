@@ -30,7 +30,7 @@ class Fragment(object):
     classdocs
     '''
 
-    def __init__( self, infile=None ):
+    def __init__( self, filename=None, fragmentType=None ):
         '''
         Constructor
         '''
@@ -56,6 +56,9 @@ class Fragment(object):
         # A list of block, endGroup indices of the atoms that are _endGroups
         self._endGroups = []
         
+        # The type this fragment is (for bonding checks)
+        self._fragmentType = fragmentType
+        
         # Holds the center of mass for the combined block
         self._centerOfMass = numpy.zeros( 3 )
         
@@ -75,13 +78,13 @@ class Fragment(object):
         # need to be changed
         self._changed = True
         
-        if infile:
-            if infile.endswith(".car"):
-                self.fromCarFile( infile )
-            elif infile.endswith(".xyz"):
-                self.fromXyzFile( infile )
+        if filename:
+            if filename.endswith(".car"):
+                self.fromCarFile( filename )
+            elif filename.endswith(".xyz"):
+                self.fromXyzFile( filename )
             else:
-                raise RuntimeError("Unrecognised file suffix: {}".format(infile) )
+                raise RuntimeError("Unrecognised file suffix: {}".format(filename) )
 
     def angleAtom(self, endGroup ):
         """Return the index of the angleAtom for this endGroup"""

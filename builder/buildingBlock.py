@@ -474,20 +474,7 @@ class Block(object):
 
     def randomEndGroup( self, fragmentTypes=None ):
         """Randomly select at atom that is an endGroup - return index in global array"""
-        
-        MAXCOUNT=50 # to make sure we don't loop forever...
-        count=0
-        while count < MAXCOUNT:
-            count += 1
-            if count > MAXCOUNT:
-                return False
-            
-            endGroupIdx = random.choice( self._endGroups )
-            if fragmentTypes:
-                if not self.atomFragType( endGroupIdx ) in fragmentTypes:
-                    continue
-                
-            return endGroupIdx
+        return random.choice( self._endGroups )
 
     def randomRotate( self, origin=[0,0,0], atOrigin=False ):
         """Randomly rotate a block.
