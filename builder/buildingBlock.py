@@ -85,13 +85,13 @@ class Block(object):
     
     '''
 
-    def __init__( self, infile=None ):
+    def __init__( self, filename=None, fragmentType=None ):
         '''
         Constructor
         '''
         
         # The root (original) fragment
-        self._rootFragment = fragment.Fragment( infile=infile )
+        self._rootFragment = fragment.Fragment( filename=filename, fragmentType=fragmentType )
         
         # List of all the direct bonds to this atom
         self._myBonds = []
@@ -100,6 +100,9 @@ class Block(object):
         
         # List of the fragments contained in this one
         self._fragments = []
+        
+        # List of the different fragmentTypes contained in this block
+        self._fragmentTypes = []
         
         # list of tuples of ( idFrag, idxData )
         self._dataMap = []
@@ -174,6 +177,11 @@ class Block(object):
         #return self._angleAtoms[ self._endGroups.index( idxAtom ) ]
         idxAngleAtom = self._angleAtoms[ self._endGroups.index( idxAtom ) ]
         return self.atomCoord( idxAngleAtom )
+    
+    def atomFragType(self, idxAtom ):
+        """The type of the fragment that this atom belongs to."""
+        idxFrag, idxData = self._dataMap[ idxAtom ]
+        return self._fragments[ idxFrag ]._fragmentType
     
     def atomCoord(self, idxAtom ):
         idxFrag, idxData = self._dataMap[ idxAtom ]
@@ -341,6 +349,10 @@ class Block(object):
             
         return self._bonds
         
+    def hasFragmentType(self, fragmentType ):
+        """Return True if this atom is an endGroup - doesn't check if free"""
+        return fragmentType in self._fragmentTypes
+    
     def isEndGroup(self, idxAtom):
         """Return True if this atom is an endGroup - doesn't check if free"""
         return idxAtom in self._endGroups
@@ -460,9 +472,22 @@ class Block(object):
         
         return self._radius
 
-    def randomEndGroup(self):
+    def randomEndGroup( self, fragmentTypes=None ):
         """Randomly select at atom that is an endGroup - return index in global array"""
-        return random.choice( self._endGroups )
+        
+        MAXCOUNT=50 # to make sure we don't loop forever...
+        count=0
+        while count < MAXCOUNT:
+            count += 1
+            if count > MAXCOUNT:
+                return False
+            
+            endGroupIdx = random.choice( self._endGroups )
+            if fragmentTypes:
+                if not self.atomFragType( endGroupIdx ) in fragmentTypes:
+                    continue
+                
+            return endGroupIdx
 
     def randomRotate( self, origin=[0,0,0], atOrigin=False ):
         """Randomly rotate a block.
@@ -561,12 +586,16 @@ class Block(object):
         self._dataMap = []
         self._endGroups = []
         self._angleAtoms = []
+        self._fragmentTypes = []
         count=0
         for i, fragment in enumerate( self._fragments ):
             
             maxr = fragment.maxAtomRadius()
             if maxr > self._maxAtomRadius:
                 self._maxAtomRadius = maxr
+            
+            if fragment._fragmentType not in self._fragmentTypes:
+                self._fragmentTypes.append( fragment._fragmentType )
                 
             for j in range( len(fragment._coords) ):
                 

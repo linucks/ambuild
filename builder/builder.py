@@ -35,6 +35,19 @@ CELLC = 30
 mycell = cell.Cell( atomMargin=0.1, boxMargin=0.1, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
 mycell.cellAxis( CELLA, CELLB, CELLC )
 
+mycell.addInitBlock( filename="../PAF_bb_typed.car", fragmentType='A' )
+mycell.addInitBlock( filename="../ch4_typed.car", fragmentType='B' )
+mycell.addBondType( 'A-B' )
+#mycell.addBondType( 'A-A' )
+
+mycell.seed( 5 )
+ok = mycell.growNewBlocks(30, maxTries=500 )
+
+mycell.dump()
+
+
+sys.exit(0)
+
 seedCount=1
 added = mycell.seed( seedCount, INFILE )
 print "Added {0} blocks".format(added)
