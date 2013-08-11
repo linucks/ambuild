@@ -20,7 +20,7 @@ import numpy
 
 # Our modules
 import buildingBlock
-#import hoomdblue
+import hoomdblue
 import util
 
 class Cell():
@@ -60,9 +60,10 @@ class Cell():
         self.boxMargin = boxMargin
         
         # The acceptable bond angle
-        self.bondAngle = bondAngle
-        
-        self.bondAngleMargin = bondAngleMargin
+        # convert bondAngle and bondMargin to angstroms
+        # Could check values are in degrees and not radians?
+        self.bondAngle = bondAngle/ util.RADIANS2DEGREES
+        self.bondAngleMargin = bondAngleMargin / util.RADIANS2DEGREES
         
         self.targetDensity = 10
         self.targetEndGroups = 100 # number of free endgroups left
@@ -290,11 +291,6 @@ class Cell():
             # Nothing to see so move along
             return True
         
-        # convert bondAngle and bondMargin to angstroms
-        # THIS NEEDS TO MOVE!
-        bondAngleMargin = self.bondAngleMargin / util.RADIANS2DEGREES
-        bondAngle = self.bondAngle / util.RADIANS2DEGREES
-        
         # Get the block1
         block1 = self.blocks[idxBlock1]
         
@@ -331,7 +327,7 @@ class Cell():
                     angle = util.angle( angleAtom, coord1, coord2 )
                     #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
                     
-                    if ( bondAngle-bondAngleMargin < angle < bondAngle+bondAngleMargin ):
+                    if ( self.bondAngle-self.bondAngleMargin < angle < self.bondAngle+self.bondAngleMargin ):
                         bonds.append( ( idxBlock1, idxAtom1, idxBlock2, idxAtom2 ) )
                     else:
                         self.logger.debug( "Cannot bond due to angle: {}".format(angle  * util.RADIANS2DEGREES) )
@@ -713,7 +709,6 @@ class Cell():
         Position growBlock so it can bond to blockS, using the given _endGroups
         
         Arguments:
-
         
         We take responsibility for adding and removing the growBlock from the cell on 
         success or failure
@@ -726,10 +721,11 @@ class Cell():
         # Now add growBlock to the cell so we can check for clashes
         blockId = self.addBlock( growBlock )
         
-        #print "before checkmove ",self.blocks
+        print "before checkmove ",self.blocks
         
         # Check it doesn't clash
         if self.checkMove( blockId ):
+            print "after checkmove ",self.blocks
             return True
         
         # Didn't work so try rotating the growBlock about the bond to see if that lets it fit
@@ -951,27 +947,24 @@ class Cell():
                 fragCount += 1
         
         return
-    
-#     def optimiseGeometry(self):
-#         """Optimise the geometry with hoomdblue"""
-#         
+
+#
+# Below can't be used yet as HOODBlue currently can't set paticle types from python so we use the xml file
+#
+#     def optimiseGeometryFOO(self):
 #         # First calculate number of atoms
 #         natoms=0
 #         for block in self.blocks.itervalues():
 #             for frag in block._fragments:
 #                 natoms += len( frag._coords )
-#         
-#         system = hoomdblue.init.create_empty( N=natoms, box=( self.A[0], self.B[1], self.C[2] ) 
-# 
-# #      n_particle_types = 1,
-# #      n_bond_types = 0,
-# #      n_angle_types = 0,
-# 
+#          
+#         system = hoomdblue.init.create_empty( N=natoms, box=( self.A[0], self.B[1], self.C[2] ), n_particle_types = 2, n_bond_types = 2, n_angle_types=1 )
+#  
 #         # Now add the particles
 #         atomCount=0
 #         fragCount=0
 #         for block in self.blocks.itervalues():
-#             
+#              
 #             # Here we can add the bonds between fragments
 #             for fbond in block._bonds:
 #                 s1 = block.atomSymbol( fbond.atom1Idx )
@@ -979,83 +972,94 @@ class Cell():
 #                 sa = block.atomSymbol( fbond.angle1Idx )
 #                 system.bonds.add( "{0}-{1}".format( s1, s2), fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
 #                 system.angles.add( "{0}-{1}-{2}".format( sa, s1, s2 ), fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
-#                 
+#                  
 #             for frag in block._fragments:
-#                 
+#                  
 #                 for k, coord in enumerate( frag._coords ):
-#                     
+#                      
 #                     # Place coord in periodic box
 #                     x = ( coord[0] % self.A[0] ) - ( self.A[0] / 2 )
 #                     y = ( coord[1] % self.B[1] ) - ( self.B[1] / 2 )
 #                     z = ( coord[2] % self.C[2] ) - ( self.C[2] / 2 )
-# 
+#  
 #                     # For time being use zero so just under LJ potential & bond
 #                     #diameter += "{0}\n".format( frag._atomRadii[ k ] )
-#                     
+#                      
 #                     system.particles[ atomCount ].diameter = 0.0
 #                     system.particles[ atomCount ].position = ( x, y, z )
 #                     system.particles[ atomCount ].mass = frag._masses[ k ]
+#                     print "dotype ",frag._symbols[ k ]
 #                     system.particles[ atomCount ].type = frag._symbols[ k ]
 #                     system.particles[ atomCount ].body = fragCount
-#                     
+#                      
 #                     atomCount += 1
-#                     
+#                      
 #                 fragCount += 1
-# 
-#         # Now set up the simulation
-#         bharmonic = hoomdblue.bond.harmonic()
-#         bharmonic.bond_coeff.set('C-C', k=330.0, r0=5.84)
-#         
-#         aharmonic = hoomdblue.angle.harmonic()
-#         aharmonic.set_coeff('C-C-C', k=330.0, t0=math.pi)
-#         
-#         # simple lennard jones potential
-#         lj = hoomdblue.pair.lj(r_cut=10.0)
-#         lj.pair_coeff.set('C', 'C', epsilon=0.15, sigma=4.00)
-#         lj.pair_coeff.set('C', 'H', epsilon=0.0055, sigma=3.00)
-#         lj.pair_coeff.set('H', 'H', epsilon=0.02, sigma=2.00)
-# 
-#         #fire=integrate.mode_minimize_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
-#         fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
-#         
-#         # Run to completion
-#         count = 0
-#         failed=False
-#         while not(fire.has_converged()):
-#             #dcd = dump.dcd(filename="trajectory.dcd",period=100)
-#             dcd = hoomdblue.dump.dcd(filename="trajectory.dcd",period=100,unwrap_full=True,unwrap_rigid=True)
-#             mol2 = hoomdblue.dump.mol2(filename="trajectory",period=1000)
-#             hoomdblue.run(1000)
-#             count += 1
-#             if count > 20:
-#                 print "TOO MANY ITERATIONS!"
-#                 failed=True
-#                 break
-#             
-#         
-#         # Check if done
-#         if failed:
-#             raise RuntimeError, "Failed to converge!"
-#         
-#         # Read back in the particle positions
-#         atomCount=0
-#         fragCount=0
-#         for block in self.blocks.itervalues():
-#             for frag in block._fragments:
-#                 for k in range( len(frag._coords) ):
-#                     
-#                     x, y, z  = system.particles[ atomCount ].position
-#                     
-#                     # Place coords back in periodic box
-#                     frag._coords[k][0] = x  + ( self.A[0] / 2 )
-#                     frag._coords[k][1] = y  + ( self.B[1] / 2 )
-#                     frag._coords[k][2] = z  + ( self.C[2] / 2 )
-# 
-#                     atomCount += 1
-#                     
-#                 fragCount += 1
-#                 
-#         return
+    
+    def optimiseGeometry(self):
+        """Optimise the geometry with hoomdblue"""
+        
+        xmlFilename = "hoomd.xml"
+        
+        # Write out the xml file
+        self.writeHoomdXml( filename=xmlFilename )
+        
+        # Init the sytem from the file
+        system = hoomdblue.init.read_xml( filename=xmlFilename )
+        
+        # Now set up the simulation
+        bharmonic = hoomdblue.bond.harmonic()
+        bharmonic.bond_coeff.set('C-C', k=330.0, r0=1.54)
+          
+        aharmonic = hoomdblue.angle.harmonic()
+        aharmonic.set_coeff('C-C-C', k=330.0, t0=math.pi)
+          
+        # simple lennard jones potential
+        lj = hoomdblue.pair.lj(r_cut=10.0)
+        lj.pair_coeff.set('C', 'C', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('C', 'H', epsilon=0.0055, sigma=3.00)
+        lj.pair_coeff.set('H', 'H', epsilon=0.02, sigma=2.00)
+ 
+        #fire=integrate.mode_minimize_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
+        fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
+         
+        # Run to completion
+        count = 0
+        failed=False
+        while not(fire.has_converged()):
+            #dcd = dump.dcd(filename="trajectory.dcd",period=100)
+            dcd = hoomdblue.dump.dcd(filename="trajectory.dcd",period=100,unwrap_full=True,unwrap_rigid=True)
+            mol2 = hoomdblue.dump.mol2(filename="trajectory",period=1000)
+            hoomdblue.run(1000)
+            count += 1
+            if count > 20:
+                print "TOO MANY ITERATIONS!"
+                failed=True
+                break
+         
+        # Check if done
+        if failed:
+            raise RuntimeError, "Failed to converge!"
+         
+        # Read back in the particle positions
+        atomCount=0
+        fragCount=0
+        for block in self.blocks.itervalues():
+            for frag in block._fragments:
+                for k in range( len(frag._coords) ):
+                     
+                    x, y, z  = system.particles[ atomCount ].position
+                     
+                    # Place coords back in periodic box
+                    frag._coords[k][0] = x  + ( self.A[0] / 2 )
+                    frag._coords[k][1] = y  + ( self.B[1] / 2 )
+                    frag._coords[k][2] = z  + ( self.C[2] / 2 )
+ 
+                    atomCount += 1
+                     
+                fragCount += 1
+                 
+        return
 
     def positionInCell(self, block):
         """Make sure the given block is positioned within the cell"""
@@ -1467,7 +1471,9 @@ class Cell():
             if len( self.blocks ) > 0:
                 raise RuntimeError,"Adding initblock after blocks have been added - not sure what to do!"
             
-            self.boxSize = ( self.maxAtomRadius * 2 ) + self.atomMargin
+            self.boxSize = ( self.maxAtomRadius * 2 ) + self.boxMargin
+            
+            print "set boxSize ",self.maxAtomRadius
             
             #jmht - ceil or floor
             self.numBoxA = int(math.ceil( self.A[0] / self.boxSize ) )
@@ -1598,9 +1604,7 @@ class Cell():
         #ET.dump(tree)
         
         #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
-        #f = open(ofile,'w')
         tree.write( filename )
-        #f.close()
         
         return
 
@@ -1898,7 +1902,7 @@ class TestCell(unittest.TestCase):
         
         return
     
-    def XtestOptimiseGeometry(self):
+    def testOptimiseGeometry(self):
         """
         Test distance and close together
         """
@@ -1907,10 +1911,14 @@ class TestCell(unittest.TestCase):
         CELLC = 30
         seedCount=3
         
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        added = cell.seed( seedCount, "../PAF_bb_typed.car" )
-        ok = cell.growNewBlocks(3, maxTries=10 )
+        cell = Cell()
+        cell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        
+        cell.addInitBlock(filename="../PAF_bb_typed.car", fragmentType='A')
+        cell.addBondType( 'A-A')
+        
+        added = cell.seed( seedCount )
+        #ok = cell.growNewBlocks(3, maxTries=10 )
         
         cell.dump()
         cell.optimiseGeometry()
@@ -1991,19 +1999,19 @@ class TestCell(unittest.TestCase):
         CELLA = 30
         CELLB = 30
         CELLC = 30
-        seedCount=10
+        seedCount=1
         
         cell = Cell( )
         cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
 
-        cell.addInitBlock( filename="../PAF_bb_typed.car", fragmentType='A' )
+        #cell.addInitBlock( filename="../PAF_bb_typed.car", fragmentType='A' )
+        cell.addInitBlock( filename="../ch4_typed.car", fragmentType='A' )
         cell.addBondType( 'A-A' )
         
         added = cell.seed( seedCount )
+        #ok = cell.growNewBlocks(10, maxTries=10 )
         
-        ok = cell.growNewBlocks(10, maxTries=10 )
-        
-        cell.writeHoomdXml( filename="hoomd.xml" )
+        cell.writeHoomdXml( filename="hoomd_ch4.xml" )
         cell.dump()
         
         return
