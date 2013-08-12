@@ -41,6 +41,9 @@ class Fragment(object):
         # ordered array of _labels
         self._labels = []
         
+        # ordered array of atomTypes
+        self._atomTypes = []
+        
         # ordered array of _symbols (in upper case)
         self._symbols = []
         
@@ -93,12 +96,13 @@ class Fragment(object):
         i = self._endGroups.index( endGroup )
         return self._angleAtoms[ i ]
         
-    def createFromArgs(self, coords, labels, endGroups, angleAtoms ):
+    def createFromArgs(self, coords, labels, atomTypes, endGroups, angleAtoms ):
         """ Create from given arguments
         """
         # could check if numpy array here
         self._coords = coords
         self._labels = labels
+        self._atomTypes = atomTypes
         self._endGroups = endGroups
         self._angleAtoms = angleAtoms
         
@@ -106,8 +110,8 @@ class Fragment(object):
         
         self.update()
         
-    def fromLabelAndCoords(self, labels, coords):
-        """ Given an array of _labels and another of _coords, create a block
+    def fromLabelAndCoords(self, labels, atomTypes, coords):
+        """ Given an array of labels  coords, create a block
         This requires determining the end groups and contacts from the label
         """
         
@@ -150,7 +154,7 @@ class Fragment(object):
             angleAtoms.append( aaLabel2index[ label ]  )
         
         #self.createFromArgs(_coords, _labels, endGroups, endGroupContacts)
-        self.createFromArgs( coords, labels, endGroups, angleAtoms )
+        self.createFromArgs( coords, labels, atomTypes, endGroups, angleAtoms )
   
     def _calcCenters(self):
         """Calculate the center of mass and geometry for this fragment
@@ -288,6 +292,7 @@ class Fragment(object):
         Gulp...
         """
         labels = []
+        atomTypes = []
         
         # numpy array
         coords = []
@@ -313,20 +318,21 @@ class Fragment(object):
                 if label.lower() == "end":
                     reading=False
                     break
-                     
-                labels.append(label)
                 
-                coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
+                labels.append( label )
+                atomTypes.append( fields[6] )
+                coords.append( numpy.array(fields[1:4], dtype=numpy.float64 ) )
                 
                 count+=1
         
-        self.fromLabelAndCoords( labels, coords )
+        self.fromLabelAndCoords( labels, atomTypes, coords )
 
     def fromXyzFile(self, xyzFile ):
         """"Jens did this.
         """
         
         labels = []
+        atomTypes = [] # hack...
         
         # numpy array
         coords = []
@@ -347,12 +353,13 @@ class Fragment(object):
                 line = line.strip()
                 fields = line.split()
                 label = fields[0]
-                labels.append(label) 
+                labels.append(label)
+                atomTypes.append(  util.label2symbol( label ) )
                 coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
                 
                 count += 1
 
-        self.fromLabelAndCoords( labels, coords )
+        self.fromLabelAndCoords( labels, atomTypes, coords )
         
     def isEndGroup(self, idxAtom):
         """Return True if this atom is an endGroup - doesn't check if free"""
