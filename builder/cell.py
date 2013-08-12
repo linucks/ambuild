@@ -1029,8 +1029,8 @@ class Cell():
         failed=False
         
         dcdfile="trajectory.dcd"
-        if os.path.isfile(dcdfile):
-            os.unlink()
+        if os.path.isfile( dcdfile ):
+            os.unlink( dcdfile )
         while not(fire.has_converged()):
             #dcd = dump.dcd(filename="trajectory.dcd",period=100)
             dcd = hoomdblue.dump.dcd(filename=dcdfile,period=100,unwrap_full=True,unwrap_rigid=True)
@@ -1478,8 +1478,6 @@ class Cell():
             
             self.boxSize = ( self.maxAtomRadius * 2 ) + self.boxMargin
             
-            print "set boxSize ",self.maxAtomRadius
-            
             #jmht - ceil or floor
             self.numBoxA = int(math.ceil( self.A[0] / self.boxSize ) )
             self.numBoxB = int(math.ceil( self.B[1] / self.boxSize ) )
@@ -1502,6 +1500,8 @@ class Cell():
         pfile = open( fileName, "w" )
         cPickle.dump(self,pfile)
         pfile.close()
+        
+        self.logger.info( "Wrote pickle file: {0}".format(fileName) )
         
         return
              
