@@ -51,6 +51,9 @@ class Cell():
         # CURRENTLY UNUSED
         self.blockMargin = 2.0
         
+        if atomMargin > boxMargin:
+            raise RuntimeError,"atomMargin is greater then boxMargin - this wont work..."
+        
         # additional distance to add on to the atom covalent radii when checking if two atoms 
         # are close enough to clash
         self.atomMargin = atomMargin
@@ -721,11 +724,8 @@ class Cell():
         # Now add growBlock to the cell so we can check for clashes
         blockId = self.addBlock( growBlock )
         
-        print "before checkmove ",self.blocks
-        
         # Check it doesn't clash
         if self.checkMove( blockId ):
-            print "after checkmove ",self.blocks
             return True
         
         # Didn't work so try rotating the growBlock about the bond to see if that lets it fit
@@ -1024,16 +1024,21 @@ class Cell():
         fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
          
         # Run to completion
+        MAXCOUNT=1000
         count = 0
         failed=False
+        
+        dcdfile="trajectory.dcd"
+        if os.path.isfile(dcdfile):
+            os.unlink()
         while not(fire.has_converged()):
             #dcd = dump.dcd(filename="trajectory.dcd",period=100)
-            dcd = hoomdblue.dump.dcd(filename="trajectory.dcd",period=100,unwrap_full=True,unwrap_rigid=True)
-            mol2 = hoomdblue.dump.mol2(filename="trajectory",period=1000)
+            dcd = hoomdblue.dump.dcd(filename=dcdfile,period=100,unwrap_full=True,unwrap_rigid=True)
+            #mol2 = hoomdblue.dump.mol2(filename="trajectory",period=1000)
             hoomdblue.run(1000)
             count += 1
-            if count > 20:
-                print "TOO MANY ITERATIONS!"
+            if count > MAXCOUNT:
+                print "TOO MANY ITERATIONS!!"
                 failed=True
                 break
          
