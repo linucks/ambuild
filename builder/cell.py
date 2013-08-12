@@ -1009,7 +1009,9 @@ class Cell():
         bharmonic.bond_coeff.set('C-C', k=330.0, r0=1.54)
           
         aharmonic = hoomdblue.angle.harmonic()
-        aharmonic.set_coeff('C-C-C', k=330.0, t0=math.pi)
+        #aharmonic.set_coeff('C-C-C', k=330.0, t0=math.pi)
+        aharmonic.set_coeff('C-C-H', k=330.0, t0=self.bondAngle )
+        aharmonic.set_coeff('C-H-C', k=330.0, t0=self.bondAngle )
           
         # simple lennard jones potential
         lj = hoomdblue.pair.lj(r_cut=10.0)
@@ -1285,48 +1287,50 @@ class Cell():
         self.logger.info("After seed numBlocks: {0} ({1})".format( len(self.blocks), self.numBlocks ) )
         return self.numBlocks
     
-    def _setupLogging( self ):
+    def _setupLogging( self, mode='w' ):
         """
         Set up the various log files/console logging and return the logger
         """
         
         logger = logging.getLogger()
-        logger.setLevel(logging.DEBUG)
+        logger.setLevel( logging.DEBUG )
         
         # create file handler and set level to debug
-        fl = logging.FileHandler("ambuild.log", mode='w')
-        fl.setLevel(logging.DEBUG)
+        fl = logging.FileHandler( "ambuild.log", mode=mode )
+        fl.setLevel( logging.DEBUG )
         
         # create formatter for fl
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter( '%(asctime)s - %(name)s - %(levelname)s - %(message)s' )
         
         # add formatter to fl
-        fl.setFormatter(formatter)
+        fl.setFormatter( formatter )
         
         # add fl to logger
-        logger.addHandler(fl)
+        logger.addHandler( fl )
         
         # Now create console logger for outputting stuff
         # create file handler and set level to debug
         # Seems they changed the api in python 2.6->2.7
         try:
-            cl = logging.StreamHandler(stream=sys.stdout)
+            cl = logging.StreamHandler( stream=sys.stdout )
         except TypeError:
-            cl = logging.StreamHandler(strm=sys.stdout)
+            cl = logging.StreamHandler( strm=sys.stdout )
 
-        cl.setLevel(logging.INFO)
+        cl.setLevel( logging.INFO )
 
         # create formatter for fl
         # Always add a blank line after every print
-        formatter = logging.Formatter('%(message)s\n')
+        formatter = logging.Formatter( '%(message)s\n' )
 
         # add formatter to fl
-        cl.setFormatter(formatter)
+        cl.setFormatter( formatter  )
 
         # add fl to logger
-        logger.addHandler(cl)
+        logger.addHandler( cl )
 
         self.logger = logger
+        
+        return
 
     def surroundBoxes(self, key ):
         """
@@ -1496,15 +1500,19 @@ class Cell():
         
         if not fileName:
             fileName="cell.pkl"
+            
+        
+        self.logger.info( "Writing pickle file: {0}".format(fileName) )
         
         # Need to close all open filehandles
         logging.shutdown()
         
-        pfile = open( fileName, "w" )
+        pfile = open( fileName, 'w' )
         cPickle.dump(self,pfile)
         pfile.close()
         
-        self.logger.info( "Wrote pickle file: {0}".format(fileName) )
+        # Restart logging with append mode - doens't work for some reason...
+        self._setupLogging( mode='a' )
         
         return
              
@@ -1569,13 +1577,23 @@ class Cell():
 #                 s2 = block.atomSymbol( fbond.atom2Idx )
 #                 sa = block.atomSymbol( fbond.angle1Idx )
 #                 angle += "{0}-{1}-{2} {3} {4} {5}\n".format( sa, s1, s2, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
-                label1 = block.atomTypeLabel( fbond.atom1Idx )
-                label2 = block.atomTypeLabel( fbond.atom2Idx )
-                angleAtom1 = block.atomTypeLabel( fbond.angle1Idx )
-                angleAtom1 = block.atomTypeLabel( fbond.angle1Idx )
+
+#                 label1 = block.atomTypeLabel( fbond.atom1Idx )
+#                 label2 = block.atomTypeLabel( fbond.atom2Idx )
+#                 angleAtom1 = block.atomTypeLabel( fbond.angle1Idx )
+#                 angleAtom2 = block.atomTypeLabel( fbond.angle2Idx )
+#                 bond += "{0}-{1} {2} {3}\n".format( label1, label2, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+#                 angle += "{0}-{1}-{2} {3} {4} {5}\n".format( angleAtom1, label1, label2, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+#                 angle += "{0}-{1}-{2} {3} {4} {5}\n".format( label1, label2, angleAtom2, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+
+                label1 = block.atomType( fbond.atom1Idx )
+                label2 = block.atomType( fbond.atom2Idx )
+                angleAtom1 = block.atomType( fbond.angle1Idx )
+                angleAtom2 = block.atomType( fbond.angle2Idx )
                 bond += "{0}-{1} {2} {3}\n".format( label1, label2, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
                 angle += "{0}-{1}-{2} {3} {4} {5}\n".format( angleAtom1, label1, label2, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
-                angle += "{0}-{1}-{2} {3} {4} {5}\n".format( label1, label2, angleAtom1, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+                angle += "{0}-{1}-{2} {3} {4} {5}\n".format( label1, label2, angleAtom2, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount, fbond.angle2Idx+atomCount )
+
                 
             for frag in block._fragments:
                 
@@ -1591,7 +1609,7 @@ class Cell():
                     diameter += "{0}\n".format( 0.1 )
                     position += "{0} {1} {2}\n".format( x, y, z )
                     mass += "{0}\n".format( frag._masses[ k ] )
-                    type += "{0}\n".format( frag._symbols[ k ] )
+                    type += "{0}\n".format( frag._atomTypes[ k ] )
                     body += "{0}\n".format( fragCount )
 
                     atomCount += 1
