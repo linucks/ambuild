@@ -36,19 +36,22 @@ mycell = cell.Cell( atomMargin=0.1, boxMargin=0.5, bondMargin=0.5, bondAngle=180
 mycell.cellAxis( CELLA, CELLB, CELLC )
 
 mycell.addInitBlock( filename="../PAF_bb_typed.car", fragmentType='A' )
-#mycell.addInitBlock( filename="../ch4_typed.car", fragmentType='B' )
-#mycell.addBondType( 'A-B' )
-mycell.addBondType( 'A-A' )
+mycell.addInitBlock( filename="../ch4_typed.car", fragmentType='B' )
+mycell.addBondType( 'A-B' )
+#mycell.addBondType( 'A-A' )
 
-mycell.seed( 10 )
-ok = mycell.growNewBlocks( 20, maxTries=500 )
-ok = mycell.joinBlocks( 10, maxTries=500 )
+mycell.seed( 1, fragmentType='B' )
+ok = mycell.growNewBlocks( 1, fragmentType='A', maxTries=500 )
+ok = mycell.growNewBlocks( 1, fragmentType='A', maxTries=500 )
+#ok = mycell.growNewBlocks( 1, fragmentType='A', maxTries=500 )
+#ok = mycell.growNewBlocks( 1, fragmentType='B', maxTries=500 )
+#ok = mycell.joinBlocks( 10, maxTries=500 )
 
 mycell.dump()
 
-mycell.optimiseGeometry()
+#mycell.optimiseGeometry()
 
-mycell.dump()
+#mycell.dump()
 
 
 sys.exit(0)

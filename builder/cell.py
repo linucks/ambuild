@@ -90,9 +90,6 @@ class Cell():
         self.numBoxB = None
         self.numBoxC = None
         
-        # first block is kept separate as everything is built up from it
-        self.initBlock = None
-        
         # NEW!
         self.initBlocks = {} # blockType -> initBlock
         self.bondTypes = []
@@ -181,7 +178,7 @@ class Cell():
         
         # Add to initBlocks
         if self.initBlocks.has_key( fragmentType ):
-            raise RuntimeError,"Adding exisiting ftype {0} again!".format( fragmentType )
+            raise RuntimeError,"Adding existing ftype {0} again!".format( fragmentType )
         
         self.initBlocks[ fragmentType ] = block
         
@@ -760,7 +757,7 @@ class Cell():
         
         return False
     
-    def growNewBlocks(self, toGrow, maxTries=50 ):
+    def growNewBlocks(self, toGrow, fragmentType=None, maxTries=50 ):
         """
         Add toGrow new blocks to the cell based on the initBlock
         
@@ -779,7 +776,7 @@ class Cell():
                 self.logger.critical("growNewBlocks - exceeded maxtries when joining blocks!" )
                 return False
             
-            newblock = self.randomInitBlock()
+            newblock = self.getInitBlock( fragmentType=fragmentType )
             
             # Apply random rotation in 3 axes to randomise the orientation before we align
             newblock.randomRotate( origin=self.origin )
@@ -1163,12 +1160,18 @@ class Cell():
         # now attach it
         return self._growBlock( block, idxBlockEG, idxStaticBlock, idxStaticBlockEG )
 
-    def randomInitBlock( self ):
-        """Return a copy of a randomly selected initBlock"""
+    def getInitBlock( self, fragmentType=None ):
+        """Return an initBlock of type fragmentType. If fragmentType is not set
+        return a random initBlocks"""
         
-        btype = random.choice( list( self.initBlocks.keys() ) )
+        if not fragmentType:
+            fragmentType = random.choice( list( self.initBlocks.keys() ) )
         
-        return self.initBlocks[ btype ].copy()
+        # sanity check
+        if not self.initBlocks.has_key( fragmentType ):
+            raise RuntimeError, "Asking for a non-existing initBlock type: {0}".format( fragmentType )
+        
+        return self.initBlocks[ fragmentType ].copy()
 
     def randomMoveBlock(self, block, margin=None ):
         """Randomly move the given block
@@ -1218,7 +1221,7 @@ class Cell():
         move_block.randomRotateBlock( origin=self.origin )
         return
 
-    def seed( self, nblocks, maxTries=5000 ):
+    def seed( self, nblocks, maxTries=5000, fragmentType=None ):
         """ Seed a cell with nblocks.
         
         Return the number of blocks we added
@@ -1232,7 +1235,7 @@ class Cell():
         
         # If it's just one, add the init block - after a random move
         #block = self.initBlock.copy()
-        block = self.randomInitBlock()
+        block = self.getInitBlock( fragmentType=fragmentType )
         self.randomMoveBlock( block )
         self.addBlock( block )
         self.numBlocks += 1
@@ -1245,7 +1248,7 @@ class Cell():
         for seedCount in range( nblocks-1 ):
             # Create new block
             #newblock = self.initBlock.copy()
-            newblock = self.randomInitBlock()
+            newblock = self.getInitBlock( fragmentType=fragmentType )
             tries = 0
             ok = False
             while not ok:
@@ -1255,11 +1258,11 @@ class Cell():
                     return self.numBlocks
                 
                 # Move the block and rotate it
-                self.randomMoveBlock(newblock)
+                self.randomMoveBlock( newblock )
                 #print "RANDOM TO MOVE TO: {}".format( newblock.centroid() )
                 
                 #Add the block so we can check for clashes/bonds
-                idxBlock = self.addBlock(newblock)
+                idxBlock = self.addBlock( newblock )
                 
                 # Test for Clashes with other molecules
                 ok = self.checkMove( idxBlock )
@@ -1562,11 +1565,17 @@ class Cell():
             
             # Here we can add the bonds between fragments
             for fbond in block._bonds:
-                s1 = block.atomSymbol( fbond.atom1Idx )
-                s2 = block.atomSymbol( fbond.atom2Idx )
-                sa = block.atomSymbol( fbond.angle1Idx )
-                bond += "{0}-{1} {2} {3}\n".format( s1, s2, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
-                angle += "{0}-{1}-{2} {3} {4} {5}\n".format( sa, s1, s2, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+#                 s1 = block.atomSymbol( fbond.atom1Idx )
+#                 s2 = block.atomSymbol( fbond.atom2Idx )
+#                 sa = block.atomSymbol( fbond.angle1Idx )
+#                 angle += "{0}-{1}-{2} {3} {4} {5}\n".format( sa, s1, s2, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+                label1 = block.atomTypeLabel( fbond.atom1Idx )
+                label2 = block.atomTypeLabel( fbond.atom2Idx )
+                angleAtom1 = block.atomTypeLabel( fbond.angle1Idx )
+                angleAtom1 = block.atomTypeLabel( fbond.angle1Idx )
+                bond += "{0}-{1} {2} {3}\n".format( label1, label2, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+                angle += "{0}-{1}-{2} {3} {4} {5}\n".format( angleAtom1, label1, label2, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+                angle += "{0}-{1}-{2} {3} {4} {5}\n".format( label1, label2, angleAtom1, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
                 
             for frag in block._fragments:
                 
@@ -1895,7 +1904,7 @@ class TestCell(unittest.TestCase):
         nblocks=10
         for i in range( nblocks ):
             #ok = cell.randomGrowBlock( cell.initBlock.copy() )
-            ok = cell.randomGrowBlock( cell.randomInitBlock() )
+            ok = cell.randomGrowBlock( cell.getInitBlock() )
             #cell.writeXyz("JENS"+str(i)+".xyz")
             if not ok:
                 print "Failed to add block"
@@ -2014,7 +2023,7 @@ class TestCell(unittest.TestCase):
         cell.addBondType( 'A-A' )
         
         added = cell.seed( seedCount )
-        #ok = cell.growNewBlocks(10, maxTries=10 )
+        ok = cell.growNewBlocks(3, maxTries=10 )
         
         cell.writeHoomdXml( filename="hoomd_ch4.xml" )
         cell.dump()

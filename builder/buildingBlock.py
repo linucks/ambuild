@@ -190,6 +190,16 @@ class Block(object):
     def atomLabel(self, idxAtom ):
         idxFrag, idxData = self._dataMap[ idxAtom ]
         return self._fragments[ idxFrag ]._labels[ idxData ]
+        
+    def atomTypeLabel(self, idxAtom ):
+        idxFrag, idxData = self._dataMap[ idxAtom ]
+        # We chop off the final number from the atom label so that
+        # endGroup and atom labels are all the same type
+        label = self._fragments[ idxFrag ]._labels[ idxData ]
+        if "_" in label:
+            alabel, ident = label.split("_")
+            label = "{0}_{1}".format( alabel, ident[0])
+        return label
     
     def atomMass(self, idxAtom ):
         idxFrag, idxData = self._dataMap[ idxAtom ]
