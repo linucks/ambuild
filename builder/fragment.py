@@ -110,52 +110,8 @@ class Fragment(object):
         
         self.update()
         
-    def fromLabelAndCoords(self, labels, atomTypes, coords):
-        """ Given an array of labels  coords, create a block
-        This requires determining the end groups and contacts from the label
-        """
-        
-        # array of indexes
-        endGroups = []
-        egAaLabel = []
-        
-        # For tracking the mapping of the label used to mark the angle atom
-        # to the true index of the atom
-        aaLabel2index = {}
-        
-        for i, label in enumerate(labels):
-            
-            # End groups and the atoms which define their bond angles 
-            # are of the form XX_EN for endgroups and XX_AN for the defining atoms
-            # where N can be any number, but linking the two atoms together 
-            # The indexing of the atoms starts from 1!!!!
-            if "_" in label:
-                _, ident = label.split("_")
-                atype=ident[0]
-                anum=int(ident[1:])
-                
-                if atype.upper() == "E":
-                    # An endGroup
-                    if i in endGroups:
-                        raise RuntimeError,"Duplicate endGroup key for: {0} - {1}".format( i, endGroups )
-                    endGroups.append(i)
-                    egAaLabel.append( anum )
-                    
-                elif atype.upper() == "A":
-                    if aaLabel2index.has_key(anum):
-                        raise RuntimeError,"Duplicate angleAtom key for: {0} - {1}".format(anum, aaLabel2index)
-                    aaLabel2index[ anum ] = i
-                else:
-                    raise RuntimeError,"Got a duff label! - {}".format(label)
-        
-#        #Now match up the endgroups with their angle atoms
-        angleAtoms = []
-        for label in egAaLabel:
-            angleAtoms.append( aaLabel2index[ label ]  )
-        
-        #self.createFromArgs(_coords, _labels, endGroups, endGroupContacts)
-        self.createFromArgs( coords, labels, atomTypes, endGroups, angleAtoms )
-  
+        return
+
     def _calcCenters(self):
         """Calculate the center of mass and geometry for this fragment
         """
@@ -172,6 +128,8 @@ class Fragment(object):
         
         self._centroid = sumG / (i+1)
         self._centerOfMass = sumM / totalMass
+        
+        return
         
     def _calcRadius(self):
         """
@@ -203,6 +161,7 @@ class Fragment(object):
         # Set radius
         self._radius = dist + atomR
         
+        return
         
     def centroid(self):
         """
@@ -285,7 +244,8 @@ class Fragment(object):
             if r > self._maxAtomRadius:
                 self._maxAtomRadius = r
             #print "ADDING R {} for label {}".format(r,label)
-            
+        
+        return
 
     def fromCarFile(self, carFile):
         """"Abbie did this.
@@ -325,7 +285,11 @@ class Fragment(object):
                 
                 count+=1
         
-        self.fromLabelAndCoords( labels, atomTypes, coords )
+        angleAtoms, endGroups = self.processLabels( labels )
+        
+        self.createFromArgs( coords, labels, atomTypes, endGroups, angleAtoms )
+        
+        return
 
     def fromXyzFile(self, xyzFile ):
         """"Jens did this.
@@ -358,8 +322,12 @@ class Fragment(object):
                 coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
                 
                 count += 1
+        
+        angleAtoms, endGroups = self.processLabels( labels )
 
-        self.fromLabelAndCoords( labels, atomTypes, coords )
+        self.createFromArgs( coords, labels, atomTypes, endGroups, angleAtoms )
+        
+        return
         
     def isEndGroup(self, idxAtom):
         """Return True if this atom is an endGroup - doesn't check if free"""
@@ -456,6 +424,51 @@ class Fragment(object):
         growBlock.translate( bondPos + growBlockEG )
         
         return
+
+    def processLabels(self, labels):
+        """ Given an array of labels , return the corresponding endGroups and
+        angle Atoms for these labels
+        """
+        
+        # array of indexes
+        endGroups = []
+        egAaLabel = []
+        
+        # For tracking the mapping of the label used to mark the angle atom
+        # to the true index of the atom
+        aaLabel2index = {}
+        
+        for i, label in enumerate( labels ):
+            
+            # End groups and the atoms which define their bond angles 
+            # are of the form XX_EN for endgroups and XX_AN for the defining atoms
+            # where N can be any number, but linking the two atoms together 
+            # The indexing of the atoms starts from 1!!!!
+            if "_" in label:
+                _, ident = label.split( "_" )
+                atype=ident[0]
+                anum=int(ident[1:])
+                
+                if atype.upper() == "E":
+                    # An endGroup
+                    if i in endGroups:
+                        raise RuntimeError,"Duplicate endGroup key for: {0} - {1}".format( i, endGroups )
+                    endGroups.append( i )
+                    egAaLabel.append( anum )
+                    
+                elif atype.upper() == "A":
+                    if aaLabel2index.has_key( anum ):
+                        raise RuntimeError,"Duplicate angleAtom key for: {0} - {1}".format( anum, aaLabel2index )
+                    aaLabel2index[ anum ] = i
+                else:
+                    raise RuntimeError,"Got a duff label! - {}".format( label )
+        
+#        #Now match up the endgroups with their angle atoms
+        angleAtoms = []
+        for label in egAaLabel:
+            angleAtoms.append( aaLabel2index[ label ]  )
+        
+        return angleAtoms, endGroups
 
     def radius(self):
         
