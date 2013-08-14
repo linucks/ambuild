@@ -99,6 +99,9 @@ class Cell():
         # MAKE INTO AN ORDERED DICT?
         self.blocks = {}
         
+        # Holds possible bond after checkMove is run
+        self._possibleBonds = []
+        
         self._setupLogging()
         
         self.fileCount=0
@@ -274,16 +277,19 @@ class Cell():
         
         return False
 
-    def checkMove( self, idxBlock1 ):
+    def checkMove( self, idxAddBlock ):
         """
         See what happened with this move
+        
+        addBlock is the block that was added in this move.
+        cellBlock is the block already in the cell we are adding to
         
         Return:
         True if the move succeeded
         """
         
         # Get a list of the close atoms
-        close = self.closeAtoms(idxBlock1)
+        close = self.closeAtoms( idxAddBlock )
         
         #print "GOT {} CLOSE ATOMS ".format(len(close))
         
@@ -292,43 +298,42 @@ class Cell():
             return True
         
         # Get the block1
-        block1 = self.blocks[idxBlock1]
+        addBlock = self.blocks[ idxAddBlock ]
         
-        bonds = [] # list of possible bond atoms
-        for ( idxAtom1, idxBlock2, idxAtom2 ) in close:
+        self._possibleBonds = [] # list of possible bond atoms
+        for ( idxAddAtom, idxCellBlock, idxCellAtom ) in close:
             
-            symbol1 = block1.atomSymbol( idxAtom1 )
-            radius1 = block1.atomRadius( idxAtom1 )
-            coord1 = block1.atomCoord( idxAtom1 )
-            block2 = self.blocks[ idxBlock2 ]
-            coord2 = block2.atomCoord( idxAtom2 )
+            addSymbol = addBlock.atomSymbol( idxAddAtom )
+            addRadius = addBlock.atomRadius( idxAddAtom )
+            addCoord = addBlock.atomCoord( idxAddAtom )
+            cellBlock = self.blocks[ idxCellBlock ]
+            cellCoord = cellBlock.atomCoord( idxCellAtom )
             
-            #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(idxAtom1,idxBlock1, idxAtom2,idxBlock2,self.distance( coord1, coord2 ) )
+            #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(idxAddAtom,idxAddBlock, idxCellAtom,idxCellBlock,self.distance( addCoord, cellCoord ) )
             
             # First see if both atoms are _endGroups
-            #if idxAtom1 in block1._endGroups and idxAtom2 in block2._endGroups:
-            if block1.isEndGroup( idxAtom1 ) and block2.isEndGroup( idxAtom2 ):
+            #if idxAddAtom in block1._endGroups and idxCellAtom in cellBlock._endGroups:
+            if addBlock.isEndGroup( idxAddAtom ) and cellBlock.isEndGroup( idxCellAtom ):
                 # Checking for a bond
                 # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
-                symbol2 = block2.atomSymbol( idxAtom2 )
+                cellSymbol = cellBlock.atomSymbol( idxCellAtom )
                 
-                bond_length = util.bondLength( symbol1, symbol2 )
-                
-                #print "CHECKING BOND ATOMS ",bond_length,self.distance( coord1, coord2 )
+                bond_length = util.bondLength( addSymbol, cellSymbol )
+                #print "CHECKING BOND ATOMS ",bond_length,self.distance( addCoord, cellCoord )
                 
                 # THINK ABOUT BETTER SHORT BOND LENGTH CHECK
-                if  bond_length - self.bondMargin < self.distance( coord1, coord2 ) < bond_length + self.bondMargin:
+                if  bond_length - self.bondMargin < self.distance( addCoord, cellCoord ) < bond_length + self.bondMargin:
                     
-                    #print "Possible bond for ",idxAtom1,idxBlock2,idxAtom2
+                    #print "Possible bond for ",idxAddAtom,idxCellBlock,idxCellAtom
                     # Possible bond so check the angle
-                    angleAtom = block1.angleAtom( idxAtom1 )
+                    angleAtom = addBlock.angleAtom( idxAddAtom )
                     
-                    #print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( contact, coord1, coord2 )
-                    angle = util.angle( angleAtom, coord1, coord2 )
+                    #print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( contact, addCoord, cellCoord )
+                    angle = util.angle( angleAtom, addCoord, cellCoord )
                     #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
                     
                     if ( self.bondAngle-self.bondAngleMargin < angle < self.bondAngle+self.bondAngleMargin ):
-                        bonds.append( ( idxBlock1, idxAtom1, idxBlock2, idxAtom2 ) )
+                        self._possibleBonds.append( ( idxAddBlock, idxAddAtom, idxCellBlock, idxCellAtom ) )
                     else:
                         self.logger.debug( "Cannot bond due to angle: {}".format(angle  * util.RADIANS2DEGREES) )
                         return False
@@ -337,29 +342,13 @@ class Cell():
                 continue
            
             # No bond so just check if the two atoms are close enough for a clash
-            oradius = block2.atomRadius( idxAtom2 )
+            oradius = cellBlock.atomRadius( idxCellAtom )
             
-            d = self.distance( coord1, coord2 )
-            l = radius1+oradius+self.atomMargin
+            d = self.distance( addCoord, cellCoord )
+            l = addRadius+oradius+self.atomMargin
             if d < l:
-                #print "CLASH {}->{} = {} < {}".format( coord1,coord2, d, l  )
+                #print "CLASH {}->{} = {} < {}".format( coord1,cellCoord, d, l  )
                 return False
-    
-        # Here no atoms clash and we have a list of possible bonds - so bond'em!
-        if len(bonds):
-            
-            # Check if allowed
-            for bond in bonds:
-                idxBlock1, idxAtom1, idxBlock2, idxAtom2 = bond
-                if not self.bondIsAllowed( idxBlock1, idxAtom1, idxBlock2, idxAtom2 ):
-                    self.logger.debug( "Bond disallowed by bonding rules" )
-                    return False
-
-            # All these bonds are allowed
-            for bond in bonds:
-                idxBlock1, idxAtom1, idxBlock2, idxAtom2 = bond
-                self.bondBlock( idxBlock1, idxAtom1, idxBlock2, idxAtom2 )
-                self.logger.info("Added bond: {}".format( bonds[0] ) )
         
         # Either got bonds or no clashes
         return True
@@ -704,6 +693,19 @@ class Cell():
         
         return blocks
 
+    def getInitBlock( self, fragmentType=None ):
+        """Return an initBlock of type fragmentType. If fragmentType is not set
+        return a random initBlocks"""
+        
+        if not fragmentType:
+            fragmentType = random.choice( list( self.initBlocks.keys() ) )
+        
+        # sanity check
+        if not self.initBlocks.has_key( fragmentType ):
+            raise RuntimeError, "Asking for a non-existing initBlock type: {0}".format( fragmentType )
+        
+        return self.initBlocks[ fragmentType ].copy()
+
     def _growBlock(self, growBlock, idxGrowAtom, idxStaticBlock, idxStaticAtom):
         """
         Position growBlock so it can bond to blockS, using the given _endGroups
@@ -723,7 +725,8 @@ class Cell():
         
         # Check it doesn't clash
         if self.checkMove( blockId ):
-            return True
+            if self.processBonds( addedBlockIdx=blockId ):
+                return True
         
         # Didn't work so try rotating the growBlock about the bond to see if that lets it fit
         
@@ -749,8 +752,9 @@ class Cell():
             self.addBlock(growBlock)
             
             if self.checkMove( blockId ):
-                self.logger.debug("_growBlock rotate worked")
-                return True
+                if self.processBonds( addedBlockIdx=blockId ):
+                    self.logger.debug("_growBlock rotate worked")
+                    return True
         
         # remove the growBlock from the cell
         self.delBlock(blockId)
@@ -781,7 +785,7 @@ class Cell():
             # Apply random rotation in 3 axes to randomise the orientation before we align
             newblock.randomRotate( origin=self.origin )
             
-            ok = self.randomGrowBlock( newblock )
+            ok = self.randomAttachBlock( newblock )
             
             if ok:
                 self.numBlocks += 1
@@ -1006,19 +1010,33 @@ class Cell():
         
         # Now set up the simulation
         bharmonic = hoomdblue.bond.harmonic()
-        bharmonic.bond_coeff.set('C-C', k=330.0, r0=1.54)
+        bharmonic.bond_coeff.set('ct-cp', k=330.0, r0=1.54)
+        bharmonic.bond_coeff.set('cp-ct', k=330.0, r0=1.54)
           
         aharmonic = hoomdblue.angle.harmonic()
         #aharmonic.set_coeff('C-C-C', k=330.0, t0=math.pi)
-        aharmonic.set_coeff('C-C-H', k=330.0, t0=self.bondAngle )
-        aharmonic.set_coeff('C-H-C', k=330.0, t0=self.bondAngle )
+        aharmonic.set_coeff('ct-ct-cp', k=330.0, t0=self.bondAngle )
+        aharmonic.set_coeff('ct-cp-cp', k=330.0, t0=self.bondAngle )
+        
           
         # simple lennard jones potential
         lj = hoomdblue.pair.lj(r_cut=10.0)
-        lj.pair_coeff.set('C', 'C', epsilon=0.15, sigma=4.00)
-        lj.pair_coeff.set('C', 'H', epsilon=0.0055, sigma=3.00)
-        lj.pair_coeff.set('H', 'H', epsilon=0.02, sigma=2.00)
- 
+        lj.pair_coeff.set('c2', 'c2', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('c2', 'cp', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('c2', 'hc', epsilon=0.0055, sigma=3.00)
+        lj.pair_coeff.set('c2', 'nb', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('cp', 'cp', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('cp', 'hc', epsilon=0.0055, sigma=3.00)
+        lj.pair_coeff.set('cp', 'nb', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('ct', 'c2', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('ct', 'ct', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('ct', 'nb', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('ct', 'cp', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('ct', 'hc', epsilon=0.0055, sigma=3.00)
+        lj.pair_coeff.set('hc', 'hc', epsilon=0.02, sigma=2.00)
+        lj.pair_coeff.set('nb', 'hc', epsilon=0.0055, sigma=3.00)
+        lj.pair_coeff.set('nb', 'c2', epsilon=0.15, sigma=4.00)
+        lj.pair_coeff.set('nb', 'nb', epsilon=0.15, sigma=4.00)
         #fire=integrate.mode_minimize_fire( group=group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
         fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(), dt=0.05, ftol=1e-2, Etol=1e-7)
          
@@ -1091,6 +1109,31 @@ class Cell():
         self.logger.debug( "positionInCell block moved to: {0}".format( block.centroid() ) )
         
         return
+    
+    def processBonds( self, addedBlockIdx=None ):
+        """Make any bonds that were found during checkMove
+        return True if all were made or False if any were disallowed.
+        
+        Args:
+        addedBlockIdx - the block that was added
+        """
+        # Here no atoms clash and we have a list of possible bonds - so bond'em!
+        if len(self._possibleBonds):
+            
+            # Check if allowed
+            for bond in self._possibleBonds:
+                idxBlock1, idxAtom1, idxBlock2, idxAtom2 = bond
+                if not self.bondIsAllowed( idxBlock1, idxAtom1, idxBlock2, idxAtom2 ):
+                    self.logger.debug( "Bond disallowed by bonding rules" )
+                    return False
+
+            # All these bonds are allowed
+            for bond in self._possibleBonds:
+                idxBlock1, idxAtom1, idxBlock2, idxAtom2 = bond
+                self.bondBlock( idxBlock1, idxAtom1, idxBlock2, idxAtom2 )
+                self.logger.info("Added bond: {}".format( self._possibleBonds[0] ) )
+                
+        return True
 
     def randomBlockId( self, numBlocks=1 ):
         """Return numBlocks random block ids"""
@@ -1138,7 +1181,7 @@ class Cell():
         
         return ( blockIdx, endGroupIdx )
     
-    def randomGrowBlock(self, block):
+    def randomAttachBlock(self, block):
         """
         Attach the given block to a randomly selected block, at randomly
         selected _endGroups in each
@@ -1151,6 +1194,7 @@ class Cell():
         fragType = block.atomFragType( idxBlockEG )
         res = self.randomBlockEndGroupIdxs( fragmentType=fragType )
         if not res:
+            self.logger.debug("randomAttachBlock failed to get indices")
             return False
         
         # unpack tuple
@@ -1161,19 +1205,6 @@ class Cell():
         self.logger.debug( "endGroup types are: {0} {1}".format( block.atomFragType( idxBlockEG ), staticBlock.atomFragType( idxStaticBlockEG ) ) )
         # now attach it
         return self._growBlock( block, idxBlockEG, idxStaticBlock, idxStaticBlockEG )
-
-    def getInitBlock( self, fragmentType=None ):
-        """Return an initBlock of type fragmentType. If fragmentType is not set
-        return a random initBlocks"""
-        
-        if not fragmentType:
-            fragmentType = random.choice( list( self.initBlocks.keys() ) )
-        
-        # sanity check
-        if not self.initBlocks.has_key( fragmentType ):
-            raise RuntimeError, "Asking for a non-existing initBlock type: {0}".format( fragmentType )
-        
-        return self.initBlocks[ fragmentType ].copy()
 
     def randomMoveBlock(self, block, margin=None ):
         """Randomly move the given block
@@ -1271,9 +1302,10 @@ class Cell():
                 
                 # Break out of try loop if no clashes
                 if ok:
-                    self.logger.debug("seed added block {0} after {1} tries.".format( seedCount+2, tries ) )
-                    self.numBlocks += 1
-                    break
+                    if self.processBonds( addedBlockIdx=idxBlock ):
+                        self.logger.debug("seed added block {0} after {1} tries.".format( seedCount+2, tries ) )
+                        self.numBlocks += 1
+                        break
                 
                 # Unsuccessful so remove the block from cell
                 self.delBlock(idxBlock)
@@ -1446,16 +1478,17 @@ class Cell():
                 
                 # If the move failed, put the move_block back
                 if ok:
-                    # End the moves and go onto the next step
-                    break
-                else:
-                    # Put it back where we got it from
-                    self.delBlock( imove_block )
-                    move_block._coords = copy.deepcopy(orig_coords)
-                    move_block.update()
-                    icheck = self.addBlock(move_block)
-                    if icheck != imove_block:
-                        raise RuntimeError,"BAD ADD IN SHIMMY1"
+                    if self.processBonds( addedBlockIdx=imove_block ):
+                        # End the moves and go onto the next step
+                        break
+                    
+                # Put it back where we got it from
+                self.delBlock( imove_block )
+                move_block._coords = copy.deepcopy(orig_coords)
+                move_block.update()
+                icheck = self.addBlock(move_block)
+                if icheck != imove_block:
+                    raise RuntimeError,"BAD ADD IN SHIMMY1"
         
         # End of shimmy loop
         
@@ -1497,6 +1530,8 @@ class Cell():
 
     def writePickle( self, fileName=None ):
         """Pickle ourselves"""
+        
+        return
         
         if not fileName:
             fileName="cell.pkl"
@@ -1921,8 +1956,8 @@ class TestCell(unittest.TestCase):
 
         nblocks=10
         for i in range( nblocks ):
-            #ok = cell.randomGrowBlock( cell.initBlock.copy() )
-            ok = cell.randomGrowBlock( cell.getInitBlock() )
+            #ok = cell.randomAttachBlock( cell.initBlock.copy() )
+            ok = cell.randomAttachBlock( cell.getInitBlock() )
             #cell.writeXyz("JENS"+str(i)+".xyz")
             if not ok:
                 print "Failed to add block"
