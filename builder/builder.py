@@ -35,24 +35,27 @@ CELLC = 50
 mycell = cell.Cell( atomMargin=0.1, boxMargin=0.5, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
 mycell.cellAxis( CELLA, CELLB, CELLC )
 
-mycell.addInitBlock( filename="../PAF_bb_typed.car", fragmentType='A' )
-mycell.addInitBlock( filename="../ch4_typed.car", fragmentType='B' )
-mycell.addBondType( 'A-B' )
+#fragA="/Users/jmht/Dropbox/Amorphousbuilder/Ambuild_13_08_2013/builder/input_files/closed_node.car"
+#fragB="/Users/jmht/Dropbox/Amorphousbuilder/Ambuild_13_08_2013/builder/input_files/linker.car"
+fragA="input_files/closed_node.car"
+fragB="input_files/linker.car"
+#fragA="../ch4_typed.car"
+#fragB="../PAF_bb_typed.car"
+
+mycell.addInitBlock( filename=fragA, fragmentType='A' )
+mycell.addInitBlock( filename=fragB, fragmentType='B' )
 #mycell.addBondType( 'A-A' )
+mycell.addBondType( 'A-B' )
 
-mycell.seed( 1, fragmentType='B' )
-ok = mycell.growNewBlocks( 1, fragmentType='A', maxTries=500 )
-ok = mycell.growNewBlocks( 1, fragmentType='A', maxTries=500 )
-#ok = mycell.growNewBlocks( 1, fragmentType='A', maxTries=500 )
-#ok = mycell.growNewBlocks( 1, fragmentType='B', maxTries=500 )
-#ok = mycell.joinBlocks( 10, maxTries=500 )
-
+mycell.seed( 1, fragmentType='A' )
+ok = mycell.growNewBlocks( 3, fragmentType='B', maxTries=500 )
+mycell.logger.info("BLOCKS ARE NOW {0}".format(mycell.blocks)  )
 mycell.dump()
 
-#mycell.optimiseGeometry()
+mycell.optimiseGeometry()
 
-#mycell.dump()
 
+mycell.dump()
 
 sys.exit(0)
 

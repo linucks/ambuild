@@ -312,7 +312,6 @@ class Cell():
             #print "CHECKING  ATOMS {}:{}->{}:{} = {}".format(idxAddAtom,idxAddBlock, idxCellAtom,idxCellBlock,self.distance( addCoord, cellCoord ) )
             
             # First see if both atoms are _endGroups
-            #if idxAddAtom in block1._endGroups and idxCellAtom in cellBlock._endGroups:
             if addBlock.isEndGroup( idxAddAtom ) and cellBlock.isEndGroup( idxCellAtom ):
                 # Checking for a bond
                 # NB ASSUMPION FOR BOND LENGTH CHECK IS BOTH BLOCKS HAVE SAME ATOM TYPES
@@ -333,7 +332,7 @@ class Cell():
                     #print "{} < {} < {}".format( bondAngle-bondAngleMargin, angle, bondAngle+bondAngleMargin  )
                     
                     if ( self.bondAngle-self.bondAngleMargin < angle < self.bondAngle+self.bondAngleMargin ):
-                        self._possibleBonds.append( ( idxAddBlock, idxAddAtom, idxCellBlock, idxCellAtom ) )
+                        self._possibleBonds.append( ( idxCellBlock, idxCellAtom, idxAddBlock, idxAddAtom ) )
                     else:
                         self.logger.debug( "Cannot bond due to angle: {}".format(angle  * util.RADIANS2DEGREES) )
                         return False
@@ -1015,8 +1014,8 @@ class Cell():
           
         aharmonic = hoomdblue.angle.harmonic()
         #aharmonic.set_coeff('C-C-C', k=330.0, t0=math.pi)
-        aharmonic.set_coeff('ct-ct-cp', k=330.0, t0=self.bondAngle )
-        aharmonic.set_coeff('ct-cp-cp', k=330.0, t0=self.bondAngle )
+        aharmonic.set_coeff('cp-ct-ct', k=330.0, t0=self.bondAngle )
+        aharmonic.set_coeff('cp-cp-ct', k=330.0, t0=self.bondAngle )
         
           
         # simple lennard jones potential
