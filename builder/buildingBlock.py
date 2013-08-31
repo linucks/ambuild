@@ -368,8 +368,6 @@ class Block(object):
     def isCircular( self, bond ):
         """Check if splitting the block at this bond would separate the block
         into two separate blocks
-        
-        THIS ALMOST CERTAINLY NEEDS MORE WORK!
         """
         
         # Check if the two blocks are the same - if so it's definitely a circular
@@ -645,6 +643,9 @@ class Block(object):
         # From the list of all bonds get a list of all blocks - excluding this one
         blocks = []
         for bond in self._bondObjects:
+            ## For now assume the first bond block is always self
+            #if bond.block1 != self:
+            #    raise RuntimeError,"UPdate got bond with first block not self"
             if bond.block1 not in blocks and bond.block1 != self:
                 blocks.append( bond.block1 )
             if bond.block2 not in blocks and bond.block2 != self:
