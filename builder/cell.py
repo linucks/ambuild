@@ -241,11 +241,11 @@ class Cell():
         self.delBlock( idxBlock1 )
         self.delBlock( idxBlock2 )
         
-        self.logger.debug("before bond: {0} - {1}".format( idxBlock1, block1._bonds) )
+        self.logger.debug("before bond: {0} - {1}".format( idxBlock1, block1._bondObjects) )
         if block1 == block2:
             self.logger.info("self-bondeded block1: {0}".format( (idxBlock1, idxAtom1, idxBlock2, idxAtom2) ) )
         block1.bondBlock( idxAtom1, block2, idxAtom2 )
-        self.logger.debug("after bond: {0} - {1}".format( idxBlock1, block1._bonds) )
+        self.logger.debug("after bond: {0} - {1}".format( idxBlock1, block1._bondObjects) )
         
         self.addBlock( block1 )
         
@@ -966,7 +966,7 @@ class Cell():
 #         for block in self.blocks.itervalues():
 #              
 #             # Here we can add the bonds between fragments
-#             for fbond in block._bonds:
+#             for fbond in block._bondObjects:
 #                 s1 = block.atomSymbol( fbond.atom1Idx )
 #                 s2 = block.atomSymbol( fbond.atom2Idx )
 #                 sa = block.atomSymbol( fbond.angle1Idx )
@@ -1606,19 +1606,7 @@ class Cell():
         for idxBlock, block in self.blocks.iteritems():
             
             # Here we can add the bonds between fragments
-            for fbond in block._bonds:
-#                 s1 = block.atomSymbol( fbond.atom1Idx )
-#                 s2 = block.atomSymbol( fbond.atom2Idx )
-#                 sa = block.atomSymbol( fbond.angle1Idx )
-#                 angle += "{0}-{1}-{2} {3} {4} {5}\n".format( sa, s1, s2, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
-
-#                 label1 = block.atomTypeLabel( fbond.atom1Idx )
-#                 label2 = block.atomTypeLabel( fbond.atom2Idx )
-#                 angleAtom1 = block.atomTypeLabel( fbond.angle1Idx )
-#                 angleAtom2 = block.atomTypeLabel( fbond.angle2Idx )
-#                 bond += "{0}-{1} {2} {3}\n".format( label1, label2, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
-#                 angle += "{0}-{1}-{2} {3} {4} {5}\n".format( angleAtom1, label1, label2, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
-#                 angle += "{0}-{1}-{2} {3} {4} {5}\n".format( label1, label2, angleAtom2, fbond.angle1Idx+atomCount, fbond.atom1Idx+atomCount, fbond.atom2Idx+atomCount )
+            for fbond in block._bondObjects:
 
                 label1 = block.atomType( fbond.atom1Idx )
                 label2 = block.atomType( fbond.atom2Idx )

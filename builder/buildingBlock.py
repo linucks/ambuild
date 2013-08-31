@@ -52,13 +52,14 @@ class Bond(object):
         Return a string representation of the bond
         """
         
-        mystr = "Bond: {0} [\n".format(self.__repr__())
+        #mystr = "Bond: {0} [\n".format(self.__repr__())
+        mystr = "Bond: {0} [\n".format( id(self) )
         
         mystr += "block1: {0}\n".format( id(self.block1) )
-        mystr += "frag1: {0}\n".format( self.frag1 )
+        mystr += "frag1: {0}\n".format( id(self.frag1) )
         mystr += "atomIdx1: {0}\n".format( self.frag1atomIdx )
         mystr += "block2: {0}\n".format( id(self.block2) )
-        mystr += "frag2: {0}\n".format( self.frag2 )
+        mystr += "frag2: {0}\n".format( id(self.frag2) )
         mystr += "atomIdx2: {0} ]\n".format( self.frag2atomIdx )
         
         return mystr
@@ -94,7 +95,7 @@ class Block(object):
         self._rootFragment = fragment.Fragment( filename=filename, fragmentType=fragmentType )
         
         # List of all the direct bonds to this atom
-        self._myBonds = []
+        self._myBondObjects = []
         
         # The lists below here are constructed dynamically on bonding
         
@@ -108,7 +109,10 @@ class Block(object):
         self._dataMap = []
         
         # The list of all bonds in this block and all subblocks
-        self._bonds = []
+        self._bondObjects = []
+        
+        # bond indices
+        
         
         # The list of atoms that are endGroups and their corresponding angleAtoms
         self._endGroups = []
@@ -230,7 +234,7 @@ class Block(object):
         bond.frag2atomIdx = idxAtomFrag2
         bond.frag2angleIdx = frag2.angleAtom( idxAtomFrag2 )
         
-        self._myBonds.append( bond )
+        self._myBondObjects.append( bond )
          
         self._update()
         
@@ -341,17 +345,17 @@ class Block(object):
 
     def _getBonds(self):
         """Return all bonds for this block"""
-        self._bonds = []
-        for bond in self._myBonds:
+        self._bondObjects = []
+        for bond in self._myBondObjects:
             
             # First add the bonds to this block
-            self._bonds.append( bond )
+            self._bondObjects.append( bond )
             
             # Then add the bonds in the bonded blocks - excluding those to ourselves
             if bond.block2 != self:
-                self._bonds += bond.block2._getBonds()
+                self._bondObjects += bond.block2._getBonds()
             
-        return self._bonds
+        return self._bondObjects
         
     def hasFragmentType(self, fragmentType ):
         """Return True if this atom is an endGroup - doesn't check if free"""
@@ -360,6 +364,33 @@ class Block(object):
     def isEndGroup(self, idxAtom):
         """Return True if this atom is an endGroup - doesn't check if free"""
         return idxAtom in self._endGroups
+    
+    def isCircular( self, bond ):
+        """Check if splitting the block at this bond would separate the block
+        into two separate blocks
+        
+        THIS ALMOST CERTAINLY NEEDS MORE WORK!
+        """
+        
+        # Check if the two blocks are the same - if so it's definitely a circular
+        # fragment
+        if bond.block1 == bond.block2:
+            return True
+
+        # Get the bonds contained in each block and see if either block occurs again
+        for b in bond.block1._bondObjects:
+            if b == bond:
+                continue
+            if b.block1 == bond.block2 or b.block2 == bond.block2:
+                return True
+            
+        for b in bond.block2._bondObjects:
+            if b == bond:
+                continue
+            if b.block1 == bond.block1 or b.block2 == bond.block1:
+                return True
+        
+        return False
 
     def iterCoord(self):
         """Generator to return the coordinates"""
@@ -532,6 +563,57 @@ class Block(object):
                 frag._coords[i] = coord + center
         
         self._changed = True
+        
+    
+    def getBondObj( self, atom1Idx, atom2Idx ):
+        """Return the Bond object for the bond between the two atoms in block indices"""
+        
+        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in self._bondObjects ]
+        if ( atom1Idx, atom2Idx ) not in bonds and ( atom2Idx, atom1Idx ) not in bonds:
+            return False
+        
+        try:
+            i = bonds.index( ( atom1Idx, atom2Idx )  )
+            return self._bondObjects[ i ]
+        except ValueError:
+            i = bonds.index( ( atom2Idx, atom1Idx )  )
+            return self._bondObjects[ i ]
+        
+    
+    def splitBlock( self, atom1Idx, atom2Idx ):
+        
+        
+        # Get the bond if it exists
+        bond = self.getBondObj( atom1Idx, atom2Idx )
+        if not bond:
+            raise RuntimeError, "Atoms {0} and {1} are not bonded!".format( atom1Idx, atom2Idx )
+        
+        # Check that this isn't part of a circular fragment
+        if self.isCircular( bond ):
+            raise RuntimeError,"Blocks are circular!"
+        
+        if bond.block1 != self and bond.block2 != self:
+            raise RuntimeError,"Got bond that doesn't include self!"
+        
+        # Assume we can split into two blocks
+        return self._splitBlock( bond )
+    
+    def _splitBlock(self, bond ):
+        
+        
+        if bond.block1 == self:
+            block = bond.block2
+        else:
+            block = bond.block1
+            
+        # Remove bond from list
+        self._myBondObjects.remove( bond )
+        
+        # Update the two new blocks
+        self._update()
+        block._update()
+        
+        return block
 
     def translate(self, tvector):
         """ translate the molecule by the given vector"""
@@ -558,11 +640,13 @@ class Block(object):
         
         # get list of all fragments
         # recursively loop across all local bonds
-        self._bonds = self._getBonds()
+        self._bondObjects = self._getBonds()
         
         # From the list of all bonds get a list of all blocks - excluding this one
         blocks = []
-        for bond in self._bonds:
+        for bond in self._bondObjects:
+            if bond.block1 not in blocks and bond.block1 != self:
+                blocks.append( bond.block1 )
             if bond.block2 not in blocks and bond.block2 != self:
                 blocks.append( bond.block2 )
         
@@ -605,7 +689,7 @@ class Block(object):
                 count += 1
         
         # Have dataMap so now set bond indices
-        for bond in self._bonds:
+        for bond in self._bondObjects:
             
             idxFrag1 = self._fragments.index( bond.frag1 )
             bond.atom1Idx = self._dataMap.index( (idxFrag1, bond.frag1atomIdx) )
@@ -660,7 +744,7 @@ class Block(object):
         mystr += "Num fragments: {0}\n".format( len( self._fragments) )
         mystr += "endGroups: {0}\n".format( self._endGroups )
         mystr += "angleAtoms: {0}\n".format( self._angleAtoms )
-        mystr += "bonds: {0}\n".format( self._bonds )
+        mystr += "bonds: {0}\n".format( self._bondObjects )
         
 #         mystr = ""
 #         mystr += "BlockID: {}\n".format(id(self))
@@ -735,6 +819,9 @@ class TestBlock(unittest.TestCase):
         
         idxAtom1=2
         idxAtom2=3
+        
+        ch4_1.positionGrowBlock( idxAtom1, ch4_2, idxAtom2 )
+        
         ch4_1.bondBlock( idxAtom1, ch4_2, idxAtom2 )
         
         endGroups = [ 1, 3, 4, 6, 7, 9 ]
@@ -744,8 +831,10 @@ class TestBlock(unittest.TestCase):
         self.assertEqual( angleAtoms, ch4_1._angleAtoms )
         
         ref_bonds = [ (2, 8) ]
-        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bonds ]
+        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bondObjects ]
         self.assertEqual( ref_bonds, bonds )
+        
+        ch4_1.writeXyz("testBond.xyz    ")
         
         return
     
@@ -759,10 +848,12 @@ class TestBlock(unittest.TestCase):
         
         idxAtom1=2
         idxAtom2=3
+        ch4_1.positionGrowBlock( idxAtom1, ch4_2, idxAtom2 )
         ch4_1.bondBlock( idxAtom1, ch4_2, idxAtom2 )
         
         idxAtom1=9
         idxAtom2=1
+        ch4_1.positionGrowBlock( idxAtom1, ch4_3, idxAtom2 )
         ch4_1.bondBlock( idxAtom1, ch4_3, idxAtom2 )
         
         endGroups = [ 1, 3, 4, 6, 7, 12, 13, 14 ]
@@ -772,10 +863,100 @@ class TestBlock(unittest.TestCase):
         self.assertEqual( angleAtoms, ch4_1._angleAtoms )
         
         ref_bonds = [ (2, 8), (9, 11) ]
-        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bonds ]
+        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bondObjects ]
         self.assertEqual( ref_bonds, bonds )
         
+        ch4_1.writeXyz("testBond2.xyz")
+        
         return
+    
+    def makeCH4_bond4(self):
+        """return a block with 4 CH4 molecules"""
+
+        infile="../ch4.xyz"
+        ch4_1 = Block( infile )
+        ch4_2 = Block( infile )
+        
+        idxAtom1=2
+        idxAtom2=3
+        ch4_1.positionGrowBlock( idxAtom1, ch4_2, idxAtom2 )
+        ch4_1.bondBlock( idxAtom1, ch4_2, idxAtom2 )
+        
+        ch4_3 = Block( infile )
+        ch4_4 = Block( infile )
+        ch4_3.positionGrowBlock( idxAtom1, ch4_4, idxAtom2 )
+        ch4_3.bondBlock( idxAtom1, ch4_4, idxAtom2 )
+        
+        idxAtom1=1
+        idxAtom2=9
+        ch4_1.positionGrowBlock( idxAtom1, ch4_3, idxAtom2 )
+        ch4_1.bondBlock( idxAtom1, ch4_3, idxAtom2 )
+        
+        return ch4_1
+
+    def testCH4_bond4(self):
+        """First pass"""
+        
+        ch4_1 = self.makeCH4_bond4()
+        
+        endGroups = [3, 4, 6, 7, 9, 11, 13, 14, 16, 17]
+        self.assertEqual( endGroups, ch4_1._endGroups )
+         
+        angleAtoms = [0, 0, 0, 0, 5, 5, 5, 5, 10, 10, 10, 10, 15, 15, 15, 15]
+        self.assertEqual( angleAtoms, ch4_1._angleAtoms )
+         
+        ref_bonds = [(2, 8), (1, 19), (12, 18)]
+        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bondObjects ]
+        self.assertEqual( ref_bonds, bonds )
+        
+        ch4_1.writeXyz("testBond4.xyz")
+        
+        return
+    
+    def testIsCircular(self):
+        
+        ch4_1 = self.makeCH4_bond4()
+        
+        bond = ch4_1.getBondObj( 2, 8 )
+        self.assertFalse( ch4_1.isCircular( bond ) )
+        
+        #print "bonds1 ",[ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bondObjects ]
+        
+        idxAtom1=3
+        idxAtom2=4
+        ch4_1.bondBlock( idxAtom1, ch4_1, idxAtom2 )
+        #print "bonds2 ",[ ( id(b.block1), id(b.block2) ) for b in ch4_1._bondObjects ]
+        
+        bond = ch4_1.getBondObj( idxAtom1, idxAtom2 )
+        self.assertTrue( ch4_1.isCircular( bond ) )
+        
+        return
+
+    def testCH4_bond4_split(self):
+        """First pass"""
+        
+        ch4_1 = self.makeCH4_bond4()
+        
+        # Now split the block
+        atom1Idx = 1
+        atom2Idx = 8
+        self.assertRaises( RuntimeError, ch4_1.splitBlock, atom1Idx, atom2Idx )
+        
+        atom1Idx = 8
+        atom2Idx = 2
+        
+        splitBlock = ch4_1.splitBlock( atom1Idx, atom2Idx )
+        
+        l = len(ch4_1._fragments)
+        self.assertEqual( 3, l, "Incorrect number of fragments: {0}".format(l) )
+        l = len(splitBlock._fragments)
+        self.assertEqual( 1, l, "Incorrect number of fragments: {0}".format(l) )
+        
+        #splitBlock.writeXyz("b1.xyz")
+        #ch4_1.writeXyz("b2.xyz")
+        
+        return
+
 
     def testCH4_bond_self(self):
         """First pass"""
@@ -801,7 +982,7 @@ class TestBlock(unittest.TestCase):
         self.assertEqual( angleAtoms, ch4_1._angleAtoms )
          
         ref_bonds = [ (1, 6), (2, 9) ]
-        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bonds ]
+        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bondObjects ]
         self.assertEqual( ref_bonds, bonds )
          
         return
