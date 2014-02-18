@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+import sys
+sys.path.append("/opt/ambuild/builder")
 '''
 Created on Jan 15, 2013
 
@@ -12,89 +15,98 @@ import cPickle
 import sys
 
 
-#INFILE = "/Users/abbietrewin/Dropbox/AmorphousBuilder/pyrene_typed.car" 
-INFILE = "../ch4_typed.car" 
-INFILE = "../PAF_bb_typed.car" 
-#INFILE = "./afterSeed.bust.xyz"
-
-#OUTFILE1 = "afterSeed.xyz"
-#OUTFILE2 = "afterGrow.xyz"
-#OUTFILE2a = "afterGrowP.xyz"
-OUTFILE3 = "afterShimmy.xyz"
-OUTFILE3a = "afterShimmyP.xyz"
-# for ch4: 4,4,4,4
-# 35,10,10,10
-#
-#for paf: 4, 15, 15, 15
-CELLA = 50
-CELLB = 50
-CELLC = 50
+def cellFromPickle(pickleFile):
+    with open(pickleFile) as f:
+        myCell=cPickle.load(f)
+    return myCell
 
 
+def shake( mycell, tries=5 ):
+    for i in range( tries ):
+        
+        print "SHAKING CELL TRY NUMBER ",i
+        
+        if not mycell.runMD( mdCycles=1000,
+                      rCut=None,
+                      T=0.1,
+                      tau=0.5,
+                      dt=0.005,
+                      doDihedral=True,
+                      doImproper=False,
+                      quiet=False,
+                      ):
+            print "SHAKE RUNMD FAILED!"
+            mycell.dump()
+            sys.exit()
+            
+        if mycell.zipBlocks( bondMargin=5, bondAngleMargin=180 ) > 0:
+            print "SHAKE ZIPBLOCKS WORKED SO OPTIMISING"
+            if not mycell.optimiseGeometry( doDihedral=True, quiet=True ):
+                mycell.dump()
+                print "SHAKE ZIPBLOCKS OPTIMISATION FAILED!"
+                sys.exit()
+            
+    return
+ 
+#mycell = cellFromPickle("/opt/ambuild/work/CTF/CTF-2-interpen/jensNewCap/step_17.pkl")
+
+#cell dimensions:
+CELLA = CELLB = CELLC = 100
+       
 # Create Cell and seed it with the blocks
-mycell = cell.Cell( atomMargin=0.1, boxMargin=0.5, bondMargin=0.5, bondAngle=180, bondAngleMargin=15 )
+mycell = cell.Cell( atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15 )
 mycell.cellAxis( CELLA, CELLB, CELLC )
-
-#fragA="/Users/jmht/Dropbox/Amorphousbuilder/Ambuild_13_08_2013/builder/input_files/closed_node.car"
-#fragB="/Users/jmht/Dropbox/Amorphousbuilder/Ambuild_13_08_2013/builder/input_files/linker.car"
-fragA="input_files/closed_node.car"
-fragB="input_files/linker.car"
-#fragA="../ch4_typed.car"
-#fragB="../PAF_bb_typed.car"
+       
+#import the two fragment files if you have 2 different building blocks
+#fragA="/opt/ambuild/work/building_blocks/PAF_bb_typed.car"
+fragA="../node_2.car"
+fragB="../linker_2.car"
 
 mycell.addInitBlock( filename=fragA, fragmentType='A' )
 mycell.addInitBlock( filename=fragB, fragmentType='B' )
-#mycell.addBondType( 'A-A' )
 mycell.addBondType( 'A-B' )
 
-mycell.seed( 1, fragmentType='A' )
-ok = mycell.growNewBlocks( 3, fragmentType='B', maxTries=500 )
-mycell.logger.info("BLOCKS ARE NOW {0}".format(mycell.blocks)  )
-mycell.dump()
+# Use center argument to place the first block at the center of the cell. Only for first seed.
+mycell.seed( 4, fragmentType='B', center=True )
 
-mycell.optimiseGeometry()
+# Now loop adding blocks
+for i in range( 1 ):
+    
+    toGrow=20
+    maxTries=500
+    if mycell.growBlocks( toGrow, fragmentType=None, maxTries=maxTries ) != toGrow:
+        print "growBlocks failed after {0} tries".format( maxTries )
+        mycell.dump()
+        sys.exit()
+        
+    if not mycell.runMDAndOptimise( doDihedral=True,
+                                    doImproper=False,
+                                    mdCycles=1000,
+                                    optCycles=100000,
+                                    maxOptIter=100,
+                                    T=1000.0,
+                                    tau=0.5,
+                                    dt=0.005,
+                                    rCut=None,
+                                    quiet=False,
+                                    ):
+        print "RUNMDANDOPTIMISE FAILED!"
+        mycell.dump()
+        sys.exit()
+    
+    #shake( mycell, tries=5 )
+    mycell.dump()
 
-
-mycell.dump()
-
-sys.exit(0)
-
-seedCount=1
-added = mycell.seed( seedCount, INFILE )
-print "Added {0} blocks".format(added)
-if added != seedCount:
-    response = raw_input('Tried to seed with {0} but could only add {1}. Continue? (y/n)'.format(seedCount,added))
-    if response.lower() == 'n':
-        sys.exit(1)
-
-ok = mycell.growNewBlocks(100, maxTries=500 )
-mycell.dump()
 sys.exit()
 
-#mycell.checkFinished()
-mycell.dump()
-#mycell.writeHoomdXml("hoomd.xml")
-
-while True:
     
-    for i in range(10):
-        
-        print "Growing new blocks in loop {0}".format(i)
-        ok = mycell.growNewBlocks(1, maxTries=50 )
-        mycell.dump()
-        if not ok:
-            print "FAILED TO GROW"
-            sys.exit(1)
-        #mycell.checkFinished()
+mycell.capBlocks( fragmentType='A', filename="../../cap_node_2.car" )
+mycell.dump()
+mycell.capBlocks( fragmentType='B', filename="../../cap_linker.car" )
+mycell.dump()
+if not mycell.optimiseGeometry(doDihedral=True, minCell=False):
+    print "FINAL OPTIMISATION FAILED!"
 
-        ok = mycell.joinBlocks( 20, maxTries=5000 )
-        print "Joining new blocks in loop {0}".format(i)
-        mycell.dump()
-        if not ok:
-            print "FAILED TO JOIN"
-        
-    print "Got density: ",mycell.density()
-    print "Got _endGroups: ",mycell._endGroups()
-    response = raw_input('Do we have to do this _again_? (y/n)')
-    if response.lower() == 'n':
-        break
+mycell.dump()
+
+

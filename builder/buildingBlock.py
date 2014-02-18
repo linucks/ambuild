@@ -16,7 +16,10 @@ https://github.com/patvarilly/periodic_kdtree
 # Python imports
 import copy
 import os
+import math
 import random
+import sys
+import types
 import unittest
 
 # external imports
@@ -33,57 +36,61 @@ class Bond(object):
     """
     def __init__(self):
         
-        self.block1 = None
-        self.frag1 = None
-        self.frag1atomIdx = None # fragment index 
-        self.frag1angleIdx = None
-        self.atom1Idx = None # index in whole block
-        self.angle1Idx = None
+        self.block1         = None
+        self.idxBlock1      = None
+        self.endGroup1      = None
         
-        self.block2 = None
-        self.frag2 = None
-        self.frag2atomIdx = None
-        self.frag2angleIdx = None
-        self.atom2Idx = None
-        self.angle2Idx = None
+        self.block2         = None
+        self.idxBlock2      = None
+        self.endGroup2      = None
         
+        return
+    
     def __str__(self):
-        """
-        Return a string representation of the bond
-        """
+        """List the data attributes of this object"""
         
-        #mystr = "Bond: {0} [\n".format(self.__repr__())
-        mystr = "Bond: {0} [\n".format( id(self) )
+        s = "Bond {0}: {1}-{2} -> {3}-{4}".format( id(self), self.idxBlock1, self.endGroup1.blockEndGroupIdx,
+                                                   self.idxBlock2, self.endGroup1.blockEndGroupIdx )
+        return s
+
+class EndGroup(object):
+    
+    def __init__(self):
         
-        mystr += "block1: {0}\n".format( id(self.block1) )
-        mystr += "frag1: {0}\n".format( id(self.frag1) )
-        mystr += "atomIdx1: {0}\n".format( self.frag1atomIdx )
-        mystr += "block2: {0}\n".format( id(self.block2) )
-        mystr += "frag2: {0}\n".format( id(self.frag2) )
-        mystr += "atomIdx2: {0} ]\n".format( self.frag2atomIdx )
+        self.free = True
         
-        return mystr
+        self.fragment             = None
+        
+        self.fragmentEndGroupIdx  = None
+        self.blockEndGroupIdx     = None
+        
+        self.fragmentCapIdx       = None
+        self.blockCapIdx          = None
+        
+        self.fragmentBonded       = []
+        self.blockBonded          = []
+        
+        return
+    
+    def __str__(self):
+        """List the data attributes of this object"""
+        me = {}
+        for slot in dir(self):
+            attr = getattr(self, slot)
+            if not slot.startswith("__") and not ( isinstance(attr, types.MethodType) or
+              isinstance(attr, types.FunctionType) ):
+                me[slot] = attr
+                
+        t = []
+        for k in sorted(me):
+            t.append( str( ( k, me[k] ) ) )
+                                   
+        return "{0} : {1}".format(self.__repr__(), ",".join( t ) )
+        
 
 class Block(object):
     '''
-    classdocs
-    
-    external API:
-    atomSymbol
-    atomRadius
-    atomCoord
-    atomLabel
-    centroid
-    iterCoord
-    newBondPosition
-    positionGrowBlock
-    radius
-    randomEndGroup
-    randomRotate
-    randomRotateBlock
-    rotate
-    translateCentroid
-    
+    foo
     '''
 
     def __init__( self, filename=None, fragmentType=None ):
@@ -91,230 +98,222 @@ class Block(object):
         Constructor
         '''
         
-        # The root (original) fragment
-        self._rootFragment = fragment.Fragment( filename=filename, fragmentType=fragmentType )
-        
-        # List of all the direct bonds to this atom
-        self._myBondObjects = []
-        
-        # The lists below here are constructed dynamically on bonding
-        
         # List of the fragments contained in this one
         self._fragments = []
         
+        # List of all the direct bonds to this atom
+        self._bonds = []
+        
         # List of the different fragmentTypes contained in this block
-        self._fragmentTypes = []
+        self._ftype2endGroup = []
         
         # list of tuples of ( idFrag, idxData )
         self._dataMap = []
         
-        # The list of all bonds in this block and all subblocks
-        self._bondObjects = []
-        
-        # bond indices
-        
-        
         # The list of atoms that are endGroups and their corresponding angleAtoms
         self._endGroups = []
-        self._angleAtoms = []
-   
+        self._freeEndGroupIdxs = []
+        self._bondedCapIdxs = []
+        
+        # the number of free endGroups
+        self._numFeeEndGroups = 0
+        
         # Flag to indicate if block has changed and parameters (such as centerOfMass)
         # need to be changed
         self._changed = True
         
         # Below need to be updated when we move etc
-        self._centroid = 0
-        self._centerOfMass = 0
-        self._maxAtomRadius = 0
+        self._centroid = numpy.zeros( 3 )
+        self._centerOfMass = numpy.zeros( 3 )
+        self._maxAtomRadius = -1
+        self._radius = None
         self._mass = 0
-        
-        self.atomCell = None # The cell that this atom is in (see cell.py)
-        
-        self._update()
 
-    def alignBond(self, idxAtom, refVector ):
+        self._blockId = id(self)
+        
+        # Set everything from the file
+        return self.fromFile( filepath=filename, fragmentType=fragmentType )
+    
+    def alignAtoms(self, atom1Idx, atom2Idx, refVector ):
+        """Move molecule so two atoms are aligned along refVector"""
+        
+        atom1 = self.atomCoord( atom1Idx )
+        atom2 = self.atomCoord( atom2Idx )
+        if isinstance( refVector, list ): # Should check if numpy array
+            refVector = numpy.array( refVector, dtype=numpy.float64 )
+            
+        return self.alignVector( atom1, atom2, refVector )
+    
+    def alignVector(self, pos1, pos2, refVector ):
         """
-        Align this block, so that the bond defined by idxAtom is aligned with
+        Align this block, so that the axis defined by the two atoms is aligned with
         the refVector
         
-        This assumes that the block has already been positioned with the contact atom at the origin
+        pos1 is the coordinate of atom1 and pos2 the coordinate of atom2
         """
         
-        endGroup = self.atomCoord( idxAtom )
+        # Move so that pos1 is at origin so the vector of pos2 can be
+        # aligned with the refVector
+        
+        # Shift block so angleAtom at center, 
+        self.translate( -pos1 )
         
         # Check neither is zero
-        if numpy.array_equal( refVector, [0,0,0] ) or numpy.array_equal( endGroup, [0,0,0] ):
-            raise RuntimeError, "alignBlock - one of the vectors is zero!\nrefVector: {0} endGroup: {1}".format( refVector, endGroup )
+        if numpy.array_equal( refVector, [0,0,0] ) or numpy.array_equal( pos2, [0,0,0] ):
+            raise RuntimeError, "alignBlock - one of the vectors is zero!\nrefVector: {0} endGroup: {1}".format( refVector, pos2 )
         
         # Makes no sense if they are already aligned
-        if numpy.array_equal( endGroup/numpy.linalg.norm(endGroup), refVector/numpy.linalg.norm(refVector) ):
+        if numpy.array_equal( pos2/numpy.linalg.norm(pos2), refVector/numpy.linalg.norm(refVector) ):
             print "alignBlock - block already aligned along vector. May not be a problem, but you should know..."
+            self.translate( pos1 ) # NEW - put it back
             return
 
         #print "alignBlock BEFORE: {0} | {1}".format( endGroup, refVector )
 
         # Calculate normalised cross product to find an axis orthogonal 
         # to both that we can rotate about
-        cross = numpy.cross( refVector, endGroup )
+        cross = numpy.cross( refVector, pos2 )
         
         if numpy.array_equal( cross, [0,0,0] ):
             # They must be already aligned but anti-parallel, so we flip
             print "alignBlock - vectors are anti-parallel so flipping"
             self.flip( refVector )
+            self.translate( pos1 ) #NEW - put it back
         else:
             
             # Find angle
-            angle = util.vectorAngle( refVector, endGroup )
+            angle = util.vectorAngle( refVector, pos2 )
             
             # Normalised cross to rotate about
             ncross = cross / numpy.linalg.norm( cross )
             
             # Rotate
             self.rotate( ncross, angle )
-            
+        
+        # Now shift back 
+        self.translate( pos1 )
+        
         #print "alignBlock AFTER: {0} | {1}".format( self.atomCoord( idxAtom ), refVector )
         return
-    
-    def angleAtom( self, idxAtom ):
-        """Return the coordinate for the angleAtom of the given atom"""
-        
-        #return self._angleAtoms[ self._endGroups.index( idxAtom ) ]
-        idxAngleAtom = self._angleAtoms[ self._endGroups.index( idxAtom ) ]
-        return self.atomCoord( idxAngleAtom )
-    
+
     def atomFragType(self, idxAtom ):
         """The type of the fragment that this atom belongs to."""
-        idxFrag, idxData = self._dataMap[ idxAtom ]
-        return self._fragments[ idxFrag ]._fragmentType
+        frag, idxData = self.unpackAtomIdx( idxAtom )
+        return frag._fragmentType
+    
+    def atomCharge(self, idxAtom ):
+        frag, idxData = self.unpackAtomIdx( idxAtom )
+        return frag._charges[ idxData ]
     
     def atomCoord(self, idxAtom ):
-        idxFrag, idxData = self._dataMap[ idxAtom ]
-        return self._fragments[ idxFrag ]._coords[ idxData ]
+        frag, idxData = self.unpackAtomIdx( idxAtom )
+        return frag._coords[ idxData]
     
     def atomLabel(self, idxAtom ):
-        idxFrag, idxData = self._dataMap[ idxAtom ]
-        return self._fragments[ idxFrag ]._labels[ idxData ]
+        frag, idxData = self.unpackAtomIdx( idxAtom )
+        return  frag._labels[ idxData ]
         
     def atomType(self, idxAtom ):
-        idxFrag, idxData = self._dataMap[ idxAtom ]
-        return self._fragments[ idxFrag ]._atomTypes[ idxData ]
+        frag, idxData = self.unpackAtomIdx( idxAtom )
+        return  frag._atomTypes[ idxData ]
     
     def atomMass(self, idxAtom ):
-        idxFrag, idxData = self._dataMap[ idxAtom ]
-        return self._fragments[ idxFrag ]._masses[ idxData ]
+        frag, idxData = self.unpackAtomIdx( idxAtom )
+        return  frag._masses[ idxData ]
     
     def atomRadius(self, idxAtom ):
-        idxFrag, idxData = self._dataMap[ idxAtom ]
-        return self._fragments[ idxFrag ]._atomRadii[ idxData ]
+        frag, idxData = self.unpackAtomIdx( idxAtom )
+        return  frag._atomRadii[ idxData ]
     
     def atomSymbol(self, idxAtom):
-        idxFrag, idxData = self._dataMap[ idxAtom ]
-        return self._fragments[ idxFrag ]._symbols[ idxData ]
-        
-    def bondBlock( self, idxAtom1, addBlock, idxAtom2 ):
+        frag, idxData = self.unpackAtomIdx( idxAtom )
+        return  frag._symbols[ idxData ]
+    
+    def bondBlock( self, bond ):
         """ Add newBlock to this one
         """
         
-        # Given a block and an atom index, we need to get the fragment
+        assert bond.block1 == self
         
-        idxFrag1, idxAtomFrag1 = self._dataMap[ idxAtom1 ]
-        frag1 = self._fragments[ idxFrag1 ]
+        # Mark both endGroups as used
+        bond.endGroup1.free = False
+        bond.endGroup2.free = False
         
-        idxFrag2, idxAtomFrag2 = addBlock._dataMap[ idxAtom2 ]
-        frag2 = addBlock._fragments[ idxFrag2 ]
+        # Add bond to list of bonds
+        self._bonds.append( bond )
         
-        bond = Bond()
-        bond.block1 = self
-        bond.frag1 = frag1
-        bond.frag1atomIdx = idxAtomFrag1
-        bond.frag1angleIdx = frag1.angleAtom( idxAtomFrag1 )
+        # Add all the other blocks fragments to this one
+        self._fragments += bond.block2._fragments
         
-        bond.block2 = addBlock
-        bond.frag2 = frag2
-        bond.frag2atomIdx = idxAtomFrag2
-        bond.frag2angleIdx = frag2.angleAtom( idxAtomFrag2 )
+        return self._update()
+    
+    def bonds(self):
+        return self._bonds
+    
+    def _calcCenters(self):
+
+        sumG = numpy.zeros( 3 )
+        sumM = numpy.zeros( 3 )
         
-        self._myBondObjects.append( bond )
-         
-        self._update()
+        totalMass = 0.0
+        for f in self._fragments:
+            
+            mass = f.mass()
+            totalMass += mass
+            sumG += f.centroid()
+            sumM += mass * f.centroid()
+        
+        self._centroid = sumG / len( self._fragments )
+        self._centerOfMass = sumM / totalMass
         
         return
 
-    def _calcCenters(self): 
-        """ Calc center for the combined block
-        """
-        
-        self._centroid = 0
-        self._centerOfMass = 0
-        for frag in self._fragments:
-            frag._calcCenters()
-            self._centroid += frag._centroid
-            self._centerOfMass += frag._centerOfMass
-        return
-        
     def _calcRadius(self):
         """
         Calculate a simple size metric of the block so that we can screen for whether
-        two _blocks are within touching distance
-        
-        First try a simple approach with a loop just to get a feel for things
-        - Find the largest distance between any atom and the center of geometry
-        - Get the covalent radius of that atom
-        - return that distance + radius + buffer
-        
-        Should move to use scipy as detailed here:
-        http://stackoverflow.com/questions/6430091/efficient-distance-calculation-between-n-points-and-a-reference-in-numpy-scipy
+        two blocks are within touching distance
+        Assumes centroid already calculated
         """
         
-        cog = self.centroid()
-        
         distances = []
-        self._maxAtomRadius = 0
-        for frag in self._fragments:
-            if frag.maxAtomRadius() > self._maxAtomRadius:
-                self._maxAtomRadius = frag.maxAtomRadius()
-            for coord in frag._coords:
-                #distances.append( numpy.linalg.norm(coord-cog) )
-                distances.append( util.distance(cog, coord) )
+        self._maxAtomRadius = 0.0
+        for f in self._fragments:
+            for c in f._coords:
+                distances.append( util.distance( self._centroid, c ) )
+                self._maxAtomRadius = max( f.maxAtomRadius(), self._maxAtomRadius )
             
         imax = numpy.argmax( distances )
         dist = distances[ imax ]
         
         # Add on the radius of the largest atom
-        atomR = self.maxAtomRadius()
+        self._radius = dist + self.maxAtomRadius()
         
-        # Set radius
-        self._radius = dist + atomR
         return
+
+    def _calcProperties(self):
+        self._calcCenters()
+        self._calcRadius()
+        self._changed = False
+        return
+    
+    def centerOfMass(self):
+        """
+        Return or calculate the center of mass for this building block.
+        """
         
+        print "centerOfMass changed ",self._changed
+        if self._changed:
+            self._calcProperties()
+        return self._centerOfMass
+
     def centroid(self):
         """
         Return or calculate the center of geometry for the building block.
         """
         
         if self._changed:
-            self._calcCenters()
-            self._changed = False
-        
+            self._calcProperties()
         return self._centroid
-    
-        
-    def centerOfMass(self):
-        """
-        Return or calculate the center of mass for this building block.
-        """
-        if self._changed:
-            self._calcCenters()
-            self._changed = False
-        
-        return self._centerOfMass
-
-    def coords( self ):
-        """Return a list of the coordinates for this block"""
-        coords = []
-        for frag in self._fragments:
-            coords += frag._coords
-        return coords
 
     def copy( self ):
         """
@@ -322,7 +321,9 @@ class Block(object):
         Hit problem when passing in the distance function from the cell as the deepcopy
         also had a copy of the cell
         """
-        return copy.deepcopy(self)
+        new = copy.deepcopy(self)
+        new._blockId = id( new )
+        return new
 
     def flip( self, fvector ):
         """Rotate perpendicular to fvector so we  facing the opposite way along the fvector
@@ -343,173 +344,325 @@ class Block(object):
         
         return
 
-    def _getBonds(self):
-        """Return all bonds for this block"""
-        self._bondObjects = []
-        for bond in self._myBondObjects:
-            
-            # First add the bonds to this block
-            self._bondObjects.append( bond )
-            
-            # Then add the bonds in the bonded blocks - excluding those to ourselves
-            if bond.block2 != self:
-                self._bondObjects += bond.block2._getBonds()
-            
-        return self._bondObjects
+    def fragmentBonds(self):
+        """Return a list of all the internal fragment bonds for this block"""
         
-    def hasFragmentType(self, fragmentType ):
-        """Return True if this atom is an endGroup - doesn't check if free"""
-        return fragmentType in self._fragmentTypes
-    
-    def isEndGroup(self, idxAtom):
-        """Return True if this atom is an endGroup - doesn't check if free"""
-        return idxAtom in self._endGroups
-    
-    def isCircular( self, bond ):
-        """Check if splitting the block at this bond would separate the block
-        into two separate blocks
+        # loop through all fragments and get a list of which atoms are internally bonded
+        # Then go through the data map and map these to the 'external' atom indices
+        fbonds = []
+        for fragment in self._fragments:
+            for b in fragment._bonds:
+                fbonds.append( ( (fragment, b[0]), (fragment, b[1])  ) )
+        
+        # Now map to data map
+        ofbonds = []
+        for ( a1, a2 ) in fbonds:
+            i1 = self._dataMap.index( a1 )
+            i2 = self._dataMap.index( a2 )
+            ofbonds.append( ( i1, i2) )
+        
+        return ofbonds
+
+    def fromCarFile(self, carFile):
+        """"Abbie did this.
+        Gulp...
+        """
+        labels = []
+        symbols = []
+        atomTypes = []
+        charges = []
+        
+        # numpy array
+        coords = []
+        
+        reading = True
+        with open( carFile, "r" ) as f:
+            
+            # skip first line
+            f.readline()
+            
+            # 2nd states whether PBC: PBC=OFF
+            pbc, state = f.readline().strip().split("=")
+            assert pbc.strip() == "PBC"
+            state=state.strip()
+            nskip=3
+            if state.upper() == "OFF":
+                nskip=2 
+            
+            for i in range(nskip):
+                f.readline()
+            
+            count=0
+            while reading:
+                line = f.readline()
+                
+                line = line.strip()
+                if not line:
+                    print "END OF CAR WITH NO END!!!"
+                    break
+                fields = line.split()
+                label = fields[0]
+                
+                # Check end of coordinates
+                if label.lower() == "end":
+                    reading=False
+                    break
+                
+                labels.append( label )
+                coords.append( numpy.array(fields[1:4], dtype=numpy.float64 ) )
+                atomTypes.append( fields[6] )
+                symbols.append( fields[7] )
+                charges.append( float( fields[8] ) )
+                
+                count+=1
+        
+        return  ( coords, labels, symbols, atomTypes, charges )
+
+    def fromXyzFile(self, xyzFile ):
+        """"Jens did this.
         """
         
-        # Check if the two blocks are the same - if so it's definitely a circular
-        # fragment
-        if bond.block1 == bond.block2:
-            return True
-
-        # Get the bonds contained in each block and see if either block occurs again
-        for b in bond.block1._bondObjects:
-            if b == bond:
-                continue
-            if b.block1 == bond.block2 or b.block2 == bond.block2:
-                return True
-            
-        for b in bond.block2._bondObjects:
-            if b == bond:
-                continue
-            if b.block1 == bond.block1 or b.block2 == bond.block1:
-                return True
+        labels = []
+        symbols = []
+        atomTypes = [] # hack...
+        charges = []
         
-        return False
+        # numpy array
+        coords = []
+        
+        with open( xyzFile ) as f:
+            
+            # First line is number of atoms
+            line = f.readline()
+            natoms = int(line.strip())
+            
+            # Skip title
+            line = f.readline()
+            
+            count = 0
+            for _ in range(natoms):
+                
+                line = f.readline()
+                line = line.strip()
+                fields = line.split()
+                label = fields[0]
+                labels.append(label)
+                coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
+                symbol = util.label2symbol( label )
+                symbols.append( symbol )
+                atomTypes.append(  symbols )
+                charges.append( 0.0 )
+                
+                count += 1
+        
+        return ( coords, labels, symbols, atomTypes, charges )
+    
+    def fromFile(self, filepath=None, fragmentType=None):
+
+        if filepath.endswith( ".car" ):
+            ( coords, labels, symbols, atomTypes, charges ) = self.fromCarFile( filepath )
+        elif filepath.endswith( ".xyz" ):
+            ( coords, labels, symbols, atomTypes, charges ) = self.fromXyzFile( filepath )
+        else:
+            raise RuntimeError("Unrecognised file suffix: {}".format( filepath ) )
+        
+        # Get cap atoms and endgroups
+        endGroups, capAtoms = self.parseEndgroupFile( filepath, fragmentType=fragmentType )
+
+        # Set the root fragment and its attributes
+        f = fragment.Fragment( fragmentType )
+        f.setData( coords = coords,
+                   labels = labels,
+                   symbols = symbols,
+                   atomTypes = atomTypes,
+                   charges = charges,
+                   endGroups = endGroups,
+                   capAtoms = capAtoms,  
+                  )
+        
+        f.processBodies( filepath )
+        
+        self._fragments = [ f ]
+        self._update()
+        
+        return
+
+    def getEndGroups(self, idxAtom=None, fragmentTypes=None, checkFree=True ):
+        """return a list of endGroups
+        With no arguments, return all endGroups, given the index of an atom that is an endGroup, 
+        return all the endGroup objects associated with it. If fragmentType is set only return
+        endGroups of that fragment type"""
+        
+        if idxAtom is None and fragmentTypes is None and not checkFree:
+            return self._endGroups
+        
+        if idxAtom is not None and not self.isEndGroup( idxAtom ):
+            raise RuntimeError,"{0} is not an endGroup!".format( idxAtom )
+        
+        # Think about how to better optimise this so we don't have to loop each time
+        # FIX TO USE ftype2endGroup!!!
+        endGroups = []
+        for endGroup in self._endGroups:
+            
+            if checkFree and not endGroup.free:
+                continue
+            
+            if idxAtom is not None and endGroup.blockEndGroupIdx != idxAtom:
+                continue
+            
+            if fragmentTypes is not None and endGroup.fragment.type() not in fragmentTypes:
+                continue
+            
+            endGroups.append( endGroup )
+        
+        #if not len( endGroups ):
+        #    raise RuntimeError,"getEndGroups found no endGroups for ftype {0} idxAtom {1}!".format( fragmentTypes, idxAtom  )
+        
+        return endGroups
+    
+    def getEndGroupTypes(self):
+        """Return a list of the fragmentTypes for the available endGroups"""
+        return self._ftype2endGroup.keys()
+    
+    def id(self):
+        return self._blockId
+    
+    def isEndGroup(self, idxAtom):
+        """Return True if this atom is a free endGroup
+        Currently this is the only place _freeEndGroupIdxs is used - 
+        we could use getEndGroups with the checkFree argument to obviate
+        the need for _freeEndGroupIdxs but for the time being I think the added
+        complexity is probably warranted for the extra speed (not measured)
+        """
+        return idxAtom in self._freeEndGroupIdxs
+    
+    def isBondedCap(self, idxAtom ):
+        #print "CHECKING {0} IN {1}".format(idxAtom, self._bondedCapIdxs )
+        return idxAtom in self._bondedCapIdxs
 
     def iterCoord(self):
         """Generator to return the coordinates"""
         for idx in range( len(self._dataMap) ):
             yield self.atomCoord( idx )
-
-    def labels( self ):
-        """Return a list of the coordinates for this block"""
-        labels = []
-        for frag in self._fragments:
-            labels += frag._labels
-        return labels
-
-    def maxAtomRadius(self):
-        """Return the maxium atom radius
-        """
-        
-        if self._maxAtomRadius != 0:
-            return self._maxAtomRadius
-        
-        raise RuntimeError,"maxAtomRadius not calculated!"
     
-    def mass(self):
-        """Total mass of the molecule
-        """
-        if not self._mass:
-            mass = 0.0
-            for frag in self._fragments:
-                for m in frag._masses:
-                    mass += m
-            self._mass = mass
-            
-        return self._mass
+    def maxAtomRadius(self):
+        assert self._maxAtomRadius > 0
+        return self._maxAtomRadius
 
-    def newBondPosition(self, idxAtom, symbol ):
+    def newBondPosition(self, endGroup, symbol ):
         """Return the position where a bond to an atom of type 'symbol'
         would be placed if bonding to the target endgroup
          I'm sure this algorithm is clunky in the extreme...
         """
         
-        targetEndGroup = self.atomCoord( idxAtom )
-        targetAngleAtom = self.angleAtom( idxAtom )
-        targetSymbol = self.atomSymbol( idxAtom )
+        targetEndGroup  = self.atomCoord( endGroup.blockEndGroupIdx )
+        targetSymbol    = self.atomSymbol( endGroup.blockEndGroupIdx )
+        targetCapAtom = self.atomCoord( endGroup.blockCapIdx )
         
         # Get the bond length between these two atoms
         bondLength = util.bondLength( targetSymbol, symbol )
         
-        # vector from target EndGroup contact to Endgroup
-        bondVec =  targetEndGroup - targetAngleAtom 
+        # Find unit vector pointing from targetAngleAtom to targetEndGroup
         
-        # Now extend it by Bondlength
-        vLength = numpy.linalg.norm( bondVec )
-        ratio = ( vLength + bondLength ) / vLength
-        newVec = bondVec * ratio
-        diff = newVec-bondVec
-        newPosition = targetEndGroup + diff
+        # vector from targetEndgroup to targetCapAtom
+        #v1 = targetEndGroup - targetCapAtom
+        v1 =  targetCapAtom - targetEndGroup
+        
+        # Now get unit vector
+        uv = v1 / numpy.linalg.norm( v1 )
+        
+        # Multiply unit vector by bond length to get the component to add on
+        newPosition = targetEndGroup + ( uv * bondLength )
         
         return newPosition
 
-    def positionGrowBlock( self, idxAtom, growBlock, idxGrowAtom ):
-        """
-        Position growBlock so it can bond to us, using the given _endGroups
+    def noClashCheck(self, idxAtom ):
+        return self.atomSymbol( idxAtom ).lower() == 'x' or self.isBondedCap( idxAtom )
+    
+    def numFreeEndGroups(self):
+        return len( self._freeEndGroupIdxs )
+    
+    def numAtoms(self):
+        return len(self._dataMap)
+
+    def parseEndgroupFile(self, filepath, fragmentType=None ):
         
-        Arguments:
-        idxAtom: the index of the endGroup atom to use for the bond
-        growBlock: the block we are positioning
-        idxGrowAtom: the index of the endGroup to use for the bond
+        dirname, filename = os.path.split( filepath )
+        basename, suffix = os.path.splitext( filename )
+        
+        endGroups = []
+        capAtoms = []
+        egfile = os.path.join( dirname, basename+".ambi" )
+        if os.path.isfile( egfile ):
+            #raise RuntimeError,"Cannot find endgroup file {0} for car file {1}".format( egfile, filepath )
+            egs = [ ( line.strip().split() ) for line in open( egfile, 'r') if not line.startswith("#") ]
+            for eg in egs:
+                endGroups.append( int( eg[0] ) )
+                capAtoms.append( int( eg[1] ) )
+                
+            if fragmentType == 'cap' and len( endGroups ) != 1:
+                raise RuntimeError, "Capfile had >1 endGroup specified!"
+            
+        return endGroups, capAtoms
+
+    def positionGrowBlock( self, endGroup, growBlock, growEndGroup ):
+        """
+        Position growBlock so it can bond to us
         """
 
-        # The vector we want to align along is the vector from the angleAtom
-        # to the endGroup
-        endGroup = self.atomCoord( idxAtom )
-        angleAtom = self.angleAtom( idxAtom )
-        refVector =  endGroup - angleAtom
-        
-        # Get the angleAtom for the growBlock
-        growBlockAngleAtom = growBlock.angleAtom( idxGrowAtom )
+        # The vector we want to align along is the vector from the endGroup
+        # to the capAtom
+        endGroupAtom = self.atomCoord( endGroup.blockEndGroupIdx )
+        capAtom      = self.atomCoord( endGroup.blockCapIdx )
+        refVector    =  endGroupAtom - capAtom
         
         # get the coord where the next block should bond
         # symbol of endGroup tells us the sort of bond we are making which determines
         # the bond length
-        symbol = growBlock.atomSymbol( idxGrowAtom )
-        bondPos = self.newBondPosition( idxAtom, symbol )
-        #print "got bondPos: {}".format( bondPos )
+        symbol = growBlock.atomSymbol( growEndGroup.blockEndGroupIdx )
         
-        # Shift block so angleAtom at center, so the vector of the endGroup can be
-        # aligned with the refVector
-        growBlock.translate( -growBlockAngleAtom )
+        bondPos = self.newBondPosition( endGroup, symbol )
+        #print "got bondPos for {0}: {1}".format( symbol, bondPos )
         
         # Align along the staticBlock bond
-        growBlock.alignBond( idxGrowAtom, refVector )
+        growBlock.alignAtoms( growEndGroup.blockEndGroupIdx,
+                              growEndGroup.blockCapIdx,
+                              refVector )
         
-        # Now turn the second block around
-        # - need to get the new vectors as these will have changed due to the moves
-        growBlockEG = growBlock.atomCoord( idxGrowAtom )
-        
-        # Flip by 180 along bond axis
-        growBlock.flip( growBlockEG )
-        
-        # Now need to place the endGroup at the bond coord - at the moment
-        # the contact atom is on the origin so we need to subtract the vector to the endGroup
-        # from the translation vector
-        #jmht FIX!
-        growBlock.translate( bondPos + growBlockEG )
+        # Now need to place the endGroup at the bond coord to do this now we just add the bondPos
+        growBlock.translate( bondPos )
         
         return
 
+    def randomEndGroup( self, fragmentTypes=None ):
+        """Randomly select an atom that is an endGroup """
+        
+        if fragmentTypes == None:
+            # We pick a random endGroup index
+            #i = random.randint( 0, len( self._endGroups ) - 1 )
+            endGroup = random.choice( self.getEndGroups( checkFree=True ) )
+        else:
+            # Make sure we have a list to check against
+            if isinstance( fragmentTypes, str ):
+                fragmentTypes = [ fragmentTypes ]
+            
+            # See if any in common
+            common = frozenset( self.getEndGroupTypes() ).intersection( frozenset( fragmentTypes ) )
+            if not bool( common ):
+                return False
+            
+            # We can definitely return something so pick a random fragment type and get a random endGroup
+            ftype = random.choice( list( common ) )
+            endGroup = random.choice( self.getEndGroups( fragmentTypes=[ ftype ] ) )
+            
+        return endGroup
+    
     def radius(self):
-        
         if self._changed:
-            self._calcCenters()
-            self._calcRadius()
-            self._changed = False
-        
+            self._calcProperties()
         return self._radius
 
-    def randomEndGroup( self, fragmentTypes=None ):
-        """Randomly select at atom that is an endGroup - return index in global array"""
-        return random.choice( self._endGroups )
-
-    def randomRotate( self, origin=[0,0,0], atOrigin=False ):
+    def randomRotate( self, origin=[ 0,0,0 ], atOrigin=False ):
         """Randomly rotate a block.
         
          Args:
@@ -540,179 +693,97 @@ class Block(object):
     def randomBlock(self):
         """Return a random block"""
         return random.choice( self.allBlocks )
-
+    
     def rotate( self, axis, angle, center=None ):
-        """ Rotate the molecule about the given axis by the angle in radians
-        """
         
-        if center==None:
-            center = numpy.array([0,0,0])
+        if center is None:
+            center = numpy.array( [ 0, 0, 0 ] )
         
-        rmat = util.rotation_matrix( axis, angle )
-        
-        # loop through all _blocks and change all _coords
-        # Need to check that the center bit is the best way of doing this-
-        # am almost certainly doing more ops than needed
-        for frag in self._fragments:
-            for i,coord in enumerate( frag._coords ):
-                #self._coords[i] = numpy.dot( rmat, coord )
-                coord = coord - center
-                coord = numpy.dot( rmat, coord )
-                frag._coords[i] = coord + center
-        
-        self._changed = True
-        
-    
-    def getBondObj( self, atom1Idx, atom2Idx ):
-        """Return the Bond object for the bond between the two atoms in block indices"""
-        
-        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in self._bondObjects ]
-        if ( atom1Idx, atom2Idx ) not in bonds and ( atom2Idx, atom1Idx ) not in bonds:
-            return False
-        
-        try:
-            i = bonds.index( ( atom1Idx, atom2Idx )  )
-            return self._bondObjects[ i ]
-        except ValueError:
-            i = bonds.index( ( atom2Idx, atom1Idx )  )
-            return self._bondObjects[ i ]
-        
-    
-    def splitBlock( self, atom1Idx, atom2Idx ):
-        
-        
-        # Get the bond if it exists
-        bond = self.getBondObj( atom1Idx, atom2Idx )
-        if not bond:
-            raise RuntimeError, "Atoms {0} and {1} are not bonded!".format( atom1Idx, atom2Idx )
-        
-        # Check that this isn't part of a circular fragment
-        if self.isCircular( bond ):
-            raise RuntimeError,"Blocks are circular!"
-        
-        if bond.block1 != self and bond.block2 != self:
-            raise RuntimeError,"Got bond that doesn't include self!"
-        
-        # Assume we can split into two blocks
-        return self._splitBlock( bond )
-    
-    def _splitBlock(self, bond ):
-        
-        
-        if bond.block1 == self:
-            block = bond.block2
-        else:
-            block = bond.block1
+        rotationMatrix = util.rotation_matrix( axis, angle )
+
+        for f in self._fragments:
+            f.rotate( rotationMatrix, center )
             
-        # Remove bond from list
-        self._myBondObjects.remove( bond )
-        
-        # Update the two new blocks
-        self._update()
-        block._update()
-        
-        return block
+        return
+    
+    def setCoord(self, idxAtom, coord ):
+        frag, idxData = self.unpackAtomIdx( idxAtom )
+        frag._coords[ idxData] = coord
+        return
 
     def translate(self, tvector):
         """ translate the molecule by the given vector"""
         
-        # Make sure its a numpy array - is this needed?
-        if isinstance(tvector,list):
+        # CHANGE SO WE CHECK IF IS A NUMPY ARRAY
+        if isinstance( tvector, list ):
             tvector = numpy.array( tvector )
-
-        for frag in self._fragments:
-            # Use len as we don't need to return the _coords
-            for i in range( len (frag._coords ) ):
-                frag._coords[i] += tvector
+        
+        # Loop through each fragment and translate each in turn
+        for f in self._fragments:
+            f.translate( tvector )
         
         self._changed = True
-    
+        
+        return
+
     def translateCentroid( self, position ):
         """Translate the molecule so the center of geometry moves
         to the given coord
         """
         self.translate( position - self.centroid() )
         
-    def _update( self  ):
+        return
+
+    def unpackAtomIdx(self, idxAtom ):
+        """Unpack an atomIdx to get the fragment and index of the atom in the fragment"""
+        return self._dataMap[ idxAtom ]
+        
+    def _update( self ):
         """Set the list of _endGroups & update data for new block"""
         
-        # get list of all fragments
-        # recursively loop across all local bonds
-        self._bondObjects = self._getBonds()
-        
-        # From the list of all bonds get a list of all blocks - excluding this one
-        blocks = []
-        for bond in self._bondObjects:
-            ## For now assume the first bond block is always self
-            #if bond.block1 != self:
-            #    raise RuntimeError,"UPdate got bond with first block not self"
-            if bond.block1 not in blocks and bond.block1 != self:
-                blocks.append( bond.block1 )
-            if bond.block2 not in blocks and bond.block2 != self:
-                blocks.append( bond.block2 )
-        
-        # Now get a list of all fragments
-        self._fragments = [ self._rootFragment ]
-        
-        # - all fragments or just root?
-        for block in blocks:
-            self._fragments.append( block._rootFragment )
-            
         # Now build up the dataMap
         self._dataMap = []
-        self._endGroups = []
-        self._angleAtoms = []
-        self._fragmentTypes = []
         count=0
-        for i, fragment in enumerate( self._fragments ):
-            
-            maxr = fragment.maxAtomRadius()
-            if maxr > self._maxAtomRadius:
-                self._maxAtomRadius = maxr
-            
-            if fragment._fragmentType not in self._fragmentTypes:
-                self._fragmentTypes.append( fragment._fragmentType )
-                
-            for j in range( len(fragment._coords) ):
-                
-                self._dataMap.append( (i, j) )
-                
-                # Add endGroups - need to exclude those used in bonds
-                if fragment.isEndGroup( j ):
-                    
-                    self._endGroups.append( count )
-                    
-                    # Get index of the angleAtom in the fragment
-                    k = fragment.angleAtom( j )
-                    # Now add that on starting from where the atoms for this fragment start
-                    self._angleAtoms.append( count-j+k )
-                
-                count += 1
+        for fragment in self._fragments:
+            for j in range( len( fragment._coords ) ):
+                self._dataMap.append( ( fragment, j ) )
         
-        # Have dataMap so now set bond indices
-        for bond in self._bondObjects:
-            
-            idxFrag1 = self._fragments.index( bond.frag1 )
-            bond.atom1Idx = self._dataMap.index( (idxFrag1, bond.frag1atomIdx) )
-            bond.angle1Idx = self._dataMap.index( (idxFrag1, bond.frag1angleIdx) )
-            
-            idxFrag2 = self._fragments.index( bond.frag2 )
-            bond.atom2Idx = self._dataMap.index( (idxFrag2, bond.frag2atomIdx) )
-            bond.angle2Idx = self._dataMap.index( (idxFrag2, bond.frag2angleIdx) )
-            
-            # Remove these atoms from our endGroups
-            i = self._endGroups.index( bond.atom1Idx )
-            self._endGroups.pop( i )
-            i = self._endGroups.index( bond.atom2Idx )
-            self._endGroups.pop( i )
-            
+        # Have dataMap so now update the endGroup information
+        self._endGroups = []
+        self._freeEndGroupIdxs = []
+        self._bondedCapIdxs = []
+        self._ftype2endGroup = {}
+        for fragment in self._fragments:
+            for i, endGroup in enumerate( fragment._endGroups ):
+                
+                assert endGroup.fragment == fragment
+                assert id(endGroup) == id( fragment._endGroups[ i ] )
+                
+                # Update the block-wide indices for the endGroups
+                endGroup.blockEndGroupIdx  = self._dataMap.index( ( fragment, endGroup.fragmentEndGroupIdx  ) )
+                endGroup.blockCapIdx = self._dataMap.index( ( fragment, endGroup.fragmentCapIdx ) )
+                
+                self._endGroups.append( endGroup )
+                
+                if endGroup.free:
+                    self._freeEndGroupIdxs.append( endGroup.blockEndGroupIdx )
+                    if not endGroup.fragment.type() in self._ftype2endGroup:
+                        self._ftype2endGroup[ endGroup.fragment.type() ] = []
+                    self._ftype2endGroup[ endGroup.fragment.type() ].append( endGroup )
+                else:
+                    self._bondedCapIdxs.append( endGroup.blockCapIdx )
         
-        # Fill atomCell list
-        self.atomCell = [None]*len( self._dataMap )
+        # Have dataMap so now set block-wide bond indices for endGroups
+        # We also need to remove any bonded capAtoms from the list of atoms bonded to 
+        for eg in self._endGroups:
+            eg.blockBonded = []
+            for fIdx in eg.fragmentBonded:
+                atomIdx = self._dataMap.index( ( eg.fragment, fIdx ) )
+                if  atomIdx not in self._bondedCapIdxs:
+                    eg.blockBonded.append( atomIdx )
         
         # Recalculate the data for this new block
-        self._calcCenters()
-        self._calcRadius()
+        self._calcProperties()
         
         return
         
@@ -720,20 +791,19 @@ class Block(object):
         
         if not name:
             name = str(id(self))+".xyz"
-            
         
-        coords = self.coords()
-        labels = self.labels()
-        
+        coords = self._coords
         with open(name,"w") as f:
             fpath = os.path.abspath(f.name)
             f.write( "{}\n".format( len(coords) ) )
             f.write( "id={}\n".format( str( id(self)  ) ) )
                              
-            for i,c in enumerate(coords):
-                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( util.label2symbol(labels[i]), c[0], c[1], c[2]))
+            for i, c in enumerate(coords):
+                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( self._symbols[ i ], c[0], c[1], c[2]))
         
         print "Wrote file: {0}".format(fpath)
+        
+        return
         
     def __str__(self):
         """
@@ -743,46 +813,63 @@ class Block(object):
         mystr = "Block: {0}\n".format(self.__repr__())
         
         mystr += "Num fragments: {0}\n".format( len( self._fragments) )
-        mystr += "endGroups: {0}\n".format( self._endGroups )
-        mystr += "angleAtoms: {0}\n".format( self._angleAtoms )
-        mystr += "bonds: {0}\n".format( self._bondObjects )
+        mystr += "endGroups idxs: {0}\n".format( [ e.blockEndGroupIdx for e in self._endGroups ]  )
+        mystr += "_freeEndGroupIdxs: {0}\n".format( self._freeEndGroupIdxs )
+        mystr += "capAtoms: {0}\n".format( [ e.blockCapIdx for e in self._endGroups ] )
+        mystr += "_bondedCapAtoms: {0}\n".format( self._bondedCapIdxs )
+        mystr += "bonds: {0}\n".format( self._bonds )
         
-#         mystr = ""
-#         mystr += "BlockID: {}\n".format(id(self))
-#         
-#         coords = []
-#         labels = []
-#         for block in self.allBlocks:
-#             coords += block._coords
-#             labels += block._labels
-#         mystr += "{}\n".format( len(coords) )
-#             
-#         for i,c in enumerate( coords ):
-#             #mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self._labels[i], c[0], c[1], c[2])
-#             mystr += "{0:5} {1:0< 15} {2:0< 15} {3:0< 15} \n".format( labels[i], c[0], c[1], c[2])
-#             
-#         #mystr += "radius: {}\n".format( self.radius() )
-#         mystr += "COM: {}\n".format( self._centerOfMass )
-#         mystr += "COG: {}\n".format( self._centroid )
-#         mystr += "_endGroups: {}\n".format( self._endGroups )
-#         mystr += "_myEndGroups: {}\n".format( self._myEndGroups )
-#         mystr += "_myAngleAtoms: {}\n".format( self._myAngleAtoms )
-#         mystr += "_blocks: {}\n".format( self._blocks )
-#         mystr += "allBlocks: {}\n".format( self.allBlocks )
+        for i,c in enumerate( self.iterCoord() ):
+            #mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self._labels[i], c[0], c[1], c[2])
+            mystr += "{0}  {1:5} {2:0< 15} {3:0< 15} {4:0< 15} \n".format( i, self.atomLabel( i ), c[0], c[1], c[2])
 
         return mystr
     
 class TestBlock(unittest.TestCase):
     
+    def setUp(self):
+        
+        thisd =  os.path.abspath( os.path.dirname( __file__ ) )
+        paths = thisd.split( os.sep )
+        self.ambuildDir = os.sep.join( paths[ : -1 ] )
+        
+        self.ch4Xyz = os.path.join( self.ambuildDir, "blocks", "ch4.xyz" )
+        self.ch4Car = os.path.join( self.ambuildDir, "blocks", "ch4.car" )
+        self.cx4Car = os.path.join( self.ambuildDir, "blocks", "cx4.car" )
+        self.pafCar = os.path.join( self.ambuildDir, "blocks", "PAF_bb_typed.car" )
+        self.benzeneCar = os.path.join( self.ambuildDir, "blocks", "benzene.car" )
+        self.benzene2Car = os.path.join( self.ambuildDir, "blocks", "benzene2.car" )
+        
+        return
     
+    def catBlocks(self, blocks, filename ):
+        
+        symbols = []
+        coords = []
+        for b in blocks:
+            for i, c in enumerate( b._coords ):
+                symbols.append( b._symbols[ i ] )
+                coords.append( c )
+                
+        with open(filename,"w") as f:
+            fpath = os.path.abspath(f.name)
+            f.write( "{}\n".format( len(coords) ) )
+            f.write( "id={}\n".format( str( id(self)  ) ) )
+            for i, c in enumerate( coords ):
+                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( symbols[ i ], c[0], c[1], c[2]))
+        
+        print "Wrote file: {0}".format(fpath)
+        
+        return
+            
     def writeCombined(self, block1, block2, filename ):
         """Write an xyz file with the coordinates of both blocks"""
         
-        block1coords = block1.coords()
-        block1labels = block1.labels()
+        block1coords = block1._coords
+        block1labels = block1._labels
     
-        block2coords = block2.coords()
-        block2labels = block2.labels()
+        block2coords = block2._coords
+        block2labels = block2._labels
         
         natoms = len( block1coords ) + len( block2coords )
         
@@ -797,201 +884,107 @@ class TestBlock(unittest.TestCase):
         f.close()
         return
     
+    def bondBlocks(self, block1, block2, endGroupIdx1, endGroupIdx2):
+        
+        endGroup1 = block1._endGroups[ endGroupIdx1 ]
+        endGroup2 = block2._endGroups[ endGroupIdx2 ]
+        
+        block1.positionGrowBlock( endGroup1, block2, endGroup2 )
+        
+        bond = Bond()
+        bond.block1          = block1
+        bond.endGroup1       = endGroup1
+        
+        bond.block2          = block2
+        bond.endGroup2       = endGroup2
+        
+        block1.bondBlock( bond )
+        
+        return
+    
     def testCH4(self):
         """Test the creation of a CH4 molecule"""
         
-        infile="../ch4.xyz"
-        ch4 = Block( infile )
+        ch4 = Block( self.ch4Car )
         
-        endGroups = [ 1, 2, 3, 4 ]
-        self.assertEqual( endGroups, ch4._endGroups )
-        angleAtoms = [ 0, 0, 0, 0, ]
-        self.assertEqual( angleAtoms, ch4._angleAtoms )
+        #endGroups = [ 1, 2, 3, 4 ]
+        endGroups = [ 0, 0, 0, 0 ]
+        self.assertEqual( endGroups, [ e.blockEndGroupIdx for e in ch4._endGroups ] )
         
+        #angleAtoms = [ 0, 0, 0, 0 ]
+        angleAtoms = [ 1, 2, 3, 4 ]
+        self.assertEqual( angleAtoms, [ e.blockCapIdx for e in ch4._endGroups ] )
+        
+        return
+    
+    def testCX4(self):
+        """Test the creation of a CX4 molecule"""
+        
+        cx4_1 = Block( self.cx4Car )
+        
+        self.assertEqual( [ 0, 0, 0, 0 ], [ e.blockEndGroupIdx for e in cx4_1._endGroups ] )
+        self.assertEqual( [ 1, 2, 3, 4, ], [ e.blockCapIdx for e in cx4_1._endGroups ] )
+        
+        cx4_2 = Block( self.cx4Car )
+        
+        idxEg1=0
+        idxEg2=0
+        self.bondBlocks( cx4_1, cx4_2, idxEg1, idxEg2 )
+        
+        return
+
+    def testCH4_Fragmentbond(self):
+        """First pass"""
+        
+        ch4 = Block( self.ch4Car )
+        
+        self.assertEqual( len( ch4._fragments[0]._bonds ), 4 )
         return
 
     def testCH4_bond(self):
         """First pass"""
         
-        infile="../ch4.xyz"
-        ch4_1 = Block( infile )
+        ch4_1 = Block( self.ch4Car )
+        ch4_2 = Block( self.ch4Car )
         
-        ch4_2 = Block( infile )
+        idxEg1=0 # 0 -> 1
+        idxEg2=0 # 0 -> 1
         
-        idxAtom1=2
-        idxAtom2=3
+        self.bondBlocks( ch4_1, ch4_2, idxEg1, idxEg2 )
         
-        ch4_1.positionGrowBlock( idxAtom1, ch4_2, idxAtom2 )
+        #ch4_1.writeXyz("testBond.xyz")
         
-        ch4_1.bondBlock( idxAtom1, ch4_2, idxAtom2 )
+        self.assertEqual( [0, 0, 0, 5, 5, 5], ch4_1._freeEndGroupIdxs )
+        self.assertEqual( [1, 6], ch4_1._bondedCapIdxs )
         
-        endGroups = [ 1, 3, 4, 6, 7, 9 ]
-        self.assertEqual( endGroups, ch4_1._endGroups )
+        self.assertEqual( len(ch4_1._bonds), 1 )
         
-        angleAtoms = [0, 0, 0, 0, 5, 5, 5, 5]
-        self.assertEqual( angleAtoms, ch4_1._angleAtoms )
-        
-        ref_bonds = [ (2, 8) ]
-        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bondObjects ]
-        self.assertEqual( ref_bonds, bonds )
-        
-        ch4_1.writeXyz("testBond.xyz    ")
+        bonds = [ ( b.endGroup1.blockEndGroupIdx, b.endGroup2.blockEndGroupIdx ) for b in ch4_1._bonds ]
+        self.assertEqual( [ (0, 5) ], bonds )
         
         return
     
-    def testCH4_bond2(self):
-        """First pass"""
-        
-        infile="../ch4.xyz"
-        ch4_1 = Block( infile )
-        ch4_2 = Block( infile )
-        ch4_3 = Block( infile )
-        
-        idxAtom1=2
-        idxAtom2=3
-        ch4_1.positionGrowBlock( idxAtom1, ch4_2, idxAtom2 )
-        ch4_1.bondBlock( idxAtom1, ch4_2, idxAtom2 )
-        
-        idxAtom1=9
-        idxAtom2=1
-        ch4_1.positionGrowBlock( idxAtom1, ch4_3, idxAtom2 )
-        ch4_1.bondBlock( idxAtom1, ch4_3, idxAtom2 )
-        
-        endGroups = [ 1, 3, 4, 6, 7, 12, 13, 14 ]
-        self.assertEqual( endGroups, ch4_1._endGroups )
-        
-        angleAtoms = [0, 0, 0, 0, 5, 5, 5, 5, 10, 10, 10, 10]
-        self.assertEqual( angleAtoms, ch4_1._angleAtoms )
-        
-        ref_bonds = [ (2, 8), (9, 11) ]
-        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bondObjects ]
-        self.assertEqual( ref_bonds, bonds )
-        
-        ch4_1.writeXyz("testBond2.xyz")
-        
-        return
-    
-    def makeCH4_bond4(self):
-        """return a block with 4 CH4 molecules"""
-
-        infile="../ch4.xyz"
-        ch4_1 = Block( infile )
-        ch4_2 = Block( infile )
-        
-        idxAtom1=2
-        idxAtom2=3
-        ch4_1.positionGrowBlock( idxAtom1, ch4_2, idxAtom2 )
-        ch4_1.bondBlock( idxAtom1, ch4_2, idxAtom2 )
-        
-        ch4_3 = Block( infile )
-        ch4_4 = Block( infile )
-        ch4_3.positionGrowBlock( idxAtom1, ch4_4, idxAtom2 )
-        ch4_3.bondBlock( idxAtom1, ch4_4, idxAtom2 )
-        
-        idxAtom1=1
-        idxAtom2=9
-        ch4_1.positionGrowBlock( idxAtom1, ch4_3, idxAtom2 )
-        ch4_1.bondBlock( idxAtom1, ch4_3, idxAtom2 )
-        
-        return ch4_1
-
-    def testCH4_bond4(self):
-        """First pass"""
-        
-        ch4_1 = self.makeCH4_bond4()
-        
-        endGroups = [3, 4, 6, 7, 9, 11, 13, 14, 16, 17]
-        self.assertEqual( endGroups, ch4_1._endGroups )
-         
-        angleAtoms = [0, 0, 0, 0, 5, 5, 5, 5, 10, 10, 10, 10, 15, 15, 15, 15]
-        self.assertEqual( angleAtoms, ch4_1._angleAtoms )
-         
-        ref_bonds = [(2, 8), (1, 19), (12, 18)]
-        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bondObjects ]
-        self.assertEqual( ref_bonds, bonds )
-        
-        ch4_1.writeXyz("testBond4.xyz")
-        
-        return
-    
-    def testIsCircular(self):
-        
-        ch4_1 = self.makeCH4_bond4()
-        
-        bond = ch4_1.getBondObj( 2, 8 )
-        self.assertFalse( ch4_1.isCircular( bond ) )
-        
-        #print "bonds1 ",[ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bondObjects ]
-        
-        idxAtom1=3
-        idxAtom2=4
-        ch4_1.bondBlock( idxAtom1, ch4_1, idxAtom2 )
-        #print "bonds2 ",[ ( id(b.block1), id(b.block2) ) for b in ch4_1._bondObjects ]
-        
-        bond = ch4_1.getBondObj( idxAtom1, idxAtom2 )
-        self.assertTrue( ch4_1.isCircular( bond ) )
-        
-        return
-
-    def testCH4_bond4_split(self):
-        """First pass"""
-        
-        ch4_1 = self.makeCH4_bond4()
-        
-        # Now split the block
-        atom1Idx = 1
-        atom2Idx = 8
-        self.assertRaises( RuntimeError, ch4_1.splitBlock, atom1Idx, atom2Idx )
-        
-        atom1Idx = 8
-        atom2Idx = 2
-        
-        splitBlock = ch4_1.splitBlock( atom1Idx, atom2Idx )
-        
-        l = len(ch4_1._fragments)
-        self.assertEqual( 3, l, "Incorrect number of fragments: {0}".format(l) )
-        l = len(splitBlock._fragments)
-        self.assertEqual( 1, l, "Incorrect number of fragments: {0}".format(l) )
-        
-        #splitBlock.writeXyz("b1.xyz")
-        #ch4_1.writeXyz("b2.xyz")
-        
-        return
-
-
     def testCH4_bond_self(self):
         """First pass"""
         
         
-        infile="../ch4.xyz"
-        ch4_1 = Block( infile )
-        ch4_2 = Block( infile )
+        ch4_1 = Block( self.ch4Car )
+        ch4_2 = Block( self.ch4Car )
         
-        idxAtom1=1
-        idxAtom2=1
-        ch4_1.bondBlock( idxAtom1, ch4_2, idxAtom2 )
+        idxEg1=1
+        idxEg2=2
+        self.bondBlocks( ch4_1, ch4_2, idxEg1, idxEg2 )
         
-        # now bond to self
-        idxAtom1=2
-        idxAtom2=9
-        ch4_1.bondBlock( idxAtom1, ch4_1, idxAtom2 )
-        
-        endGroups = [3, 4, 7, 8]
-        self.assertEqual( endGroups, ch4_1._endGroups )
-         
-        angleAtoms = [0, 0, 0, 0, 5, 5, 5, 5]
-        self.assertEqual( angleAtoms, ch4_1._angleAtoms )
-         
-        ref_bonds = [ (1, 6), (2, 9) ]
-        bonds = [ ( b.atom1Idx, b.atom2Idx ) for b in ch4_1._bondObjects ]
-        self.assertEqual( ref_bonds, bonds )
+        idxEg1=0
+        idxEg2=5
+        self.bondBlocks( ch4_1, ch4_1, idxEg1, idxEg2 )
          
         return
 
     def testAlignBlocks(self):
         """Test we can align two _blocks correctly"""
     
-        blockS = Block( "../PAF_bb_typed.car" )
+        blockS = Block( self.pafCar )
         block = blockS.copy()
         
         block.translateCentroid( [ 3, 4 ,5 ] )
@@ -999,23 +992,24 @@ class TestBlock(unittest.TestCase):
         
         # Get the atoms that define things
         idxSatom = 17
+        idxAatom = 3
         blockSEndGroup = blockS.atomCoord( idxSatom )
-        blockSangleAtom = blockS.angleAtom( idxSatom )
+        blockSangleAtom = blockS.atomCoord( idxAatom )
         
         idxAtom = 7
-        blockAngleAtom = block.angleAtom( idxAtom )
+        idxAatom2 = 1
+        blockAngleAtom = block.atomCoord( idxAatom2 )
         
-        # we want to align along block1Contact -> block1EndGroup
+        # we want to align along blockSangleAtom -> blockSEndGroup
         refVector = blockSEndGroup - blockSangleAtom
         
         # Position block so contact is at origin
         block.translate( -blockAngleAtom )
-
-        block.alignBond( idxAtom, refVector )
+        block.alignAtoms( idxAatom2, idxAtom, refVector )
         
         # Check the relevant atoms are in the right place
         blockEndGroup  = block.atomCoord( idxAtom )
-        blockAngleAtom = block.angleAtom( idxAtom )
+        blockAngleAtom = block.atomCoord( idxAatom2 )
         
         newVector = blockEndGroup - blockAngleAtom
         
@@ -1028,16 +1022,18 @@ class TestBlock(unittest.TestCase):
                          msg="End Group incorrectly positioned: {0} | {1}".format(newNorm, refNorm )  )
         return
 
-    def testCenterOfGeometry(self):
+    def testCentroid(self):
         """
         Test calculation of Center of Geometry
         """
         
         correct = numpy.array([  0.000000,  0.000000,  0.000000 ])
-        ch4 = Block("../ch4.xyz")
+        ch4 = Block( self.ch4Car )
         cog = ch4.centroid()
         self.assertTrue( numpy.allclose( correct, cog, rtol=1e-9, atol=1e-6 ),
-                         msg="testCenterOfGeometry incorrect COM.")
+                         msg="testCentroid incorrect COM.".format( cog ))
+        
+        return
 
     def testCenterOfMass(self):
         """
@@ -1045,16 +1041,16 @@ class TestBlock(unittest.TestCase):
         """
         
         correct = numpy.array([  0.000000,  0.000000,  0.000000 ])
-        ch4 = Block("../ch4.xyz")
+        ch4 = Block( self.ch4Car )
         com = ch4.centerOfMass()
-        self.assertTrue( numpy.allclose( correct, com, rtol=1e-9, atol=1e-7 ),
-                         msg="testCenterOfMass incorrect COM.")
+        self.assertTrue( numpy.allclose( correct, com, rtol=1e-6, atol=1e-6 ),
+                         msg="testCenterOfMass incorrect COM: {0}".format( com ) )
         return
 
     def testMove(self):
         """Test we can move correctly"""
         
-        paf = Block( "../PAF_bb_typed.car" )
+        paf = Block( self.pafCar )
         m = paf.copy()
         m.translate( numpy.array( [5,5,5] ) )
         c = m.centroid()
@@ -1064,32 +1060,94 @@ class TestBlock(unittest.TestCase):
         self.assertTrue( numpy.allclose( p, c, rtol=1e-9, atol=1e-9 ), "simple move")
         return
     
+    def testAlignAtoms(self):
+        
+        block = Block( self.benzeneCar )
+        bcopy = block.copy()
+        
+        # Check atoms are not aligned along axis
+        c1Idx=2
+        c2Idx=5
+        c1 = block.atomCoord( c1Idx )
+        c2 = block.atomCoord( c2Idx )
+        
+        #self.assertTrue( numpy.allclose( c1-c2 , [ 3.0559,  -0.36295,  0.07825], atol=1E-7  ), "before" )
+        self.assertTrue( numpy.allclose( c1-c2 , [ 3.0559,  -0.36295,  0.07825] ), "before" )
+        
+        # Align along z-axis
+        block.alignAtoms( c1Idx, c2Idx, [ 0, 0, 1 ] )
+        
+        # check it worked
+        c1 = block.atomCoord( c1Idx )
+        c2 = block.atomCoord( c2Idx )
+        z = numpy.array([  0.0,  0.0, -3.07837304 ])
+        
+        self.assertTrue( numpy.allclose( c1-c2 , z ), "after" )
+
+        return
+    
     def testPositionGrowBlock(self):
         
-        blockS = Block( "../PAF_bb_typed.car" )
+        blockS = Block( self.pafCar )
+        
         growBlock = blockS.copy()
         
         growBlock.translateCentroid( [ 3,4,5 ] )
         growBlock.randomRotate()
         
-        #self.writeCombined(blockS, growBlock, "b4.xyz")
         
         # Get the atoms that define things
-        idxBlockAtom = 7
-        idxGrowBlockAtom = 12
+        endGroup1 = blockS._endGroups[ 0 ]
+        endGroup2 = growBlock._endGroups[ 1 ]
         
         # Get position to check
-        newPos = blockS.newBondPosition( idxBlockAtom, growBlock.atomSymbol( idxGrowBlockAtom ) )
+        newPos = blockS.newBondPosition( endGroup1, growBlock.atomSymbol( endGroup2.blockEndGroupIdx ) )
         
         # Position the block
-        blockS.positionGrowBlock( idxBlockAtom, growBlock, idxGrowBlockAtom )
+        blockS.positionGrowBlock( endGroup1, growBlock, endGroup2 )
         
         # After move, the endGroup of the growBlock should be at newPos
-        endGroupCoord = growBlock.atomCoord( idxGrowBlockAtom )
+        endGroupCoord = growBlock.atomCoord( endGroup2.blockEndGroupIdx ) 
         self.assertTrue( numpy.allclose( newPos, endGroupCoord, rtol=1e-9, atol=1e-7 ),
                          msg="testCenterOfMass incorrect COM.")
         
         #self.writeCombined(blockS, growBlock, "after.xyz")
+
+        return
+    
+    def testPositionGrowBlock2(self):
+        
+        staticBlock = Block( self.benzeneCar )
+        
+        growBlock = staticBlock.copy()
+        
+        growBlock.translateCentroid( [ 3,4,5 ] )
+        growBlock.randomRotate()
+        
+        # Get the atoms that define things
+        endGroup1 = staticBlock._endGroups[ 0 ]
+        endGroup2 = growBlock._endGroups[ 0 ]
+        
+        # Get position to check
+        newPos = staticBlock.newBondPosition( endGroup1, growBlock.atomSymbol( endGroup2.blockEndGroupIdx ) )
+        
+        #staticBlock._symbols.append( 'N' )
+        #staticBlock._coords.append( newPos )
+        #staticBlock.writeXyz("FOO.xyz")
+        
+        
+        # Position the block
+        #staticBlock.XXpositionGrowBlock( endGroup1, growBlock, endGroup2 )
+        staticBlock.positionGrowBlock( endGroup1, growBlock, endGroup2 )
+        
+        #self.catBlocks( [staticBlock, growBlock ], "both.xyz")
+        
+        # After move, the endGroup of the growBlock should be at newPos
+        endGroupCoord = growBlock.atomCoord( endGroup2.blockEndGroupIdx ) 
+        self.assertTrue( numpy.allclose( newPos, endGroupCoord, rtol=1e-9, atol=1e-7 ),
+                         msg="testCenterOfMass incorrect COM.")
+        
+        #self.writeCombined(staticBlock, growBlock, "after.xyz")
 
         return
 
@@ -1098,7 +1156,7 @@ class TestBlock(unittest.TestCase):
         Test calculation of the radius
         """
         
-        ch4 = Block("../ch4.xyz")
+        ch4 = Block( self.ch4Car )
         r = ch4.radius()
         #jmht - check...- old was: 1.78900031214
         # or maybe: 1.45942438719
@@ -1110,7 +1168,7 @@ class TestBlock(unittest.TestCase):
         Test calculation of the radius
         """
         
-        ch4 = Block("../ch4.xyz")
+        ch4 = Block( self.ch4Car )
         r = ch4.maxAtomRadius()
         #jmht - check...- old was: 1.78900031214
         self.assertAlmostEqual(r, 0.70380574117, 7, "Incorrect radius: {}".format(str(r)) )
@@ -1120,7 +1178,8 @@ class TestBlock(unittest.TestCase):
         Test the rotation
         """
         
-        ch4 = Block("../ch4.xyz")
+        ch4 = Block( self.ch4Car )
+        
         array1 = numpy.array( [ -0.51336 ,  0.889165, -0.363 ] )
         self.assertTrue( numpy.array_equal( ch4.atomCoord(4), array1 ),
                          msg="testRotate arrays before rotation incorrect.")

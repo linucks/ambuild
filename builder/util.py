@@ -5,11 +5,13 @@ Created on Feb 3, 2013
 
 Utility functions
 '''
+import cPickle
 import os
-import re
 import numpy
 import math
+import sys
 import unittest
+import xml.etree.ElementTree as ET
 
 # Bits stolen from the CCP1GUI: http://sourceforge.net/projects/ccp1gui/
 # However, I wrote bits of that so I assume its ok
@@ -226,6 +228,8 @@ ATOMIC_MASS = {
    'HS' : 269.13,
    'Mt' : 268.14,
    'MT' : 268.14,
+   # jmht - dummy atom
+   'X' : 0,
 }
 
 # mapping symbols to Z
@@ -343,10 +347,10 @@ SYMBOL_TO_NUMBER = {
 # H=.7 is just for appearance
 #
 #
-# note that indexing with -1 accesses the last element (0.4 copied at start and edn)
+# note that indexing with -1 accesses the last element (0 copied at start and edn)
 # UNITS ARE IN BOHR!!!
 COVALENT_RADII = [
-0.4,
+0,
 0.7,                                   3.80,    
 2.76,1.99,                1.62,1.33,1.23,1.14,0.95,3.80,
 3.42,2.85,                2.38,2.09,1.90,1.90,1.90,3.80,
@@ -363,7 +367,7 @@ COVALENT_RADII = [
                          3.61,3.42,3.04,3.61,3.61,3.80,
 4.94,4.09,
      3.71,
-     3.42,3.42,3.33,3.33,3.33,3.33,3.23,3.13,3.13,3.13,3.13,3.13,3.13,3.13, 1., 1., 1.,1.,1.,1., 0.4,]
+     3.42,3.42,3.33,3.33,3.33,3.33,3.23,3.13,3.13,3.13,3.13,3.13,3.13,3.13, 1., 1., 1.,1.,1.,1., 0,]
      
 
 # joe lennards table angstroms
@@ -431,8 +435,9 @@ BOND_LENGTHS['C'] = { 'C' : 1.53,
                       'GE': 1.95,
                       'H' : 1.09,
                       'I' : 2.13,
-                      'N' : 1.46,
                       'O' : 1.42,
+                      # 'N' : 1.46,
+                      'N' : 1.4, # jmht changed for abbie
                       'P' : 1.85,
                       'S' : 1.82,
                       'SE': 1.95,
@@ -458,7 +463,8 @@ BOND_LENGTHS['F'] = { 'F'  : 1.41,
                       'I'  : 1.91,
                       'N'  : 1.37,
                       'O'  : 1.42,
-                      'P'  : 1.57,
+#                      'P'  : 1.57, # changed for abbie
+                      'P'  : 1.63,
                       'S'  : 1.56,
                       'SE' : 1.71,
                       'SI' : 1.58,
@@ -486,7 +492,9 @@ BOND_LENGTHS['I'] = { 'I'  : 2.67,
 
 BOND_LENGTHS['N'] = { 'N' : 1.45,
                       'O' : 1.43,
-                      'P' : 1.65 }
+                      'P' : 1.65,
+                      'ZN' : 2.166, # Added for abbie
+                       }
 
 BOND_LENGTHS['O'] = { 'O'  : 1.48,
                       'SI' : 1.63 }
@@ -506,14 +514,7 @@ def angle( c1, c2, c3 ):
     Taken from the CCP1GUI
     jmht - think about PBC
     """
-    #p1 = a1.coord
-    #p2 = a2.coord
-    #p3 = a3.coord
 
-    #r1 = cpv.distance(p1,p2)
-    #r2 = cpv.distance(p2,p3)
-    #r3 = cpv.distance(p1,p3)
-    
     #r1 = numpy.linalg.norm( c1 - c2 )
     #r2 = numpy.linalg.norm( c2 - c3 )
     #r3 = numpy.linalg.norm( c1 - c3 )
@@ -521,16 +522,30 @@ def angle( c1, c2, c3 ):
     r2 = distance( c3, c2 )
     r3 = distance( c3, c1 )
     
-    #print r1,r2,r3
+    x = (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2)
+    assert not numpy.isnan( x )
     
-    small = 1.0e-10
-    #cnv   = 57.29577951
-    if r1 + r2 - r3 < small:
-        # printf("trig error %f\n",r3-r1-r2)
-        # This seems to happen occasionally for 180 angles 
+    #print "r1: {0}, r2: {1}, r3: {2}, x: {3}".format( r1, r2, r3, x )
+    if numpy.allclose(x, 1.0):
+        theta = 0.0
+    elif numpy.allclose(x, -1.0):
         theta = math.pi
     else:
-        theta = math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
+        #theta = math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
+        theta = numpy.arccos( x )
+ 
+#     small = 1.0e-10
+#     if r1 + r2 - r3 < small:
+#         # printf("trig error %f\n",r3-r1-r2)
+#         # This seems to happen occasionally for 180 angles 
+#         theta = math.pi
+#     else:
+#         x = (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2)
+#         if numpy.allclose(x, 1.0):
+#             theta = 0.0
+#         else:
+#             #theta = math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
+#             theta = numpy.arccos( x )
         
     #print "ANGLE THETA IS ",theta
     return theta;
@@ -538,7 +553,7 @@ def angle( c1, c2, c3 ):
 def bondLength( symbol1,symbol2 ):
     """ Get the characteristic lengths of single bonds as defined in:
         Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
-        If we can't find one return 1.0 as a default 
+        If we can't find one return a large negative number.
     """
     global BOND_LENGTHS
 
@@ -555,8 +570,133 @@ def bondLength( symbol1,symbol2 ):
         if BOND_LENGTHS[ symbol2 ].has_key( symbol1 ):
             return BOND_LENGTHS[ symbol2 ][ symbol1 ]
     
-    print 'No data for bond length for %s-%s' % (symbol1,symbol2)
-    return 1.0
+    #print 'No data for bond length for %s-%s' % (symbol1,symbol2)
+    
+    return -100
+
+def calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0 ):
+    """Calculate the bonds for the fragments. This is done at the start when the only coordinates
+    are those in the fragment.
+    """
+    
+    bonds, md = _calcBonds( coords,
+                            symbols,
+                            maxAtomRadius=maxAtomRadius,
+                            bondMargin=bondMargin,
+                            boxMargin=boxMargin )
+    
+    return bonds
+    
+    
+def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0 ):
+    """Calculate the bonds for the fragments. This is done at the start when the only coordinates
+    are those in the fragment.
+    """
+    
+    bondMargin=0.2
+    boxMargin=1.0
+    
+    def getSurroundCells( key ):
+        """Returns the list of cells surrounding a cell"""
+        a,b,c = key
+        cells = []
+        for  i in [ 0, -1, +1 ]:
+            for j in [ 0, -1, +1 ]:
+                for k in [ 0, -1, +1 ]:
+                    ai = a+i
+                    bj = b+j
+                    ck = c+k
+                    skey = (ai, bj, ck)
+                    #print "sKey ({},{},{})->({})".format(a,b,c,skey)
+                    if skey not in cells:
+                        cells.append(skey)
+        return cells
+    ## End getSurroundCells
+    
+    if maxAtomRadius is None:
+        for s in set( symbols ):
+            z = SYMBOL_TO_NUMBER[ s.upper() ]
+            r = COVALENT_RADII[z] * BOHR2ANGSTROM
+            maxAtomRadius = max( r, maxAtomRadius )
+    
+    # Calculate how big the boxes are
+    boxSize = ( maxAtomRadius * 2 ) + boxMargin
+    
+    atomCells = [] # List of which cell each atom is in - matches coords array
+    # For cells and surroundCells, the key is a triple of the indices of the cell position (a,b,c)
+    cells = {} # Dictionary of the cells, each containing a list of atoms in that cell 
+    surroundCells = {} # Dictionary keyed by cell with a list of the cells that surround a particular cell
+    
+    # Work out which box each atom is in and the surrounding boxes
+    for i, coord in enumerate( coords ):
+        
+        x, y, z = coord
+        a=int( math.floor( x / boxSize ) )
+        b=int( math.floor( y / boxSize ) ) 
+        c=int( math.floor( z / boxSize ) )
+        
+        key = (a,b,c)
+        atomCells.append( key )
+        if cells.has_key( key ):
+            cells[ key ].append( i )
+        else:
+            # Add to main list
+            cells[ key ] = [ ( i ) ]
+            # Map surrounding boxes
+            surroundCells[ key ] = getSurroundCells( key )
+
+    bonds = []
+    md = {'dist': 10000,
+          'coord1' : None, 
+          'coord2' : None, 
+          'i1' : None, 
+          'i2' : None  }
+    
+    # Now calculate the bonding
+    for i, coord1 in enumerate( coords ):
+        
+        symbol1 = symbols[ i ]
+        key = atomCells[ i ]
+        
+        # Loop through all cells surrounding this one
+        for cell in surroundCells[ key ]:
+            
+            # Check if we have a cell with anything in it
+            if not cells.has_key( cell ):
+                continue
+            
+            for atomIdx in cells[ cell ]:
+                
+                # Skip atoms we've already processed
+                if atomIdx > i:
+                
+                    coord2 = coords[ atomIdx ]
+                    symbol2 = symbols[ atomIdx ]
+                    
+                    bond_length = bondLength( symbol1, symbol2 )
+                    if bond_length < 0:
+                        continue
+                    
+                    dist = distance( coord1, coord2 )
+                    
+                    if dist < md[ 'dist' ]:
+                        md[ 'dist' ] = dist
+                        md[ 'coord1' ] = coord1
+                        md[ 'coord2' ] = coord2
+                        # WOrk out how to get index of numpy array in list
+                        #md[ 'i1' ] = coords.index( coord1 )
+                        for x, c in enumerate( coords ):
+                            if numpy.allclose( coord1, c ):
+                                md[ 'i1' ] = x
+                            if numpy.allclose( coord2, c ):
+                                md[ 'i2' ] = x
+                    
+                    #print "Dist:length {0}:{1} ".format( util.distance( coord1, coord2 ), bond_length )
+                    if  bond_length - bondMargin < dist < bond_length + bondMargin:
+                        bonds.append( (i, atomIdx) )
+    
+    return bonds, md
+
 
 def dihedral(self, p1, p2, p3, p4):
     """ From the CCP1GUI"""
@@ -608,8 +748,8 @@ def dihedral(self, p1, p2, p3, p4):
 
 def distance(x,y):
     """
-    Calculate the distance between two vectors - currently just use for testing
-    Actual one lives in cell
+    Calculate the distance between two vectors - for distances between coordinates we use the
+    one in the cell as this works with periodic boundaries - this one is just used here.
     """
     return numpy.linalg.norm(y-x)
 
@@ -646,44 +786,64 @@ def label2symbol( name ):
         Originally written by Jens Thomas in the CCP1GUI
     """
 
+    origName = name
+    name = name.strip().upper()
+    
     # Determine the element from the first 2 chars of the name
-    if ( len( name ) == 1 ):
-        if not re.match( '[a-zA-Z]', name ):
-            print "Error converting name to symbol for atom %s!" % name
-            element = 'XX'
-        else:
-            element = name
-    else:
-        # See if 2nd char is a character - if so use 1st 2 chars as symbol
-        if re.match( '[a-zA-Z]', name[1] ):
-            element = name[0:2]
-        else:
-            element = name[0]
+    if len( name ) > 2:
+        name = name[0:2]
+        
+    if len( name ) == 2 and name[0].isalpha() and name[1].isalpha():
+        # 2 Character name, so see if it matches any 2-character elements
+        sym2c = filter( lambda x: len(x) == 2, SYMBOL_TO_NUMBER.keys() )
+        # HACK: NEED TO REMOVE NP
+        sym2c.remove( 'NP' )
+        if name in sym2c:
+            return name.capitalize()
+        
+    # If it was a valid 2 character symbol we should have picked it up so now only 1 symbol
+    name=name[0]
+    if not name.isalpha():
+        raise RuntimeError,"label2symbol first character of name is not a character: {0}".format( origName )
+    
+    # Hack - for x return x
+    if name.lower() == 'x':
+        return 'x'
+    
+    # Get 1 character element names
+    sym1c = filter( lambda x: len(x) == 1 and x != 'X',  SYMBOL_TO_NUMBER.keys() )
+    
+    if name in sym1c:
+        return name.capitalize()
+    
+    raise RuntimeError,"label2symbol cannot convert name {0} to symbol!".format( origName )
+    
+    return
 
-    return element.capitalize()
-
-def newFilename(filename):
+def newFilename(filename,separator="_"):
+    
+    dname, name  = os.path.split( filename )
+    
     # Create a new filename using _1 etc
-    name,suffix = os.path.splitext( filename )
+    name,suffix = os.path.splitext( name )
     
-    count=0
-    while True:
-        try:
-            int(name[count-1])
-        except ValueError:
-            break
-        count-=1
+    try:
+        basename, num = name.split( separator )
+    except ValueError:
+        # No separator so assume is an un-numbered file
+        return os.path.join( dname, name+separator+"0"+suffix )
     
-    nstr=name[count:]
-            
-    if not name[count-1] == "_" or count==0:
-        raise RuntimeError,"Filename needs to be of the form: NAME_15.xyz"
+    num = int(num) + 1
+    return os.path.join( dname, basename+separator+str(num)+suffix )
+
+def pickleObj( obj, fileName):
+    """Pickle an object - required as we can't pickle in the cell as otherwise the open filehandle
+    is within the cell which is the object we are trying to pickle..."""
     
-    n=int(nstr)
-    n=n+1
-    name = name[:count]+str(n)
-    
-    return name+suffix
+    with open( fileName, 'w' ) as pfile:
+        cPickle.dump( obj ,pfile )
+        
+    return
 
 def rotation_matrix( axis, angle ):
     """
@@ -724,6 +884,109 @@ def vectorAngle( v1, v2):
     #return angle/RADIANS2DEGREES
     return angle
 
+def unWrapCoord( coord, image, ldim, centered=False ):
+    """Unwrap a coordinate back into a cell
+    """
+    
+    if centered:
+        # Put it back with origin at corner
+        coord += ldim / 2
+    
+        # Make sure it's gone into the box
+        assert 0.0 <= coord <= ldim, "Bad coord: {0}".format( coord )
+    
+    # Now move it according to its image
+    coord += ldim * float( image )
+    
+    return coord
+
+def wrapCoord( coord, ldim, center=False ):
+    """Wrap a coodinate into a cell of length ldim
+    return the wrapped coordinate and the image index 
+    """
+    
+    image = int( math.floor( coord / ldim ) )
+    
+    # Make the coordinate positive so the math modulo operator works
+    if image < 0:
+        coord += -image * ldim
+    
+    # Use fmod to avoid overflow problems with python modulo operater - see stackexchange
+    wcoord =  math.fmod( coord, ldim )
+    
+    # Should never be negative
+    assert wcoord  >= 0.0, "Coord {0} -> {1} : {2}".format( coord, wcoord, image )
+    
+    # Change the coord so the origin is at the center of the box (we start from the corner)
+    if center:
+        wcoord -= ldim / 2
+        
+    return wcoord, image
+
+
+def hoomdContacts( xmlFilename ):
+    
+    tree = ET.parse( xmlFilename )
+    root = tree.getroot()
+    
+    coords = []
+    x = root.findall(".//position")
+    ptext = x[0].text
+    for line in ptext.split( os.linesep ):
+        line = line.strip()
+        if line:
+            x,y,z = line.split()
+            coords.append(  numpy.array( [ float(x), float(y), float(z) ] ) )
+            
+    symbols = []
+    atext = root.findall(".//type")[0].text
+    for line in atext.split( os.linesep ):
+        atomType = line.strip()
+        if atomType:
+            symbols.append( label2symbol( atomType ) )
+        
+    
+    # Strip x-atoms
+    toGo = []
+    for i, s in enumerate( symbols ):
+        if s.lower() == 'x':
+            toGo.append( i )
+            
+    gone=0
+    for i in toGo:
+        coords.pop( i - gone )
+        symbols.pop( i - gone )
+        gone+=1
+    
+    assert len( coords ) == len( symbols )
+    bonds, md = _calcBonds( coords, symbols )
+    
+    print "GOT CLOSEST ",md
+    return
+
+def xyzContacts( xyzFile ):
+    
+    symbols = []
+    coords = []
+    
+    with open( xyzFile, 'r') as f:
+        natoms = int( f.readline().strip() )
+        f.readline()
+        line = f.readline()
+        while line:
+            s, x, y, z = line.strip().split()
+            symbols.append( s )
+            coords.append(  numpy.array( [ float(x), float(y), float(z) ] ) )
+            line = f.readline()
+            
+    assert len( coords ) == natoms
+    
+    bonds, md = _calcBonds( coords, symbols )
+    
+    print "GOT CLOSEST ",md
+    
+    return
+
 class TestCell(unittest.TestCase):
     
     def testVectorAngle(self):
@@ -734,9 +997,14 @@ class TestCell(unittest.TestCase):
         
         theta = vectorAngle(v1, v2)
         print theta*RADIANS2DEGREES
+        
+        return
 
 if __name__ == '__main__':
     """
     Run the unit tests
     """
-    unittest.main()
+    #unittest.main()
+    #xyzContacts( sys.argv[1] )
+    hoomdContacts( sys.argv[1] )
+
