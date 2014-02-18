@@ -1,0 +1,9 @@
+!BIOSYM archive 3
+PBC=OFF
+Materials Studio Generated CAR File
+!DATE Thu Dec 12 15:07:09 2013
+X       12.661590000   21.726030000   14.181450000 XXXX 1      x       X   0.000
+C49     13.597750000   21.217830000   14.188480000 XXXX 1      ct      C   0.181
+N50     14.874790000   20.524580000   14.198060000 XXXX 1      nt      N  -0.181
+end
+end
