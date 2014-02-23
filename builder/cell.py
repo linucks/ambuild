@@ -2609,7 +2609,9 @@ class TestCell(unittest.TestCase):
         cls.pafCar = os.path.join( cls.ambuildDir, "blocks", "PAF_bb_typed.car" )
         
         print "START TEST CELL"
-        CELLA = CELLB = CELLC = 15.0
+        # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
+        # From code looks like default r_buff is 0.4 and our default r_cut is 5.0 
+        CELLA = CELLB = CELLC = 20.0
         cell = Cell()
         cell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
         cell.addInitBlock(filename=cls.benzene2Car, fragmentType='A')
@@ -3063,6 +3065,8 @@ class TestCell(unittest.TestCase):
     def testOptimiseGeometry(self):
         """
         """
+        
+        #self.testCell.dump()
         self.testCell.optimiseGeometry( optAttempts=1 )
         return
     
@@ -3111,7 +3115,7 @@ class TestCell(unittest.TestCase):
         """
         """
         
-        CELLA = CELLB = CELLC = 15.0
+        CELLA = CELLB = CELLC = 20.0
         cell = Cell()
         cell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
         
@@ -3121,9 +3125,9 @@ class TestCell(unittest.TestCase):
         cell.seed( 5 )
         cell.growBlocks( 8 )
         
-        cell.dump()
+        #cell.dump()
         cell.runMDAndOptimise( mdCycles=100 )
-        cell.dump()
+        #cell.dump()
         
         return
     
