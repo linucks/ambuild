@@ -29,7 +29,7 @@ class Cell():
     classdocs
     '''
 
-    def __init__( self, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15 ):
+    def __init__( self, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False ):
         '''
         Constructor
         '''
@@ -97,7 +97,7 @@ class Cell():
         self.logger = None
         self._clLogHandler = None
         self._flLogHandler = None
-        self.setupLogging()
+        self.setupLogging( doLog=doLog )
         
         self.fileCount=0 # for naming output files
         
@@ -1038,11 +1038,12 @@ class Cell():
             prefix=prefix+"_{0}".format(self.fileCount)
             
         self.writeXyz(prefix+".xyz",skipDummy=True)
-        #self.writeXyz(prefix+"_X.xyz",skipDummy=False)
+        self.writeXyz(prefix+"_P.xyz",skipDummy=True, periodic=True)
         self.writeCar(prefix+"_P.car",periodic=True)
         self.writeCar(prefix+".car",periodic=False)
         
-        self.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml")
+        # This is too expensive at the moment
+        #self.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml")
         
         self.writePickle(prefix+".pkl")
         return
@@ -2012,7 +2013,7 @@ class Cell():
         self.logger.info("After seed numBlocks: {0}".format( len(self.blocks) ) )
         return numBlocks
     
-    def setupLogging( self, filename="ambuild.log", mode='w', disable=True ):
+    def setupLogging( self, filename="ambuild.log", mode='w', doLog=False ):
         """
         Set up the various log files/console logging and return the logger
         """
@@ -2062,7 +2063,7 @@ class Cell():
 
         self.logger = logger
         
-        if disable:
+        if not doLog:
             logging.disable(logging.DEBUG)
             
         return
