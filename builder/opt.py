@@ -573,60 +573,79 @@ class HoomdOptimiser( object ):
 
         return system
     
-    def runMDAndOptimise(self,
-                         xmlFilename="hoomdopt.xml",
-                         mdCycles=1000,
-                         optCycles=10000,
-                         maxOptIter=100,
-                         T=0.1,
-                         tau=0.5,
-                         dt=0.005,
-                         doDihedral=False,
-                         doImproper=False,
-                         quiet=False,
-                         rCut=None,
-                         carOut="hoomdOpt.car",
-                          ):
-
-        assert not( doDihedral and doImproper ),"Dihedrals or Impropers!"
-        if rCut is None:
-            rCut = self.rCut
-        
-        system = self.setupSystem( xmlFilename,
-                                   doDihedral=doDihedral,
-                                   doImproper=doImproper,
-                                   rCut=rCut,
-                                   quiet=quiet )
-        
-        system = self._runMD( system, mdCycles=mdCycles, T=T, tau=tau, dt=dt )
-        
-        #return system
-        return self._optimiseGeometry( system, optCycles=optCycles, maxOptIter=maxOptIter )
-    
     def runMD(self,
-              xmlFilename="hoomdopt.xml",
-              mdCycles=1000,
-              T=0.1,
-              tau=0.5,
-              dt=0.005,
+              xmlFilename,
               doDihedral=False,
               doImproper=False,
-              quiet=False,
-              rCut=None  ):
+              rCut=None,
+              quiet=None,
+              **kw ):
+
+        if rCut is not None:
+            self.rCut = rCut
         
-        assert not( doDihedral and doImproper ),"Dihedrals or Impropers!"
-        if rCut is None:
-            rCut = self.rCut
+        if doDihedral and doImproper:
+            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
         
         system = self.setupSystem( xmlFilename,
                                    doDihedral=doDihedral,
                                    doImproper=doImproper,
-                                   rCut=rCut,
+                                   rCut=self.rCut,
                                    quiet=quiet )
         
-        return self._runMD( system, mdCycles=mdCycles )
+        return self._runMD( system, **kw )
     
-    def _runMD(self, system, mdCycles=None, T=0.1, tau=0.5, dt=0.005 ):
+    def runMDAndOptimise(self,
+                         xmlFilename,
+                         doDihedral=False,
+                         doImproper=False,
+                         rCut=None,
+                         quiet=None,
+                         **kw ):
+
+        if rCut is not None:
+            self.rCut = rCut
+        
+        if doDihedral and doImproper:
+            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
+        
+        system = self.setupSystem( xmlFilename,
+                                   doDihedral=doDihedral,
+                                   doImproper=doImproper,
+                                   rCut=self.rCut,
+                                   quiet=quiet )
+        
+        system = self._runMD( system, **kw )
+        
+        # Hack - remove the optimiser-specific keywords
+        #if optCycles in kw:
+        #    del kw['optCycles']
+        
+        return self._optimiseGeometry( system, **kw )
+    
+    def optimiseGeometry( self,
+                          xmlFilename,
+                          doDihedral=False,
+                          doImproper=False,
+                          rCut=None,
+                          quiet=None,
+                          **kw ):
+
+        if rCut is not None:
+            self.rCut = rCut
+        
+        if doDihedral and doImproper:
+            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
+        
+        system = self.setupSystem( xmlFilename,
+                                   doDihedral=doDihedral,
+                                   doImproper=doImproper,
+                                   rCut=self.rCut,
+                                   quiet=quiet )
+        
+        return self._optimiseGeometry( system, **kw )
+    
+    def _runMD(self, system, mdCycles=1000, T=0.1, tau=0.5, dt=0.005 ):
         
         integrator_mode = hoomdblue.integrate.mode_standard( dt=dt )
         nvt_rigid = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
@@ -634,7 +653,7 @@ class HoomdOptimiser( object ):
         xmld = hoomdblue.dump.xml(filename="runmd.xml", vis=True )
         dcdd = hoomdblue.dump.dcd(filename="runmd.dcd", period=10,  unwrap_full=True, overwrite=True )
 
-        # run 10,000 time steps
+        # run mdCycles time steps
         hoomdblue.run( mdCycles )
         
         nvt_rigid.disable()
@@ -644,42 +663,17 @@ class HoomdOptimiser( object ):
         
         return system 
     
-    def optimiseGeometry( self,
-                          xmlFilename="hoomdopt.xml",
-                          carOut="hoomdOpt.car",
-                          maxOptIter=100,
-                          optCycles=10000,
-                          doDihedral=False,
-                          doImproper=False,
-                          quiet=False,
-                          rCut=None,
-                          ):
-        
-        assert not( doDihedral and doImproper ),"Dihedrals or Impropers!"
-        if rCut is None:
-            rCut = self.rCut
-        
-        system = self.setupSystem( xmlFilename,
-                                   doDihedral=doDihedral,
-                                   doImproper=doImproper,
-                                   rCut=rCut,
-                                   quiet=quiet )
-        
-        return self._optimiseGeometry( system,
-                                       optCycles = optCycles,
-                                       maxOptIter = maxOptIter )
-    
     def _optimiseGeometry( self,
                           system,
                           carOut="hoomdOpt.car",
                           optCycles = 100000,
-                          maxOptIter=100 ):
+                          maxOptIter=100,
+                          dt=0.005 ):
         """Optimise the geometry with hoomdblue"""
         
         #
         # Optimise for preoptCycles with dt before the main optimisation loop
         #
-        dt=0.005
         # Create the integrator with the values specified
         fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(),
                                                              dt=dt,

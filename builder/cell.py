@@ -1406,101 +1406,79 @@ class Cell():
         return added
     
     def runMD(self,
-              mdCycles=1000,
-              rCut=None,
-              T=0.1,
-              tau=0.5,
-              dt=0.005,
-              xmlFilename='hoomdMD.xml',
+              xmlFilename="hoomdMD.xml",
               doDihedral=False,
               doImproper=False,
-              quiet=False,
-              ):
+              **kw ):
         
-        if not rCut is None:
-            self.rCut = rCut 
-        
-        # Write xml file
-        self.writeHoomdXml( xmlFilename=xmlFilename, doDihedral=doDihedral, doImproper=doImproper )
+        if doDihedral and doImproper:
+            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
         
         optimiser = opt.HoomdOptimiser()
+        if 'rCut' in kw:
+            self.rCut = kw['rCut']
+        else:
+            self.rCut = optimiser.rCut
         
-        system = optimiser.runMD( xmlFilename = xmlFilename,
-                                  mdCycles    = mdCycles,
-                                  doDihedral  = doDihedral,
-                                  doImproper  = doImproper,
-                                  quiet       = quiet,
-                                  rCut        = self.rCut,
-                                  T           = T,
-                                  tau         = tau,
-                                  dt          = dt,
-                                  )
+        # Write out HoomdBlue xml file & get parameters
+        self.writeHoomdXml( xmlFilename=xmlFilename,
+                            doDihedral=doDihedral,
+                            doImproper=doImproper )
+        
+        
+        system = optimiser.runMD( xmlFilename, **kw )
         
         return self.fromHoomdblueSystem( system )
     
     def runMDAndOptimise(self,
-                         xmlFilename="hoomdMD+Opt.xml",
+                         xmlFilename="hoomdMDOpt.xml",
                          doDihedral=False,
                          doImproper=False,
-                         mdCycles=1000,
-                         optCycles=100000,
-                         maxOptIter=100,
-                         T=0.1,
-                         tau=0.5,
-                         dt=0.005,
-                         quiet=False,
-                         rCut=None
-                         ):
+                         **kw ):
         
-        if not rCut is None:
-            self.rCut = rCut 
-        
-        # Write xml file
-        self.writeHoomdXml( xmlFilename=xmlFilename, doDihedral=doDihedral, doImproper=doImproper )
-        
+        if doDihedral and doImproper:
+            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
+
         optimiser = opt.HoomdOptimiser()
+        if 'rCut' in kw:
+            self.rCut = kw['rCut']
+        else:
+            self.rCut = optimiser.rCut
+
+        # Write out HoomdBlue xml file & get parameters
+        self.writeHoomdXml( xmlFilename=xmlFilename,
+                            doDihedral=doDihedral,
+                            doImproper=doImproper )
         
-        system = optimiser.runMDAndOptimise( xmlFilename = xmlFilename,
-                                             mdCycles    = mdCycles,
-                                             optCycles   = optCycles,
-                                             maxOptIter  = maxOptIter,
-                                             doDihedral  = doDihedral,
-                                             doImproper  = doImproper,
-                                             quiet       = quiet,
-                                             rCut        = self.rCut,
-                                             T           = T,
-                                             tau         = tau,
-                                             dt          = dt,
-                                             )
+        system = optimiser.runMDAndOptimise( xmlFilename, **kw )
         
         return self.fromHoomdblueSystem( system )
     
     def optimiseGeometry(self,
-                         xmlFilename="hoomdopt.xml",
-                         minCell=False,
-                         optCycles = 100000,
-                         maxOptIter=100,
-                         optAttempts=5,
+                         optAttempts=3,
+                         xmlFilename="hoomdOpt.xml",
                          doDihedral=False,
                          doImproper=False,
-                         rCut=None,
-                         quiet=False 
-                          ):
+                         **kw ):
         """Optimise the geometry with hoomdblue"""
         
         # HACK
         minCell=False
         self.minCell = minCell
-        if not rCut is None:
-            self.rCut = rCut 
         
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
+
+        optimiser = opt.HoomdOptimiser()
+        if 'rCut' in kw:
+            self.rCut = kw['rCut']
+        else:
+            self.rCut = optimiser.rCut
         
         # Write out HoomdBlue xml file & get parameters
-        self.writeHoomdXml( xmlFilename=xmlFilename, doDihedral=doDihedral, doImproper=doImproper )
-        
-        optimiser = opt.HoomdOptimiser()
+        self.writeHoomdXml( xmlFilename=xmlFilename,
+                            doDihedral=doDihedral,
+                            doImproper=doImproper )
         
         count=0
         system=None
@@ -1514,14 +1492,7 @@ class Cell():
             self.logger.info( "Running optimisation attempt: {0}".format( count ) )
             if True:
             #try:
-                system = optimiser.optimiseGeometry( xmlFilename = xmlFilename,
-                                                     optCycles   =  optCycles,
-                                                     maxOptIter  = maxOptIter,
-                                                     doDihedral  = doDihedral,
-                                                     doImproper  = doImproper,
-                                                     rCut        = self.rCut,
-                                                     quiet       = quiet
-                                                      )
+                system = optimiser.optimiseGeometry( xmlFilename, **kw )
 #             except RuntimeError, e:
 #                 self.logger.critical( "Optimisation raised exception: {0}".format( e ) )
 # 
@@ -3070,7 +3041,7 @@ class TestCell(unittest.TestCase):
         self.testCell.optimiseGeometry( optAttempts=1 )
         return
     
-    def testOptimiseGeometryMinCell(self):
+    def XtestOptimiseGeometryMinCell(self):
         """
         """
         
@@ -3126,7 +3097,7 @@ class TestCell(unittest.TestCase):
         cell.growBlocks( 8 )
         
         #cell.dump()
-        cell.runMDAndOptimise( mdCycles=100 )
+        cell.runMDAndOptimise()
         #cell.dump()
         
         return
