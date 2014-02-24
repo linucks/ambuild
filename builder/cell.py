@@ -1428,9 +1428,12 @@ class Cell():
                             doImproper=doImproper )
         
         
-        system = optimiser.runMD( xmlFilename, **kw )
+        ok = optimiser.runMD( xmlFilename,
+                                  doDihedral=doDihedral,
+                                  doImproper=doImproper,
+                                  **kw )
         
-        return self.fromHoomdblueSystem( system )
+        return self.fromHoomdblueSystem( optimiser.system )
     
     def runMDAndOptimise(self,
                          xmlFilename="hoomdMDOpt.xml",
@@ -1452,9 +1455,15 @@ class Cell():
                             doDihedral=doDihedral,
                             doImproper=doImproper )
         
-        system = optimiser.runMDAndOptimise( xmlFilename, **kw )
+        ok = optimiser.runMDAndOptimise( xmlFilename, 
+                                             doDihedral=doDihedral,
+                                             doImproper=doImproper,
+                                             **kw )
+
+        if ok:
+            self.logger.info( "runMDAndOptimise succeeded" )
         
-        return self.fromHoomdblueSystem( system )
+        return self.fromHoomdblueSystem( optimiser.system )
     
     def optimiseGeometry(self,
                          optAttempts=3,
@@ -1494,7 +1503,10 @@ class Cell():
             self.logger.info( "Running optimisation attempt: {0}".format( count ) )
             if True:
             #try:
-                system = optimiser.optimiseGeometry( xmlFilename, **kw )
+                ok = optimiser.optimiseGeometry( xmlFilename,
+                                                     doDihedral=doDihedral,
+                                                     doImproper=doImproper,                                                     
+                                                      **kw )
 #             except RuntimeError, e:
 #                 self.logger.critical( "Optimisation raised exception: {0}".format( e ) )
 # 
@@ -1503,11 +1515,11 @@ class Cell():
 #                     time.sleep( 20 )
 #                     system=None
                 
-            if system:
+            if ok:
                 self.logger.info( "Optimisation succeeded on attempt: {0}".format( count ) )
                 break
         
-        return self.fromHoomdblueSystem( system )
+        return self.fromHoomdblueSystem( optimiser.system )
 
     def positionInCell(self, block):
         """Make sure the given block is positioned within the cell"""

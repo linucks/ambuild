@@ -267,12 +267,69 @@ class HoomdOptimiser( object ):
     def __init__(self):
         
         self.ffield = FfieldParameters()
+        self.system = None
         self.bonds = None
         self.angles = None
         self.dihedrals = None
         self.impropers = None
         self.atomTypes = None
         self.rCut = 5.0
+        return
+
+    def checkParameters(self, xmlFilename=None):
+        
+        assert self.ffield
+        self.setAttributesFromFile( xmlFilename )
+        #assert self.bonds
+        #assert self.angles
+        assert self.atomTypes
+        
+        ok = True
+        missingBonds = []
+        for bond in self.bonds:
+            if not self.ffield.hasBond( bond ):
+                ok = False
+                missingBonds.append( bond )
+        missingAngles = []
+        for angle in self.angles:
+            if not self.ffield.hasAngle( angle ):
+                ok = False
+                missingAngles.append( angle )
+        missingDihedrals = []
+        for dihedral in self.dihedrals:
+            if not self.ffield.hasDihedral( dihedral ):
+                ok = False
+                missingDihedrals.append( dihedral )
+        missingImpropers = []
+        for improper in self.impropers:
+            if not self.ffield.hasImproper( improper ):
+                ok = False
+                missingImpropers.append( improper )
+        missingPairs = []
+        for i, atype in enumerate( self.atomTypes ):
+            for j, btype in enumerate( self.atomTypes ):
+                if j >= i:
+                    if not self.ffield.hasPair( atype, btype ):
+                        ok = False
+                        missingPairs.append( ( atype, btype ) )
+        
+        if not ok:
+            msg = "The following parameters could not be found:\n"
+            if missingBonds:
+                msg += "Bonds: {0}\n".format( missingBonds )
+            if missingAngles:
+                msg += "Angles: {0}\n".format( missingAngles )
+            if missingDihedrals:
+                msg += "Dihedrals: {0}\n".format( missingDihedrals )
+            if missingImpropers:
+                msg += "Impropers: {0}\n".format( missingImpropers )
+            if missingPairs:
+                msg += "Pairs: {0}\n".format( missingPairs )
+            
+            msg += "Please add these to the opt.py file\n"
+            
+            raise RuntimeError,msg
+        
         return
 
     def writeCar( self, system, filename=None, unwrap=True, pbc=True ):
@@ -300,7 +357,7 @@ class HoomdOptimiser( object ):
                 
                 # Treat x-atoms differently
                 if label[0].lower() == 'x':
-                    symbol == 'x'
+                    symbol = 'x'
                 else:
                     symbol = util.label2symbol( label )
                 
@@ -361,16 +418,16 @@ class HoomdOptimiser( object ):
             
         return
     
-    def setBond( self, bondPotential ):
-        for bond in self.bonds:
-            param = self.ffield.bondParameter( bond )
-            bondPotential.bond_coeff.set( bond, k=param['k'], r0=param['r0'] )
-        return
-    
     def setAngle( self, anglePotential ):
         for angle in self.angles:
             param = self.ffield.angleParameter( angle )
             anglePotential.set_coeff( angle, k=param['k'], t0=param['t0'] )
+        return
+    
+    def setBond( self, bondPotential ):
+        for bond in self.bonds:
+            param = self.ffield.bondParameter( bond )
+            bondPotential.bond_coeff.set( bond, k=param['k'], r0=param['r0'] )
         return
     
     def setDihedral( self, dihedralPotential ):
@@ -401,7 +458,8 @@ class HoomdOptimiser( object ):
                         pairPotential.pair_coeff.set( atype, btype, epsilon = param['epsilon'], sigma=param['sigma'] )
         return
     
-    def setCheckParamsFromFile(self, xmlFilename ):
+    def setAttributesFromFile(self, xmlFilename ):
+        """Parse the xml file to extract the bonds, angles etc."""
         
         tree = ET.parse( xmlFilename )
         root = tree.getroot()
@@ -465,62 +523,6 @@ class HoomdOptimiser( object ):
         
         return
     
-    def checkParameters(self, xmlFilename=None):
-        
-        assert self.ffield
-        self.setCheckParamsFromFile( xmlFilename )
-        #assert self.bonds
-        #assert self.angles
-        assert self.atomTypes
-        
-        ok = True
-        missingBonds = []
-        for bond in self.bonds:
-            if not self.ffield.hasBond( bond ):
-                ok = False
-                missingBonds.append( bond )
-        missingAngles = []
-        for angle in self.angles:
-            if not self.ffield.hasAngle( angle ):
-                ok = False
-                missingAngles.append( angle )
-        missingDihedrals = []
-        for dihedral in self.dihedrals:
-            if not self.ffield.hasDihedral( dihedral ):
-                ok = False
-                missingDihedrals.append( dihedral )
-        missingImpropers = []
-        for improper in self.impropers:
-            if not self.ffield.hasImproper( improper ):
-                ok = False
-                missingImpropers.append( improper )
-        missingPairs = []
-        for i, atype in enumerate( self.atomTypes ):
-            for j, btype in enumerate( self.atomTypes ):
-                if j >= i:
-                    if not self.ffield.hasPair( atype, btype ):
-                        ok = False
-                        missingPairs.append( ( atype, btype ) )
-        
-        if not ok:
-            msg = "The following parameters could not be found:\n"
-            if missingBonds:
-                msg += "Bonds: {0}\n".format( missingBonds )
-            if missingAngles:
-                msg += "Angles: {0}\n".format( missingAngles )
-            if missingDihedrals:
-                msg += "Dihedrals: {0}\n".format( missingDihedrals )
-            if missingImpropers:
-                msg += "Impropers: {0}\n".format( missingImpropers )
-            if missingPairs:
-                msg += "Pairs: {0}\n".format( missingPairs )
-            
-            msg += "Please add these to the opt.py file\n"
-            
-            raise RuntimeError,msg
-        
-        return
-    
     def setupSystem(self,
                     xmlFilename,
                     doDihedral=False,
@@ -528,6 +530,7 @@ class HoomdOptimiser( object ):
                     rCut=None,
                     quiet=False ):
         
+        # Read parameters from file, check them and set the attributes
         self.checkParameters( xmlFilename=xmlFilename )
         
         if hoomdblue.init.is_initialized():
@@ -587,13 +590,15 @@ class HoomdOptimiser( object ):
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
         
-        system = self.setupSystem( xmlFilename,
-                                   doDihedral=doDihedral,
-                                   doImproper=doImproper,
-                                   rCut=self.rCut,
-                                   quiet=quiet )
+        self.system = self.setupSystem( xmlFilename,
+                                        doDihedral=doDihedral,
+                                        doImproper=doImproper,
+                                        rCut=self.rCut,
+                                        quiet=quiet )
         
-        return self._runMD( system, **kw )
+        self._runMD( **kw )
+        
+        return True
     
     def runMDAndOptimise(self,
                          xmlFilename,
@@ -609,15 +614,24 @@ class HoomdOptimiser( object ):
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
         
-        system = self.setupSystem( xmlFilename,
-                                   doDihedral=doDihedral,
-                                   doImproper=doImproper,
-                                   rCut=self.rCut,
-                                   quiet=quiet )
+        self.system = self.setupSystem( xmlFilename,
+                                        doDihedral=doDihedral,
+                                        doImproper=doImproper,
+                                        rCut=self.rCut,
+                                        quiet=quiet )
         
-        system = self._runMD( system, **kw )
+        # pre-optimise for preopt steps to make sure the sytem is sane - otherwise the MD
+        # blows up
+        preOptCycles = 1000
+        self._optimiseGeometry(optCycles = preOptCycles,
+                               maxOptIter=1 )
+        # Now run the MD steps
+        self._runMD(  **kw )
         
-        return self._optimiseGeometry( system, **kw )
+        # Finally do a full optimisation
+        optimised = self._optimiseGeometry( **kw )
+        
+        return optimised
     
     def optimiseGeometry( self,
                           xmlFilename,
@@ -633,15 +647,17 @@ class HoomdOptimiser( object ):
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
         
-        system = self.setupSystem( xmlFilename,
-                                   doDihedral=doDihedral,
-                                   doImproper=doImproper,
-                                   rCut=self.rCut,
-                                   quiet=quiet )
+        self.system = self.setupSystem( xmlFilename,
+                                        doDihedral=doDihedral,
+                                        doImproper=doImproper,
+                                        rCut=self.rCut,
+                                        quiet=quiet )
         
-        return self._optimiseGeometry( system, **kw )
+        optimised = self._optimiseGeometry( **kw )
+        
+        return optimised
     
-    def _runMD(self, system, mdCycles=1000, T=0.1, tau=0.5, dt=0.005, **kw ):
+    def _runMD(self, mdCycles=1000, T=0.1, tau=0.5, dt=0.005, **kw ):
         
         # Added **kw arguments so that we don't get confused by arguments intended for the optimise
         # when MD and optimiser run together
@@ -649,8 +665,14 @@ class HoomdOptimiser( object ):
         integrator_mode = hoomdblue.integrate.mode_standard( dt=dt )
         nvt_rigid = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
 
-        xmld = hoomdblue.dump.xml(filename="runmd.xml", vis=True )
-        dcdd = hoomdblue.dump.dcd(filename="runmd.dcd", period=10,  unwrap_full=True, overwrite=True )
+        record=False
+        if record:
+            xmld = hoomdblue.dump.xml(filename="runmd.xml",
+                                      vis=True )
+            dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
+                                      period=10,
+                                      unwrap_full=True,
+                                      overwrite=True )
 
         # run mdCycles time steps
         hoomdblue.run( mdCycles )
@@ -660,10 +682,9 @@ class HoomdOptimiser( object ):
         del nvt_rigid
         del integrator_mode
         
-        return system 
+        return
     
-    def _optimiseGeometry( self,
-                          system,
+    def _optimiseGeometry(self,
                           carOut="hoomdOpt.car",
                           optCycles = 100000,
                           maxOptIter=100,
@@ -671,9 +692,6 @@ class HoomdOptimiser( object ):
                           **kw ):
         """Optimise the geometry with hoomdblue"""
         
-        #
-        # Optimise for preoptCycles with dt before the main optimisation loop
-        #
         # Create the integrator with the values specified
         fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(),
                                                              dt=dt,
@@ -685,17 +703,22 @@ class HoomdOptimiser( object ):
                                                              fdec=0.5
                                                             )
         
-        
-        # For tracking the optimsation        
-        #xmld = hoomdblue.dump.xml(filename="particles1.xml", vis=True)
-        #dcdd = hoomdblue.dump.dcd(filename="particles1.dcd", period=1,  unwrap_full=True)
-        #dmol = hoomdblue.dump.mol2(filename="particles1.dcd", period=1)
+        record=False
+        if record:
+            # For tracking the optimsation        
+            xmld = hoomdblue.dump.xml(filename="runopt.xml", vis=True)
+            dcdd = hoomdblue.dump.dcd(filename="runopt.dcd",
+                                      period=10, 
+                                      unwrap_full=True,
+                                      overwrite=True,
+                                       )
+            
         count = 0
         optimised=True
         while not( fire.has_converged() ):
             hoomdblue.run( optCycles )
             count += 1
-            if count > maxOptIter:
+            if count >= maxOptIter:
                 print "********** DID NOT OPTIMISE!!!! ***************"
                 optimised=False
                 break
@@ -707,16 +730,10 @@ class HoomdOptimiser( object ):
 #         del improper
 #         del lj
         
-        # Write out a car file that can be read back in
-        self.writeCar( system=system, filename=carOut, unwrap=True )
+        # Write out a car file so we can see what happened
+        #self.writeCar( system=self.system, filename=carOut, unwrap=True )
         
-        # Failed to optimise
-        if not optimised:
-            return False
-        else:
-            return system
-        
-    # End optimisGeometry
+        return optimised
     
 def xml2xyz( xmlFilename, xyzFilename ):
     """Convert a hoomdblue xml file to xyz"""
@@ -763,9 +780,9 @@ def xml2xyz( xmlFilename, xyzFilename ):
 if __name__ == "__main__":
     
     optimiser = HoomdOptimiser()
-    #optimiser.setCheckParamsFromFile( '/Users/jmht/Documents/abbie/AMBI/ambuild/builder/hoomdopt.xml' )
+    #optimiser.setAttributesFromFile( '/Users/jmht/Documents/abbie/AMBI/ambuild/builder/hoomdopt.xml' )
     xmlFilename = sys.argv[1]
     xyzFilename = xmlFilename +".xyz"
     xml2xyz( xmlFilename, xyzFilename )
-    #optimiser.optimiseGeometry( xmlFilename=xmlFilename, doDihedral=True )
+    optimiser.optimiseGeometry( xmlFilename=xmlFilename, doDihedral=True )
 
