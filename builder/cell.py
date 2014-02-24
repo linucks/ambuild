@@ -1051,7 +1051,9 @@ class Cell():
     def fromHoomdblueSystem(self, system ):
         """Reset the particle positions from hoomdblue system"""
     
-    
+        if not system:
+            return False
+        
         if self.minCell:
             # Need to take unwrapped coords and put back into 
             # the original cell
@@ -3097,7 +3099,7 @@ class TestCell(unittest.TestCase):
         cell.growBlocks( 8 )
         
         #cell.dump()
-        cell.runMDAndOptimise()
+        cell.runMDAndOptimise( mdCycles=100, optCycles=10000 )
         #cell.dump()
         
         return

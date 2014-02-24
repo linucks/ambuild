@@ -617,10 +617,6 @@ class HoomdOptimiser( object ):
         
         system = self._runMD( system, **kw )
         
-        # Hack - remove the optimiser-specific keywords
-        #if optCycles in kw:
-        #    del kw['optCycles']
-        
         return self._optimiseGeometry( system, **kw )
     
     def optimiseGeometry( self,
@@ -645,7 +641,10 @@ class HoomdOptimiser( object ):
         
         return self._optimiseGeometry( system, **kw )
     
-    def _runMD(self, system, mdCycles=1000, T=0.1, tau=0.5, dt=0.005 ):
+    def _runMD(self, system, mdCycles=1000, T=0.1, tau=0.5, dt=0.005, **kw ):
+        
+        # Added **kw arguments so that we don't get confused by arguments intended for the optimise
+        # when MD and optimiser run together
         
         integrator_mode = hoomdblue.integrate.mode_standard( dt=dt )
         nvt_rigid = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
@@ -668,7 +667,8 @@ class HoomdOptimiser( object ):
                           carOut="hoomdOpt.car",
                           optCycles = 100000,
                           maxOptIter=100,
-                          dt=0.005 ):
+                          dt=0.005,
+                          **kw ):
         """Optimise the geometry with hoomdblue"""
         
         #
