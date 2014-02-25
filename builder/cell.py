@@ -572,7 +572,7 @@ class Cell():
         # Get a list of the close atoms
         close = self.closeAtoms( idxAddBlock )
         #if close:
-        #    print "GOT {} CLOSE ATOMS ".format(len(close))
+        #    print "GOT {0} CLOSE ATOMS ".format( len(close) )
         
         if not close:
             self.logger.debug("_checkMove no close contacts")
@@ -639,37 +639,44 @@ class Cell():
         # Previously I was careful about explicitly removing atoms and not just checking if the
         # pair was in there. I'm more confident in the code now, so I only remove the clash if it is present
         # This is because when zipping, there might not be any clashes with the capAtoms
-        # However I've left the code to check commented out in case it's important for debugging later
         for bond in self._possibleBonds:
             
-            # Remove the clash between the endGroup and the opposite cap atom
-            #if not bond.block2.noClashCheck( bond.endGroup2.blockCapIdx ):
-            x = ( bond.idxBlock1, bond.endGroup1.blockEndGroupIdx, bond.idxBlock2, bond.endGroup2.blockCapIdx )
-            if x in clashAtoms:
-                clashAtoms.remove( x )
-                
-            # Remove the clash between the endGroup and the opposite cap atom
-            #if not bond.block1.noClashCheck( bond.endGroup1.blockCapIdx ):
-            x = ( bond.idxBlock1, bond.endGroup1.blockCapIdx, bond.idxBlock2, bond.endGroup2.blockEndGroupIdx )
-            if x in clashAtoms:
-                clashAtoms.remove( x )
+            # We need to remove any clashes with the cap atoms
+            cap1 = bond.endGroup1.blockCapIdx
+            cap2 = bond.endGroup2.blockCapIdx
             
-            # Remove the clash between the two caps
-            #if not ( bond.block1.noClashCheck( bond.endGroup1.blockCapIdx ) or bond.block2.noClashCheck( bond.endGroup2.blockCapIdx ) ):
-            x = ( bond.idxBlock1, bond.endGroup1.blockCapIdx, bond.idxBlock2, bond.endGroup2.blockCapIdx )
-            if x in clashAtoms:
-                clashAtoms.remove( x )
-            
-            # Now remove any remaining directly bonded to the endGroups -
-            # need to exclude the cap atoms as we will have removed these
+            # Also need to remove any atoms directly bonded to the endGroups -
             b1atoms = bond.endGroup1.blockBonded + [ bond.endGroup1.blockEndGroupIdx ]
             b2atoms = bond.endGroup2.blockBonded + [ bond.endGroup2.blockEndGroupIdx ]
-            #b1atoms = bond.atom1bonded + [ bond.block1EndGroup.blockEndGroupIdx ]
-            #b2atoms = bond.atom2bonded + [ bond.block2EndGroup.blockEndGroupIdx ]
-            for ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) in clashAtoms:
-                if idxAddAtom in b1atoms and idxStaticAtom in b2atoms:
-                    clashAtoms.remove( ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
+
+            #self.logger.debug("cap1 {0}".format( cap1 ) )
+            #self.logger.debug("cap2 {0}".format( cap2 ) )
+            #self.logger.debug("block1 {0} bonded: {1}".format( bond.block1.id(), b1atoms ) )
+            #self.logger.debug("block2 {0} bonded: {1}".format( bond.block2.id(), b2atoms ) )
+
+            # bond block1 is the staticBlock bond block2 is the addBlock - should change order to keep
+            # things consistent!
+            toGo = [] # Need to remember indices as we can't remove from a list while we cycle through it
+            for i, ( idxStaticBlock, idxStaticAtom, idxAddBlock, idxAddAtom) in enumerate(clashAtoms):
+                #self.logger.debug("CHECKING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
+                
+                # Remove any clashes with the cap atoms
+                if idxStaticAtom == cap1  or idxAddAtom == cap2:
+                    #self.logger.debug("REMOVING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
+                    #clashAtoms.remove( ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
+                    toGo.append( i )
+                    continue
+                
+                # remove any clashes with directly bonded atoms
+                if idxStaticAtom in b1atoms and idxAddAtom in b2atoms:
+                    #clashAtoms.remove( ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     #self.logger.info( "REMOVING BOND ATOMS FROM CLASH TEST" )
+                    toGo.append( i )
+            
+            # End of loop so now remove the items
+            for i, idx in enumerate(toGo):
+                # Need to subtract i as otherwise the indexing is out
+                clashAtoms.pop( idx - i )
         
         # If there are any clashing atoms remaining this move failed
         if len( clashAtoms ):
@@ -1316,6 +1323,8 @@ class Cell():
         """
         
         self.logger.info( "Growing {0} new blocks".format( toGrow ) )
+        
+        assert len(self.blocks),"Need to seed blocks before growing!"
         
         added=0
         tries=0
@@ -2594,17 +2603,18 @@ class TestCell(unittest.TestCase):
         cls.pafCar = os.path.join( cls.ambuildDir, "blocks", "PAF_bb_typed.car" )
         
         print "START TEST CELL"
-        # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
-        # From code looks like default r_buff is 0.4 and our default r_cut is 5.0 
-        CELLA = CELLB = CELLC = 20.0
-        cell = Cell()
-        cell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
-        cell.addInitBlock(filename=cls.benzene2Car, fragmentType='A')
-        cell.addBondType( 'A-A')
-        cell.seed( 5 )
-        cell.growBlocks( 8 )
-        print "FINISHED TEST CELL"
-        cls.testCell = cell
+        if True:
+            # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
+            # From code looks like default r_buff is 0.4 and our default r_cut is 5.0 
+            CELLA = CELLB = CELLC = 20.0
+            mycell = Cell()
+            mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+            mycell.addInitBlock(filename=cls.benzene2Car, fragmentType='A')
+            mycell.addBondType( 'A-A')
+            mycell.seed( 5 )
+            mycell.growBlocks( 8 )
+            print "FINISHED TEST CELL"
+            cls.testCell = mycell
         
         return
 
@@ -2613,14 +2623,14 @@ class TestCell(unittest.TestCase):
 
         CELLA = CELLB = CELLC = 30
         
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell = Cell( )
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
         fragmentType='A'
-        cell.addInitBlock( fragmentType=fragmentType, filename=self.cx4Car )
-        cell.addBondType( '{0}-{1}'.format( fragmentType, fragmentType ) )
-        cell.seed( 1 )
-        cell.growBlocks( 1 )
+        mycell.addInitBlock( fragmentType=fragmentType, filename=self.cx4Car )
+        mycell.addBondType( '{0}-{1}'.format( fragmentType, fragmentType ) )
+        mycell.seed( 1 )
+        mycell.growBlocks( 1 )
         
         return
 
@@ -2629,31 +2639,31 @@ class TestCell(unittest.TestCase):
 
         CELLA = CELLB = CELLC = 30
         
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell = Cell( )
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
         fragmentType='A'
-        cell.addInitBlock( fragmentType=fragmentType, filename=self.benzeneCar )
-        cell.addBondType( 'A-A' )
+        mycell.addInitBlock( fragmentType=fragmentType, filename=self.benzeneCar )
+        mycell.addBondType( 'A-A' )
         
-        centralBlock = cell.getInitBlock( fragmentType=fragmentType )
+        centralBlock = mycell.getInitBlock( fragmentType=fragmentType )
         
-        block1 = cell.getInitBlock( fragmentType=fragmentType )
-        block2 = cell.getInitBlock( fragmentType=fragmentType )
+        block1 = mycell.getInitBlock( fragmentType=fragmentType )
+        block2 = mycell.getInitBlock( fragmentType=fragmentType )
         
         centralBlock.positionGrowBlock( centralBlock._endGroups[ 0 ], block1, block1._endGroups[ 0 ] )
         centralBlock.positionGrowBlock( centralBlock._endGroups[ 1 ], block2, block2._endGroups[ 0 ] )
         
         # Now add growBlock to the cell so we can check for clashes
-        cell.addBlock( block1 )
-        cell.addBlock( block2 )
+        mycell.addBlock( block1 )
+        mycell.addBlock( block2 )
         
         # Now add the central block - it will have 2 bonds to make
-        centralId = cell.addBlock( centralBlock )
+        centralId = mycell.addBlock( centralBlock )
         
-        self.assertTrue( cell.checkMove( centralId ), "checkMove failed!" )
+        self.assertTrue( mycell.checkMove( centralId ), "checkMove failed!" )
         
-        cell.processBonds( centralId )
+        mycell.processBonds( centralId )
         
         return
 
@@ -2723,7 +2733,7 @@ class TestCell(unittest.TestCase):
         
         self.testCell.capBlocks(fragmentType='A', filename=self.capLinker )
         
-        #cell.dump()
+        #mycell.dump()
         
         block = self.testCell.blocks[ self.testCell.blocks.keys()[0] ]
         #self.assertEqual( len( block._freeEndGroupIdxs ), 0 )
@@ -2785,32 +2795,32 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 2.1
         
-        cell = Cell( atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
+        mycell = Cell( atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
         
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        cell.addInitBlock(filename=self.ch4Car, fragmentType='A')
-        cell.addBondType( 'A-A')
-        block1 = cell.getInitBlock('A')
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
+        mycell.addBondType( 'A-A')
+        block1 = mycell.getInitBlock('A')
         
         natoms = block1.numAtoms()
         
         # block radius is 1.8
-        block1.translateCentroid( [ cell.A/2, cell.B/2, cell.C/2 ] )
-        block1Idx = cell.addBlock(block1)
+        block1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        block1Idx = mycell.addBlock(block1)
         
         # Alone in cell but in center
-        self.assertFalse( cell.closeAtoms(block1Idx) )
+        self.assertFalse( mycell.closeAtoms(block1Idx) )
         
         # Add second block overlapping first but in other image
-        block2 = cell.getInitBlock('A')
-        block2.translateCentroid( [ cell.A/2 + cell.A, cell.B/2 + cell.B, cell.C/2 + cell.C ] )
-        block2Idx = cell.addBlock(block2)
+        block2 = mycell.getInitBlock('A')
+        block2.translateCentroid( [ mycell.A/2 + mycell.A, mycell.B/2 + mycell.B, mycell.C/2 + mycell.C ] )
+        block2Idx = mycell.addBlock(block2)
         
         # Make sure every atom overlaps with ever other
-        self.assertEquals( natoms*natoms, len(cell.closeAtoms(block1Idx) ) )
+        self.assertEquals( natoms*natoms, len(mycell.closeAtoms(block1Idx) ) )
         
         # See we have enough clashing atoms - NOT CHECKED THIS NUMBER
-        self.assertEquals( 15, cell._checkMove( block2Idx ) )
+        self.assertEquals( 15, mycell._checkMove( block2Idx ) )
         
         return
 
@@ -2818,54 +2828,54 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 30
         
-        cell = Cell( atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
+        mycell = Cell( atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
         
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        cell.addInitBlock(filename=self.ch4Car, fragmentType='A')
-        cell.addBondType( 'A-A')
-        block1 = cell.getInitBlock('A')
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
+        mycell.addBondType( 'A-A')
+        block1 = mycell.getInitBlock('A')
         
         block1.translateCentroid( [ 1, 1, 1 ] )
-        block1_id = cell.addBlock(block1)
-        block2 = cell.getInitBlock('A')
+        block1_id = mycell.addBlock(block1)
+        block2 = mycell.getInitBlock('A')
         block2.translateCentroid( [ 2.2, 2.2, 2.2 ] )
-        block2_id = cell.addBlock(block2)
+        block2_id = mycell.addBlock(block2)
         
-        closeList =  cell.closeAtoms(block1_id)
+        closeList =  mycell.closeAtoms(block1_id)
         # Updated refPairs as now have 
         refPairs = [ (0, 3), (1, 3), (2, 3) ] # Also used to check PBC
         closePairs = []
         for iatom, ioblock, ioatom in closeList:
             closePairs.append( (iatom,ioatom) )
             
-        #cell.writeXyz("close1.xyz", label=False)
+        #mycell.writeXyz("close1.xyz", label=False)
             
         self.assertEqual(closePairs,
                         refPairs,
                          "Many contacts: {0}".format(closePairs))
         
         # Too far for any contacts
-        cell.delBlock(block2_id)
-        block2 = cell.getInitBlock('A')
+        mycell.delBlock(block2_id)
+        block2 = mycell.getInitBlock('A')
         block2.translateCentroid( [10,10,10] )
-        block2_id = cell.addBlock(block2)
+        block2_id = mycell.addBlock(block2)
         
-        close = cell.closeAtoms(block1_id)
+        close = mycell.closeAtoms(block1_id)
         self.assertFalse(close, "No contacts: ".format(close))
         
         # Now check across periodic boundary
-        cell.delBlock(block2_id)
-        block2 = cell.getInitBlock('A')
-        x = 2.2 + 2 * cell.A
-        y = 2.2 + 2 * cell.B
-        z = 2.2 + 2 * cell.C
+        mycell.delBlock(block2_id)
+        block2 = mycell.getInitBlock('A')
+        x = 2.2 + 2 * mycell.A
+        y = 2.2 + 2 * mycell.B
+        z = 2.2 + 2 * mycell.C
         
         block2.translateCentroid( [x,y,z] )
-        block2_id = cell.addBlock(block2)
+        block2_id = mycell.addBlock(block2)
         
-        #cell.writeXyz("close2.xyz", label=False)
+        #mycell.writeXyz("close2.xyz", label=False)
         
-        closeList =  cell.closeAtoms(block1_id)
+        closeList =  mycell.closeAtoms(block1_id)
         closePairs = []
         for iatom, ioblock, ioatom in closeList:
             closePairs.append( (iatom,ioatom) )
@@ -2882,37 +2892,37 @@ class TestCell(unittest.TestCase):
         CELLB = 30
         CELLC = 30
         
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        #cell.initCell("../ch4_typed.car",incell=False)
-        #block1 = cell.initBlock.copy()
-        cell.addInitBlock(filename=self.ch4Car, fragmentType='A')
-        cell.addBondType( 'A-A')
-        block1 = cell.getInitBlock('A')
+        mycell = Cell( )
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        #mycell.initCell("../ch4_typed.car",incell=False)
+        #block1 = mycell.initBlock.copy()
+        mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
+        mycell.addBondType( 'A-A')
+        block1 = mycell.getInitBlock('A')
         
         
         b1 = numpy.array([2,2,2], dtype=numpy.float64 )
         block1.translateCentroid( b1 )
-        block1_id = cell.addBlock(block1)
+        block1_id = mycell.addBlock(block1)
         
-        #block2=cell.initBlock.copy()
-        block2 = cell.getInitBlock('A')
+        #block2=mycell.initBlock.copy()
+        block2 = mycell.getInitBlock('A')
         b2 = numpy.array([3,3,3], dtype=numpy.float64 )
         block2.translateCentroid( b2 )
-        block2_id = cell.addBlock(block2)
+        block2_id = mycell.addBlock(block2)
         
-        #cell.writeXyz("close1.xyz", label=False)
+        #mycell.writeXyz("close1.xyz", label=False)
         
-#        closeList =  cell.closeAtoms(block1_id)
+#        closeList =  mycell.closeAtoms(block1_id)
 #        for iatom, ioblock, ioatom in closeList:
 #            b1c = block1._coords[iatom]
-#            b2c = cell.blocks[ioblock]._coords[ioatom]
-#            distance = cell.distance(b1c,b2c)
+#            b2c = mycell.blocks[ioblock]._coords[ioatom]
+#            distance = mycell.distance(b1c,b2c)
 #            print "{}: {} -> {}:{} = {}".format(iatom,b1c,ioatom,b2c,distance)
             
         # Distance measured with Avogadro so it MUST be right...
         refd = 0.673354948616
-        distance = cell.distance( block1.atomCoord(1), cell.blocks[ block2_id ].atomCoord(3) )
+        distance = mycell.distance( block1.atomCoord(1), mycell.blocks[ block2_id ].atomCoord(3) )
         self.assertAlmostEqual( refd, distance, 12, "Closest atoms: {}".format(distance) )
         
         return
@@ -2922,8 +2932,8 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 10
         
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell = Cell( )
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
         v1 = [ 2.46803012, 1.67131881, 1.96745421]
         v2 = [ 1.07988345, 0.10567109, 1.64897769]
@@ -2931,7 +2941,7 @@ class TestCell(unittest.TestCase):
         nv1 = numpy.array( v1 )
         nv2 = numpy.array( v2 )
         
-        dc1 = cell.distance(nv1,nv2)
+        dc1 = mycell.distance(nv1,nv2)
         dn = numpy.linalg.norm(nv2-nv1)
         self.assertEqual( dc1, dn, "Distance within cell:{} | {}".format(dc1,dn) )
         
@@ -2939,19 +2949,19 @@ class TestCell(unittest.TestCase):
         y = v2[1] + 2 * CELLB
         z = v2[2] + 2 * CELLC
         nv2 = numpy.array([ x, y, z ])
-        dc2 = cell.distance(nv1,nv2)
+        dc2 = mycell.distance(nv1,nv2)
         self.assertAlmostEqual( dc1, dc2, 11,"Distance across multiple cells +ve: {} | {}".format(dc1,dc2) )
         
         x = v2[0] - 2 * CELLA
         y = v2[1] - 2 * CELLB
         z = v2[2] - 2 * CELLC
         nv2 = numpy.array([ x, y, z ])
-        dc3 = cell.distance(nv1,nv2)
+        dc3 = mycell.distance(nv1,nv2)
         self.assertAlmostEqual( dc1, dc3, 11, "Distance across multiple cells -ve: {} | {}".format(dc1,dc3) )
         
         v1 = numpy.array([ 0.0, 0.0, 0.0 ])
         v2 = numpy.array([ 0.0, 0.0, 8.0 ])
-        dc = cell.distance(v1,v2)
+        dc = mycell.distance(v1,v2)
         self.assertEqual( dc, 2.0, "Distance across boundary cell:{}".format(dc) )
         
     def testGrowBlocks(self):
@@ -2959,26 +2969,24 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 30
         
-        cell = Cell()
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell = Cell()
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
-        cell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
-        cell.addBondType( 'A-A')
+        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.addBondType( 'A-A')
         
-        added = cell.seed( 1 )
+        added = mycell.seed( 1 )
         self.assertEqual( added, 1, 'seed')
         
-        natoms = cell.blocks.values()[0].numAtoms()
-        
-        print "GOT NATOMS ",natoms
+        natoms = mycell.blocks.values()[0].numAtoms()
         
         nblocks=3
-        added = cell.growBlocks( nblocks, fragmentType=None, maxTries=1 )
+        added = mycell.growBlocks( nblocks, fragmentType=None, maxTries=1 )
         
         self.assertEqual( added, nblocks, "growBlocks did not return ok")
-        self.assertEqual(1,len(cell.blocks), "Growing blocks found {0} blocks".format( len(cell.blocks) ) )
+        self.assertEqual(1,len(mycell.blocks), "Growing blocks found {0} blocks".format( len(mycell.blocks) ) )
         
-        natoms2 = cell.blocks.values()[0].numAtoms()
+        natoms2 = mycell.blocks.values()[0].numAtoms()
         self.assertEqual( natoms2, natoms*(nblocks+1) )
         
         return
@@ -2988,59 +2996,59 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 30
         
-        cell = Cell()
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell = Cell()
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
-        cell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
-        cell.addBondType( 'A-A')
+        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.addBondType( 'A-A')
 
-        block1 = cell.getInitBlock('A')
+        block1 = mycell.getInitBlock('A')
         
         # Position block so that it's aligned along x-axis
         # - use two opposing C-atoms 0 & 3
         block1.alignAtoms( 0, 3, [ 1, 0, 0 ] )
         
         # Now put it at the center of the cell
-        block1.translateCentroid( [cell.A/2, cell.B/2, cell.C/2] )
+        block1.translateCentroid( [mycell.A/2, mycell.B/2, mycell.C/2] )
         
         # Add to the cell
-        cell.addBlock(block1)
+        mycell.addBlock(block1)
         
         # Try adding 6 blocks - only 5 will fit
         nblocks=6
-        added = cell.growBlocks( nblocks, fragmentType=None, maxTries=5 )
+        added = mycell.growBlocks( nblocks, fragmentType=None, maxTries=5 )
         
         self.assertEqual( added, 5, "growBlocks did not add 5 blocks")
-        self.assertEqual(1,len(cell.blocks), "Growing blocks found {0} blocks".format( len(cell.blocks) ) )
+        self.assertEqual(1,len(mycell.blocks), "Growing blocks found {0} blocks".format( len(mycell.blocks) ) )
         
         return
-
+    
     def testJoinBlocks(self):
         """Test we can add a block correctly"""
         
         CELLA = CELLB = CELLC = 30
         
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell = Cell( )
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
-        #cell.addInitBlock(filename=self.pafCar, fragmentType='A')
-        cell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
-        cell.addBondType( 'A-A')
+        #mycell.addInitBlock(filename=self.pafCar, fragmentType='A')
+        mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
+        mycell.addBondType( 'A-A')
         
-        added = cell.seed( 5 )
+        added = mycell.seed( 5 )
         self.assertEqual( added, 5, 'seed')
         nc = 0
-        for block in cell.blocks.itervalues():
+        for block in mycell.blocks.itervalues():
             nc += block.numAtoms()
         
-        added = cell.joinBlocks( 4, maxTries=1 )
+        added = mycell.joinBlocks( 4, maxTries=1 )
         
         self.assertEqual( added, 4, "joinBlocks did join enough")
         
-        self.assertEqual( 1, len(cell.blocks), "joinBlocks found {0} blocks".format( len( cell.blocks ) ) )
+        self.assertEqual( 1, len(mycell.blocks), "joinBlocks found {0} blocks".format( len( mycell.blocks ) ) )
         
         nc2 = 0
-        for block in cell.blocks.itervalues():
+        for block in mycell.blocks.itervalues():
             nc2 += block.numAtoms()
             
         self.assertEqual(nc, nc2, "Growing blocks found {0} coords".format( nc2 ) )
@@ -3052,7 +3060,7 @@ class TestCell(unittest.TestCase):
         """
         
         #self.testCell.dump()
-        self.testCell.optimiseGeometry( optAttempts=1 )
+        self.testCell.optimiseGeometry( optAttempts=1, quiet=True )
         return
     
     def XtestOptimiseGeometryMinCell(self):
@@ -3061,28 +3069,28 @@ class TestCell(unittest.TestCase):
         
         # Create a large cell and populate it with a block
         CELLA = CELLB = CELLC = 100
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        cell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
-        cell.addBondType( 'A-A' )
+        mycell = Cell( )
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
+        mycell.addBondType( 'A-A' )
 
-        cell.seed( 1 )
-        cell.growBlocks(3,'A')
+        mycell.seed( 1 )
+        mycell.growBlocks(3,'A')
         
         # Get the block and put it in the centre of the cell
-        block = cell.blocks[ cell.blocks.keys()[0] ]
+        block = mycell.blocks[ mycell.blocks.keys()[0] ]
         block.translateCentroid(  [ CELLA/2, CELLB/2, CELLC/2 ] )
         
-        #cell.dump()
+        #mycell.dump()
         # Center of mass shouldn't have changed
         com = 0.0
-        for blockIdx, block in cell.blocks.iteritems():
+        for blockIdx, block in mycell.blocks.iteritems():
             com += block.centerOfMass()
         
-        cell.optimiseGeometry(minCell=True, optAttempts=1 )
+        mycell.optimiseGeometry(minCell=True, optAttempts=1 )
         
         comA = 0.0
-        for blockIdx, block in cell.blocks.iteritems():
+        for blockIdx, block in mycell.blocks.iteritems():
             comA += block.centerOfMass()
         
         self.assertTrue( numpy.allclose( com, comA) )
@@ -3092,7 +3100,7 @@ class TestCell(unittest.TestCase):
     def testOptimiseGeometryDihedral(self):
         """
         """
-        self.testCell.optimiseGeometry( doDihedral=True, optAttempts=1  )
+        self.testCell.optimiseGeometry( doDihedral=True, optAttempts=1, quiet=True  )
         
         return
     
@@ -3101,21 +3109,18 @@ class TestCell(unittest.TestCase):
         """
         
         CELLA = CELLB = CELLC = 20.0
-        cell = Cell()
-        cell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        mycell = Cell()
+        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
         
-        cell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
-        cell.addBondType( 'A-A')
+        mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
+        mycell.addBondType( 'A-A')
         
-        cell.seed( 5 )
-        cell.growBlocks( 8 )
+        mycell.seed( 5 )
+        mycell.growBlocks( 8 )
         
-        #cell.dump()
-        cell.runMDAndOptimise( mdCycles=100, optCycles=10000 )
-        #cell.dump()
+        mycell.runMDAndOptimise( mdCycles=100, optCycles=10000, quiet=True )
         
         return
-    
     
     def testPeriodic(self):
         
@@ -3123,19 +3128,19 @@ class TestCell(unittest.TestCase):
         
         
         CELLA = CELLB = CELLC = 15.0
-        cell = Cell()
-        cell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        mycell = Cell()
+        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
         
-        cell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
-        cell.addBondType( 'A-A')
+        mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
+        mycell.addBondType( 'A-A')
         
-        cell.seed( 3 )
-        cell.growBlocks( 5 )
-        #cell.dump()
+        mycell.seed( 3 )
+        mycell.growBlocks( 5 )
+        #mycell.dump()
         
         # Grab coords
         coords = []
-        for block in cell.blocks.itervalues():
+        for block in mycell.blocks.itervalues():
             for coord in block.iterCoord():
                 coords.append( coord )
                 
@@ -3143,17 +3148,17 @@ class TestCell(unittest.TestCase):
         wcoords = []
         images = []
         for c in coords:
-            x, xi = util.wrapCoord( c[0], cell.A, center=False )
-            y, yi = util.wrapCoord( c[1], cell.B, center=False )
-            z, zi = util.wrapCoord( c[2], cell.C, center=False )
+            x, xi = util.wrapCoord( c[0], mycell.A, center=False )
+            y, yi = util.wrapCoord( c[1], mycell.B, center=False )
+            z, zi = util.wrapCoord( c[2], mycell.C, center=False )
             wcoords.append( [ x, y, z ] )
             images.append( [ xi, yi, zi ] )
         
         # Now umwrap them
         for i, c in enumerate( wcoords ):
-            x = util.unWrapCoord( c[0], images[i][0], cell.A, centered=False )
-            y = util.unWrapCoord( c[1], images[i][1], cell.B, centered=False )
-            z = util.unWrapCoord( c[2], images[i][2], cell.C, centered=False )
+            x = util.unWrapCoord( c[0], images[i][0], mycell.A, centered=False )
+            y = util.unWrapCoord( c[1], images[i][1], mycell.B, centered=False )
+            z = util.unWrapCoord( c[2], images[i][2], mycell.C, centered=False )
             
             self.assertAlmostEqual( x,
                                     coords[ i ][ 0 ],
@@ -3172,17 +3177,17 @@ class TestCell(unittest.TestCase):
         wcoords = []
         images = []
         for c in coords:
-            x, xi = util.wrapCoord( c[0], cell.A, center=True )
-            y, yi = util.wrapCoord( c[1], cell.B, center=True )
-            z, zi = util.wrapCoord( c[2], cell.C, center=True )
+            x, xi = util.wrapCoord( c[0], mycell.A, center=True )
+            y, yi = util.wrapCoord( c[1], mycell.B, center=True )
+            z, zi = util.wrapCoord( c[2], mycell.C, center=True )
             wcoords.append( [ x, y, z ] )
             images.append( [ xi, yi, zi ] )
         
         # Now umwrap them
         for i, c in enumerate( wcoords ):
-            x = util.unWrapCoord( c[0], images[i][0], cell.A, centered=True )
-            y = util.unWrapCoord( c[1], images[i][1], cell.B, centered=True )
-            z = util.unWrapCoord( c[2], images[i][2], cell.C, centered=True )
+            x = util.unWrapCoord( c[0], images[i][0], mycell.A, centered=True )
+            y = util.unWrapCoord( c[1], images[i][1], mycell.B, centered=True )
+            z = util.unWrapCoord( c[2], images[i][2], mycell.C, centered=True )
             
             self.assertAlmostEqual( x,
                                     coords[ i ][ 0 ],
@@ -3200,7 +3205,7 @@ class TestCell(unittest.TestCase):
             
         # Now test with HOOMD-Blue
         filename = "periodicTest.xml"
-        cell.writeHoomdXml( xmlFilename=filename )
+        mycell.writeHoomdXml( xmlFilename=filename )
         if hoomdblue.init.is_initialized():
             hoomdblue.init.reset()
         system = hoomdblue.init.read_xml( filename=filename )
@@ -3210,9 +3215,9 @@ class TestCell(unittest.TestCase):
             x, y, z  = p.position
             ix, iy, iz = p.image
             
-            x = util.unWrapCoord( x, ix, cell.A, centered=True )
-            y = util.unWrapCoord( y, iy, cell.B, centered=True )
-            z = util.unWrapCoord( z, iz, cell.C, centered=True )
+            x = util.unWrapCoord( x, ix, mycell.A, centered=True )
+            y = util.unWrapCoord( y, iy, mycell.B, centered=True )
+            z = util.unWrapCoord( z, iz, mycell.C, centered=True )
             
             self.assertAlmostEqual( x,
                                     coords[ i ][ 0 ],
@@ -3239,24 +3244,24 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 50
         
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell = Cell()
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
-        cell.addInitBlock( filename=self.pafCar, fragmentType='A' )
-        cell.addBondType( 'A-A' )
+        mycell.addInitBlock( filename=self.pafCar, fragmentType='A' )
+        mycell.addBondType( 'A-A' )
         
         nblocks = 10
-        added = cell.seed( nblocks )
+        added = mycell.seed( nblocks )
         
         self.assertEqual( nblocks, added, "Incorrect number of cell blocks" )
-        self.assertEqual( nblocks, len(cell.blocks), "Incorrect number of cell blocks" )
+        self.assertEqual( nblocks, len(mycell.blocks), "Incorrect number of cell blocks" )
         
         # Check no block is outside the unit cell
         # We seed by the centroid so the edges could stick out by radius
         #radius = ch4.radius()
         
         bad = []
-        for i,b in cell.blocks.iteritems():
+        for i,b in mycell.blocks.iteritems():
             radius = b.radius()
             for c in b.iterCoord():
                 if ( 0-radius > c[0] > CELLA[0]+ radius ) or \
@@ -3267,7 +3272,7 @@ class TestCell(unittest.TestCase):
         
         self.assertEqual( 0, len(bad), "Got {} blocks outside cell: {}".format( len(bad), bad ) )
         
-        #cell.writeXyz("seedTest.xyz")
+        #mycell.writeXyz("seedTest.xyz")
         
         return
     
@@ -3276,24 +3281,24 @@ class TestCell(unittest.TestCase):
     def testSurroundBoxes(self):
         """
         """
-        cell = Cell( )
-        cell.cellAxis( A=5, B=5, C=5 )
+        mycell = Cell( )
+        mycell.cellAxis( A=5, B=5, C=5 )
         # box size=1 - need to set manually as not reading in a block
-        cell.maxAtomRadius = 0.5
-        cell.atomMargin = 0.0
+        mycell.maxAtomRadius = 0.5
+        mycell.atomMargin = 0.0
         
-        cell.boxSize = ( cell.maxAtomRadius * 2 ) + cell.atomMargin
-        cell.numBoxA = int(math.floor( cell.A / cell.boxSize ) )
-        cell.numBoxB = int(math.floor( cell.B / cell.boxSize ) )
-        cell.numBoxC = int(math.floor( cell.C / cell.boxSize ) )
+        mycell.boxSize = ( mycell.maxAtomRadius * 2 ) + mycell.atomMargin
+        mycell.numBoxA = int(math.floor( mycell.A / mycell.boxSize ) )
+        mycell.numBoxB = int(math.floor( mycell.B / mycell.boxSize ) )
+        mycell.numBoxC = int(math.floor( mycell.C / mycell.boxSize ) )
         
         s = [(2, 2, 2), (2, 2, 1), (2, 2, 3), (2, 1, 2), (2, 1, 1), (2, 1, 3), (2, 3, 2), (2, 3, 1), 
          (2, 3, 3), (1, 2, 2), (1, 2, 1), (1, 2, 3), (1, 1, 2), (1, 1, 1), (1, 1, 3), (1, 3, 2),
           (1, 3, 1), (1, 3, 3), (3, 2, 2), (3, 2, 1), (3, 2, 3), (3, 1, 2), (3, 1, 1), (3, 1, 3), 
           (3, 3, 2), (3, 3, 1), (3, 3, 3)]
-        self.assertEqual(s, cell.surroundCells( (2,2,2) ), "in center")
+        self.assertEqual(s, mycell.surroundCells( (2,2,2) ), "in center")
         
-        sb = cell.surroundCells( (0,0,0) )
+        sb = mycell.surroundCells( (0,0,0) )
         s = [ (0, 0, 0), (0, 0, 4), (0, 0, 1), (0, 4, 0), (0, 4, 4), (0, 4, 1), (0, 1, 0), (0, 1, 4), 
         (0, 1, 1), (4, 0, 0), (4, 0, 4), (4, 0, 1), (4, 4, 0), (4, 4, 4), (4, 4, 1), (4, 1, 0), (4, 1, 4),
          (4, 1, 1), (1, 0, 0), (1, 0, 4), (1, 0, 1), (1, 4, 0), (1, 4, 4), (1, 4, 1), (1, 1, 0), (1, 1, 4), (1, 1, 1)]
@@ -3304,16 +3309,16 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 15
         
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell = Cell( )
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
 
-        #cell.addInitBlock( filename="../PAF_bb_typed.car", fragmentType='A' )
-        cell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
-        cell.addBondType( 'A-A' )
+        #mycell.addInitBlock( filename="../PAF_bb_typed.car", fragmentType='A' )
+        mycell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
+        mycell.addBondType( 'A-A' )
         
-        added = cell.seed( 20 )
-        ok = cell.growBlocks( 20, maxTries=10 )
-        cell.zipBlocks( bondMargin=5, bondAngleMargin=30 )
+        added = mycell.seed( 20 )
+        ok = mycell.growBlocks( 20, maxTries=10 )
+        mycell.zipBlocks( bondMargin=5, bondAngleMargin=30 )
         
         return
     
@@ -3326,22 +3331,22 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 30
         
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        #cell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
-        cell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
-        cell.addBondType( 'A-A' )
+        mycell = Cell( )
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        #mycell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
+        mycell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
+        mycell.addBondType( 'A-A' )
         
-        added = cell.seed( 3 )
-        ok = cell.growBlocks( 3, maxTries=5 )
+        added = mycell.seed( 3 )
+        ok = mycell.growBlocks( 3, maxTries=5 )
         
         initcoords = []
-        for block in cell.blocks.itervalues():
+        for block in mycell.blocks.itervalues():
             for c in block.iterCoord():
                 initcoords.append( c )
         
         filename = "testWriteHoomdblue.xml"
-        natoms = cell.writeHoomdXml( xmlFilename=filename )
+        natoms = mycell.writeHoomdXml( xmlFilename=filename )
 
         # Init the sytem from the file
         if hoomdblue.init.is_initialized():
@@ -3349,10 +3354,10 @@ class TestCell(unittest.TestCase):
         system = hoomdblue.init.read_xml( filename=filename )
         
         # Read it back in to make sure we get the same values
-        cell.fromHoomdblueSystem( system )
+        mycell.fromHoomdblueSystem( system )
         
         finalcoords = []
-        for block in cell.blocks.itervalues():
+        for block in mycell.blocks.itervalues():
             for c in block.iterCoord():
                 finalcoords.append( c )
         
@@ -3372,24 +3377,24 @@ class TestCell(unittest.TestCase):
         
         # Create a large cell and populate it with a block
         CELLA = CELLB = CELLC = 100
-        cell = Cell( )
-        cell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        cell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
-        cell.addBondType( 'A-A' )
+        mycell = Cell( )
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
+        mycell.addBondType( 'A-A' )
 
-        cell.seed( 1 )
-        cell.growBlocks(3,'A')
+        mycell.seed( 1 )
+        mycell.growBlocks(3,'A')
         
         # Get the block and put it in the centre of the cell
-        block = cell.blocks[ cell.blocks.keys()[0] ]
+        block = mycell.blocks[ mycell.blocks.keys()[0] ]
         block.translateCentroid(  [ CELLA/2, CELLB/2, CELLC/2 ] )
 
         initcoords = []
-        for block in cell.blocks.itervalues():
+        for block in mycell.blocks.itervalues():
             initcoords += block._coords
         
         filename = "testWriteHoomdblue.xml"
-        natoms = cell.writeHoomdXml( xmlFilename=filename )
+        natoms = mycell.writeHoomdXml( xmlFilename=filename )
 
         # Init the sytem from the file
         if hoomdblue.init.is_initialized():
@@ -3397,10 +3402,10 @@ class TestCell(unittest.TestCase):
         system = hoomdblue.init.read_xml( filename=filename )
         
         # Read it back in to make sure we get the same values
-        cell.fromHoomdblueSystem( system, minCell=True )
+        mycell.fromHoomdblueSystem( system, minCell=True )
         
         finalcoords = []
-        for block in cell.blocks.itervalues():
+        for block in mycell.blocks.itervalues():
             finalcoords += block._coords
         
         self.assertEqual( initcoords, finalcoords, "coords don't match")
@@ -3408,8 +3413,6 @@ class TestCell(unittest.TestCase):
         os.unlink( filename )
         
         return
-
-
 
 if __name__ == '__main__':
     """
