@@ -635,40 +635,38 @@ class Cell():
             s += str(b)+ " | "
         self.logger.debug( "Bonds {0} and clashing atoms {1}".format( s, clashAtoms ) )
          
-        # Need to remove any atoms directly bonded to the bonding atoms from the clash atoms
-        # Previously I was careful about explicitly removing atoms and not just checking if the
-        # pair was in there. I'm more confident in the code now, so I only remove the clash if it is present
-        # This is because when zipping, there might not be any clashes with the capAtoms
         for bond in self._possibleBonds:
             
             # We need to remove any clashes with the cap atoms
-            cap1 = bond.endGroup1.blockCapIdx
-            cap2 = bond.endGroup2.blockCapIdx
+            staticCap = bond.endGroup1.blockCapIdx
+            addCap = bond.endGroup2.blockCapIdx
             
-            # Also need to remove any atoms directly bonded to the endGroups -
-            b1atoms = bond.endGroup1.blockBonded + [ bond.endGroup1.blockEndGroupIdx ]
-            b2atoms = bond.endGroup2.blockBonded + [ bond.endGroup2.blockEndGroupIdx ]
+            # Also need to remove any clashes of the endGroups with atoms directly bonded to the 
+            # opposite endGroup
+            staticEndGroup = bond.endGroup1.blockEndGroupIdx
+            staticBondAtoms = bond.endGroup1.blockBonded
+            addEndGroup = bond.endGroup2.blockEndGroupIdx
+            addBondAtoms = bond.endGroup2.blockBonded
 
             #self.logger.debug("cap1 {0}".format( cap1 ) )
             #self.logger.debug("cap2 {0}".format( cap2 ) )
             #self.logger.debug("block1 {0} bonded: {1}".format( bond.block1.id(), b1atoms ) )
             #self.logger.debug("block2 {0} bonded: {1}".format( bond.block2.id(), b2atoms ) )
 
-            # bond block1 is the staticBlock bond block2 is the addBlock - should change order to keep
-            # things consistent!
             toGo = [] # Need to remember indices as we can't remove from a list while we cycle through it
             for i, ( idxStaticBlock, idxStaticAtom, idxAddBlock, idxAddAtom) in enumerate(clashAtoms):
                 #self.logger.debug("CHECKING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                 
                 # Remove any clashes with the cap atoms
-                if idxStaticAtom == cap1  or idxAddAtom == cap2:
+                if idxStaticAtom == staticCap  or idxAddAtom == addCap:
                     #self.logger.debug("REMOVING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     #clashAtoms.remove( ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     toGo.append( i )
                     continue
                 
                 # remove any clashes with directly bonded atoms
-                if idxStaticAtom in b1atoms and idxAddAtom in b2atoms:
+                if ( idxStaticAtom == staticEndGroup and idxAddAtom in addBondAtoms ) or \
+                   ( idxAddAtom == addEndGroup and idxStaticAtom in staticBondAtoms ):
                     #clashAtoms.remove( ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     #self.logger.info( "REMOVING BOND ATOMS FROM CLASH TEST" )
                     toGo.append( i )
