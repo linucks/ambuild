@@ -198,35 +198,35 @@ class Block(object):
 
     def atomFragType(self, idxAtom ):
         """The type of the fragment that this atom belongs to."""
-        frag, idxData = self.unpackAtomIdx( idxAtom )
+        frag, idxData = self._dataMap[ idxAtom ]
         return frag._fragmentType
     
     def atomCharge(self, idxAtom ):
-        frag, idxData = self.unpackAtomIdx( idxAtom )
+        frag, idxData = self._dataMap[ idxAtom ]
         return frag._charges[ idxData ]
     
     def atomCoord(self, idxAtom ):
-        frag, idxData = self.unpackAtomIdx( idxAtom )
+        frag, idxData = self._dataMap[ idxAtom ]
         return frag._coords[ idxData]
     
     def atomLabel(self, idxAtom ):
-        frag, idxData = self.unpackAtomIdx( idxAtom )
+        frag, idxData = self._dataMap[ idxAtom ]
         return  frag._labels[ idxData ]
         
     def atomType(self, idxAtom ):
-        frag, idxData = self.unpackAtomIdx( idxAtom )
+        frag, idxData = self._dataMap[ idxAtom ]
         return  frag._atomTypes[ idxData ]
     
     def atomMass(self, idxAtom ):
-        frag, idxData = self.unpackAtomIdx( idxAtom )
+        frag, idxData = self._dataMap[ idxAtom ]
         return  frag._masses[ idxData ]
     
     def atomRadius(self, idxAtom ):
-        frag, idxData = self.unpackAtomIdx( idxAtom )
+        frag, idxData = self._dataMap[ idxAtom ]
         return  frag._atomRadii[ idxData ]
     
     def atomSymbol(self, idxAtom):
-        frag, idxData = self.unpackAtomIdx( idxAtom )
+        frag, idxData = self._dataMap[ idxAtom ]
         return  frag._symbols[ idxData ]
     
     def bondBlock( self, bond ):
@@ -355,16 +355,17 @@ class Block(object):
         fbonds = []
         for fragment in self._fragments:
             for b in fragment._bonds:
-                fbonds.append( ( (fragment, b[0]), (fragment, b[1])  ) )
+                fbonds.append( ( fragment.blockIdx + b[0], fragment.blockIdx + b[1] ) )
         
-        # Now map to data map
-        ofbonds = []
-        for ( a1, a2 ) in fbonds:
-            i1 = self._dataMap.index( a1 )
-            i2 = self._dataMap.index( a2 )
-            ofbonds.append( ( i1, i2) )
-        
-        return ofbonds
+#         # Now map to data map
+#         ofbonds = []
+#         for ( a1, a2 ) in fbonds:
+#             i1 = self._dataMap.index( a1 )
+#             i2 = self._dataMap.index( a2 )
+#             ofbonds.append( ( i1, i2) )
+#         
+#         return ofbonds
+        return fbonds
 
     def fromCarFile(self, carFile):
         """"Abbie did this.
@@ -710,7 +711,7 @@ class Block(object):
         return
     
     def setCoord(self, idxAtom, coord ):
-        frag, idxData = self.unpackAtomIdx( idxAtom )
+        frag, idxData = self._dataMap[ idxAtom ]
         frag._coords[ idxData] = coord
         return
 
@@ -737,10 +738,6 @@ class Block(object):
         
         return
 
-    def unpackAtomIdx(self, idxAtom ):
-        """Unpack an atomIdx to get the fragment and index of the atom in the fragment"""
-        return self._dataMap[ idxAtom ]
-        
     def _update( self ):
         """Set the list of _endGroups & update data for new block"""
         
@@ -748,8 +745,10 @@ class Block(object):
         self._dataMap = []
         count=0
         for fragment in self._fragments:
+            fragment.blockIdx = count # Mark where the data starts in the block
             for j in range( len( fragment._coords ) ):
                 self._dataMap.append( ( fragment, j ) )
+                count += 1
         
         # Have dataMap so now update the endGroup information
         self._endGroups = []
@@ -763,8 +762,10 @@ class Block(object):
                 assert id(endGroup) == id( fragment._endGroups[ i ] )
                 
                 # Update the block-wide indices for the endGroups
-                endGroup.blockEndGroupIdx  = self._dataMap.index( ( fragment, endGroup.fragmentEndGroupIdx  ) )
-                endGroup.blockCapIdx = self._dataMap.index( ( fragment, endGroup.fragmentCapIdx ) )
+                #endGroup.blockEndGroupIdx  = self._dataMap.index( ( fragment, endGroup.fragmentEndGroupIdx ) )
+                #endGroup.blockCapIdx = self._dataMap.index( ( fragment, endGroup.fragmentCapIdx ) )
+                endGroup.blockEndGroupIdx  = fragment.blockIdx + endGroup.fragmentEndGroupIdx
+                endGroup.blockCapIdx = fragment.blockIdx + endGroup.fragmentCapIdx
                 
                 self._endGroups.append( endGroup )
                 
@@ -781,7 +782,8 @@ class Block(object):
         for eg in self._endGroups:
             eg.blockBonded = []
             for fIdx in eg.fragmentBonded:
-                atomIdx = self._dataMap.index( ( eg.fragment, fIdx ) )
+                #atomIdx = self._dataMap.index( ( eg.fragment, fIdx ) )
+                atomIdx = eg.fragment.blockIdx + fIdx
                 if  atomIdx not in self._bondedCapIdxs:
                     eg.blockBonded.append( atomIdx )
         

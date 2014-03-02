@@ -54,7 +54,10 @@ class Fragment(object):
         # The type this fragment is (for bonding checks)
         self._fragmentType = fragmentType
         
-        # A list of block, endGroup indices of the atoms that are _endGroups
+        # The index in the list of block data where the data for this fragment starts
+        self.blockIdx = None
+        
+        # A list of the endGroup objects
         self._endGroups = []
         #self._angleAtoms = []
         
