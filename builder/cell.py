@@ -780,6 +780,7 @@ class Cell():
         'dihedral' : [],  # Used for impropers too
         'dihedralLabel' : [], 
         'fragmentBond' : [], 
+        'fragmentBondLabel' : [], 
         'mass' : [], 
         'type' : [], 
         }
@@ -790,7 +791,6 @@ class Cell():
             subtract this from the atomCount as this is where the data for this block starts
             """
             return atomCount - len( atomMap ) + atomMap[ atomIdx ]
-            
         
         atomCount=0 # Tracks overall number of atoms - across blocks
         fragCount=-1 # Tracks fragments (bodies) count starts from 1
@@ -832,9 +832,14 @@ class Cell():
             # Get all internal fragment bonds
             fbonds = block.fragmentBonds()
             for i1, i2 in fbonds:
-                #d['fragmentBond'].append( ( i1+atomCount, i2+atomCount ) )
                 try:
                     d['fragmentBond'].append( ( i2o( i1, atomMap, atomCount ), i2o( i2, atomMap, atomCount ) ) )
+                    
+                    atom1label = block.atomType( i1 )
+                    atom2label = block.atomType( i2 )
+                    # Sort so the order always the same
+                    l = sorted( ( atom1label, atom2label ) )
+                    d['fragmentBondLabel'].append( "{0}-{1}".format( l[ 0 ], l[ 1 ] ) )
                 except KeyError:
                     # This is a bond that is to a bondedCapAtom so ignored
                     pass
