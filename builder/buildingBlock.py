@@ -113,7 +113,8 @@ class Block(object):
         # The list of atoms that are endGroups and their corresponding angleAtoms
         self._endGroups = []
         self._freeEndGroupIdxs = []
-        self._bondedCapIdxs = []
+        #self._bondedCapIdxs = []
+        self._isBondedCap = []
         
         # the number of free endGroups
         self._numFeeEndGroups = 0
@@ -542,7 +543,8 @@ class Block(object):
     
     def isBondedCap(self, idxAtom ):
         #print "CHECKING {0} IN {1}".format(idxAtom, self._bondedCapIdxs )
-        return idxAtom in self._bondedCapIdxs
+        #return idxAtom in self._bondedCapIdxs
+        return self._isBondedCap[ idxAtom ]
 
     def iterCoord(self):
         """Generator to return the coordinates"""
@@ -753,7 +755,10 @@ class Block(object):
         # Have dataMap so now update the endGroup information
         self._endGroups = []
         self._freeEndGroupIdxs = []
-        self._bondedCapIdxs = []
+        # TEST TWO WAYS OF CHECK
+        #self._bondedCapIdxs = []
+        self._isBondedCap = [ False ] * len(self._dataMap) # Use bool array so we can just check an index and don't need to search
+        # through the array each time
         self._ftype2endGroup = {}
         for fragment in self._fragments:
             for i, endGroup in enumerate( fragment._endGroups ):
@@ -775,7 +780,8 @@ class Block(object):
                         self._ftype2endGroup[ endGroup.fragment.type() ] = []
                     self._ftype2endGroup[ endGroup.fragment.type() ].append( endGroup )
                 else:
-                    self._bondedCapIdxs.append( endGroup.blockCapIdx )
+                    #self._bondedCapIdxs.append( endGroup.blockCapIdx )
+                    self._isBondedCap[ endGroup.blockCapIdx ] = True
         
         # Have dataMap so now set block-wide bond indices for endGroups
         # We also need to remove any bonded capAtoms from the list of atoms bonded to 
@@ -784,7 +790,8 @@ class Block(object):
             for fIdx in eg.fragmentBonded:
                 #atomIdx = self._dataMap.index( ( eg.fragment, fIdx ) )
                 atomIdx = eg.fragment.blockIdx + fIdx
-                if  atomIdx not in self._bondedCapIdxs:
+                #if  atomIdx not in self._bondedCapIdxs:
+                if self._isBondedCap[ atomIdx ]:
                     eg.blockBonded.append( atomIdx )
         
         # Recalculate the data for this new block
@@ -821,7 +828,7 @@ class Block(object):
         mystr += "endGroups idxs: {0}\n".format( [ e.blockEndGroupIdx for e in self._endGroups ]  )
         mystr += "_freeEndGroupIdxs: {0}\n".format( self._freeEndGroupIdxs )
         mystr += "capAtoms: {0}\n".format( [ e.blockCapIdx for e in self._endGroups ] )
-        mystr += "_bondedCapAtoms: {0}\n".format( self._bondedCapIdxs )
+        #mystr += "_bondedCapAtoms: {0}\n".format( self._bondedCapIdxs )
         mystr += "bonds: {0}\n".format( self._bonds )
         
         for i,c in enumerate( self.iterCoord() ):
@@ -960,7 +967,7 @@ class TestBlock(unittest.TestCase):
         #ch4_1.writeXyz("testBond.xyz")
         
         self.assertEqual( [0, 0, 0, 5, 5, 5], ch4_1._freeEndGroupIdxs )
-        self.assertEqual( [1, 6], ch4_1._bondedCapIdxs )
+        #self.assertEqual( [1, 6], ch4_1._bondedCapIdxs )
         
         self.assertEqual( len(ch4_1._bonds), 1 )
         
