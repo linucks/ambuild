@@ -637,16 +637,17 @@ class Cell():
          
         for bond in self._possibleBonds:
             
-            # We need to remove any clashes with the cap atoms
+            # We need to remove any clashes with the cap atoms - the added block isn't bonded
+            # so the cap atoms aren't excluded
             staticCap = bond.endGroup1.blockCapIdx
             addCap = bond.endGroup2.blockCapIdx
             
             # Also need to remove any clashes of the endGroups with atoms directly bonded to the 
             # opposite endGroup
-            staticEndGroup = bond.endGroup1.blockEndGroupIdx
+            staticEndGroup  = bond.endGroup1.blockEndGroupIdx
             staticBondAtoms = bond.endGroup1.blockBonded
-            addEndGroup = bond.endGroup2.blockEndGroupIdx
-            addBondAtoms = bond.endGroup2.blockBonded
+            addEndGroup     = bond.endGroup2.blockEndGroupIdx
+            addBondAtoms    = bond.endGroup2.blockBonded
 
             #self.logger.debug("cap1 {0}".format( cap1 ) )
             #self.logger.debug("cap2 {0}".format( cap2 ) )
@@ -715,6 +716,11 @@ class Cell():
         block1=self.blocks[ idxBlock1 ]
         for idxAtom1,coord1 in enumerate( block1.iterCoord() ):
         # for idxAtom1, coord1 in enumerate( block1._coords ):
+        
+#             # Exclude bondedCaps & x atoms
+#             #!! Should be redundant as noClash atoms are excluded from the cell on addition
+#             if block1.noClashCheck( idxAtom1 ):
+#                 continue
             
             # Get the box this atom is in
             key = block1.atomCell[ idxAtom1 ]
@@ -2972,7 +2978,7 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 30
         
-        mycell = Cell()
+        mycell = Cell(doLog=True)
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
         mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
