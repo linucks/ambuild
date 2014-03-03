@@ -241,10 +241,11 @@ class Block(object):
         bond.endGroup2.free = False
         
         # Add all the other blocks fragments to this one
-        self._fragments += bond.block2._fragments
+        if bond.block1 != bond.block2:
+            self._fragments += bond.block2._fragments
         
-        # Add all the bonds between the fragments in the other block to this one
-        self._bonds += bond.block2._bonds
+            # Add all the bonds between the fragments in the other block to this one
+            self._bonds += bond.block2._bonds
         
         # Add the bond we are making to list of bonds
         self._bonds.append( bond )
