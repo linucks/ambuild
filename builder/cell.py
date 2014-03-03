@@ -116,7 +116,7 @@ class Cell():
         self.blocks[ idxBlock ] = block
         
         # Each atom has its own cell - X atoms remain as Nones
-        block.atomCell = self.atomCell = [ None ] * block.numAtoms()
+        block.atomCell = [ None ] * block.numAtoms()
         
         #print "nbox ",self.numBoxA,self.numBoxB,self.numBoxC
         #for idxCoord,coord in enumerate(block._coords):
@@ -1925,8 +1925,7 @@ class Cell():
         # First copy the blocks dictionary
         blocks = copy.copy( self.blocks )
         
-        del self.blocks # Delete the old one and reset
-        self.blocks = {}
+        self.blocks.clear() # Delete the old one and reset
         
         self.logger.debug("repopulateCells, adding blocks into new cells")
         for idxBlock, block in blocks.iteritems():
@@ -2532,7 +2531,7 @@ class Cell():
         
         self.logger.info("zipBlocks: found {0} additional bonds".format( todo ) )
         
-        bondsMade = self.processBonds( )
+        bondsMade = self.processBonds()
         
         if bondsMade != todo:
             self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(
