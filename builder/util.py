@@ -17,7 +17,6 @@ import xml.etree.ElementTree as ET
 # However, I wrote bits of that so I assume its ok
 
 # degrees to radians
-RADIANS2DEGREES = 57.29577951
 BOHR2ANGSTROM = 0.529177249
 
 # double check these values...
@@ -731,7 +730,7 @@ def dihedral(self, p1, p2, p3, p4):
         fac = 1.0
     if(fac < -1.0):
         fac = -1.0
-    dihed = 180.0 - RADIANS2DEGREES * math.acos(fac )
+    dihed = 180.0 - math.degrees( math.acos(fac ) )
 
     # the dot product between the bond between atoms i and j and the     
     # normal to the plane defined by atoms j, k, and l is used to        
@@ -996,7 +995,7 @@ class TestCell(unittest.TestCase):
         v2 = numpy.array( [1,0,0] )
         
         theta = vectorAngle(v1, v2)
-        print theta*RADIANS2DEGREES
+        print math.degrees(theta)
         
         return
 
