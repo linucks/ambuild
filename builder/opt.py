@@ -622,8 +622,9 @@ class HoomdOptimiser( object ):
         
         # pre-optimise for preopt steps to make sure the sytem is sane - otherwise the MD
         # blows up
-        preOptCycles = 1000
+        preOptCycles = 5000
         self._optimiseGeometry(optCycles = preOptCycles,
+                               dt=0.0001,
                                maxOptIter=1 )
         # Now run the MD steps
         self._runMD(  **kw )
@@ -708,7 +709,7 @@ class HoomdOptimiser( object ):
             # For tracking the optimsation        
             xmld = hoomdblue.dump.xml(filename="runopt.xml", vis=True)
             dcdd = hoomdblue.dump.dcd(filename="runopt.dcd",
-                                      period=10, 
+                                      period=1, 
                                       unwrap_full=True,
                                       overwrite=True,
                                        )
@@ -780,9 +781,8 @@ def xml2xyz( xmlFilename, xyzFilename ):
 if __name__ == "__main__":
     
     optimiser = HoomdOptimiser()
-    #optimiser.setAttributesFromFile( '/Users/jmht/Documents/abbie/AMBI/ambuild/builder/hoomdopt.xml' )
     xmlFilename = sys.argv[1]
     xyzFilename = xmlFilename +".xyz"
     xml2xyz( xmlFilename, xyzFilename )
-    optimiser.optimiseGeometry( xmlFilename=xmlFilename, doDihedral=True )
+    optimiser.runMDAndOptimise( xmlFilename=xmlFilename, doDihedral=True )
 
