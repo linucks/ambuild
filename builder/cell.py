@@ -52,9 +52,8 @@ class Cell():
         # The acceptable bond angle
         # convert bondAngle and bondMargin to angstroms
         # Could check values are in degrees and not radians?
-        #self.bondAngle = bondAngle/ util.RADIANS2DEGREES
         self.bondAngle = 0.0
-        self.bondAngleMargin = bondAngleMargin / util.RADIANS2DEGREES
+        self.bondAngleMargin = math.radians(bondAngleMargin)
         
         self.targetDensity = 10
         self.targetEndGroups = 100 # number of free endgroups left
@@ -383,11 +382,13 @@ class Cell():
                  addBlock,
                  idxAddAtom,
                  addCoord,
-                 addSymbol
+                 addSymbol,
+                 bondMargin,
+                 bondAngleMargin
                 ):
         
-        if not addBlock.isEndGroup( idxAddAtom ) or not staticBlock.isEndGroup( idxStaticAtom ):
-            return False
+#         if not addBlock.isEndGroup( idxAddAtom ) or not staticBlock.isEndGroup( idxStaticAtom ):
+#             return False
         
         # Checking for a bond
         staticSymbol = staticBlock.atomSymbol( idxStaticAtom )
@@ -399,7 +400,7 @@ class Cell():
         # See if the distance between them is acceptable
         #print "CHECKING BOND ATOMS ",bond_length,self.distance( addCoord, staticCoord )
         distance = self.distance( addCoord, staticCoord )
-        if  not ( max( 0.1, bond_length - self.bondMargin ) < distance < bond_length + self.bondMargin ):
+        if  not ( max( 0.1, bond_length - bondMargin ) < distance < bond_length + bondMargin ):
             self.logger.debug( "Cannot bond due to distance: {0}".format( distance ) )
             return False
         
@@ -424,17 +425,17 @@ class Cell():
                 angle2 = util.angle( staticCapAtom, staticCoord, addCoord )
                 
                 #print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( angleAtom, addCoord, staticCoord )
-                #print "{} < {} < {}".format( (self.bondAngle-self.bondAngleMargin) * util.RADIANS2DEGREES,
+                #print "{} < {} < {}".format( (self.bondAngle-bondAngleMargin) * util.RADIANS2DEGREES,
                 #                             angle * util.RADIANS2DEGREES, 
-                #                             (self.bondAngle+self.bondAngleMargin) * util.RADIANS2DEGREES  )
-                if not ( self.bondAngle-self.bondAngleMargin < angle1 < self.bondAngle+self.bondAngleMargin  and \
-                         self.bondAngle-self.bondAngleMargin < angle2 < self.bondAngle+self.bondAngleMargin ):
-                    self.logger.debug( "Cannot bond due to angles: {0} : {1}".format(angle1  * util.RADIANS2DEGREES,
-                                                                                     angle2  * util.RADIANS2DEGREES) )
+                #                             (self.bondAngle+bondAngleMargin) * util.RADIANS2DEGREES  )
+                if not ( self.bondAngle-bondAngleMargin < angle1 < self.bondAngle+bondAngleMargin  and \
+                         self.bondAngle-bondAngleMargin < angle2 < self.bondAngle+bondAngleMargin ):
+                    self.logger.debug( "Cannot bond due to angles: {0} : {1}".format( math.degrees(angle1),
+                                                                                     math.degrees(angle2) ) )
                     continue
                 
-                self.logger.debug( "Acceptable bond with angles: {0} : {1}".format( angle1 * util.RADIANS2DEGREES,
-                                                                                    angle2  * util.RADIANS2DEGREES ) )
+                self.logger.debug( "Acceptable bond with angles: {0} : {1}".format( math.degrees(angle1),
+                                                                                    math.degrees(angle2) ) )
                 
                 # Create bond object and set the parameters
                 bond = buildingBlock.Bond()
@@ -598,8 +599,9 @@ class Cell():
 #                                                               staticBlock.atomSymbol( idxStaticAtom ),
 #                                                               self.distance( addCoord, staticCoord ) )
             
-            # First see if both atoms are _endGroups
-            if not self.canBond( idxStaticBlock,
+            if not ( addBlock.isEndGroup( idxAddAtom ) and \
+                     staticBlock.isEndGroup( idxStaticAtom ) and \
+                     self.canBond( idxStaticBlock,
                                     staticBlock,
                                     idxStaticAtom,
                                     staticCoord,
@@ -607,8 +609,10 @@ class Cell():
                                     addBlock,
                                     idxAddAtom,
                                     addCoord,
-                                    addSymbol
-                                    ):
+                                    addSymbol,
+                                    self.bondMargin,
+                                    self.bondAngleMargin
+                                    ) ):
             
                 # No bond so just check if the two atoms are close enough for a clash
                 oradius = staticBlock.atomRadius( idxStaticAtom )
@@ -2020,8 +2024,6 @@ class Cell():
         Set up the various log files/console logging and return the logger
         """
         
-
-        
         logger = logging.getLogger()
         logger.setLevel( logging.DEBUG )
         
@@ -2071,6 +2073,9 @@ class Cell():
         return
 
     def surroundCells(self, key ):
+        return self._surroundCells( key, self.numBoxA, self.numBoxB, self.numBoxC )
+        
+    def _surroundCells(self, key, numBoxA, numBoxB, numBoxC ):
         """
         return a list of the cells surrounding the one with the given key
         """
@@ -2086,18 +2091,18 @@ class Cell():
                     # Impose periodic boundaries
                     ai = a+i
                     if ai < 0:
-                        ai = self.numBoxA-1
-                    elif ai > self.numBoxA-1:
+                        ai = numBoxA-1
+                    elif ai > numBoxA-1:
                         ai = 0
                     bj = b+j
                     if bj < 0:
-                        bj = self.numBoxB-1
-                    elif bj > self.numBoxB-1:
+                        bj = numBoxB-1
+                    elif bj > numBoxB-1:
                         bj = 0
                     ck = c+k
                     if ck < 0:
-                        ck = self.numBoxC-1
-                    elif ck > self.numBoxC-1:
+                        ck = numBoxC-1
+                    elif ck > numBoxC-1:
                         ck = 0
                     skey = (ai, bj, ck)
                     #print "sKey ({},{},{})->({})".format(a,b,c,skey)
@@ -2489,6 +2494,117 @@ class Cell():
     
     def zipBlocks( self, bondMargin=None, bondAngleMargin=None  ):
         
+        # Convert to radians
+        bondAngleMargin = math.radians(bondAngleMargin)
+        
+        # Calculate the number of boxes
+        
+        # Should calculate max possible bond length
+        maxBondLength=2.5
+        boxSize = maxBondLength + bondMargin
+        numBoxA = int(math.ceil( self.A / boxSize ) )
+        numBoxB = int(math.ceil( self.B / boxSize ) )
+        numBoxC = int(math.ceil( self.C / boxSize ) ) 
+        
+        # Create empty cells to hold data
+        cell1 = {}
+        cell3 = {}
+        
+        # Get a list of all block, endGroups
+        endGroups = []
+        for idxBlock, block in self.blocks.iteritems():
+            egs = block.getEndGroups()
+            if len(egs):
+                block.zipCell = {}
+                for endGroup in egs:
+                    endGroups.append( ( idxBlock, endGroup.blockEndGroupIdx ) )
+        
+        # Add all (block, idxEndGroup) tuples to the cells
+        for (idxBlock, idxEndGroup) in endGroups:
+            
+            block = self.blocks[ idxBlock ]
+            coord = block.atomCoord( idxEndGroup )
+            
+            # Periodic Boundaries
+            x = coord[0] % self.A
+            y = coord[1] % self.B
+            z = coord[2] % self.C
+            
+            # Calculate which cell the atom is in
+            a=int( math.floor( x / boxSize ) )
+            b=int( math.floor( y / boxSize ) ) 
+            c=int( math.floor( z / boxSize ) )
+            key = (a,b,c)
+            block.zipCell[ idxEndGroup ] = key
+            
+            try:
+                # Add the atom to the cell
+                cell1[ key ].append( ( idxBlock, idxEndGroup ) )
+            except KeyError:
+                # Add the cell to the list and then add the atom
+                cell1[ key ] = [ ( idxBlock, idxEndGroup ) ]
+                # Map the cells surrounding this one
+                cell3[ key ] = self._surroundCells( key, numBoxA, numBoxB, numBoxC )
+        
+        # Loop through all the end groups and run canBond
+        self._possibleBonds = []
+        for idxBlock1, idxEndGroup1 in endGroups:
+            
+            block1 = self.blocks[ idxBlock1 ]
+            endGroup1Coord = block1.atomCoord( idxEndGroup1 )
+            
+            # Get the box this atom is in
+            key = block1.zipCell[ idxEndGroup1 ]
+            
+            # Get a list of the boxes surrounding this one
+            surrounding = cell3[ key ]
+            
+            #For each box loop through all its atoms chekcking for clashes
+            for i, sbox in enumerate( surrounding ):
+                
+                # Check if we have a box with anything in it
+                if not cell1.has_key(sbox):
+                    continue
+                
+                for (idxBlock2, idxEndGroup2) in cell1[ sbox ]:
+                    
+                    # Don't check endGroups against themselves
+                    if idxBlock1 == idxBlock2 and idxEndGroup1 == idxEndGroup2:
+                        continue
+                    
+                    block2 = self.blocks[ idxBlock2 ]
+                    endGroup2Coord = block2.atomCoord( idxEndGroup2 )
+                    endGroup2Symbol = block2.atomSymbol( idxEndGroup2 )
+                    
+                    got = self.canBond( idxBlock1,
+                                        block1,
+                                        idxEndGroup1,
+                                        endGroup1Coord,
+                                        idxBlock2,
+                                        block2,
+                                        idxEndGroup2,
+                                        endGroup2Coord,
+                                        endGroup2Symbol,
+                                        bondMargin,
+                                        bondAngleMargin
+                                        )
+        
+        #process the bonds
+        todo = len( self._possibleBonds )
+        
+        self.logger.info("zipBlocks: found {0} additional bonds".format( todo ) )
+        
+        bondsMade = self.processBonds()
+        
+        if bondsMade != todo:
+            self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(
+                                                                                            todo, 
+                                                                                            bondsMade ) )
+        
+        return bondsMade
+    
+    def XXXzipBlocks( self, bondMargin=None, bondAngleMargin=None  ):
+        
         
         self.logger.info("zipBlocks, zippling Blocks")
         
@@ -2512,7 +2628,7 @@ class Cell():
         
         # Set the new parameters
         self.bondMargin = bondMargin 
-        self.bondAngleMargin = bondAngleMargin / util.RADIANS2DEGREES
+        self.bondAngleMargin = math.radians(bondAngleMargin)
         
         # Loop through each block in turn and find new bonds
         possible_bonds = []
@@ -3315,18 +3431,15 @@ class TestCell(unittest.TestCase):
     
     def testZipBlocks(self):
         
-        CELLA = CELLB = CELLC = 15
+        zpkl = os.path.join( self.ambuildDir, "misc","canZip.pkl" )
+        with open(zpkl) as f:
+            mycell=cPickle.load(f)
+            
+        #logging.disable(logging.NOTSET)
         
-        mycell = Cell( )
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-
-        #mycell.addInitBlock( filename="../PAF_bb_typed.car", fragmentType='A' )
-        mycell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
-        mycell.addBondType( 'A-A' )
+        made = mycell.zipBlocks( bondMargin=5, bondAngleMargin=100 )
         
-        added = mycell.seed( 20 )
-        ok = mycell.growBlocks( 20, maxTries=10 )
-        mycell.zipBlocks( bondMargin=5, bondAngleMargin=30 )
+        self.assertEqual( made, 2 )
         
         return
     
