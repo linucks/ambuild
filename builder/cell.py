@@ -179,8 +179,6 @@ class Cell():
         
         # Logging functions
         self.logger = None
-        self._clLogHandler = None
-        self._flLogHandler = None
         self.setupLogging( doLog=doLog )
         
         self.fileCount=0 # for naming output files
@@ -2184,10 +2182,6 @@ class Cell():
         # add fl to logger
         logger.addHandler( cl )
         
-        # Save handlers so we can remove them later
-        self._clLogHandler = cl
-        self._flLogHandler = fl
-
         self.logger = logger
         
         if not doLog:
@@ -2389,18 +2383,19 @@ class Cell():
         
         # No idea why I can't get the log to close and then reopen with append mode
         # see _get_state_ and _set_state_ in this class
-        self._clLogHandler.close()
-        self._flLogHandler.close()
-        self.logger.removeHandler( self._clLogHandler )
-        self.logger.removeHandler( self._flLogHandler )
-        del self._clLogHandler
-        del self._flLogHandler
+        if False:
+            self._clLogHandler.close()
+            self._flLogHandler.close()
+            self.logger.removeHandler( self._clLogHandler )
+            self.logger.removeHandler( self._flLogHandler )
+            del self._clLogHandler
+            del self._flLogHandler
         
         # Create the pickle file
         util.pickleObj( self, fileName )
          
         # Restart logging with append mode
-        self.setupLogging( mode='a' )
+        #self.setupLogging( mode='a' )
         
         self.logger.info( "Wrote pickle file: {0}".format(fileName) )
         
