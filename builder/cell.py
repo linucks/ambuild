@@ -100,6 +100,7 @@ class Analyse():
         
         self.logfile.writerow( new )
         
+        self.d.append( new )
         self._stepTime = None
         self.start()
         return
@@ -183,7 +184,7 @@ class Cell():
         return
     
     def _setupAnalyse(self):
-        self.analyse = Analyse( self, ['potential_energy'] )
+        self.analyse = Analyse( self, ['potential_energy','num_tries'] )
         return
     
     def addBlock( self, block, idxBlock=None ):
@@ -1442,7 +1443,7 @@ class Cell():
             if ok:
                 added +=1
                 self.logger.info("growBlocks added block {0} after {1} tries.".format( added, tries ) )
-                self.analyse.stop('grow')
+                self.analyse.stop('grow', d={'num_tries':tries})
                 #print "GOT BLOCK ",[ b  for b in self.blocks.itervalues() ][0]
                 tries = 0
             else:
@@ -1578,7 +1579,6 @@ class Cell():
                 self.logger.info( "Optimisation succeeded on attempt: {0}".format( count ) )
                 break
         
-        self.analyse.stop('optimiseGeometry')
         return self.fromHoomdblueSystem( optimiser.system )
 
     def positionInCell(self, block):
@@ -2073,6 +2073,7 @@ class Cell():
             self.processBonds( addedBlockIdx=idxBlock )
             numBlocks += 1
             self.logger.debug("seed added first block: {0}".format( block.id() ) )
+            self.analyse.stop('seed')
             
         if nblocks == 1:
             return numBlocks
@@ -2106,6 +2107,7 @@ class Cell():
                     if self.processBonds( addedBlockIdx=idxBlock ) > 0:
                         self.logger.info("Added bond in seed!")
                     self.logger.debug("seed added block {0} after {1} tries.".format( seedCount+2, tries ) )
+                    self.analyse.stop('seed',d={'num_tries':tries} )
                     numBlocks += 1
                     break
                 
@@ -2119,7 +2121,7 @@ class Cell():
         # End of loop to seed cell
         
         self.logger.info("After seed numBlocks: {0}".format( len(self.blocks) ) )
-        self.analyse.stop('seed')
+        
         return numBlocks
     
     def setupLogging( self, filename="ambuild.log", mode='w', doLog=False ):
