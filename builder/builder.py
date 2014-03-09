@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys
-sys.path.append("/opt/ambuild/builder")
+sys.path.append("/home/abbiet/ambuild.new/builder")
 '''
 Created on Jan 15, 2013
 
@@ -20,93 +20,65 @@ def cellFromPickle(pickleFile):
         myCell=cPickle.load(f)
     return myCell
 
-
-def shake( mycell, tries=5 ):
-    for i in range( tries ):
-        
-        print "SHAKING CELL TRY NUMBER ",i
-        
-        if not mycell.runMD( mdCycles=1000,
-                      rCut=None,
-                      T=0.1,
-                      tau=0.5,
-                      dt=0.005,
-                      doDihedral=True,
-                      doImproper=False,
-                      quiet=False,
-                      ):
-            print "SHAKE RUNMD FAILED!"
-            mycell.dump()
-            sys.exit()
-            
-        if mycell.zipBlocks( bondMargin=5, bondAngleMargin=180 ) > 0:
-            print "SHAKE ZIPBLOCKS WORKED SO OPTIMISING"
-            if not mycell.optimiseGeometry( doDihedral=True, quiet=True ):
-                mycell.dump()
-                print "SHAKE ZIPBLOCKS OPTIMISATION FAILED!"
-                sys.exit()
-            
-    return
- 
 #mycell = cellFromPickle("/opt/ambuild/work/CTF/CTF-2-interpen/jensNewCap/step_17.pkl")
 
-#cell dimensions:
-CELLA = CELLB = CELLC = 100
+
+def run():
+
+    #cell dimensions:
+    CELLA = CELLB = CELLC = 400
        
-# Create Cell and seed it with the blocks
-mycell = cell.Cell( atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15 )
-mycell.cellAxis( CELLA, CELLB, CELLC )
+    # Create Cell and seed it with the blocks
+    mycell = cell.Cell( atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15 )
+    mycell.cellAxis( CELLA, CELLB, CELLC )
        
-#import the two fragment files if you have 2 different building blocks
-#fragA="/opt/ambuild/work/building_blocks/PAF_bb_typed.car"
-fragA="../node_2.car"
-fragB="../linker_2.car"
+    #import the two fragment files if you have 2 different building blocks
+    #fragA="/opt/ambuild/work/building_blocks/PAF_bb_typed.car"
+    fragA="../blocks/node_2.car"
+    fragB="../blocks/linker_2.car"
 
-mycell.addInitBlock( filename=fragA, fragmentType='A' )
-mycell.addInitBlock( filename=fragB, fragmentType='B' )
-mycell.addBondType( 'A-B' )
+    mycell.addInitBlock( filename=fragA, fragmentType='A' )
+    mycell.addInitBlock( filename=fragB, fragmentType='B' )
+    mycell.addBondType( 'A-B' )
 
-# Use center argument to place the first block at the center of the cell. Only for first seed.
-mycell.seed( 4, fragmentType='B', center=True )
+    # Use center argument to place the first block at the center of the cell. Only for first seed.
+    mycell.seed( 20, fragmentType='B', center=True )
 
-# Now loop adding blocks
-for i in range( 1 ):
+    # Now loop adding blocks
+    while True:
     
-    toGrow=20
-    maxTries=500
-    if mycell.growBlocks( toGrow, fragmentType=None, maxTries=maxTries ) != toGrow:
-        print "growBlocks failed after {0} tries".format( maxTries )
+        toGrow=20
+        if mycell.growBlocks( toGrow, fragmentType=None, maxTries=500 ) != toGrow:
+            print "GROW FAILED!"
+            mycell.dump()
+            break
+
+        print "GROW BLOCKS DUMP"
         mycell.dump()
-        sys.exit()
-        
-    if not mycell.runMDAndOptimise( doDihedral=True,
-                                    doImproper=False,
-                                    mdCycles=1000,
-                                    optCycles=100000,
-                                    maxOptIter=100,
-                                    T=1000.0,
-                                    tau=0.5,
-                                    dt=0.005,
-                                    rCut=None,
-                                    quiet=False,
-                                    ):
-        print "RUNMDANDOPTIMISE FAILED!"
-        mycell.dump()
-        sys.exit()
     
-    #shake( mycell, tries=5 )
+        # Zip doesn't fail as such so don't need to check the result
+        mycell.zipBlocks( bondMargin=5, bondAngleMargin=45 )
+        print "ZIP BLOCKS DUMP"
+        mycell.dump()
+    
+        if not mycell.runMDAndOptimise( doDihedral=True, quiet=False ):
+            mycell.dump()
+            print "OPTIMISATION FAILED!"
+            sys.exit()
+    
+        mycell.dump()
+
+    
+    if False:
+        mycell.capBlocks( fragmentType='A', filename="../blocks/cap_node_2.car" )
+        mycell.dump()
+        mycell.capBlocks( fragmentType='B', filename="../blocks/cap_linker.car" )
+        mycell.dump()
+
+    if not mycell.optimiseGeometry(doDihedral=True):
+        print "FINAL OPTIMISATION FAILED!"
     mycell.dump()
 
-sys.exit()
 
-    
-mycell.capBlocks( fragmentType='A', filename="../../cap_node_2.car" )
-mycell.dump()
-mycell.capBlocks( fragmentType='B', filename="../../cap_linker.car" )
-mycell.dump()
-if not mycell.optimiseGeometry(doDihedral=True, minCell=False):
-    print "FINAL OPTIMISATION FAILED!"
-
-mycell.dump()
-
-
+if __name__ == "__main__":
+    run()
