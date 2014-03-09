@@ -123,7 +123,7 @@ class Cell():
     classdocs
     '''
 
-    def __init__( self, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=True ):
+    def __init__( self, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False ):
         '''
         Constructor
         '''
