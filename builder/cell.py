@@ -7,6 +7,7 @@ Created on Jan 15, 2013
 import collections
 import copy
 import cPickle
+import csv
 import logging
 import math
 import os
@@ -24,12 +25,92 @@ import buildingBlock
 import opt
 import util
 
+class Analyse():
+    def __init__(self,cell,fieldnames,logfile="ambuild.csv"):
+        
+        self.fieldnames = ['step',
+                           'type',
+                           'tot_time',
+                           'time',
+                           'num_frags',
+                           'num_particles',
+                           'num_blocks',
+                           'density',
+                           'num_free_endGroups',
+                            ] + fieldnames
+        self.cell = cell
+        
+        self.step = 0
+        self._startTime = time.time()
+        self._stepTime  = time.time()
+        d = {}
+        for f in self.fieldnames:
+            if f == 'time':
+                d[ f ] = self._startTime
+            elif f == 'type':
+                d[ f ] = 'init'
+            else:
+                d[ f ] = 0
+        
+        self.d = [ d ]
+        
+        self.logfile = csv.DictWriter( open(logfile, 'w'), self.fieldnames )
+        
+        self.logfile.writeheader()
+        
+        return
+    
+    def start(self):
+        """Called whenever we start a step"""
+        assert self._stepTime == None
+        assert len(self.d)
+        self.step += 1
+        self._stepTime = time.time()
+        return
+    
+    def stop(self, stype, d={}):
+        """Called at the end of a step with the data to write to the csv file"""
+        
+        new = {}
+        
+        for f in self.fieldnames:
+            if f == 'type':
+                new[ f ] = stype
+            elif f == 'step':
+                new [ f ] = self.step
+            elif f == 'time':
+                new[ f ] = time.time() - self._stepTime
+            elif f == 'tot_time':
+                new[ f ] = time.time() - self._startTime
+                self._stepTime
+            elif f == 'num_blocks':
+                new[ f ] = self.cell.numBlocks()
+            elif f == 'num_frags':
+                new[ f ] = self.cell.numFragments()
+            elif f == 'num_particles':
+                new[ f ] = self.cell.numAtoms()
+            elif f == 'num_free_endGroups':
+                new[ f ] = self.cell.numFreeEndGroups()
+            elif f == 'density':
+                new[ f ] = self.cell.density()
+            elif f in d:
+                new[ f ] = d[ f ]
+            else:
+                new[ f ] = self.d[-1][ f ]
+        
+        self.logfile.writerow( new )
+        
+        self._stepTime = None
+        self.start()
+        return
+
+
 class Cell():
     '''
     classdocs
     '''
 
-    def __init__( self, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False ):
+    def __init__( self, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=True ):
         '''
         Constructor
         '''
@@ -67,7 +148,6 @@ class Cell():
         # max atom radius - used to calculate box size
         self.boxSize = None
         self.maxAtomRadius=-1
-        self.blockMass = None # the mass of an individual block
         
         # see optimiseGeometry
         self.rCut = 5.0
@@ -89,9 +169,6 @@ class Cell():
         # Holds possible bond after checkMove is run
         self._possibleBonds = []
         
-        # Counts endGroups available for bonding
-        self.numFreeEndGroups = None
-        
         # Logging functions
         self.logger = None
         self._clLogHandler = None
@@ -100,6 +177,13 @@ class Cell():
         
         self.fileCount=0 # for naming output files
         
+        # For analysis csv
+        self._setupAnalyse()
+        
+        return
+    
+    def _setupAnalyse(self):
+        self.analyse = Analyse( self, ['potential_energy'] )
         return
     
     def addBlock( self, block, idxBlock=None ):
@@ -115,7 +199,7 @@ class Cell():
         self.blocks[ idxBlock ] = block
         
         # Each atom has its own cell - X atoms remain as Nones
-        block.atomCell = [ None ] * block.numAtoms()
+        block.atomCell = [ None ] * block.numAllAtoms()
         
         #print "nbox ",self.numBoxA,self.numBoxB,self.numBoxC
         #for idxCoord,coord in enumerate(block._coords):
@@ -264,7 +348,7 @@ class Cell():
         
         block2possibles = {} # List of which fragment types each block can bond to
         fragmentTypes = []
-        self.numFreeEndGroups = 0
+        numFreeEndGroups = 0
         freeBlocks = {}
         got=False # Track when there are on possible blocks
         for idxBlock, block in self.blocks.iteritems():
@@ -273,7 +357,7 @@ class Cell():
                 continue
             
             freeBlocks[ idxBlock ] = block
-            self.numFreeEndGroups += block.numFreeEndGroups()
+            numFreeEndGroups += block.numFreeEndGroups()
             
             # For each block generate a list of which frgmentTypes it can bond to
             possibles = []
@@ -291,7 +375,7 @@ class Cell():
                 got=True
             block2possibles[ idxBlock ] = possibles
 
-        if self.numFreeEndGroups == 0:
+        if numFreeEndGroups == 0:
             #self.dump("noFreeEndGroups")
             raise RuntimeError,"updateBonds no free endGroup!"
         
@@ -961,13 +1045,8 @@ class Cell():
         return 
         
     def density(self):
-        """
-        The density of the cell
-        """
-        
-        # each block has the same mass as we count unit blocks
-        
-        return ( len(self.blocks) * self.blockMass ) / ( self.A * self.B * self.C ) 
+        """The density of the cell"""
+        return ( sum( [ b.mass() for b in self.blocks.itervalues() ] ) / ( self.A * self.B * self.C ) )
 
 #    def directedShimmy(self, nsteps=100, nmoves=50):
 #        """ Shuffle the molecules about making bonds where necessary for nsteps
@@ -1082,7 +1161,7 @@ class Cell():
         # Read back in the particle positions
         atomCount=0
         for block in self.blocks.itervalues():
-            for k in range( block.numAtoms() ):
+            for k in range( block.numAllAtoms() ):
                 
                 if block.isBondedCap( k ):
                     # We didn't write out these so don't read back in 
@@ -1225,10 +1304,10 @@ class Cell():
         """
         
         ftype2block = {}
-        self.numFreeEndGroups = 0
+        numFreeEndGroups = 0
         for idxBlock, block in self.blocks.iteritems():
             
-            self.numFreeEndGroups += block.numFreeEndGroups()
+            numFreeEndGroups += block.numFreeEndGroups()
             # Returns the free endgroup types
             for ftype in block.getEndGroupTypes():
                 for f in self.allowedFragTypes( ftype ):
@@ -1241,7 +1320,7 @@ class Cell():
             print ftype2block
             raise RuntimeError,"No block can bond to any other under the given rules: {0}".format( self.bondTypes )
 
-        if self.numFreeEndGroups == 0:
+        if numFreeEndGroups == 0:
             #self.dump("noFreeEndGroups")
             raise RuntimeError,"ftype2block no free endGroup!"
 
@@ -1334,7 +1413,7 @@ class Cell():
         toGrow: number of blocks to add
         maxTries: number of tries to add before we give up
         """
-        
+
         self.logger.info( "Growing {0} new blocks".format( toGrow ) )
         
         assert len(self.blocks),"Need to seed blocks before growing!"
@@ -1347,10 +1426,10 @@ class Cell():
                 self.logger.critical("growBlocks - exceeded maxtries {0} when joining blocks!".format( maxTries ) )
                 return added
             
-            if self.numFreeEndGroups == 0:
+            if self.numFreeEndGroups() == 0:
                 self.logger.critical("growBlocks got no free endGroups!")
                 return added
-            
+
             # Select two random blocks that can be bonded
             initBlock, newEG, idxStaticBlock, staticEG = self.randomInitAttachments( fragmentType=fragmentType )
 
@@ -1363,12 +1442,13 @@ class Cell():
             if ok:
                 added +=1
                 self.logger.info("growBlocks added block {0} after {1} tries.".format( added, tries ) )
+                self.analyse.stop('grow')
                 #print "GOT BLOCK ",[ b  for b in self.blocks.itervalues() ][0]
                 tries = 0
             else:
                 # del initBlock?
                 tries += 1
-        
+
         self.logger.info("After growBlocks numBlocks: {0}".format( len(self.blocks) ) )
         
         return added
@@ -1396,7 +1476,7 @@ class Cell():
                 self.logger.critical("joinBlocks - exceeded maxtries when joining blocks!")
                 return added
             
-            if self.numFreeEndGroups == 0:
+            if self.numFreeEndGroups() == 0:
                 self.logger.critical("joinBlocks got no free endGroups!")
                 return added
             
@@ -1429,63 +1509,17 @@ class Cell():
         
         return added
     
-    def runMD(self,
-              xmlFilename="hoomdMD.xml",
-              doDihedral=False,
-              doImproper=False,
-              **kw ):
-        
-        if doDihedral and doImproper:
-            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
-        
-        optimiser = opt.HoomdOptimiser()
-        if 'rCut' in kw:
-            self.rCut = kw['rCut']
-        else:
-            self.rCut = optimiser.rCut
-        
-        # Write out HoomdBlue xml file & get parameters
-        self.writeHoomdXml( xmlFilename=xmlFilename,
-                            doDihedral=doDihedral,
-                            doImproper=doImproper )
-        
-        
-        ok = optimiser.runMD( xmlFilename,
-                                  doDihedral=doDihedral,
-                                  doImproper=doImproper,
-                                  **kw )
-        
-        return self.fromHoomdblueSystem( optimiser.system )
+    def numBlocks(self):
+        return len( self.blocks)
     
-    def runMDAndOptimise(self,
-                         xmlFilename="hoomdMDOpt.xml",
-                         doDihedral=False,
-                         doImproper=False,
-                         **kw ):
-        
-        if doDihedral and doImproper:
-            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
-
-        optimiser = opt.HoomdOptimiser()
-        if 'rCut' in kw:
-            self.rCut = kw['rCut']
-        else:
-            self.rCut = optimiser.rCut
-
-        # Write out HoomdBlue xml file & get parameters
-        self.writeHoomdXml( xmlFilename=xmlFilename,
-                            doDihedral=doDihedral,
-                            doImproper=doImproper )
-        
-        ok = optimiser.runMDAndOptimise( xmlFilename, 
-                                             doDihedral=doDihedral,
-                                             doImproper=doImproper,
-                                             **kw )
-
-        if ok:
-            self.logger.info( "runMDAndOptimise succeeded" )
-        
-        return self.fromHoomdblueSystem( optimiser.system )
+    def numFragments(self):
+        return sum( [ len(b._fragments) for b in self.blocks.itervalues() ] )
+    
+    def numFreeEndGroups(self):
+        return sum( [ b.numFreeEndGroups() for b in self.blocks.itervalues() ] )
+    
+    def numAtoms(self):
+        return sum( [ b.numAtoms() for b in self.blocks.itervalues() ] )
     
     def optimiseGeometry(self,
                          optAttempts=3,
@@ -1525,10 +1559,13 @@ class Cell():
             self.logger.info( "Running optimisation attempt: {0}".format( count ) )
             if True:
             #try:
+                d = {}
                 ok = optimiser.optimiseGeometry( xmlFilename,
                                                      doDihedral=doDihedral,
-                                                     doImproper=doImproper,                                                     
+                                                     doImproper=doImproper,
+                                                     d=d,
                                                       **kw )
+                self.analyse.stop('optimiseGeometry', d )
 #             except RuntimeError, e:
 #                 self.logger.critical( "Optimisation raised exception: {0}".format( e ) )
 # 
@@ -1541,6 +1578,7 @@ class Cell():
                 self.logger.info( "Optimisation succeeded on attempt: {0}".format( count ) )
                 break
         
+        self.analyse.stop('optimiseGeometry')
         return self.fromHoomdblueSystem( optimiser.system )
 
     def positionInCell(self, block):
@@ -1768,7 +1806,7 @@ class Cell():
         blockId = random.choice( list( self.blocks.keys() ) )
         
         if checkFree:
-            if self.numFreeEndGroups == 0:
+            if self.numFreeEndGroups() == 0:
                 return False
             
             count = 0
@@ -1939,12 +1977,76 @@ class Cell():
 
         return
 
+    def runMD(self,
+              xmlFilename="hoomdMD.xml",
+              doDihedral=False,
+              doImproper=False,
+              **kw ):
+        
+        if doDihedral and doImproper:
+            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
+        
+        optimiser = opt.HoomdOptimiser()
+        if 'rCut' in kw:
+            self.rCut = kw['rCut']
+        else:
+            self.rCut = optimiser.rCut
+        
+        # Write out HoomdBlue xml file & get parameters
+        self.writeHoomdXml( xmlFilename=xmlFilename,
+                            doDihedral=doDihedral,
+                            doImproper=doImproper )
+        
+        d = {}
+        ok = optimiser.runMD( xmlFilename,
+                                  doDihedral=doDihedral,
+                                  doImproper=doImproper,
+                                  d=d,
+                                  **kw )
+        
+        self.analyse.stop('runMD', d )
+        
+        return self.fromHoomdblueSystem( optimiser.system )
+    
+    def runMDAndOptimise(self,
+                         xmlFilename="hoomdMDOpt.xml",
+                         doDihedral=False,
+                         doImproper=False,
+                         **kw ):
+        
+        if doDihedral and doImproper:
+            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
+
+        optimiser = opt.HoomdOptimiser()
+        if 'rCut' in kw:
+            self.rCut = kw['rCut']
+        else:
+            self.rCut = optimiser.rCut
+
+        # Write out HoomdBlue xml file & get parameters
+        self.writeHoomdXml( xmlFilename=xmlFilename,
+                            doDihedral=doDihedral,
+                            doImproper=doImproper )
+        d = {}
+        ok = optimiser.runMDAndOptimise( xmlFilename, 
+                                             doDihedral=doDihedral,
+                                             doImproper=doImproper,
+                                             d=d,
+                                             **kw )
+
+        if ok:
+            self.logger.info( "runMDAndOptimise succeeded" )
+            
+        
+        self.analyse.stop('runMDAndOptimise', d )
+        
+        return self.fromHoomdblueSystem( optimiser.system )
+
     def seed( self, nblocks, fragmentType=None, maxTries=500, center=False ):
         """ Seed a cell with nblocks.
         
         Return the number of blocks we added
         """
-        
         
         if self.A == None or self.B == None or self.C == None:
             raise RuntimeError,"Need to specify cell before seeding"
@@ -1953,7 +2055,6 @@ class Cell():
         #    raise RuntimeError,"Must have set an initBlock and bondType before seeding."
         if not len( self.initBlocks ):
             raise RuntimeError,"Must have set an initBlock before seeding."
-        
         
         numBlocks = 0
         block = self.getInitBlock( fragmentType=fragmentType )
@@ -1988,6 +2089,7 @@ class Cell():
                 # quit on maxTries
                 if tries >= maxTries:
                     self.logger.critical("Exceeded maxtries when seeding")
+                    self.analyse.stop()
                     return numBlocks
                 
                 # Move the block and rotate it
@@ -2017,6 +2119,7 @@ class Cell():
         # End of loop to seed cell
         
         self.logger.info("After seed numBlocks: {0}".format( len(self.blocks) ) )
+        self.analyse.stop('seed')
         return numBlocks
     
     def setupLogging( self, filename="ambuild.log", mode='w', doLog=False ):
@@ -2225,9 +2328,6 @@ class Cell():
                 raise RuntimeError,"Adding initblock after blocks have been added - not sure what to do!"
             
             self.updateCellSize( maxAtomRadius=block.maxAtomRadius() )
-            
-            # Need to think about how to handle mass with multiple blocks
-            #self.blockMass = block.mass()
             
         return
     
@@ -2600,6 +2700,9 @@ class Cell():
             self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(
                                                                                             todo, 
                                                                                             bondsMade ) )
+            
+        
+        self.analyse.stop('zip')
         
         return bondsMade
     
@@ -2687,13 +2790,15 @@ class Cell():
         # Return everything bar our logger
         d = dict(self.__dict__)
         del d['logger']
+        del d['analyse']
         return d
     
     def __setstate__(self, d):
         """Called when we are unpickled """
         self.__dict__.update(d)
         self.setupLogging()
-    
+        self._setupAnalyse()
+        return
     
 class TestCell(unittest.TestCase):
     
@@ -2897,11 +3002,11 @@ class TestCell(unittest.TestCase):
         outFile = "testCellio2.car"
         self.testCell.writeCar( ofile=outFile, periodic=False, skipDummy=False )
         
-        for i, ( idxBlock, block ) in enumerate( self.testCell.blocks.iteritems() ):
-            for j, coord in enumerate( block.iterCoord() ):
-                print "Looping through 2: {0} {1} {2}".format( block.atomSymbol( j ),
-                                                               block.atomType( j ),
-                                                               block.atomCoord( j ) )
+#         for i, ( idxBlock, block ) in enumerate( self.testCell.blocks.iteritems() ):
+#             for j, coord in enumerate( block.iterCoord() ):
+#                 print "Looping through 2: {0} {1} {2}".format( block.atomSymbol( j ),
+#                                                                block.atomType( j ),
+#                                                                block.atomCoord( j ) )
 
         self.testCell.fromCar( carFile=outFile )
         
@@ -2926,7 +3031,7 @@ class TestCell(unittest.TestCase):
         mycell.addBondType( 'A-A')
         block1 = mycell.getInitBlock('A')
         
-        natoms = block1.numAtoms()
+        natoms = block1.numAllAtoms()
         
         # block radius is 1.8
         block1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
@@ -3102,7 +3207,7 @@ class TestCell(unittest.TestCase):
         added = mycell.seed( 1 )
         self.assertEqual( added, 1, 'seed')
         
-        natoms = mycell.blocks.values()[0].numAtoms()
+        natoms = mycell.blocks.values()[0].numAllAtoms()
         
         nblocks=3
         added = mycell.growBlocks( nblocks, fragmentType=None, maxTries=1 )
@@ -3110,7 +3215,7 @@ class TestCell(unittest.TestCase):
         self.assertEqual( added, nblocks, "growBlocks did not return ok")
         self.assertEqual(1,len(mycell.blocks), "Growing blocks found {0} blocks".format( len(mycell.blocks) ) )
         
-        natoms2 = mycell.blocks.values()[0].numAtoms()
+        natoms2 = mycell.blocks.values()[0].numAllAtoms()
         self.assertEqual( natoms2, natoms*(nblocks+1) )
         
         return
@@ -3163,7 +3268,7 @@ class TestCell(unittest.TestCase):
         self.assertEqual( added, 5, 'seed')
         nc = 0
         for block in mycell.blocks.itervalues():
-            nc += block.numAtoms()
+            nc += block.numAllAtoms()
         
         added = mycell.joinBlocks( 4, maxTries=1 )
         
@@ -3173,7 +3278,7 @@ class TestCell(unittest.TestCase):
         
         nc2 = 0
         for block in mycell.blocks.itervalues():
-            nc2 += block.numAtoms()
+            nc2 += block.numAllAtoms()
             
         self.assertEqual(nc, nc2, "Growing blocks found {0} coords".format( nc2 ) )
         
@@ -3225,6 +3330,13 @@ class TestCell(unittest.TestCase):
         """
         """
         self.testCell.optimiseGeometry( doDihedral=True, optAttempts=1, quiet=True  )
+        
+        return
+    
+    def testRunMDAndOptimise(self):
+        """
+        """
+        self.testCell.runMDAndOptimise( doDihedral=True, optAttempts=1, quiet=True  )
         
         return
     
@@ -3434,9 +3546,11 @@ class TestCell(unittest.TestCase):
         zpkl = os.path.join( self.ambuildDir, "misc","canZip.pkl" )
         with open(zpkl) as f:
             mycell=cPickle.load(f)
-            
-        #logging.disable(logging.NOTSET)
         
+        # DIRTY HACK AS WAS PICKELD WIHT OLDER VERSION OF CODE
+        mycell.numFreeEndGroups = self.testCell.numFreeEndGroups
+        
+        #logging.disable(logging.NOTSET)
         made = mycell.zipBlocks( bondMargin=5, bondAngleMargin=100 )
         
         self.assertEqual( made, 2 )

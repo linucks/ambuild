@@ -129,6 +129,7 @@ class Block(object):
         self._maxAtomRadius = -1
         self._radius = None
         self._mass = 0
+        self._numAtoms = 0
 
         self._blockId = id(self)
         
@@ -589,8 +590,16 @@ class Block(object):
     def numFreeEndGroups(self):
         return len( self._freeEndGroupIdxs )
     
-    def numAtoms(self):
+    def numAllAtoms(self):
+        """Number of atoms including bonded caps"""
         return len(self._dataMap)
+    
+    def numAtoms(self):
+        """Number of atoms excluding bonded caps"""
+        return self._numAtoms
+    
+    def mass(self):
+        return self._mass
 
     def parseEndgroupFile(self, filepath, fragmentType=None ):
         
@@ -746,11 +755,13 @@ class Block(object):
         
         # Now build up the dataMap
         self._dataMap = []
+        self._mass = 0
         count=0
         for fragment in self._fragments:
             fragment.blockIdx = count # Mark where the data starts in the block
             for j in range( len( fragment._coords ) ):
                 self._dataMap.append( ( fragment, j ) )
+                self._mass += fragment._masses[j]
                 count += 1
         
         # Have dataMap so now update the endGroup information
@@ -761,6 +772,7 @@ class Block(object):
         self._isBondedCap = [ False ] * len(self._dataMap) # Use bool array so we can just check an index and don't need to search
         # through the array each time
         self._ftype2endGroup = {}
+        self._numAtoms = len(self._dataMap) # Get total number of atoms and subtract # endGroups
         for fragment in self._fragments:
             for i, endGroup in enumerate( fragment._endGroups ):
                 
@@ -768,11 +780,8 @@ class Block(object):
                 assert id(endGroup) == id( fragment._endGroups[ i ] )
                 
                 # Update the block-wide indices for the endGroups
-                #endGroup.blockEndGroupIdx  = self._dataMap.index( ( fragment, endGroup.fragmentEndGroupIdx ) )
-                #endGroup.blockCapIdx = self._dataMap.index( ( fragment, endGroup.fragmentCapIdx ) )
                 endGroup.blockEndGroupIdx  = fragment.blockIdx + endGroup.fragmentEndGroupIdx
                 endGroup.blockCapIdx = fragment.blockIdx + endGroup.fragmentCapIdx
-                
                 self._endGroups.append( endGroup )
                 
                 if endGroup.free:
@@ -781,8 +790,10 @@ class Block(object):
                         self._ftype2endGroup[ endGroup.fragment.type() ] = []
                     self._ftype2endGroup[ endGroup.fragment.type() ].append( endGroup )
                 else:
-                    #self._bondedCapIdxs.append( endGroup.blockCapIdx )
                     self._isBondedCap[ endGroup.blockCapIdx ] = True
+                    # Removed cap atom so remove from list of atoms and also adjust the mass
+                    self._numAtoms -= 1
+                    self._mass -= fragment._masses[ endGroup.fragmentCapIdx ]
         
         # Have dataMap so now set block-wide bond indices for endGroups
         # We also need to remove any bonded capAtoms from the list of atoms bonded to 

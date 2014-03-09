@@ -595,9 +595,27 @@ class HoomdOptimiser( object ):
                                         doImproper=doImproper,
                                         rCut=self.rCut,
                                         quiet=quiet )
-        
+
+        # Logger - we don't write anything but query the final value - hence period 0 and overwrite
+        hlog = hoomdblue.analyze.log(filename='mylog.log',
+                                     quantities=[
+                                                 'num_particles',
+                                                 'pair_lj_energy',
+                                                 'potential_energy',
+                                                 'kinetic_energy',
+                                                 ],
+                                     period=0,
+                                     header_prefix='#',
+                                     overwrite=True
+                                     )
+
         self._runMD( **kw )
-        
+
+        # Extract the energy
+        if 'd' in kw and kw['d'] is not None:
+            for i in ['potential_energy' ]:
+                kw['d'][ i ] = hlog.query( i )
+
         return True
     
     def runMDAndOptimise(self,
@@ -620,6 +638,19 @@ class HoomdOptimiser( object ):
                                         rCut=self.rCut,
                                         quiet=quiet )
         
+        # Logger - we don't write anything but query the final value - hence period 0 and overwrite
+        hlog = hoomdblue.analyze.log(filename='mylog.log',
+                                     quantities=[
+                                                 'num_particles',
+                                                 'pair_lj_energy',
+                                                 'potential_energy',
+                                                 'kinetic_energy',
+                                                 ],
+                                     period=0,
+                                     header_prefix='#',
+                                     overwrite=True
+                                     )
+        
         # pre-optimise for preopt steps to make sure the sytem is sane - otherwise the MD
         # blows up
         preOptCycles = 5000
@@ -631,6 +662,11 @@ class HoomdOptimiser( object ):
         
         # Finally do a full optimisation
         optimised = self._optimiseGeometry( **kw )
+        
+        # Extract the energy
+        if 'd' in kw and kw['d'] is not None:
+            for i in ['potential_energy' ]:
+                kw['d'][ i ] = hlog.query( i )
         
         return optimised
     
@@ -653,9 +689,27 @@ class HoomdOptimiser( object ):
                                         doImproper=doImproper,
                                         rCut=self.rCut,
                                         quiet=quiet )
-        
+
+        # Logger - we don't write anything but query the final value - hence period 0 and overwrite
+        hlog = hoomdblue.analyze.log(filename='mylog.log',
+                                     quantities=[
+                                                 'num_particles',
+                                                 'pair_lj_energy',
+                                                 'potential_energy',
+                                                 'kinetic_energy',
+                                                 ],
+                                     period=0,
+                                     header_prefix='#',
+                                     overwrite=True
+                                     )
+
         optimised = self._optimiseGeometry( **kw )
-        
+
+        # Extract the energy
+        if 'd' in kw and kw['d'] is not None:
+            for i in ['potential_energy' ]:
+                kw['d'][ i ] = hlog.query( i )
+
         return optimised
     
     def _runMD(self, mdCycles=1000, T=0.1, tau=0.5, dt=0.005, **kw ):
