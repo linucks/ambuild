@@ -26,7 +26,7 @@ import opt
 import util
 
 class Analyse():
-    def __init__(self,cell,fieldnames,logfile="ambuild.csv"):
+    def __init__(self, cell, logfile="ambuild.csv"):
         
         self.fieldnames = ['step',
                            'type',
@@ -37,12 +37,17 @@ class Analyse():
                            'num_blocks',
                            'density',
                            'num_free_endGroups',
-                            ] + fieldnames
+                           'potential_energy',
+                           'num_tries',
+                           'fragment_types'
+                            ]
         self.cell = cell
         
         self.step = 0
         self._startTime = time.time()
         self._stepTime  = time.time()
+        
+        # Need to create an initial entry as we query the previous one for any data we don't have
         d = {}
         for f in self.fieldnames:
             if f == 'time':
@@ -93,6 +98,8 @@ class Analyse():
                 new[ f ] = self.cell.numFreeEndGroups()
             elif f == 'density':
                 new[ f ] = self.cell.density()
+            elif f == 'fragment_types':
+                new[ f ] = str( self.cell.fragmentTypes() )
             elif f in d:
                 new[ f ] = d[ f ]
             else:
@@ -181,10 +188,6 @@ class Cell():
         # For analysis csv
         self._setupAnalyse()
         
-        return
-    
-    def _setupAnalyse(self):
-        self.analyse = Analyse( self, ['potential_energy','num_tries'] )
         return
     
     def addBlock( self, block, idxBlock=None ):
@@ -1147,6 +1150,17 @@ class Cell():
         
         self.writePickle(prefix+".pkl")
         return
+
+    def fragmentTypes(self):
+        ft = {}
+        for b in self.blocks.itervalues():
+            d = b.fragmentTypeDict()
+            for k,v in d.iteritems():
+                try:
+                    ft[ k ] += v
+                except:
+                    ft[ k ] = v
+        return ft
 
     def fromHoomdblueSystem(self, system ):
         """Reset the particle positions from hoomdblue system"""
@@ -2123,7 +2137,11 @@ class Cell():
         self.logger.info("After seed numBlocks: {0}".format( len(self.blocks) ) )
         
         return numBlocks
-    
+
+    def _setupAnalyse(self):
+        self.analyse = Analyse( self )
+        return
+
     def setupLogging( self, filename="ambuild.log", mode='w', doLog=False ):
         """
         Set up the various log files/console logging and return the logger

@@ -369,6 +369,10 @@ class Block(object):
 #         
 #         return ofbonds
         return fbonds
+    
+    def fragmentTypeDict(self):
+        """A dictionary with the number of the different types of fragment we contain"""
+        return self._fragmentTypeDict
 
     def fromCarFile(self, carFile):
         """"Abbie did this.
@@ -756,8 +760,15 @@ class Block(object):
         # Now build up the dataMap
         self._dataMap = []
         self._mass = 0
+        self._fragmentTypeDict = {}
         count=0
         for fragment in self._fragments:
+            t = fragment.type()
+            if t not in self._fragmentTypeDict:
+                self._fragmentTypeDict[ t ] = 1
+            else:
+                self._fragmentTypeDict[ t ] += 1
+                
             fragment.blockIdx = count # Mark where the data starts in the block
             for j in range( len( fragment._coords ) ):
                 self._dataMap.append( ( fragment, j ) )
