@@ -39,7 +39,8 @@ class Analyse():
                            'num_free_endGroups',
                            'potential_energy',
                            'num_tries',
-                           'fragment_types'
+                           'fragment_types',
+                           'file_count',
                             ]
         self.cell = cell
         
@@ -52,6 +53,8 @@ class Analyse():
         for f in self.fieldnames:
             if f == 'time':
                 d[ f ] = self._startTime
+            elif f == 'file_count':
+                d[ f ] = self.cell._fileCount
             elif f == 'type':
                 d[ f ] = 'init'
             else:
@@ -100,6 +103,8 @@ class Analyse():
                 new[ f ] = self.cell.density()
             elif f == 'fragment_types':
                 new[ f ] = str( self.cell.fragmentTypes() )
+            elif f == 'file_count':
+                new[ f ] = self.cell._fileCount
             elif f in d:
                 new[ f ] = d[ f ]
             else:
@@ -181,7 +186,7 @@ class Cell():
         self.logger = None
         self.setupLogging( doLog=doLog )
         
-        self.fileCount=0 # for naming output files
+        self._fileCount=0 # for naming output files
         
         # For analysis csv
         self._setupAnalyse()
@@ -1135,8 +1140,8 @@ class Cell():
         """Write out our current state"""
         
         if addCount:
-            self.fileCount+=1
-            prefix=prefix+"_{0}".format(self.fileCount)
+            self._fileCount+=1
+            prefix=prefix+"_{0}".format(self._fileCount)
             
         self.writeXyz(prefix+".xyz",skipDummy=True)
         self.writeXyz(prefix+"_P.xyz",skipDummy=True, periodic=True)
