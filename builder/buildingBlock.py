@@ -67,6 +67,9 @@ class EndGroup(object):
         self.fragmentCapIdx       = None
         self.blockCapIdx          = None
         
+        self.fragmentUwIdx       = -1
+        self.blockUwIdx          = -1
+        
         self.fragmentBonded       = []
         self.blockBonded          = []
         
@@ -478,17 +481,18 @@ class Block(object):
             raise RuntimeError("Unrecognised file suffix: {}".format( filepath ) )
         
         # Get cap atoms and endgroups
-        endGroups, capAtoms = self.parseEndgroupFile( filepath, fragmentType=fragmentType )
+        endGroups, capAtoms, uwAtoms = self.parseEndgroupFile( filepath, fragmentType=fragmentType )
 
         # Set the root fragment and its attributes
         f = fragment.Fragment( fragmentType )
-        f.setData( coords = coords,
-                   labels = labels,
-                   symbols = symbols,
+        f.setData( coords    = coords,
+                   labels    = labels,
+                   symbols   = symbols,
                    atomTypes = atomTypes,
-                   charges = charges,
+                   charges   = charges,
                    endGroups = endGroups,
-                   capAtoms = capAtoms,  
+                   capAtoms  = capAtoms,
+                   uwAtoms   = uwAtoms
                   )
         
         f.processBodies( filepath )
@@ -547,11 +551,6 @@ class Block(object):
         """
         return idxAtom in self._freeEndGroupIdxs
     
-    def isBondedCap(self, idxAtom ):
-        #print "CHECKING {0} IN {1}".format(idxAtom, self._bondedCapIdxs )
-        #return idxAtom in self._bondedCapIdxs
-        return self._isBondedCap[ idxAtom ]
-
     def iterCoord(self):
         """Generator to return the coordinates"""
         for idx in range( len(self._dataMap) ):
@@ -588,8 +587,10 @@ class Block(object):
         
         return newPosition
 
-    def noClashCheck(self, idxAtom ):
-        return self.atomSymbol( idxAtom ).lower() == 'x' or self.isBondedCap( idxAtom )
+    def ignoreAtom(self, idxAtom ):
+        return self.atomSymbol( idxAtom ).lower() == 'x' or \
+            self._isBondedCap[ idxAtom ] or \
+            self._isBondedUw[ idxAtom ]
     
     def numFreeEndGroups(self):
         return len( self._freeEndGroupIdxs )
@@ -612,6 +613,7 @@ class Block(object):
         
         endGroups = []
         capAtoms = []
+        uwAtoms = []
         egfile = os.path.join( dirname, basename+".ambi" )
         if os.path.isfile( egfile ):
             #raise RuntimeError,"Cannot find endgroup file {0} for car file {1}".format( egfile, filepath )
@@ -619,11 +621,16 @@ class Block(object):
             for eg in egs:
                 endGroups.append( int( eg[0] ) )
                 capAtoms.append( int( eg[1] ) )
+                if len(eg) > 2:
+                    uwAtoms.append( int( eg[2] )  )
+                else:
+                    uwAtoms.append( -1 )
+                    
                 
             if fragmentType == 'cap' and len( endGroups ) != 1:
                 raise RuntimeError, "Capfile had >1 endGroup specified!"
             
-        return endGroups, capAtoms
+        return endGroups, capAtoms, uwAtoms
 
     def positionGrowBlock( self, endGroup, growBlock, growEndGroup ):
         """
@@ -781,6 +788,7 @@ class Block(object):
         # TEST TWO WAYS OF CHECK
         #self._bondedCapIdxs = []
         self._isBondedCap = [ False ] * len(self._dataMap) # Use bool array so we can just check an index and don't need to search
+        self._isBondedUw = [ False ] * len(self._dataMap)
         # through the array each time
         self._ftype2endGroup = {}
         self._numAtoms = len(self._dataMap) # Get total number of atoms and subtract # endGroups
@@ -793,6 +801,8 @@ class Block(object):
                 # Update the block-wide indices for the endGroups
                 endGroup.blockEndGroupIdx  = fragment.blockIdx + endGroup.fragmentEndGroupIdx
                 endGroup.blockCapIdx = fragment.blockIdx + endGroup.fragmentCapIdx
+                if endGroup.fragmentUwIdx != -1:
+                    endGroup.blockUwIdx = fragment.blockIdx + endGroup.fragmentUwIdx
                 self._endGroups.append( endGroup )
                 
                 if endGroup.free:
@@ -805,15 +815,18 @@ class Block(object):
                     # Removed cap atom so remove from list of atoms and also adjust the mass
                     self._numAtoms -= 1
                     self._mass -= fragment._masses[ endGroup.fragmentCapIdx ]
+                    if endGroup.blockUwIdx != -1:
+                        self._isBondedUw[ endGroup.blockUwIdx ] = True
+                        self._numAtoms -= 1
+                        self._mass -= fragment._masses[ endGroup.fragmentCapIdx ]
         
         # Have dataMap so now set block-wide bond indices for endGroups
         # We also need to remove any bonded capAtoms from the list of atoms bonded to 
         for eg in self._endGroups:
             eg.blockBonded = []
             for fIdx in eg.fragmentBonded:
-                #atomIdx = self._dataMap.index( ( eg.fragment, fIdx ) )
+                # THINK ABOUT UW
                 atomIdx = eg.fragment.blockIdx + fIdx
-                #if  atomIdx not in self._bondedCapIdxs:
                 if self._isBondedCap[ atomIdx ]:
                     eg.blockBonded.append( atomIdx )
         

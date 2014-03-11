@@ -227,13 +227,15 @@ class Fragment(object):
         return self._radius
 
     def setData(self,
-                coords = None,
-                labels = None,
-                symbols = None,
+                coords    = None,
+                labels    = None,
+                symbols   = None,
                 atomTypes = None,
-                charges = None,
+                charges   = None,
                 endGroups = None,
-                capAtoms = None ):
+                capAtoms  = None,
+                uwAtoms   = None
+                ):
         
         self._coords = coords
         self._labels = labels
@@ -248,7 +250,7 @@ class Fragment(object):
         self._bonds = util.calcBonds( coords, symbols, maxAtomRadius=self.maxAtomRadius() )
         
         # Set up endGroups
-        self.setEndGroups( endGroups, capAtoms )
+        self.setEndGroups( endGroups, capAtoms, uwAtoms )
         
         # Recalculate all dynamic data
         #self._calcCenters()
@@ -257,7 +259,7 @@ class Fragment(object):
         
         return
 
-    def setEndGroups( self, endGroups, capAtoms ):
+    def setEndGroups( self, endGroups, capAtoms, uwAtoms ):
         
         # Now set up the endGroup information
         self._endGroups =[]
@@ -267,6 +269,7 @@ class Fragment(object):
             eg.fragment = self
             eg.fragmentEndGroupIdx = e
             eg.fragmentCapIdx = capAtoms[ i ]
+            eg.fragmentUwIdx = uwAtoms[ i ]
             eg.fragmentBonded = self.endGroupBonded( eg )
             
             self._endGroups.append( eg )

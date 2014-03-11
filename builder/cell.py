@@ -214,7 +214,7 @@ class Cell():
         #for idxCoord, coord in enumerate( block._coords ):
             
             # Skip adding dummy atoms
-            if block.noClashCheck( idxCoord ):
+            if block.ignoreAtom( idxCoord ):
                 #print "SKIPPING AS BONDED or x"
                 continue
             
@@ -814,7 +814,7 @@ class Cell():
         
 #             # Exclude bondedCaps & x atoms
 #             #!! Should be redundant as noClash atoms are excluded from the cell on addition
-#             if block1.noClashCheck( idxAtom1 ):
+#             if block1.ignoreAtom( idxAtom1 ):
 #                 continue
             
             # Get the box this atom is in
@@ -910,7 +910,7 @@ class Cell():
                     
                 # This is how we keep the cap atoms in the data structures but avoid outputting
                 # them to Hoomdblue
-                if block.isBondedCap( i ):
+                if block.ignoreAtom( i ):
                     continue
                 else:
                     atomMap[ i ] = j
@@ -1053,7 +1053,8 @@ class Cell():
         
     def density(self):
         """The density of the cell"""
-        return ( sum( [ b.mass() for b in self.blocks.itervalues() ] ) / ( self.A * self.B * self.C ) )
+        d = ( sum( [ b.mass() for b in self.blocks.itervalues() ] ) / ( self.A * self.B * self.C ) )
+        return d * (10/6.022)
 
 #    def directedShimmy(self, nsteps=100, nmoves=50):
 #        """ Shuffle the molecules about making bonds where necessary for nsteps
@@ -1181,7 +1182,7 @@ class Cell():
         for block in self.blocks.itervalues():
             for k in range( block.numAllAtoms() ):
                 
-                if block.isBondedCap( k ):
+                if block.ignoreAtom( k ):
                     # We didn't write out these so don't read back in 
                     continue
                 
@@ -2430,7 +2431,7 @@ class Cell():
                 
                 
                 if not skipDummy:
-                    if block.isBondedCap( j ):
+                    if block.ignoreAtom( j ):
                         continue
                 else:
                     if block.noClashTest( j ):
@@ -2459,7 +2460,7 @@ class Cell():
             
         self.logger.info( "Wrote car file: {0}".format(fpath) )
         return
-             
+    
     def writeXyz(self, ofile, label=False, periodic=False, skipDummy=False ):
         """Write out the cell atoms to an xyz file
         If label is true we write out the atom label and block, otherwise the symbol
@@ -2470,7 +2471,7 @@ class Cell():
         for i,block in self.blocks.iteritems():
             for j, c in enumerate( block.iterCoord() ):
                 
-                if block.isBondedCap( j ):
+                if block.ignoreAtom( j ):
                     continue
                 
                 if skipDummy:
