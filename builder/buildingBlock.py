@@ -116,8 +116,7 @@ class Block(object):
         # The list of atoms that are endGroups and their corresponding angleAtoms
         self._endGroups = []
         self._freeEndGroupIdxs = []
-        #self._bondedCapIdxs = []
-        self._isBondedCap = []
+        self._ignoreAtom = []
         
         # the number of free endGroups
         self._numFeeEndGroups = 0
@@ -589,8 +588,7 @@ class Block(object):
 
     def ignoreAtom(self, idxAtom ):
         return self.atomSymbol( idxAtom ).lower() == 'x' or \
-            self._isBondedCap[ idxAtom ] or \
-            self._isBondedUw[ idxAtom ]
+            self._ignoreAtom[ idxAtom ]
     
     def numFreeEndGroups(self):
         return len( self._freeEndGroupIdxs )
@@ -787,8 +785,7 @@ class Block(object):
         self._freeEndGroupIdxs = []
         # TEST TWO WAYS OF CHECK
         #self._bondedCapIdxs = []
-        self._isBondedCap = [ False ] * len(self._dataMap) # Use bool array so we can just check an index and don't need to search
-        self._isBondedUw = [ False ] * len(self._dataMap)
+        self._ignoreAtom = [ False ] * len(self._dataMap) # Use bool array so we can just check an index and don't need to search
         # through the array each time
         self._ftype2endGroup = {}
         self._numAtoms = len(self._dataMap) # Get total number of atoms and subtract # endGroups
@@ -811,12 +808,12 @@ class Block(object):
                         self._ftype2endGroup[ endGroup.fragment.type() ] = []
                     self._ftype2endGroup[ endGroup.fragment.type() ].append( endGroup )
                 else:
-                    self._isBondedCap[ endGroup.blockCapIdx ] = True
+                    self._ignoreAtom[ endGroup.blockCapIdx ] = True
                     # Removed cap atom so remove from list of atoms and also adjust the mass
                     self._numAtoms -= 1
                     self._mass -= fragment._masses[ endGroup.fragmentCapIdx ]
                     if endGroup.blockUwIdx != -1:
-                        self._isBondedUw[ endGroup.blockUwIdx ] = True
+                        self._ignoreAtom[ endGroup.blockUwIdx ] = True
                         self._numAtoms -= 1
                         self._mass -= fragment._masses[ endGroup.fragmentCapIdx ]
         
@@ -825,9 +822,8 @@ class Block(object):
         for eg in self._endGroups:
             eg.blockBonded = []
             for fIdx in eg.fragmentBonded:
-                # THINK ABOUT UW
                 atomIdx = eg.fragment.blockIdx + fIdx
-                if self._isBondedCap[ atomIdx ]:
+                if not self._ignoreAtom[ atomIdx ]:
                     eg.blockBonded.append( atomIdx )
         
         # Recalculate the data for this new block
