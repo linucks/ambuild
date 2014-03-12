@@ -2466,7 +2466,7 @@ class Cell():
         self.logger.info( "Wrote car file: {0}".format(fpath) )
         return
     
-    def writeCml(self, cmlFilename, periodic=True):
+    def writeCml(self, cmlFilename, allBonds=True, periodic=False):
 
         # Get the data on the blocks
         data = self.dataDict()
@@ -2518,14 +2518,30 @@ class Cell():
             atomNode = ET.SubElement( atomArrayNode, "atom")
             atomNode.attrib['id'] = "a{0}".format( i )
             atomNode.attrib['elementType'] = data['symbol'][i]
-            atomNode.attrib['x3'] = str( coord[0] )
-            atomNode.attrib['y3'] = str( coord[1] )
-            atomNode.attrib['z3'] = str( coord[2] )
+            if periodic:
+                x, ix = util.wrapCoord( coord[0], data['A'], center=False )
+                y, iy = util.wrapCoord( coord[1], data['B'], center=False )
+                z, iz = util.wrapCoord( coord[2], data['C'], center=False )
+            else:
+                x = coord[0]
+                y = coord[1]
+                z = coord[2]
+                
+            atomNode.attrib['x3'] = str( x )
+            atomNode.attrib['y3'] = str( y )
+            atomNode.attrib['z3'] = str( z )
         
         # Now do bonds
         if len(data['bond']):
             bondArrayNode = ET.SubElement( root, "bondArray" )
             for i, b in enumerate( data['bond'] ):
+                bondNode = ET.SubElement( bondArrayNode, "bond")
+                bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
+                bondNode.attrib['order'] = "1"
+        
+        # internal fragment bonds
+        if len(data['fragmentBond']) and allBonds:
+            for i, b in enumerate( data['fragmentBond'] ):
                 bondNode = ET.SubElement( bondArrayNode, "bond")
                 bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
                 bondNode.attrib['order'] = "1"
@@ -2535,7 +2551,7 @@ class Cell():
         #ET.dump(tree)
         
         #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
-        tree.write( cmlFilename )
+        tree.write( cmlFilename, encoding="utf-8", xml_declaration=True)
         
         self.logger.info( "Wrote cmlfile: {0}".format(cmlFilename) )
         
@@ -2549,7 +2565,7 @@ class Cell():
         natoms=0
         xyz = ""
         for i,block in self.blocks.iteritems():
-            for j, c in enumerate( block.iterCoord() ):
+            for j, coord in enumerate( block.iterCoord() ):
                 
                 if block.ignoreAtom( j ):
                     continue
@@ -2560,18 +2576,15 @@ class Cell():
                 
                 if label:
                     xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format( block.atomLabel(j),
-                                                                                                       c[0], c[1], c[2] ) )
+                                                                                                       coord[0], coord[1], coord[2] ) )
                 else:
                     if periodic:
-                        # PBC
-                        x = c[0] % self.A
-                        y = c[1] % self.B
-                        z = c[2] % self.C
-                        #xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.symbols[j], c[0], c[1], c[2] )
-                        xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.atomSymbol(j), x, y, z )
+                        x, ix = util.wrapCoord( coord[0], self.A, center=False )
+                        y, iy = util.wrapCoord( coord[1], self.B, center=False )
+                        z, iz = util.wrapCoord( coord[2], self.C, center=False )
                     else:
-                        xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.atomSymbol(j),
-                                                                                     c[0], c[1], c[2] )
+                        x, y, z = coord
+                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.atomSymbol(j), x, y, z )
                 natoms += 1
         
         # Write out natoms and axes as title
