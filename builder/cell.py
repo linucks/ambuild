@@ -883,6 +883,7 @@ class Cell():
         'fragmentBond' : [], 
         'fragmentBondLabel' : [], 
         'mass' : [], 
+        'symbol' : [], 
         'type' : [], 
         }
         
@@ -892,6 +893,12 @@ class Cell():
             subtract this from the atomCount as this is where the data for this block starts
             """
             return atomCount - len( atomMap ) + atomMap[ atomIdx ]
+        
+        
+        # Cell parameters
+        d['A'] = self.A
+        d['B'] = self.B
+        d['C'] = self.C
         
         atomCount=0 # Tracks overall number of atoms - across blocks
         fragCount=-1 # Tracks fragments (bodies) count starts from 1
@@ -923,6 +930,7 @@ class Cell():
                 d['charge'].append( block.atomCharge( i ) )
                 d['diameter'].append( 0.1 )
                 d['mass'].append( block.atomMass( i ) )
+                d['symbol'].append( block.atomSymbol( i ) )
                 d['type'].append( block.atomType( i ) )
                 
                 j += 1
@@ -1725,9 +1733,6 @@ class Cell():
             
         else:
         
-            data['A'] = self.A
-            data['B'] = self.B
-            data['C'] = self.C
             data['position'] = []
             data['image'] = []
             for i in range( len( data['coord'] ) ):
@@ -2459,6 +2464,81 @@ class Cell():
             f.writelines( car )
             
         self.logger.info( "Wrote car file: {0}".format(fpath) )
+        return
+    
+    def writeCml(self, cmlFilename, periodic=True):
+
+        # Get the data on the blocks
+        data = self.dataDict()
+        
+        root = ET.Element( 'molecule')
+        root.attrib['xmlns']       = "http://www.xml-cml.org/schema"
+        root.attrib['xmlns:cml']   = "http://www.xml-cml.org/dict/cml"
+        root.attrib['xmlns:units'] = "http://www.xml-cml.org/units/units"
+        root.attrib['xmlns:xsd']   = "http://www.w3c.org/2001/XMLSchema"
+        root.attrib['xmlns:iupac'] = "http://www.iupac.org"
+        root.attrib['id']          = "mymolecule"
+        
+        # First set up the cell
+        crystal = ET.SubElement( root, "crystal" )
+
+        crystalANode = ET.SubElement( crystal,"scalar")
+        crystalBNode = ET.SubElement( crystal,"scalar")
+        crystalCNode = ET.SubElement( crystal,"scalar")
+        crystalAlphaNode = ET.SubElement( crystal,"scalar")
+        crystalBetaNode  = ET.SubElement( crystal,"scalar")
+        crystalGammaNode = ET.SubElement( crystal,"scalar")
+
+        crystalANode.attrib["title"] = "a"
+        crystalBNode.attrib["title"] = "b"
+        crystalCNode.attrib["title"] = "c"
+        crystalAlphaNode.attrib["title"] = "alpha"
+        crystalBetaNode.attrib["title"] =  "beta"
+        crystalGammaNode.attrib["title"] = "gamma"
+        
+        crystalANode.attrib["units"] = "units:angstrom"
+        crystalBNode.attrib["units"] = "units:angstrom"
+        crystalCNode.attrib["units"] = "units:angstrom"
+        crystalAlphaNode.attrib["units"] = "units:degree"
+        crystalBetaNode.attrib["units"]  = "units:degree"
+        crystalGammaNode.attrib["units"] = "units:degree"
+        
+        crystalANode.text = str( data['A'] )
+        crystalBNode.text = str( data['B'] )
+        crystalCNode.text = str( data['C'] )
+        
+        # Onlt support orthorhombic? cells
+        crystalAlphaNode.text = "90"
+        crystalBetaNode.text  = "90"
+        crystalGammaNode.text = "90"
+        
+        # Now atom data
+        atomArrayNode = ET.SubElement( root, "atomArray" )
+        for i, coord in enumerate( data['coord'] ):
+            atomNode = ET.SubElement( atomArrayNode, "atom")
+            atomNode.attrib['id'] = "a{0}".format( i )
+            atomNode.attrib['elementType'] = data['symbol'][i]
+            atomNode.attrib['x3'] = str( coord[0] )
+            atomNode.attrib['y3'] = str( coord[1] )
+            atomNode.attrib['z3'] = str( coord[2] )
+        
+        # Now do bonds
+        if len(data['bond']):
+            bondArrayNode = ET.SubElement( root, "bondArray" )
+            for i, b in enumerate( data['bond'] ):
+                bondNode = ET.SubElement( bondArrayNode, "bond")
+                bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
+                bondNode.attrib['order'] = "1"
+
+        tree = ET.ElementTree(root)
+        
+        #ET.dump(tree)
+        
+        #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
+        tree.write( cmlFilename )
+        
+        self.logger.info( "Wrote cmlfile: {0}".format(cmlFilename) )
+        
         return
     
     def writeXyz(self, ofile, label=False, periodic=False, skipDummy=False ):
