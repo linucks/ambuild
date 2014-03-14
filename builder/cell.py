@@ -1011,31 +1011,37 @@ class Cell():
                         d['angleLabel'].append( "aatom" )
                         d['angle'].append( ( endGroup1Idx + atomCount, endGroup2Idx + atomCount, bond.endGroup2.blockCapIdx + atomCount ) )
 
+                # If there atoms bonded to both endGroups we add all possible different dihedral
                 if len( bond.endGroup1.blockBonded ) and len( bond.endGroup2.blockBonded ):
                     
-                    if bond.endGroup1.blockDihedralIdx != -1 and bond.endGroup2.blockDihedralIdx != -1:
-                        # We have dihedral's specified so we use those
-                        dihedral1 = bond.endGroup1.blockDihedralIdx
-                        dihedral2 = bond.endGroup2.blockDihedralIdx
-                    else:
-                        # DIHEDRAL HACK - just pick the first atoms in the bonded list
-                        dihedral1 = bond.endGroup1.blockBonded[0]
-                        dihedral2 = bond.endGroup2.blockBonded[0]
-                        
-                    d['dihedralLabel'].append( "{0}-{1}-{2}-{3}".format( block.atomType( dihedral1 ),
+#                     if bond.endGroup1.blockDihedralIdx != -1 and bond.endGroup2.blockDihedralIdx != -1:
+#                         # We have dihedral's specified so we use those
+#                         dihedral1 = bond.endGroup1.blockDihedralIdx
+#                         dihedral2 = bond.endGroup2.blockDihedralIdx
+#                     else:
+#                         # DIHEDRAL HACK - just pick the first atoms in the bonded list
+#                         dihedral1 = bond.endGroup1.blockBonded[0]
+#                         dihedral2 = bond.endGroup2.blockBonded[0]
+
+                    # Remember which labels we've added so we only add different dihedrals
+                    dlabels = []
+                    for d1 in bond.endGroup1.blockBonded:
+                        for d2 in bond.endGroup2.blockBonded:
+                            l = "{0}-{1}-{2}-{3}".format( block.atomType( d1 ),
                                                                      atom1label,
                                                                      atom2label, 
-                                                                     block.atomType( dihedral2 )
-                                                                      ) )
+                                                                     block.atomType( d2 )
+                                                                      )
+                            if l not in dlabels:
+                                dlabels.append( l )
+                                d['dihedralLabel'].append( l )
+                                dihedral = ( i2o( d1, atomMap, atomCount ), 
+                                             i2o( endGroup1Idx, atomMap, atomCount ), 
+                                             i2o( endGroup2Idx, atomMap, atomCount ),
+                                             i2o( d2, atomMap, atomCount )
+                                           )
+                                d['dihedral'].append( dihedral )
                     
-                    dihedral = ( i2o( dihedral1, atomMap, atomCount ), 
-                                 i2o( endGroup1Idx, atomMap, atomCount ), 
-                                 i2o( endGroup2Idx, atomMap, atomCount ),
-                                 i2o( dihedral2, atomMap, atomCount )
-                               )
-                    
-                    d['dihedral'].append( dihedral )
-            
             #atomCount += len(block._coords)
 
         return d
