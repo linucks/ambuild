@@ -697,7 +697,7 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
     return bonds, md
 
 
-def dihedral(self, p1, p2, p3, p4):
+def dihedral(p1, p2, p3, p4):
     """ From the CCP1GUI"""
 
     #cnv=57.29577951
@@ -730,7 +730,8 @@ def dihedral(self, p1, p2, p3, p4):
         fac = 1.0
     if(fac < -1.0):
         fac = -1.0
-    dihed = 180.0 - math.degrees( math.acos(fac ) )
+    #dihed = 180.0 - math.degrees( math.acos(fac ) )
+    dihed = math.pi - math.acos(fac )
 
     # the dot product between the bond between atoms i and j and the     
     # normal to the plane defined by atoms j, k, and l is used to        
@@ -738,7 +739,6 @@ def dihedral(self, p1, p2, p3, p4):
     # anti_clockwise                                                     
     #                                                                    
     # if the dot product is positive, the rotation is clockwise          
-
     sign_check = numpy.dot(vec_ij,vec2)
     if( sign_check > 0.0):
         dihed = dihed * -1.0
