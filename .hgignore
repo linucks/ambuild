@@ -1,0 +1,4 @@
+work
+\.project
+step_[0-9]?
+.*\.pyc
