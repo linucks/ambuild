@@ -227,14 +227,15 @@ class Fragment(object):
         return self._radius
 
     def setData(self,
-                coords    = None,
-                labels    = None,
-                symbols   = None,
-                atomTypes = None,
-                charges   = None,
-                endGroups = None,
-                capAtoms  = None,
-                uwAtoms   = None
+                coords         = None,
+                labels         = None,
+                symbols        = None,
+                atomTypes      = None,
+                charges        = None,
+                endGroups      = None,
+                capAtoms       = None,
+                dihedralAtoms  = None,
+                uwAtoms        = None
                 ):
         
         self._coords = coords
@@ -250,7 +251,7 @@ class Fragment(object):
         self._bonds = util.calcBonds( coords, symbols, maxAtomRadius=self.maxAtomRadius() )
         
         # Set up endGroups
-        self.setEndGroups( endGroups, capAtoms, uwAtoms )
+        self.setEndGroups( endGroups, capAtoms, dihedralAtoms, uwAtoms )
         
         # Recalculate all dynamic data
         #self._calcCenters()
@@ -259,18 +260,19 @@ class Fragment(object):
         
         return
 
-    def setEndGroups( self, endGroups, capAtoms, uwAtoms ):
+    def setEndGroups( self, endGroups, capAtoms, dihedralAtoms, uwAtoms ):
         
         # Now set up the endGroup information
         self._endGroups =[]
         for i, e in enumerate( endGroups ):
             
-            eg = buildingBlock.EndGroup()
-            eg.fragment = self
+            eg                     = buildingBlock.EndGroup()
+            eg.fragment            = self
             eg.fragmentEndGroupIdx = e
-            eg.fragmentCapIdx = capAtoms[ i ]
-            eg.fragmentUwIdx = uwAtoms[ i ]
-            eg.fragmentBonded = self.endGroupBonded( eg )
+            eg.fragmentCapIdx      = capAtoms[ i ]
+            eg.fragmentDihedralIdx = dihedralAtoms[ i ]
+            eg.fragmentUwIdx       = uwAtoms[ i ]
+            eg.fragmentBonded      = self.endGroupBonded( eg )
             
             self._endGroups.append( eg )
         return

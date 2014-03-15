@@ -29,8 +29,6 @@ import numpy
 import fragment
 import util
 
-
-
 class Bond(object):
     """An object to hold all info on a bond
     """
@@ -66,6 +64,9 @@ class EndGroup(object):
         
         self.fragmentCapIdx       = None
         self.blockCapIdx          = None
+        
+        self.fragmentDihedralIdx  = -1
+        self.blockDihedralIdx     = -1
         
         self.fragmentUwIdx       = -1
         self.blockUwIdx          = -1
@@ -480,18 +481,19 @@ class Block(object):
             raise RuntimeError("Unrecognised file suffix: {}".format( filepath ) )
         
         # Get cap atoms and endgroups
-        endGroups, capAtoms, uwAtoms = self.parseEndgroupFile( filepath, fragmentType=fragmentType )
+        endGroups, capAtoms, dihedralAtoms, uwAtoms = self.parseEndgroupFile( filepath, fragmentType=fragmentType )
 
         # Set the root fragment and its attributes
         f = fragment.Fragment( fragmentType )
-        f.setData( coords    = coords,
-                   labels    = labels,
-                   symbols   = symbols,
-                   atomTypes = atomTypes,
-                   charges   = charges,
-                   endGroups = endGroups,
-                   capAtoms  = capAtoms,
-                   uwAtoms   = uwAtoms
+        f.setData( coords        = coords,
+                   labels        = labels,
+                   symbols       = symbols,
+                   atomTypes     = atomTypes,
+                   charges       = charges,
+                   endGroups     = endGroups,
+                   capAtoms      = capAtoms,
+                   dihedralAtoms = dihedralAtoms,
+                   uwAtoms       = uwAtoms
                   )
         
         f.processBodies( filepath )
@@ -540,7 +542,13 @@ class Block(object):
     
     def id(self):
         return self._blockId
+
+    def ignoreAtom(self, idxAtom ):
+        return self._ignoreAtom[ idxAtom ]
     
+    def invisibleAtom(self, idxAtom ):
+        return self.atomSymbol( idxAtom ).lower() == 'x' or self.ignoreAtom(idxAtom)
+
     def isEndGroup(self, idxAtom):
         """Return True if this atom is a free endGroup
         Currently this is the only place _freeEndGroupIdxs is used - 
@@ -586,10 +594,6 @@ class Block(object):
         
         return newPosition
 
-    def ignoreAtom(self, idxAtom ):
-        return self.atomSymbol( idxAtom ).lower() == 'x' or \
-            self._ignoreAtom[ idxAtom ]
-    
     def numFreeEndGroups(self):
         return len( self._freeEndGroupIdxs )
     
@@ -612,6 +616,7 @@ class Block(object):
         endGroups = []
         capAtoms = []
         uwAtoms = []
+        dihedralAtoms = []
         egfile = os.path.join( dirname, basename+".ambi" )
         if os.path.isfile( egfile ):
             #raise RuntimeError,"Cannot find endgroup file {0} for car file {1}".format( egfile, filepath )
@@ -620,7 +625,11 @@ class Block(object):
                 endGroups.append( int( eg[0] ) )
                 capAtoms.append( int( eg[1] ) )
                 if len(eg) > 2:
-                    uwAtoms.append( int( eg[2] )  )
+                    dihedralAtoms.append( int( eg[2] )  )
+                else:
+                    dihedralAtoms.append( -1 )
+                if len(eg) > 3:
+                    uwAtoms.append( int( eg[3] )  )
                 else:
                     uwAtoms.append( -1 )
                     
@@ -628,9 +637,9 @@ class Block(object):
             if fragmentType == 'cap' and len( endGroups ) != 1:
                 raise RuntimeError, "Capfile had >1 endGroup specified!"
             
-        return endGroups, capAtoms, uwAtoms
+        return endGroups, capAtoms, dihedralAtoms, uwAtoms
 
-    def positionGrowBlock( self, endGroup, growBlock, growEndGroup ):
+    def positionGrowBlock( self, endGroup, growBlock, growEndGroup, dihedral=None ):
         """
         Position growBlock so it can bond to us
         """
@@ -645,7 +654,6 @@ class Block(object):
         # symbol of endGroup tells us the sort of bond we are making which determines
         # the bond length
         symbol = growBlock.atomSymbol( growEndGroup.blockEndGroupIdx )
-        
         bondPos = self.newBondPosition( endGroup, symbol )
         #print "got bondPos for {0}: {1}".format( symbol, bondPos )
         
@@ -657,6 +665,24 @@ class Block(object):
         # Now need to place the endGroup at the bond coord to do this now we just add the bondPos
         growBlock.translate( bondPos )
         
+        # We need to rotate to adhere to the specified dihedral angle
+        if dihedral is not None:
+            # Get current angle
+            current = util.dihedral( self.atomCoord( endGroup.blockDihedralIdx ),
+                                     self.atomCoord( endGroup.blockEndGroupIdx ),
+                                     growBlock.atomCoord( growEndGroup.blockEndGroupIdx ),
+                                     growBlock.atomCoord( growEndGroup.blockDihedralIdx ) )
+            
+            assert endGroup.blockDihedralIdx != -1 and growEndGroup.blockDihedralIdx != -1, \
+            "Need to have specified dihedrals as 3rd column in ambi file first!"
+            
+            # Find how much we need to rotate by
+            angle = dihedral - current 
+            if angle != 0:
+                # Need to rotate so get the axis to rotate about
+                axis = self.atomCoord( endGroup.blockEndGroupIdx ) - growBlock.atomCoord( growEndGroup.blockEndGroupIdx )
+                growBlock.rotate(axis, angle, center=self.atomCoord( endGroup.blockEndGroupIdx ) )
+
         return
 
     def randomEndGroup( self, fragmentTypes=None ):
@@ -783,10 +809,8 @@ class Block(object):
         # Have dataMap so now update the endGroup information
         self._endGroups = []
         self._freeEndGroupIdxs = []
-        # TEST TWO WAYS OF CHECK
-        #self._bondedCapIdxs = []
         self._ignoreAtom = [ False ] * len(self._dataMap) # Use bool array so we can just check an index and don't need to search
-        # through the array each time
+        # through the array each time. Could use indexes and then trigger an exception - not sure which is best yet
         self._ftype2endGroup = {}
         self._numAtoms = len(self._dataMap) # Get total number of atoms and subtract # endGroups
         for fragment in self._fragments:
@@ -798,6 +822,8 @@ class Block(object):
                 # Update the block-wide indices for the endGroups
                 endGroup.blockEndGroupIdx  = fragment.blockIdx + endGroup.fragmentEndGroupIdx
                 endGroup.blockCapIdx = fragment.blockIdx + endGroup.fragmentCapIdx
+                if endGroup.fragmentDihedralIdx != -1:
+                    endGroup.blockDihedralIdx = fragment.blockIdx + endGroup.fragmentDihedralIdx
                 if endGroup.fragmentUwIdx != -1:
                     endGroup.blockUwIdx = fragment.blockIdx + endGroup.fragmentUwIdx
                 self._endGroups.append( endGroup )
@@ -891,8 +917,8 @@ class TestBlock(unittest.TestCase):
         symbols = []
         coords = []
         for b in blocks:
-            for i, c in enumerate( b._coords ):
-                symbols.append( b._symbols[ i ] )
+            for i, c in enumerate( b.iterCoord() ):
+                symbols.append( b.atomSymbol( i ) )
                 coords.append( c )
                 
         with open(filename,"w") as f:
@@ -906,28 +932,6 @@ class TestBlock(unittest.TestCase):
         
         return
             
-    def writeCombined(self, block1, block2, filename ):
-        """Write an xyz file with the coordinates of both blocks"""
-        
-        block1coords = block1._coords
-        block1labels = block1._labels
-    
-        block2coords = block2._coords
-        block2labels = block2._labels
-        
-        natoms = len( block1coords ) + len( block2coords )
-        
-        f = open( filename,'w')
-        f.write("{0}\n".format( natoms ) )
-        f.write("Combined coords\n")
-        for i, c in enumerate( block1coords ):
-            f.write( "{0}    {1}    {2}    {3}\n".format( util.label2symbol(block1labels[i]), c[0], c[1], c[2] ) )
-        for i, c in enumerate( block2coords ):
-            f.write( "{0}    {1}    {2}    {3}\n".format( util.label2symbol(block2labels[i]), c[0], c[1], c[2] ) )
-            
-        f.close()
-        return
-    
     def bondBlocks(self, block1, block2, endGroupIdx1, endGroupIdx2):
         
         endGroup1 = block1._endGroups[ endGroupIdx1 ]
@@ -1155,8 +1159,6 @@ class TestBlock(unittest.TestCase):
         self.assertTrue( numpy.allclose( newPos, endGroupCoord, rtol=1e-9, atol=1e-7 ),
                          msg="testCenterOfMass incorrect COM.")
         
-        #self.writeCombined(blockS, growBlock, "after.xyz")
-
         return
     
     def testPositionGrowBlock2(self):
@@ -1191,8 +1193,36 @@ class TestBlock(unittest.TestCase):
         self.assertTrue( numpy.allclose( newPos, endGroupCoord, rtol=1e-9, atol=1e-7 ),
                          msg="testCenterOfMass incorrect COM.")
         
-        #self.writeCombined(staticBlock, growBlock, "after.xyz")
+        return
+    
+    def testPositionDihedral(self):
 
+        staticBlock = Block( self.benzeneCar )
+        
+        growBlock = staticBlock.copy()
+        
+        growBlock.translateCentroid( [ 3,4,5 ] )
+        growBlock.randomRotate()
+        
+        # Get the atoms that define things
+        endGroup1 = staticBlock._endGroups[ 0 ]
+        endGroup2 = growBlock._endGroups[ 0 ]
+        
+        # Get position to check
+        newPos = staticBlock.newBondPosition( endGroup1,
+                                              growBlock.atomSymbol( endGroup2.blockEndGroupIdx ),
+                                               )
+        
+        # Position the block
+        staticBlock.positionGrowBlock( endGroup1, growBlock, endGroup2, dihedral=math.pi/2 )
+        
+        # Hacky - just use one of the coords I checked manually
+        hcheck = numpy.array( [11.98409351860, 8.826721156800, -1.833703434310] )
+        endGroupCoord = growBlock.atomCoord( 11 ) 
+        self.assertTrue( numpy.allclose( hcheck, endGroupCoord, rtol=1e-9, atol=1e-7 ),
+                         msg="testCenterOfMass incorrect COM.")
+        
+        #self.catBlocks( [staticBlock, growBlock ], "both2.xyz")
         return
 
     def testRadius(self):
