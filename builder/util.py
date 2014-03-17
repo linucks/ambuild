@@ -591,9 +591,6 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
     are those in the fragment.
     """
     
-    bondMargin=0.2
-    boxMargin=1.0
-    
     def getSurroundCells( key ):
         """Returns the list of cells surrounding a cell"""
         a,b,c = key
@@ -626,7 +623,7 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
     surroundCells = {} # Dictionary keyed by cell with a list of the cells that surround a particular cell
     
     # Work out which box each atom is in and the surrounding boxes
-    for i, coord in enumerate( coords ):
+    for atomIdx1, coord in enumerate( coords ):
         
         x, y, z = coord
         a=int( math.floor( x / boxSize ) )
@@ -636,10 +633,10 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
         key = (a,b,c)
         atomCells.append( key )
         if cells.has_key( key ):
-            cells[ key ].append( i )
+            cells[ key ].append( atomIdx1 )
         else:
             # Add to main list
-            cells[ key ] = [ ( i ) ]
+            cells[ key ] = [ ( atomIdx1 ) ]
             # Map surrounding boxes
             surroundCells[ key ] = getSurroundCells( key )
 
@@ -651,10 +648,10 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
           'i2' : None  }
     
     # Now calculate the bonding
-    for i, coord1 in enumerate( coords ):
+    for atomIdx1, coord1 in enumerate( coords ):
         
-        symbol1 = symbols[ i ]
-        key = atomCells[ i ]
+        symbol1 = symbols[ atomIdx1 ]
+        key = atomCells[ atomIdx1 ]
         
         # Loop through all cells surrounding this one
         for cell in surroundCells[ key ]:
@@ -663,13 +660,13 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
             if not cells.has_key( cell ):
                 continue
             
-            for atomIdx in cells[ cell ]:
+            for atomIdx2 in cells[ cell ]:
                 
                 # Skip atoms we've already processed
-                if atomIdx > i:
+                if atomIdx2 > atomIdx1:
                 
-                    coord2 = coords[ atomIdx ]
-                    symbol2 = symbols[ atomIdx ]
+                    coord2 = coords[ atomIdx2 ]
+                    symbol2 = symbols[ atomIdx2 ]
                     
                     bond_length = bondLength( symbol1, symbol2 )
                     if bond_length < 0:
@@ -689,9 +686,9 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
                             if numpy.allclose( coord2, c ):
                                 md[ 'i2' ] = x
                     
-                    #print "Dist:length {0}:{1} ".format( util.distance( coord1, coord2 ), bond_length )
+                    #print "Dist:length {0}:{1} {2}-{3} {4} {5}".format( atomIdx1, atomIdx2, symbol1, symbol2, bond_length, dist )
                     if  bond_length - bondMargin < dist < bond_length + bondMargin:
-                        bonds.append( (i, atomIdx) )
+                        bonds.append( (atomIdx1, atomIdx2) )
     
     return bonds, md
 
