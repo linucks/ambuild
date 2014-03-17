@@ -752,9 +752,13 @@ class Cell():
             # Also need to remove any clashes of the endGroups with atoms directly bonded to the 
             # opposite endGroup
             staticBondAtoms = staticBlock.atomBonded( staticEndGroup )
-            staticBondAtoms.remove( staticCap )
+            # Only need to do this if the cap was added to the cell
+            if not staticBlock.invisibleAtom( staticCap ):
+                staticBondAtoms.remove( staticCap )
             addBondAtoms    = addBlock.atomBonded( addEndGroup )
-            addBondAtoms.remove( addCap )
+            # Only need to do this if the cap was added to the cell
+            if not addBlock.invisibleAtom( addCap ):
+                addBondAtoms.remove( addCap )
 
             toGo = [] # Need to remember indices as we can't remove from a list while we cycle through it
             for i, ( idxStaticBlock, idxStaticAtom, idxAddBlock, idxAddAtom) in enumerate(clashAtoms):
@@ -2982,7 +2986,7 @@ class TestCell(unittest.TestCase):
         
         return
 
-    def testCx4(self):
+    def testCX4(self):
         """First pass"""
 
         CELLA = CELLB = CELLC = 30
