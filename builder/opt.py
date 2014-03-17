@@ -25,38 +25,50 @@ class FfieldParameters( object ):
                       'c-h'     : { 'k' : 1200.0, 'r0' : 1.09 },
                       'cp-hx'   : { 'k' : 1200.0, 'r0' : 1.09 },
                       'ct-hx'   : { 'k' : 1200.0, 'r0' : 1.09 },
+                      #bond parameters need checking
+                      'c_0-nb'   : { 'k' : 1200.0, 'r0' : 1.346 },
                       }
 
         self.angles = { 
-                       #2*math.pi/3 = 120     
-                       'cp-cp-cp'    : { 'k' : 330.0, 't0' : 2*math.pi/3 },
-                       
-                       'c-c-h'       : { 'k' : 330.0, 't0' : 2*math.pi/3 },
-                       'c-c-c'       : { 'k' : 330.0, 't0' : 2*math.pi/3 },
-                       'c3a-c3a-c3a' : { 'k' : 330.0, 't0' : 2*math.pi/3 },
-                       'cp-cp-ct'    : { 'k' : 330.0, 't0' : 2*math.pi/3 },
-                       'ct-cp-cp'    : { 'k' : 330.0, 't0' : 2*math.pi/3 },
-                       'cp-cp-ct'    : { 'k' : 330.0, 't0' : 2*math.pi/3 },
-                       'cp-cp-hx'    : { 'k' : 330.0, 't0' : 2*math.pi/3 },
-                       'cp-cp-np'    : { 'k' : 330.0, 't0' : 2*math.pi/3 },
-                       'np-cp-cp'    : { 'k' : 330.0, 't0' : 2*math.pi/3 },
-                       'cp-cp-cp'    : { 'k' : 330.0, 't0' : 2*math.pi/3 },
-
-
+                       #2*math.pi/3 = 120
                        #math.pi = 180
-                       'ct-ct-cp'    : { 'k' : 330.0, 't0' : math.pi },
-                       'cp-ct-ct'    : { 'k' : 330.0, 't0' : math.pi },
-                       'ct-ct-hx'    : { 'k' : 330.0, 't0' : math.pi },
-                       'ct-ct-cp'    : { 'k' : 330.0, 't0' : math.pi },
-                       'cp-ct-nt'    : { 'k' : 330.0, 't0' : math.pi },
+  
+                       'cp-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'c-c-h'        : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'c-c-c'        : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'c3a-c3a-c3a'  : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'cp-cp-ct'     : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'ct-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'cp-cp-ct'     : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'cp-cp-hx'     : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'cp-cp-np'     : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'np-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'cp-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'c_0-nb-cpa'   : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'c_0-c_0-nb'   : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'cpa-nb-c_0'   : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'nb-c_0-c_0'   : { 'k' : 330.0, 't0' : math.radians(120) },
+
+                       'ct-ct-cp'    : { 'k' : 330.0, 't0' : math.radians(180) },
+                       'cp-ct-ct'    : { 'k' : 330.0, 't0' : math.radians(180) },
+                       'ct-ct-hx'    : { 'k' : 330.0, 't0' : math.radians(180) },
+                       'ct-ct-cp'    : { 'k' : 330.0, 't0' : math.radians(180) },
+                       'cp-ct-nt'    : { 'k' : 330.0, 't0' : math.radians(180) },
+                       
+                       'c_0-nb-cp'    : { 'k' : 0.0, 't0' : math.radians(140) },
                       }
 
         self.dihedrals = { 
                        'cp-cp-cp-cp'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
-                       'cp-cp-cp-np'       : { 'k' : 200, 'd' : -1, 'n' : 2 },
-                       'np-cp-cp-cp'       : { 'k' : 200, 'd' : -1, 'n' : 2 },
-                       'cp-cp-ct-nt'       : { 'k' : 0, 'd' : -1, 'n' : 2 },
-                       'nt-ct-cp-cp'       : { 'k' : 0, 'd' : -1, 'n' : 2 },
+                       'cp-cp-cp-hc'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
+                       'ct-cp-cp-cp'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
+                       'ct-cp-cp-hc'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
+                       'cp-cp-ct-nt'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
+                       
+                       'nb-c_0-c_0-c_0'     : { 'k' : 0, 'd' : -1, 'n' : 2 },
+                       'nb-c_0-c_0-o_1'     : { 'k' : 0, 'd' : -1, 'n' : 2 },
+                       'c_0-nb-cp-cp'       : { 'k' : 3000, 'd' :  1, 'n' : 1 },
+                       'c_0-c_0-nb-cp'      : { 'k' : 0, 'd' :  1, 'n' : 8 },
                          }
         
         self.impropers = { 
@@ -113,6 +125,15 @@ class FfieldParameters( object ):
               ('c4o', 'p' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('c4o', 'f1p' )    : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               
+              ('c_0', 'c_0' )    : { 'epsilon' : 0.1200,   'sigma' : 3.3080  },
+              ('c_0', 'o_1' )    : { 'epsilon' : 0.1755,   'sigma' : 3.4309  },
+              ('c_0', 'cp' )     : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },
+              ('c_0', 'cpa' )     : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },              
+#              ('c_0', 'nb' )     : { 'epsilon' : 0.0736,   'sigma' : 3.7823  },
+              ('c_0', 'nb' )     : { 'epsilon' : 0.2000,   'sigma' : 3.0000  },
+              ('c_0', 'hc' )     : { 'epsilon' : 0.0469,   'sigma' : 3.1707  },
+              ('c_0', 'hn' )     : { 'epsilon' : 0.0029,   'sigma' : 2.9477  },
+              
               ('c3a', 'c3a' )    : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('c3a', 'n2a' )    : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
               ('c3a', 'o2e' )    : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
@@ -124,14 +145,20 @@ class FfieldParameters( object ):
               ('c3a', 'o2e' )    : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
               
               ('cp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              ('cp', 'cpa' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              ('cpa', 'cpa' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              ('cpa', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'ct' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'nb' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
+              ('cpa', 'nb' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
               ('cp', 'nt' )      : { 'epsilon' : 0.0836,   'sigma' : 3.6788  },
               ('cp', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'np' )      : { 'epsilon' : 0.0664,   'sigma' : 3.6788  },
               ('cp', 'oc' )      : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
               ('cp', 'c1' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
+              ('cp', 'hn' )      : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
+              ('cpa', 'hn' )      : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
               
               ('ct', 'ct' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('ct', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
@@ -152,6 +179,13 @@ class FfieldParameters( object ):
               ('oc', 'np' )      : { 'epsilon' : 0.0992,   'sigma' : 3.5527  },
               ('oc', 'nt' )      : { 'epsilon' : 0.1248,   'sigma' : 3.5527  },
               
+              ('o_1', 'o_1' )    : { 'epsilon' : 0.2670,   'sigma' : 3.5350  },
+              ('o_1', 'cp' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
+              ('o_1', 'cpa' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
+              ('o_1', 'nb' )     : { 'epsilon' : 0.1208,   'sigma' : 3.8484  },
+              ('o_1', 'hc' )     : { 'epsilon' : 0.0649,   'sigma' : 3.3189  },
+              ('o_1', 'hn' )     : { 'epsilon' : 0.0035,   'sigma' : 3.1498  },
+              
               ('h1', 'h1' )      : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
               ('h1', 'n3a' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
               ('h1', 'n2a' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
@@ -162,13 +196,16 @@ class FfieldParameters( object ):
               ('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('hc', 'nb' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
               ('hc', 'nt' )      : { 'epsilon' : 0.0316,   'sigma' : 3.3431  },
+              ('hc', 'hn' )      : { 'epsilon' : 0.0016,   'sigma' : 2.6693  },
+              ('hn', 'hn' )      : { 'epsilon' : 0.0130,   'sigma' : 1.0980  },
               ('hc', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('hc', 'np' )      : { 'epsilon' : 0.0251,   'sigma' : 3.3431  },
               ('hc', 'oc' )      : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },
               ('hc', 'c1' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              
               ('hx', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('hx', 'nb' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
+#               ('nb', 'hn' )      : { 'epsilon' : 0.0011,   'sigma' : 3.6262  },
+              ('nb', 'hn' )      : { 'epsilon' : 0.2000,   'sigma' : 2.5000  },
               
               ('n3a', 'n3a' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
               ('n3a', 'n2a' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
@@ -332,7 +369,7 @@ class HoomdOptimiser( object ):
         
         return
 
-    def writeCar( self, system, filename=None, unwrap=True, pbc=True ):
+    def writeCar( self, system, filename, unwrap=True, pbc=True ):
         """Car File
         """
         
@@ -712,10 +749,11 @@ class HoomdOptimiser( object ):
 
         return optimised
     
-    def _runMD(self, mdCycles=1000, T=0.1, tau=0.5, dt=0.005, **kw ):
+    def _runMD(self, mdCycles=1000, T=2.0, tau=0.5, dt=0.005, **kw ):
         
         # Added **kw arguments so that we don't get confused by arguments intended for the optimise
         # when MD and optimiser run together
+        # T= 0.1         
         
         integrator_mode = hoomdblue.integrate.mode_standard( dt=dt )
         nvt_rigid = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
@@ -838,5 +876,7 @@ if __name__ == "__main__":
     xmlFilename = sys.argv[1]
     xyzFilename = xmlFilename +".xyz"
     xml2xyz( xmlFilename, xyzFilename )
-    optimiser.runMDAndOptimise( xmlFilename=xmlFilename, doDihedral=True )
+    #optimiser.runMDAndOptimise( xmlFilename=xmlFilename, doDihedral=True )
+    #optimiser.optimiseGeometry( xmlFilename=xmlFilename, doDihedral=True )
+    #optimiser.writeXyz(optimiser.system, "opted.xyz", unwrap=False)
 
