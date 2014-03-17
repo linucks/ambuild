@@ -71,9 +71,6 @@ class EndGroup(object):
         self.fragmentUwIdx       = -1
         self.blockUwIdx          = -1
         
-        self.fragmentBonded       = []
-        self.blockBonded          = []
-        
         return
     
     def __str__(self):
@@ -107,6 +104,9 @@ class Block(object):
         
         # List of all the direct bonds to this atom
         self._bonds = []
+        
+        # Links cap atoms in bonds to the opposite endGroup
+        self._cap2EndGroup = None
         
         # List of the different fragmentTypes contained in this block
         self._ftype2endGroup = []
@@ -205,6 +205,32 @@ class Block(object):
         """The type of the fragment that this atom belongs to."""
         frag, idxData = self._dataMap[ idxAtom ]
         return frag._fragmentType
+
+    def atomBonded(self, idxAtom):
+        
+        # Make sure the atom isn't one that has been removed from the cell
+        assert not self.invisibleAtom(idxAtom)
+        
+        # Get the atoms bonded to the atom in fragment space
+        fragment, idxData = self._dataMap[ idxAtom ]
+        fbonded = fragment.bonded( idxData )
+        
+        # Updated to block indices and fix and bonded cap atoms
+        bonded = []
+        for fatom in fbonded:
+            
+            atom = fatom + fragment._blockIdx # Convert index from fragment to block
+            
+            # See if the atom is a bonded Cap - if so we return the index of the corresponding
+            # endGroup in the bond
+            try:
+                atom = self.cap2EndGroup[ atom ]
+            except KeyError:
+                pass
+            
+            bonded.append( atom )
+        
+        return bonded
     
     def atomCharge(self, idxAtom ):
         frag, idxData = self._dataMap[ idxAtom ]
@@ -334,6 +360,62 @@ class Block(object):
         new._blockId = id( new )
         return new
 
+    def dihedrals(self, atom1Idx, atom2Idx):
+        """Return a list of all the dihedrals around these two bonded atoms
+        
+        This needs more work to check for when things are looped back and bonded to each other
+        """
+        
+        
+        # Create a list of lists of all the atoms that each endGroup is bonded to - excluding the other endGroup
+        # Add all dihedrals on each side of the bond - both bond atoms plus 1, 2 connected to the endGrup
+        # Add all dihedrals across the bond - both endGroups plus 1 either side
+        
+        # Check are bonded (remove when sure of code)
+        #assert atom2Idx in self.atomBonded( atom1Idx ) and atom1Idx in self.atomBonded( atom2Idx )
+        
+        # Create list of what's bonded to atom1 - we exclude anything that loops back on itself
+        atom1Bonded = {}
+        for a1 in self.atomBonded( atom1Idx ):
+            if a1 == atom2Idx:
+                continue
+            atom1Bonded[ a1 ] = []
+            for a2 in self.atomBonded( a1 ):
+                if a2 == atom1Idx:
+                    continue
+                assert not a2 == atom2Idx,"Dihedral atom loops back onto bond!"
+                atom1Bonded[ a1 ].append( a2 )
+                
+        # Create list of what's bonded to atom2 - we exclude anything that loops back on itself
+        atom2Bonded = {}
+        for a1 in self.atomBonded( atom2Idx ):
+            if a1 == atom1Idx:
+                continue
+            atom2Bonded[ a1 ] = []
+            for a2 in self.atomBonded( a1 ):
+                if a2 == atom2Idx:
+                    continue
+                assert not a2 == atom1Idx,"Dihedral atom loops back onto bond!"
+                atom2Bonded[ a1 ].append( a2 )
+                
+        dindices = []
+        # Add all dihedrals on endGroup1's side of the bond
+        for a3 in atom1Bonded:
+            for a4 in atom1Bonded[ a3 ]:
+                dindices.append( ( atom2Idx, atom1Idx, a3, a4 ) )
+                    
+        # Add all dihedrals on endGroup2's side of the bond
+        for a3 in atom2Bonded:
+            for a4 in atom2Bonded[ a3 ]:
+                dindices.append( ( atom1Idx, atom2Idx, a3, a4 ) )
+        
+        # Now add dihedrals across the bond
+        for a1 in atom1Bonded:
+            for a2 in atom2Bonded:
+                dindices.append( ( a1, atom1Idx, atom2Idx, a2 ) )
+
+        return dindices
+
     def flip( self, fvector ):
         """Rotate perpendicular to fvector so we  facing the opposite way along the fvector
         """
@@ -361,7 +443,7 @@ class Block(object):
         fbonds = []
         for fragment in self._fragments:
             for b in fragment._bonds:
-                fbonds.append( ( fragment.blockIdx + b[0], fragment.blockIdx + b[1] ) )
+                fbonds.append( ( fragment._blockIdx + b[0], fragment._blockIdx + b[1] ) )
         
 #         # Now map to data map
 #         ofbonds = []
@@ -800,10 +882,10 @@ class Block(object):
             else:
                 self._fragmentTypeDict[ t ] += 1
                 
-            fragment.blockIdx = count # Mark where the data starts in the block
+            fragment._blockIdx = count # Mark where the data starts in the block
             for j in range( len( fragment._coords ) ):
                 self._dataMap.append( ( fragment, j ) )
-                self._mass += fragment._masses[j]
+                self._mass += fragment._masses[ j ]
                 count += 1
         
         # Have dataMap so now update the endGroup information
@@ -820,12 +902,13 @@ class Block(object):
                 assert id(endGroup) == id( fragment._endGroups[ i ] )
                 
                 # Update the block-wide indices for the endGroups
-                endGroup.blockEndGroupIdx  = fragment.blockIdx + endGroup.fragmentEndGroupIdx
-                endGroup.blockCapIdx = fragment.blockIdx + endGroup.fragmentCapIdx
+                endGroup.blockEndGroupIdx  = fragment._blockIdx + endGroup.fragmentEndGroupIdx
+                endGroup.blockCapIdx = fragment._blockIdx + endGroup.fragmentCapIdx
+                # -1 means no dihedral or uw atom set
                 if endGroup.fragmentDihedralIdx != -1:
-                    endGroup.blockDihedralIdx = fragment.blockIdx + endGroup.fragmentDihedralIdx
+                    endGroup.blockDihedralIdx = fragment._blockIdx + endGroup.fragmentDihedralIdx
                 if endGroup.fragmentUwIdx != -1:
-                    endGroup.blockUwIdx = fragment.blockIdx + endGroup.fragmentUwIdx
+                    endGroup.blockUwIdx = fragment._blockIdx + endGroup.fragmentUwIdx
                 self._endGroups.append( endGroup )
                 
                 if endGroup.free:
@@ -834,23 +917,24 @@ class Block(object):
                         self._ftype2endGroup[ endGroup.fragment.type() ] = []
                     self._ftype2endGroup[ endGroup.fragment.type() ].append( endGroup )
                 else:
+                    # If the endGroup is involved in a bond the capAtom becomes invisible
                     self._ignoreAtom[ endGroup.blockCapIdx ] = True
+                    
                     # Removed cap atom so remove from list of atoms and also adjust the mass
                     self._numAtoms -= 1
                     self._mass -= fragment._masses[ endGroup.fragmentCapIdx ]
+                    # Uw - unwanted atoms are atoms that need to be removed when we make a bond - 
+                    # is a bit of a hack at the moment
                     if endGroup.blockUwIdx != -1:
                         self._ignoreAtom[ endGroup.blockUwIdx ] = True
                         self._numAtoms -= 1
                         self._mass -= fragment._masses[ endGroup.fragmentCapIdx ]
-        
-        # Have dataMap so now set block-wide bond indices for endGroups
-        # We also need to remove any bonded capAtoms from the list of atoms bonded to 
-        for eg in self._endGroups:
-            eg.blockBonded = []
-            for fIdx in eg.fragmentBonded:
-                atomIdx = eg.fragment.blockIdx + fIdx
-                if not self._ignoreAtom[ atomIdx ]:
-                    eg.blockBonded.append( atomIdx )
+
+        # Need to map bonded cap Atoms to the opposite endGroups
+        self.cap2EndGroup = {}
+        for bond in self._bonds:
+            self.cap2EndGroup[ bond.endGroup1.blockCapIdx ] = bond.endGroup2.blockEndGroupIdx
+            self.cap2EndGroup[ bond.endGroup2.blockCapIdx ] = bond.endGroup1.blockEndGroupIdx
         
         # Recalculate the data for this new block
         self._calcProperties()
@@ -862,14 +946,13 @@ class Block(object):
         if not name:
             name = str(id(self))+".xyz"
         
-        coords = self._coords
         with open(name,"w") as f:
             fpath = os.path.abspath(f.name)
-            f.write( "{}\n".format( len(coords) ) )
+            f.write( "{}\n".format( self.numAtoms() ) )
             f.write( "id={}\n".format( str( id(self)  ) ) )
                              
-            for i, c in enumerate(coords):
-                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( self._symbols[ i ], c[0], c[1], c[2]))
+            for i, c in enumerate( self.iterCoord() ):
+                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( self.atomSymbol( i ), c[0], c[1], c[2]))
         
         print "Wrote file: {0}".format(fpath)
         
@@ -931,7 +1014,7 @@ class TestBlock(unittest.TestCase):
         print "Wrote file: {0}".format(fpath)
         
         return
-            
+    
     def bondBlocks(self, block1, block2, endGroupIdx1, endGroupIdx2):
         
         endGroup1 = block1._endGroups[ endGroupIdx1 ]
@@ -988,7 +1071,7 @@ class TestBlock(unittest.TestCase):
         
         self.assertEqual( len( ch4._fragments[0]._bonds ), 4 )
         return
-
+    
     def testCH4_bond(self):
         """First pass"""
         

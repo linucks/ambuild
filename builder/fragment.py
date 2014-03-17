@@ -55,7 +55,7 @@ class Fragment(object):
         self._fragmentType = fragmentType
         
         # The index in the list of block data where the data for this fragment starts
-        self.blockIdx = None
+        self._blockIdx = None
         
         # A list of the endGroup objects
         self._endGroups = []
@@ -63,6 +63,9 @@ class Fragment(object):
         
         # List of internal fragment bonds
         self._bonds = []
+
+        # List of which atoms are bonded to which
+        self._bonded = []
         
         # a list of which body within this fragment each atom belongs to
         self._body = []
@@ -70,6 +73,21 @@ class Fragment(object):
         # Additional rigid bodies attached to the fragment
         #self.processBodies( filepath )
         
+        return
+    
+    def bonded(self, idxAtom):
+        return self._bonded[ idxAtom ]
+
+    def _calcBonded(self):
+        
+        assert len(self._bonds)
+        # Create empty lists for all
+        self._bonded =  [ [] for _ in xrange( len(self._coords) ) ]
+        for (b1,b2) in self._bonds:
+            if b1 not in self._bonded[ b2 ]:
+                self._bonded[ b2 ].append( b1 )
+            if b2 not in self._bonded[ b1 ]:
+                self._bonded[ b1 ].append( b2 )
         return
 
     def _calcCenters(self):
@@ -144,28 +162,15 @@ class Fragment(object):
         """Return the body in this fragment that the atom is in"""
         return self._body[ atomIdx ]
     
+    def isCapAtom(self, atomIdx):
+        """Return True if this atom is a capAtom - doesn't check if bodned"""
+        #return atomIdx in self._endGroups
+        return atomIdx in [ eg.fragmentCapIdx for eg in self._endGroups ]
+    
     def isEndGroup(self, atomIdx):
         """Return True if this atom is an endGroup - doesn't check if free"""
         #return atomIdx in self._endGroups
         return atomIdx in [ eg.fragmentEndGroupIdx for eg in self._endGroups ]
-    
-    def endGroupBonded( self, endGroup ):
-        """Return a list of all atoms bonded to the given endGrop
-        It excludes the capAtom.
-        It does not however exclude atoms that could be capAtoms for other endGroups 
-        """
-        
-        idxEndGroup = endGroup.fragmentEndGroupIdx
-        idxCapAtom = endGroup.fragmentCapIdx
-        
-        # Could precalculate this if speed an issue
-        bonded = []
-        for b in self._bonds:
-            if b[0] == idxEndGroup and b[1] != idxCapAtom:
-                bonded.append( b[1] )
-            elif b[1] == idxEndGroup and b[0] != idxCapAtom:
-                bonded.append( b[0] )
-        return bonded
 
     def fillData(self):
         """ Fill the data arrays from the label """
@@ -250,6 +255,9 @@ class Fragment(object):
         # Specify internal bonds
         self._bonds = util.calcBonds( coords, symbols, maxAtomRadius=self.maxAtomRadius() )
         
+        # Create list of which atoms are bonded to each atom
+        self._calcBonded()
+        
         # Set up endGroups
         self.setEndGroups( endGroups, capAtoms, dihedralAtoms, uwAtoms )
         
@@ -272,7 +280,6 @@ class Fragment(object):
             eg.fragmentCapIdx      = capAtoms[ i ]
             eg.fragmentDihedralIdx = dihedralAtoms[ i ]
             eg.fragmentUwIdx       = uwAtoms[ i ]
-            eg.fragmentBonded      = self.endGroupBonded( eg )
             
             self._endGroups.append( eg )
         return

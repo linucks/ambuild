@@ -535,6 +535,7 @@ class Cell():
                 
                 # Create bond object and set the parameters
                 bond = buildingBlock.Bond()
+                
                 # Rem the block and idxBlocks could change - see processBonds
                 #bond.block1                    = self.blocks[ idxStaticBlock ]
                 bond.block1                    = staticBlock
@@ -662,9 +663,6 @@ class Cell():
         
         """
         
-        # list of possible bond atoms
-        self._possibleBonds = []
-        clashAtoms = []
         
         # Get a list of the close atoms
         close = self.closeAtoms( idxAddBlock )
@@ -679,6 +677,8 @@ class Cell():
         # Get the block1
         addBlock = self.blocks[ idxAddBlock ]
         
+        clashAtoms = []
+        self._possibleBonds = []
         for ( idxAddAtom, idxStaticBlock, idxStaticAtom ) in close:
             
             addSymbol = addBlock.atomSymbol( idxAddAtom )
@@ -734,40 +734,43 @@ class Cell():
         for b in self._possibleBonds:
             s += str(b)+ " | "
         self.logger.debug( "Bonds {0} and clashing atoms {1}".format( s, clashAtoms ) )
-         
+        
+        addBlock    = None
+        staticBlock = None
         for bond in self._possibleBonds:
+            
+            staticBlock = self.blocks[ bond.idxBlock1 ] 
+            addBlock    = self.blocks[ bond.idxBlock2 ] 
             
             # We need to remove any clashes with the cap atoms - the added block isn't bonded
             # so the cap atoms aren't excluded
-            staticCap = bond.endGroup1.blockCapIdx
-            addCap = bond.endGroup2.blockCapIdx
+            staticCap       = bond.endGroup1.blockCapIdx
+            addCap          = bond.endGroup2.blockCapIdx
+            staticEndGroup  = bond.endGroup1.blockEndGroupIdx
+            addEndGroup     = bond.endGroup2.blockEndGroupIdx
             
             # Also need to remove any clashes of the endGroups with atoms directly bonded to the 
             # opposite endGroup
-            staticEndGroup  = bond.endGroup1.blockEndGroupIdx
-            staticBondAtoms = bond.endGroup1.blockBonded
-            addEndGroup     = bond.endGroup2.blockEndGroupIdx
-            addBondAtoms    = bond.endGroup2.blockBonded
-
-            #self.logger.debug("cap1 {0}".format( cap1 ) )
-            #self.logger.debug("cap2 {0}".format( cap2 ) )
-            #self.logger.debug("block1 {0} bonded: {1}".format( bond.block1.id(), b1atoms ) )
-            #self.logger.debug("block2 {0} bonded: {1}".format( bond.block2.id(), b2atoms ) )
+            staticBondAtoms = staticBlock.atomBonded( staticEndGroup )
+            staticBondAtoms.remove( staticCap )
+            addBondAtoms    = addBlock.atomBonded( addEndGroup )
+            addBondAtoms.remove( addCap )
 
             toGo = [] # Need to remember indices as we can't remove from a list while we cycle through it
             for i, ( idxStaticBlock, idxStaticAtom, idxAddBlock, idxAddAtom) in enumerate(clashAtoms):
                 #self.logger.debug("CHECKING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                 
                 # Remove any clashes with the cap atoms
-                if idxStaticAtom == staticCap  or idxAddAtom == addCap:
+                if ( bond.idxBlock1 == idxStaticBlock and idxStaticAtom == staticCap ) or \
+                   ( bond.idxBlock2 == idxAddBlock and idxAddAtom == addCap ):
                     #self.logger.debug("REMOVING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     #clashAtoms.remove( ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     toGo.append( i )
                     continue
                 
                 # remove any clashes with directly bonded atoms
-                if ( idxStaticAtom == staticEndGroup and idxAddAtom in addBondAtoms ) or \
-                   ( idxAddAtom == addEndGroup and idxStaticAtom in staticBondAtoms ):
+                if ( bond.idxBlock1 == idxStaticBlock and idxStaticAtom == staticEndGroup and idxAddAtom in addBondAtoms ) or \
+                   ( bond.idxBlock2 == idxAddBlock and idxAddAtom == addEndGroup and idxStaticAtom in staticBondAtoms ):
                     #clashAtoms.remove( ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     #self.logger.info( "REMOVING BOND ATOMS FROM CLASH TEST" )
                     toGo.append( i )
@@ -892,8 +895,8 @@ class Cell():
         'type' : [], 
         }
         
-        def i2o( atomIdx, atomMap, atomCount ):
-            """Map internal index to overall one in list
+        def b2g( atomIdx, atomMap, atomCount ):
+            """Map block atom index to global index in list of all atoms in the cell
             Need to know how long this block is  - len( atomMap )
             subtract this from the atomCount as this is where the data for this block starts
             """
@@ -947,7 +950,7 @@ class Cell():
             fbonds = block.fragmentBonds()
             for i1, i2 in fbonds:
                 try:
-                    d['fragmentBond'].append( ( i2o( i1, atomMap, atomCount ), i2o( i2, atomMap, atomCount ) ) )
+                    d['fragmentBond'].append( ( b2g( i1, atomMap, atomCount ), b2g( i2, atomMap, atomCount ) ) )
                     
                     atom1label = block.atomType( i1 )
                     atom2label = block.atomType( i2 )
@@ -963,85 +966,75 @@ class Cell():
                 
                 endGroup1Idx = bond.endGroup1.blockEndGroupIdx
                 endGroup2Idx = bond.endGroup2.blockEndGroupIdx
-                
-                atom1label = block.atomType( endGroup1Idx )
-                atom2label = block.atomType( endGroup2Idx )
+                endGroup1Label = block.atomType( endGroup1Idx )
+                endGroup2Label = block.atomType( endGroup2Idx )
                 
                 # Sort so the order always the same
-                l = sorted( ( atom1label, atom2label ) )
+                l = sorted( ( endGroup1Label, endGroup2Label ) )
                 d['bondLabel'].append( "{0}-{1}".format( l[ 0 ], l[ 1 ] ) )
-                #d['bond'].append( ( endGroup1Idx + atomCount,
-                #                    endGroup2Idx + atomCount ) )
-                d['bond'].append( ( i2o( endGroup1Idx, atomMap, atomCount ),
-                                    i2o( endGroup2Idx, atomMap, atomCount ) ) )
+                d['bond'].append( ( b2g( endGroup1Idx, atomMap, atomCount ),
+                                    b2g( endGroup2Idx, atomMap, atomCount ) ) )
                 
                 # Atoms connected to the endGroup that we need to specify as connected so we add as angles
-                for batom in bond.endGroup1.blockBonded:
-                    a = ( i2o( batom, atomMap, atomCount ),
-                          i2o( endGroup1Idx, atomMap, atomCount ),
-                          i2o(  endGroup2Idx, atomMap, atomCount ) )
+                for batom in block.atomBonded( endGroup1Idx ):
+                    # The opposite endGroup is included in the list bonded to an endGroup so skip
+                    if batom == endGroup2Idx:
+                        continue
+                    a = ( b2g( batom, atomMap, atomCount ),
+                          b2g( endGroup1Idx, atomMap, atomCount ),
+                          b2g( endGroup2Idx, atomMap, atomCount ) )
                     if a not in d['angle']:
                         d['angleLabel'].append( "{0}-{1}-{2}".format( block.atomType( batom ),
-                                                                      atom1label, 
-                                                                      atom2label ) )
+                                                                      endGroup1Label, 
+                                                                      endGroup2Label ) )
                         d['angle'].append( a )
                     else:
                         print "Skipping angle {0}".format( a )
                     
-                for batom in bond.endGroup2.blockBonded:
-                    a = ( i2o( endGroup1Idx, atomMap, atomCount ),
-                          i2o( endGroup2Idx, atomMap, atomCount ),
-                          i2o( batom, atomMap, atomCount ) )
+                for batom in block.atomBonded( endGroup2Idx ):
+                    if batom == endGroup1Idx:
+                        continue
+                    a = ( b2g( endGroup1Idx, atomMap, atomCount ),
+                          b2g( endGroup2Idx, atomMap, atomCount ),
+                          b2g( batom, atomMap, atomCount ) )
                     if a not in d['angle']:
-                        d['angleLabel'].append( "{0}-{1}-{2}".format( atom1label,
-                                                                      atom2label,
+                        d['angleLabel'].append( "{0}-{1}-{2}".format( endGroup1Label,
+                                                                      endGroup2Label,
                                                                       block.atomType( batom ) ) )
                         d['angle'].append( a )
                     else:
                         print "Skipping angle {0}".format( a )
 
-                useAngle=False
-                if useAngle:
-                    # FIX!! IF NEEDED
-                    if ( bond.endGroup1.blockCapIdx != endGroup1Idx and bond.endGroup2.blockCapIdx != endGroup2Idx ):
-                        d['angleLabel'].append( "aatom" )
-                        d['angle'].append( ( bond.endGroup1.blockCapIdx + atomCount, endGroup1Idx + atomCount, endGroup2Idx + atomCount ) )
-                         
-                        d['angleLabel'].append( "aatom" )
-                        d['angle'].append( ( endGroup1Idx + atomCount, endGroup2Idx + atomCount, bond.endGroup2.blockCapIdx + atomCount ) )
+#                 useAngle=False
+#                 if useAngle:
+#                     # FIX!! IF NEEDED
+#                     if ( bond.endGroup1.blockCapIdx != endGroup1Idx and bond.endGroup2.blockCapIdx != endGroup2Idx ):
+#                         d['angleLabel'].append( "aatom" )
+#                         d['angle'].append( ( bond.endGroup1.blockCapIdx + atomCount, endGroup1Idx + atomCount, endGroup2Idx + atomCount ) )
+#                          
+#                         d['angleLabel'].append( "aatom" )
+#                         d['angle'].append( ( endGroup1Idx + atomCount, endGroup2Idx + atomCount, bond.endGroup2.blockCapIdx + atomCount ) )
 
-                # If there atoms bonded to both endGroups we add all possible different dihedral
-                if len( bond.endGroup1.blockBonded ) and len( bond.endGroup2.blockBonded ):
-                    
-#                     if bond.endGroup1.blockDihedralIdx != -1 and bond.endGroup2.blockDihedralIdx != -1:
-#                         # We have dihedral's specified so we use those
-#                         dihedral1 = bond.endGroup1.blockDihedralIdx
-#                         dihedral2 = bond.endGroup2.blockDihedralIdx
-#                     else:
-#                         # DIHEDRAL HACK - just pick the first atoms in the bonded list
-#                         dihedral1 = bond.endGroup1.blockBonded[0]
-#                         dihedral2 = bond.endGroup2.blockBonded[0]
-
-                    # Remember which labels we've added so we only add different dihedrals
-                    dlabels = []
-                    for d1 in bond.endGroup1.blockBonded:
-                        for d2 in bond.endGroup2.blockBonded:
-                            l = "{0}-{1}-{2}-{3}".format( block.atomType( d1 ),
-                                                                     atom1label,
-                                                                     atom2label, 
-                                                                     block.atomType( d2 )
-                                                                      )
-                            if l not in dlabels:
-                                dlabels.append( l )
-                                d['dihedralLabel'].append( l )
-                                dihedral = ( i2o( d1, atomMap, atomCount ), 
-                                             i2o( endGroup1Idx, atomMap, atomCount ), 
-                                             i2o( endGroup2Idx, atomMap, atomCount ),
-                                             i2o( d2, atomMap, atomCount )
-                                           )
-                                d['dihedral'].append( dihedral )
-                    
-            #atomCount += len(block._coords)
+                #
+                # Dihedrals
+                #
+                
+                for dindices in block.dihedrals( endGroup1Idx, endGroup2Idx ):
+                    dlabel = "{0}-{1}-{2}-{3}".format( block.atomType( dindices[0] ),
+                                                       block.atomType( dindices[1] ),
+                                                       block.atomType( dindices[2] ), 
+                                                       block.atomType( dindices[3] )
+                                                                                     )
+                     
+                     
+                    dihedral = ( b2g( dindices[0], atomMap, atomCount ), 
+                                 b2g( dindices[1], atomMap, atomCount ), 
+                                 b2g( dindices[2], atomMap, atomCount ),
+                                 b2g( dindices[3], atomMap, atomCount )
+                               )
+                     
+                    d['dihedralLabel'].append( dlabel )
+                    d['dihedral'].append( dihedral )
 
         return d
 
