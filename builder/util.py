@@ -569,9 +569,8 @@ def bondLength( symbol1,symbol2 ):
         if BOND_LENGTHS[ symbol2 ].has_key( symbol1 ):
             return BOND_LENGTHS[ symbol2 ][ symbol1 ]
     
-    #print 'No data for bond length for %s-%s' % (symbol1,symbol2)
-    
-    return -100
+    print 'No data for bond length for %s-%s' % (symbol1,symbol2)
+    return 1.0
 
 def calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0 ):
     """Calculate the bonds for the fragments. This is done at the start when the only coordinates
