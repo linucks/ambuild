@@ -252,8 +252,12 @@ class Fragment(object):
         # Calculate anything we haven't been given
         self.fillData()
         
-        # Specify internal bonds
-        self._bonds = util.calcBonds( coords, symbols, maxAtomRadius=self.maxAtomRadius() )
+        # Specify internal bonds - bond margin probably too big...
+        self._bonds = util.calcBonds( coords,
+                                      symbols,
+                                      maxAtomRadius=self.maxAtomRadius(),
+                                      bondMargin=0.25
+                                       )
         
         # Create list of which atoms are bonded to each atom
         self._calcBonded()
