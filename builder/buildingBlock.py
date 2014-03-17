@@ -226,7 +226,9 @@ class Block(object):
             try:
                 atom = self.cap2EndGroup[ atom ]
             except KeyError:
-                pass
+                # If it's not a bonded cap but is invisible (e.g.uwAtoms) we skip it
+                if self.invisibleAtom( atom ):
+                    continue
             
             bonded.append( atom )
         
