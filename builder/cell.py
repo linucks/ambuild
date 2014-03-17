@@ -992,6 +992,7 @@ class Cell():
                         print "Skipping angle {0}".format( a )
                     
                 for batom in block.atomBonded( endGroup2Idx ):
+                    # The opposite endGroup is included in the list bonded to an endGroup so skip
                     if batom == endGroup1Idx:
                         continue
                     a = ( b2g( endGroup1Idx, atomMap, atomCount ),
