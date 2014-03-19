@@ -833,12 +833,6 @@ class Cell():
         
         block1=self.blocks[ idxBlock1 ]
         for idxAtom1,coord1 in enumerate( block1.iterCoord() ):
-        # for idxAtom1, coord1 in enumerate( block1._coords ):
-        
-#             # Exclude bondedCaps & x atoms
-#             #!! Should be redundant as noClash atoms are excluded from the cell on addition
-#             if block1.ignoreAtom( idxAtom1 ):
-#                 continue
             
             # Get the box this atom is in
             key = block1.atomCell[ idxAtom1 ]
@@ -858,10 +852,12 @@ class Cell():
                 #print "KEY ",i,sbox
                 # For each box, get the list of the atoms as (block,coord1) tuples
                 # Check if we have a box with anything in it
-                if not self.box1.has_key(sbox):
+                try:
+                    alist = self.box1[ sbox ]
+                except KeyError:
                     continue
                 
-                for (idxBlock2, idxAtom2) in self.box1[ sbox ]:
+                for (idxBlock2, idxAtom2) in alist:
                     
                     # Check we are not checking ourself - need to check block index too!
                     if idxBlock1 == idxBlock2:
