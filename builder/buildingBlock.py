@@ -276,17 +276,17 @@ class Block(object):
         bond.endGroup1.free = False
         bond.endGroup2.free = False
         
-        # Add all the other blocks fragments to this one
-        if bond.block1 != bond.block2:
-            self._fragments += bond.block2._fragments
+        # Previously we just added the two fragment lists and bonds and updated from the 
+        # start - simpler but much slower
         
-            # Add all the bonds between the fragments in the other block to this one
-            self._bonds += bond.block2._bonds
-        
-        # Add the bond we are making to list of bonds
-        self._bonds.append( bond )
-        
-        return self._update()
+        if bond.block1 == bond.block2:
+            # There is a big improvement that could be made by fixing the _update
+            # code to deal with when we just self-bond a block - we just need to update
+            # the endGroup indices and bonds but we currently redo the whole block from the beginning
+            self._bonds.append( bond )
+            return self._update()
+        else:
+            return self._update( addBlock=bond.block2, addBond=bond)
     
     def bonds(self):
         return self._bonds
@@ -708,15 +708,25 @@ class Block(object):
         
         return
 
-    def _update( self ):
-        """Set the list of _endGroups & update data for new block"""
+    def _update( self, addBlock=None, addBond=None ):
+        """Set the list of _endGroups & update data for new block
+        """
         
         # Now build up the dataMap
-        self._dataMap = []
-        self._mass = 0
-        self._fragmentTypeDict = {}
-        count=0
-        for fragment in self._fragments:
+        if addBlock:
+            assert addBond
+            count = len(self._dataMap) # Start from where the last block finished
+            fragments = addBlock._fragments
+            self._fragments += fragments
+        else:
+            self._dataMap = []
+            self._mass = 0
+            self._fragmentTypeDict = {}
+            count=0
+            fragments = self._fragments
+            
+        #for fragment in self._fragments:
+        for fragment in fragments:
             t = fragment.type()
             if t not in self._fragmentTypeDict:
                 self._fragmentTypeDict[ t ] = 1
@@ -730,13 +740,19 @@ class Block(object):
                 count += 1
         
         # Have dataMap so now update the endGroup information
+        # Could optimise this but it would make the code overly complicated
+#         if addBlock:
+#             self._ignoreAtom += [ False ] * len(addBlock._dataMap)
+#         else:
         self._endGroups = []
         self._freeEndGroupIdxs = []
         self._ignoreAtom = [ False ] * len(self._dataMap) # Use bool array so we can just check an index and don't need to search
         # through the array each time. Could use indexes and then trigger an exception - not sure which is best yet
         self._ftype2endGroup = {}
+            
         self._numAtoms = len(self._dataMap) # Get total number of atoms and subtract # endGroups
         for fragment in self._fragments:
+        #for fragment in fragments:
             for i, endGroup in enumerate( fragment._endGroups ):
                 
                 assert endGroup.fragment == fragment
@@ -750,6 +766,7 @@ class Block(object):
                     endGroup.blockDihedralIdx = fragment._blockIdx + endGroup.fragmentDihedralIdx
                 if endGroup.fragmentUwIdx != -1:
                     endGroup.blockUwIdx = fragment._blockIdx + endGroup.fragmentUwIdx
+                    
                 self._endGroups.append( endGroup )
                 
                 if endGroup.free:
@@ -772,8 +789,16 @@ class Block(object):
                         self._mass -= fragment._masses[ endGroup.fragmentCapIdx ]
 
         # Need to map bonded cap Atoms to the opposite endGroups
-        self.cap2EndGroup = {}
-        for bond in self._bonds:
+        if addBlock:
+            bonds = addBlock._bonds
+            bonds.append( addBond )
+            self._bonds += bonds
+        else:
+            self.cap2EndGroup = {}
+            bonds = self._bonds
+            
+        #for bond in self._bonds:
+        for bond in bonds:
             self.cap2EndGroup[ bond.endGroup1.blockCapIdx ] = bond.endGroup2.blockEndGroupIdx
             self.cap2EndGroup[ bond.endGroup2.blockCapIdx ] = bond.endGroup1.blockEndGroupIdx
         
