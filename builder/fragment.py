@@ -4,6 +4,7 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
+import copy
 import os
 import types
 
@@ -16,62 +17,59 @@ class Fragment(object):
     classdocs
     '''
 
-    def __init__( self, fragmentType ):
+    def __init__( self, filePath=None, fragmentType=None ):
         '''
         Constructor
         '''
 
-        # the coordinates for this block
-        self._coords = []
+        # This first set of variables are shared by all fragments
+        # When we copy a fragment the new fragment gets references to the variables
+        # that were created for the first fragment (see copy)
+        sharedAttrs = { 
+            '_atomRadii'       : [],
+            '_atomTypes'       : [],
+            '_body'            : [], # a list of which body within this fragment each atom belongs to
+            '_bonds'           : [], # List of internal fragment bonds
+            '_bonded'          : [], # List of which atoms are bonded to which
+            '_charges'         : [],
+            '_fragmentType'    : fragmentType, 
+            '_labels'          : [],
+            '_masses'          : [],
+            '_radius'          : -1,
+            '_symbols'         : [], # ordered array of _symbols (in upper case)
+            '_totalMass'       : -1,
+            '_individualAttrs' : None,
+            '_sharedAttrs'     : None,
+            }
         
-        # ordered array of _labels
-        self._labels = []
+        #
+        # The variables below here are specific to a fragment and change as the framgent moves
+        # and is involved in bonds - each fragment gets its own copy of these
+        individualAttrs = {
+            '_coords'        : [],
+            '_centroid'      : None,
+            '_centerOfMass'  : None,
+            '_maxAtomRadius' : -1,
+            '_changed'       : True, # Flag for when we've been moved and need to recalculate things
+            '_blockIdx'      : None, # The index in the list of block data where the data for this fragment starts
+            '_endGroups'     : [], # A list of the endGroup objects
+            }
         
-        # ordered array of atomTypes
-        self._atomTypes = []
+        # Set as attributes of self
+        for a, v in sharedAttrs.iteritems():
+            setattr( self, a, v )
+            
+        # Set as attributes of self
+        for a, v in individualAttrs.iteritems():
+            setattr( self, a, v )
+            
+        # Set these manually
+        self._individualAttrs = individualAttrs
+        self._sharedAttrs = sharedAttrs
         
-        # ordered array of _symbols (in upper case)
-        self._symbols = []
-        
-        # ordered array of _masses
-        self._masses = []
-        
-        # orderd array of atom radii
-        self._atomRadii = []
-        
-        self._charges = []
-        
-        # These are calculated
-        self._centroid = None
-        self._centerOfMass = None
-        self._totalMass = -1
-        self._radius = -1
-        self._maxAtomRadius = -1
-        
-        # Flag for when we've been moved and need to recalculate things
-        self._changed = True
-        
-        # The type this fragment is (for bonding checks)
-        self._fragmentType = fragmentType
-        
-        # The index in the list of block data where the data for this fragment starts
-        self._blockIdx = None
-        
-        # A list of the endGroup objects
-        self._endGroups = []
-        #self._angleAtoms = []
-        
-        # List of internal fragment bonds
-        self._bonds = []
-
-        # List of which atoms are bonded to which
-        self._bonded = []
-        
-        # a list of which body within this fragment each atom belongs to
-        self._body = []
-        
-        # Additional rigid bodies attached to the fragment
-        #self.processBodies( filepath )
+        # Create from the file
+        if filePath:
+            self.fromFile(filePath)
         
         return
     
@@ -157,6 +155,28 @@ class Fragment(object):
         if self._changed:
             self._calcProperties()
         return self._centerOfMass
+    
+    def copy(self):
+        """Create a copy of ourselves.
+        Those attributes in shared are just copied as references as they do not change between fragments
+        of the same type
+        Those in single are deep-copied as each fragment has its own"""
+        
+        f = Fragment()
+
+        for a in f.__dict__:
+            if a in self._sharedAttrs.keys():
+                setattr( f, a, getattr( self, a ) )
+            elif a in self._individualAttrs.keys():
+                setattr( f, a, copy.deepcopy( getattr( self, a ) ) )
+            else:
+                raise RuntimeError,"MISSING ATTRIBUTE {0}".format(a)
+            
+            # Update fragment references in the endGroups
+            for e in f._endGroups:
+                e.fragment = f
+                
+        return f
 
     def body(self, atomIdx ):
         """Return the body in this fragment that the atom is in"""
@@ -197,6 +217,130 @@ class Fragment(object):
         
         return
 
+    def fromCarFile(self, carFile):
+        """"Abbie did this.
+        Gulp...
+        """
+        labels = []
+        symbols = []
+        atomTypes = []
+        charges = []
+        
+        # numpy array
+        coords = []
+        
+        reading = True
+        with open( carFile, "r" ) as f:
+            
+            # skip first line
+            f.readline()
+            
+            # 2nd states whether PBC: PBC=OFF
+            pbc, state = f.readline().strip().split("=")
+            assert pbc.strip() == "PBC"
+            state=state.strip()
+            nskip=3
+            if state.upper() == "OFF":
+                nskip=2 
+            
+            for i in range(nskip):
+                f.readline()
+            
+            count=0
+            while reading:
+                line = f.readline()
+                
+                line = line.strip()
+                if not line:
+                    print "END OF CAR WITH NO END!!!"
+                    break
+                fields = line.split()
+                label = fields[0]
+                
+                # Check end of coordinates
+                if label.lower() == "end":
+                    reading=False
+                    break
+                
+                labels.append( label )
+                coords.append( numpy.array(fields[1:4], dtype=numpy.float64 ) )
+                atomTypes.append( fields[6] )
+                symbols.append( fields[7] )
+                charges.append( float( fields[8] ) )
+                
+                count+=1
+        
+        return  ( coords, labels, symbols, atomTypes, charges )
+
+    def fromXyzFile(self, xyzFile ):
+        """"Jens did this.
+        """
+        
+        labels = []
+        symbols = []
+        atomTypes = [] # hack...
+        charges = []
+        
+        # numpy array
+        coords = []
+        
+        with open( xyzFile ) as f:
+            
+            # First line is number of atoms
+            line = f.readline()
+            natoms = int(line.strip())
+            
+            # Skip title
+            line = f.readline()
+            
+            count = 0
+            for _ in range(natoms):
+                
+                line = f.readline()
+                line = line.strip()
+                fields = line.split()
+                label = fields[0]
+                labels.append(label)
+                coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
+                symbol = util.label2symbol( label )
+                symbols.append( symbol )
+                atomTypes.append(  symbols )
+                charges.append( 0.0 )
+                
+                count += 1
+        
+        return ( coords, labels, symbols, atomTypes, charges )
+    
+    def fromFile(self, filePath ):
+
+        if filePath.endswith( ".car" ):
+            ( coords, labels, symbols, atomTypes, charges ) = self.fromCarFile( filePath )
+        elif filePath.endswith( ".xyz" ):
+            ( coords, labels, symbols, atomTypes, charges ) = self.fromXyzFile( filePath )
+        else:
+            raise RuntimeError("Unrecognised file suffix: {}".format( filePath ) )
+        
+        # Get cap atoms and endgroups
+        endGroups, capAtoms, dihedralAtoms, uwAtoms = self.parseEndgroupFile( filePath )
+
+        # Set the root fragment and its attributes
+        self.setData( coords        = coords,
+                     labels        = labels,
+                     symbols       = symbols,
+                     atomTypes     = atomTypes,
+                     charges       = charges,
+                     endGroups     = endGroups,
+                     capAtoms      = capAtoms,
+                     dihedralAtoms = dihedralAtoms,
+                     uwAtoms       = uwAtoms
+                  )
+        
+        self.processBodies( filePath )
+        
+        self._calcProperties()
+        
+        return
+
     def maxAtomRadius(self):
         assert self._maxAtomRadius > 0
         return self._maxAtomRadius
@@ -206,6 +350,37 @@ class Fragment(object):
         
         assert self._totalMass > 0
         return self._totalMass
+
+    def parseEndgroupFile(self, filePath ):
+        
+        dirname, filename = os.path.split( filePath )
+        basename, suffix = os.path.splitext( filename )
+        
+        endGroups = []
+        capAtoms = []
+        uwAtoms = []
+        dihedralAtoms = []
+        egfile = os.path.join( dirname, basename+".ambi" )
+        if os.path.isfile( egfile ):
+            #raise RuntimeError,"Cannot find endgroup file {0} for car file {1}".format( egfile, filepath )
+            egs = [ ( line.strip().split() ) for line in open( egfile, 'r') if not line.startswith("#") ]
+            for eg in egs:
+                endGroups.append( int( eg[0] ) )
+                capAtoms.append( int( eg[1] ) )
+                if len(eg) > 2:
+                    dihedralAtoms.append( int( eg[2] )  )
+                else:
+                    dihedralAtoms.append( -1 )
+                if len(eg) > 3:
+                    uwAtoms.append( int( eg[3] )  )
+                else:
+                    uwAtoms.append( -1 )
+                    
+                
+            if self._fragmentType == 'cap' and len( endGroups ) != 1:
+                raise RuntimeError, "Capfile had >1 endGroup specified!"
+            
+        return endGroups, capAtoms, dihedralAtoms, uwAtoms
 
     def processBodies(self, filepath ):
         """See if we split the fragment into bodies or not"""
@@ -264,11 +439,6 @@ class Fragment(object):
         
         # Set up endGroups
         self.setEndGroups( endGroups, capAtoms, dihedralAtoms, uwAtoms )
-        
-        # Recalculate all dynamic data
-        #self._calcCenters()
-        #self._calcRadius()
-        #self._changed = False
         
         return
 

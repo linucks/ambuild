@@ -22,6 +22,7 @@ import numpy
 
 # Our modules
 import buildingBlock
+import fragment
 import opt
 import util
 
@@ -175,7 +176,7 @@ class Cell():
         self.numBoxB = None
         self.numBoxC = None
         
-        self.initBlocks = {} # fragmentType -> initBlock
+        self._fragmentLibrary = {} # fragmentType -> parentFragment
         self.bondTypes = []
         
         # dictionary mapping id of the block to the block - can't use a list and indices
@@ -259,23 +260,33 @@ class Cell():
         
         return
     
-    def addInitBlock( self, filename=None, fragmentType='A' ):
+    def addInitBlock( self, filename, fragmentType='A' ):
         """add a block of type ftype from the file filename"""
         
-        if self.initBlocks.has_key( fragmentType ):
+        if self._fragmentLibrary.has_key( fragmentType ):
             raise RuntimeError,"Adding existing ftype {0} again!".format( fragmentType )
         
-        # Create block from file
-        block = buildingBlock.Block( filename=filename, fragmentType=fragmentType )
+        # For now don't allow adding blocks when the cell has blocks in
+        assert not len(self.blocks),"Cannot add library fragments with populated cell!"
         
-        # Update cell parameters for this block
-        self.updateFromBlock( block )
+        # Create fragment
+        f = fragment.Fragment( filename, fragmentType )
+        
+        # Create block from file
+        #block = buildingBlock.Block( filename=filename, fragmentType=fragmentType )
+        
+        # Update cell parameters for this fragment
+        maxAtomRadius = f.maxAtomRadius()
+        if  maxAtomRadius > self.maxAtomRadius:
+            self.updateCellSize( maxAtomRadius=maxAtomRadius )
+            
+        #self.updateFromBlock( block )
         
         # Place the block in the cell
-        self.positionInCell( block )
+        #self.positionInCell( block )
         
-        # Add to initBlocks
-        self.initBlocks[ fragmentType ] = block
+        # Add to _fragmentLibrary
+        self._fragmentLibrary[ fragmentType ] = f
         
         return
     
@@ -556,7 +567,7 @@ class Cell():
     def capBlocks(self, fragmentType=None, filename=None ):
         
         # Create the cap block
-        capBlock = buildingBlock.Block( filename=filename, fragmentType='cap' )
+        capBlock = buildingBlock.Block( filePath=filename, fragmentType='cap' )
         
         # The endgroup is always the first only endGroup
         capEndGroup = capBlock._endGroups[0]
@@ -1439,16 +1450,19 @@ class Cell():
 
     def getInitBlock( self, fragmentType=None ):
         """Return an initBlock of type fragmentType. If fragmentType is not set
-        return a random initBlocks"""
+        return a random _fragmentLibrary"""
         
         if not fragmentType:
-            fragmentType = random.choice( list( self.initBlocks.keys() ) )
+            fragmentType = random.choice( list( self._fragmentLibrary.keys() ) )
         
         # sanity check
-        if not self.initBlocks.has_key( fragmentType ):
+        if not self._fragmentLibrary.has_key( fragmentType ):
             raise RuntimeError, "Asking for a non-existing initBlock type: {0}".format( fragmentType )
         
-        return self.initBlocks[ fragmentType ].copy()
+        # Copy the init fragment
+        f = self._fragmentLibrary[ fragmentType ].copy()
+        
+        return buildingBlock.Block( initFragment=f )
 
     def growBlocks(self, toGrow, fragmentType=None, dihedral=None, maxTries=50 ):
         """
@@ -2101,9 +2115,9 @@ class Cell():
         if self.A == None or self.B == None or self.C == None:
             raise RuntimeError,"Need to specify cell before seeding"
         
-        #if not len( self.initBlocks ) or not len( self.bondTypes):
+        #if not len( self._fragmentLibrary ) or not len( self.bondTypes):
         #    raise RuntimeError,"Must have set an initBlock and bondType before seeding."
-        if not len( self.initBlocks ):
+        if not len( self._fragmentLibrary ):
             raise RuntimeError,"Must have set an initBlock before seeding."
         
         numBlocks = 0
@@ -2911,7 +2925,7 @@ class Cell():
         """
         """
         s = ""
-        s += "InitBlocks: {0}".format( self.initBlocks )
+        s += "InitBlocks: {0}".format( self._fragmentLibrary )
         s += "Blocks: "
         for block in self.blocks.values():
             s+= str(block)

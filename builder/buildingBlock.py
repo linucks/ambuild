@@ -94,13 +94,18 @@ class Block(object):
     foo
     '''
 
-    def __init__( self, filename=None, fragmentType=None ):
+    def __init__( self, filePath=None, fragmentType=None, initFragment=None, ):
         '''
         Constructor
         '''
         
+        # Need to change so cannot create block withough fragmentType
+        if filePath:
+            assert os.path.isfile( filePath ) and fragmentType
+            initFragment = fragment.Fragment( filePath, fragmentType )
+        
         # List of the fragments contained in this one
-        self._fragments = []
+        self._fragments = [ initFragment ]
         
         # List of all the direct bonds to this atom
         self._bonds = []
@@ -136,8 +141,7 @@ class Block(object):
 
         self._blockId = id(self)
         
-        # Set everything from the file
-        return self.fromFile( filepath=filename, fragmentType=fragmentType )
+        return self._update()
     
     def alignAtoms(self, atom1Idx, atom2Idx, refVector ):
         """Move molecule so two atoms are aligned along refVector"""
@@ -446,146 +450,12 @@ class Block(object):
         for fragment in self._fragments:
             for b in fragment._bonds:
                 fbonds.append( ( fragment._blockIdx + b[0], fragment._blockIdx + b[1] ) )
-        
-#         # Now map to data map
-#         ofbonds = []
-#         for ( a1, a2 ) in fbonds:
-#             i1 = self._dataMap.index( a1 )
-#             i2 = self._dataMap.index( a2 )
-#             ofbonds.append( ( i1, i2) )
-#         
-#         return ofbonds
         return fbonds
     
     def fragmentTypeDict(self):
         """A dictionary with the number of the different types of fragment we contain"""
         return self._fragmentTypeDict
 
-    def fromCarFile(self, carFile):
-        """"Abbie did this.
-        Gulp...
-        """
-        labels = []
-        symbols = []
-        atomTypes = []
-        charges = []
-        
-        # numpy array
-        coords = []
-        
-        reading = True
-        with open( carFile, "r" ) as f:
-            
-            # skip first line
-            f.readline()
-            
-            # 2nd states whether PBC: PBC=OFF
-            pbc, state = f.readline().strip().split("=")
-            assert pbc.strip() == "PBC"
-            state=state.strip()
-            nskip=3
-            if state.upper() == "OFF":
-                nskip=2 
-            
-            for i in range(nskip):
-                f.readline()
-            
-            count=0
-            while reading:
-                line = f.readline()
-                
-                line = line.strip()
-                if not line:
-                    print "END OF CAR WITH NO END!!!"
-                    break
-                fields = line.split()
-                label = fields[0]
-                
-                # Check end of coordinates
-                if label.lower() == "end":
-                    reading=False
-                    break
-                
-                labels.append( label )
-                coords.append( numpy.array(fields[1:4], dtype=numpy.float64 ) )
-                atomTypes.append( fields[6] )
-                symbols.append( fields[7] )
-                charges.append( float( fields[8] ) )
-                
-                count+=1
-        
-        return  ( coords, labels, symbols, atomTypes, charges )
-
-    def fromXyzFile(self, xyzFile ):
-        """"Jens did this.
-        """
-        
-        labels = []
-        symbols = []
-        atomTypes = [] # hack...
-        charges = []
-        
-        # numpy array
-        coords = []
-        
-        with open( xyzFile ) as f:
-            
-            # First line is number of atoms
-            line = f.readline()
-            natoms = int(line.strip())
-            
-            # Skip title
-            line = f.readline()
-            
-            count = 0
-            for _ in range(natoms):
-                
-                line = f.readline()
-                line = line.strip()
-                fields = line.split()
-                label = fields[0]
-                labels.append(label)
-                coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
-                symbol = util.label2symbol( label )
-                symbols.append( symbol )
-                atomTypes.append(  symbols )
-                charges.append( 0.0 )
-                
-                count += 1
-        
-        return ( coords, labels, symbols, atomTypes, charges )
-    
-    def fromFile(self, filepath=None, fragmentType=None):
-
-        if filepath.endswith( ".car" ):
-            ( coords, labels, symbols, atomTypes, charges ) = self.fromCarFile( filepath )
-        elif filepath.endswith( ".xyz" ):
-            ( coords, labels, symbols, atomTypes, charges ) = self.fromXyzFile( filepath )
-        else:
-            raise RuntimeError("Unrecognised file suffix: {}".format( filepath ) )
-        
-        # Get cap atoms and endgroups
-        endGroups, capAtoms, dihedralAtoms, uwAtoms = self.parseEndgroupFile( filepath, fragmentType=fragmentType )
-
-        # Set the root fragment and its attributes
-        f = fragment.Fragment( fragmentType )
-        f.setData( coords        = coords,
-                   labels        = labels,
-                   symbols       = symbols,
-                   atomTypes     = atomTypes,
-                   charges       = charges,
-                   endGroups     = endGroups,
-                   capAtoms      = capAtoms,
-                   dihedralAtoms = dihedralAtoms,
-                   uwAtoms       = uwAtoms
-                  )
-        
-        f.processBodies( filepath )
-        
-        self._fragments = [ f ]
-        self._update()
-        
-        return
 
     def getEndGroups(self, idxAtom=None, fragmentTypes=None, checkFree=True ):
         """return a list of endGroups
@@ -691,37 +561,6 @@ class Block(object):
     
     def mass(self):
         return self._mass
-
-    def parseEndgroupFile(self, filepath, fragmentType=None ):
-        
-        dirname, filename = os.path.split( filepath )
-        basename, suffix = os.path.splitext( filename )
-        
-        endGroups = []
-        capAtoms = []
-        uwAtoms = []
-        dihedralAtoms = []
-        egfile = os.path.join( dirname, basename+".ambi" )
-        if os.path.isfile( egfile ):
-            #raise RuntimeError,"Cannot find endgroup file {0} for car file {1}".format( egfile, filepath )
-            egs = [ ( line.strip().split() ) for line in open( egfile, 'r') if not line.startswith("#") ]
-            for eg in egs:
-                endGroups.append( int( eg[0] ) )
-                capAtoms.append( int( eg[1] ) )
-                if len(eg) > 2:
-                    dihedralAtoms.append( int( eg[2] )  )
-                else:
-                    dihedralAtoms.append( -1 )
-                if len(eg) > 3:
-                    uwAtoms.append( int( eg[3] )  )
-                else:
-                    uwAtoms.append( -1 )
-                    
-                
-            if fragmentType == 'cap' and len( endGroups ) != 1:
-                raise RuntimeError, "Capfile had >1 endGroup specified!"
-            
-        return endGroups, capAtoms, dihedralAtoms, uwAtoms
 
     def positionGrowBlock( self, endGroup, growBlock, growEndGroup, dihedral=None ):
         """
@@ -1038,7 +877,7 @@ class TestBlock(unittest.TestCase):
     def testCH4(self):
         """Test the creation of a CH4 molecule"""
         
-        ch4 = Block( self.ch4Car )
+        ch4 = Block( filePath=self.ch4Car, fragmentType='A' )
         
         #endGroups = [ 1, 2, 3, 4 ]
         endGroups = [ 0, 0, 0, 0 ]
@@ -1053,12 +892,12 @@ class TestBlock(unittest.TestCase):
     def testCX4(self):
         """Test the creation of a CX4 molecule"""
         
-        cx4_1 = Block( self.cx4Car )
+        cx4_1 = Block( filePath=self.cx4Car, fragmentType='A' )
         
         self.assertEqual( [ 0, 0, 0, 0 ], [ e.blockEndGroupIdx for e in cx4_1._endGroups ] )
         self.assertEqual( [ 1, 2, 3, 4, ], [ e.blockCapIdx for e in cx4_1._endGroups ] )
         
-        cx4_2 = Block( self.cx4Car )
+        cx4_2 = Block( filePath=self.cx4Car, fragmentType='A'  )
         
         idxEg1=0
         idxEg2=0
@@ -1069,7 +908,7 @@ class TestBlock(unittest.TestCase):
     def testCH4_Fragmentbond(self):
         """First pass"""
         
-        ch4 = Block( self.ch4Car )
+        ch4 = Block( filePath=self.ch4Car, fragmentType='A' )
         
         self.assertEqual( len( ch4._fragments[0]._bonds ), 4 )
         return
@@ -1077,8 +916,8 @@ class TestBlock(unittest.TestCase):
     def testCH4_bond(self):
         """First pass"""
         
-        ch4_1 = Block( self.ch4Car )
-        ch4_2 = Block( self.ch4Car )
+        ch4_1 = Block( filePath=self.ch4Car, fragmentType='A' )
+        ch4_2 = Block( filePath=self.ch4Car, fragmentType='A' )
         
         idxEg1=0 # 0 -> 1
         idxEg2=0 # 0 -> 1
@@ -1101,8 +940,8 @@ class TestBlock(unittest.TestCase):
         """First pass"""
         
         
-        ch4_1 = Block( self.ch4Car )
-        ch4_2 = Block( self.ch4Car )
+        ch4_1 = Block( filePath=self.ch4Car, fragmentType='A' )
+        ch4_2 = Block( filePath=self.ch4Car, fragmentType='A' )
         
         idxEg1=1
         idxEg2=2
@@ -1117,7 +956,7 @@ class TestBlock(unittest.TestCase):
     def testAlignBlocks(self):
         """Test we can align two _blocks correctly"""
     
-        blockS = Block( self.pafCar )
+        blockS = Block( filePath=self.pafCar, fragmentType='A'  )
         block = blockS.copy()
         
         block.translateCentroid( [ 3, 4 ,5 ] )
@@ -1161,7 +1000,7 @@ class TestBlock(unittest.TestCase):
         """
         
         correct = numpy.array([  0.000000,  0.000000,  0.000000 ])
-        ch4 = Block( self.ch4Car )
+        ch4 = Block( filePath=self.ch4Car, fragmentType='A'  )
         cog = ch4.centroid()
         self.assertTrue( numpy.allclose( correct, cog, rtol=1e-9, atol=1e-6 ),
                          msg="testCentroid incorrect COM.".format( cog ))
@@ -1174,7 +1013,7 @@ class TestBlock(unittest.TestCase):
         """
         
         correct = numpy.array([  0.000000,  0.000000,  0.000000 ])
-        ch4 = Block( self.ch4Car )
+        ch4 = Block( filePath=self.ch4Car, fragmentType='A'  )
         com = ch4.centerOfMass()
         self.assertTrue( numpy.allclose( correct, com, rtol=1e-6, atol=1e-6 ),
                          msg="testCenterOfMass incorrect COM: {0}".format( com ) )
@@ -1183,7 +1022,7 @@ class TestBlock(unittest.TestCase):
     def testMove(self):
         """Test we can move correctly"""
         
-        paf = Block( self.pafCar )
+        paf = Block( filePath=self.pafCar, fragmentType='A'  )
         m = paf.copy()
         m.translate( numpy.array( [5,5,5] ) )
         c = m.centroid()
@@ -1195,7 +1034,7 @@ class TestBlock(unittest.TestCase):
     
     def testAlignAtoms(self):
         
-        block = Block( self.benzeneCar )
+        block = Block( filePath=self.benzeneCar, fragmentType='A'  )
         bcopy = block.copy()
         
         # Check atoms are not aligned along axis
@@ -1221,7 +1060,7 @@ class TestBlock(unittest.TestCase):
     
     def testPositionGrowBlock(self):
         
-        blockS = Block( self.pafCar )
+        blockS = Block(filePath= self.pafCar, fragmentType='A'  )
         
         growBlock = blockS.copy()
         
@@ -1248,7 +1087,7 @@ class TestBlock(unittest.TestCase):
     
     def testPositionGrowBlock2(self):
         
-        staticBlock = Block( self.benzeneCar )
+        staticBlock = Block( filePath=self.benzeneCar, fragmentType='A'  )
         
         growBlock = staticBlock.copy()
         
@@ -1282,7 +1121,7 @@ class TestBlock(unittest.TestCase):
     
     def testPositionDihedral(self):
 
-        staticBlock = Block( self.benzeneCar )
+        staticBlock = Block( filePath=self.benzeneCar, fragmentType='A'  )
         
         growBlock = staticBlock.copy()
         
@@ -1315,7 +1154,7 @@ class TestBlock(unittest.TestCase):
         Test calculation of the radius
         """
         
-        ch4 = Block( self.ch4Car )
+        ch4 = Block( filePath=self.ch4Car, fragmentType='A'  )
         r = ch4.radius()
         #jmht - check...- old was: 1.78900031214
         # or maybe: 1.45942438719
@@ -1327,7 +1166,7 @@ class TestBlock(unittest.TestCase):
         Test calculation of the radius
         """
         
-        ch4 = Block( self.ch4Car )
+        ch4 = Block( filePath=self.ch4Car, fragmentType='A' )
         r = ch4.maxAtomRadius()
         #jmht - check...- old was: 1.78900031214
         self.assertAlmostEqual(r, 0.70380574117, 7, "Incorrect radius: {}".format(str(r)) )
@@ -1337,7 +1176,7 @@ class TestBlock(unittest.TestCase):
         Test the rotation
         """
         
-        ch4 = Block( self.ch4Car )
+        ch4 = Block( filePath=self.ch4Car, fragmentType='A'  )
         
         array1 = numpy.array( [ -0.51336 ,  0.889165, -0.363 ] )
         self.assertTrue( numpy.array_equal( ch4.atomCoord(4), array1 ),
