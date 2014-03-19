@@ -25,8 +25,8 @@ class FfieldParameters( object ):
                       'c-h'     : { 'k' : 1200.0, 'r0' : 1.09 },
                       'cp-hx'   : { 'k' : 1200.0, 'r0' : 1.09 },
                       'ct-hx'   : { 'k' : 1200.0, 'r0' : 1.09 },
-                      #bond parameters need checking
-                      'c_0-nb'   : { 'k' : 1200.0, 'r0' : 1.346 },
+                      
+                      'c_0-nb'   : { 'k' : 1200.0, 'r0' : 1.320 },
                       }
 
         self.angles = { 
@@ -44,18 +44,16 @@ class FfieldParameters( object ):
                        'cp-cp-np'     : { 'k' : 330.0, 't0' : math.radians(120) },
                        'np-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
                        'cp-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'c_0-nb-cpa'   : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'c_0-c_0-nb'   : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'cpa-nb-c_0'   : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'nb-c_0-c_0'   : { 'k' : 330.0, 't0' : math.radians(120) },
-
                        'ct-ct-cp'    : { 'k' : 330.0, 't0' : math.radians(180) },
                        'cp-ct-ct'    : { 'k' : 330.0, 't0' : math.radians(180) },
                        'ct-ct-hx'    : { 'k' : 330.0, 't0' : math.radians(180) },
                        'ct-ct-cp'    : { 'k' : 330.0, 't0' : math.radians(180) },
                        'cp-ct-nt'    : { 'k' : 330.0, 't0' : math.radians(180) },
                        
-                       'c_0-nb-cp'    : { 'k' : 0.0, 't0' : math.radians(140) },
+                       'c_0-c_0-nb'   : { 'k' : 300.0, 't0' : math.radians(118) },
+                       'nb-c_0-c_0'   : { 'k' : 300.0, 't0' : math.radians(118) },
+                       'c_0-nb-cpa'   : { 'k' : 800.0, 't0' : math.radians(138) },
+                       'cpa-nb-c_0'   : { 'k' : 800.0, 't0' : math.radians(138) },
                       }
 
         self.dihedrals = { 
@@ -65,10 +63,13 @@ class FfieldParameters( object ):
                        'ct-cp-cp-hc'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
                        'cp-cp-ct-nt'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
                        
-                       'nb-c_0-c_0-c_0'     : { 'k' : 0, 'd' : -1, 'n' : 2 },
-                       'nb-c_0-c_0-o_1'     : { 'k' : 0, 'd' : -1, 'n' : 2 },
-                       'c_0-nb-cp-cp'       : { 'k' : 3000, 'd' :  1, 'n' : 1 },
-                       'c_0-c_0-nb-cp'      : { 'k' : 0, 'd' :  1, 'n' : 8 },
+                       'nb-c_0-c_0-c_0'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'nb-c_0-c_0-o_1'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'c_0-nb-cpa-cp'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'c_0-nb-cpa-cpa'     : { 'k' : 70, 'd' : -1, 'n' : 2 },
+                       'c_0-c_0-nb-cpa'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpa-nb-c_0-c_0'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'nb-c_0-c_0-nb'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
                          }
         
         self.impropers = { 
@@ -128,9 +129,8 @@ class FfieldParameters( object ):
               ('c_0', 'c_0' )    : { 'epsilon' : 0.1200,   'sigma' : 3.3080  },
               ('c_0', 'o_1' )    : { 'epsilon' : 0.1755,   'sigma' : 3.4309  },
               ('c_0', 'cp' )     : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },
-              ('c_0', 'cpa' )     : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },              
-#              ('c_0', 'nb' )     : { 'epsilon' : 0.0736,   'sigma' : 3.7823  },
-              ('c_0', 'nb' )     : { 'epsilon' : 0.2000,   'sigma' : 3.0000  },
+              ('c_0', 'cpa' )    : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },              
+              ('c_0', 'nb' )     : { 'epsilon' : 0.0736,   'sigma' : 3.7823  },
               ('c_0', 'hc' )     : { 'epsilon' : 0.0469,   'sigma' : 3.1707  },
               ('c_0', 'hn' )     : { 'epsilon' : 0.0029,   'sigma' : 2.9477  },
               
@@ -182,9 +182,11 @@ class FfieldParameters( object ):
               ('o_1', 'o_1' )    : { 'epsilon' : 0.2670,   'sigma' : 3.5350  },
               ('o_1', 'cp' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
               ('o_1', 'cpa' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
-              ('o_1', 'nb' )     : { 'epsilon' : 0.1208,   'sigma' : 3.8484  },
+              #('o_1', 'nb' )     : { 'epsilon' : 0.1208,   'sigma' : 3.8484  },
+              ('o_1', 'nb' )     : { 'epsilon' : 1.1208,   'sigma' : 2.3200  },
               ('o_1', 'hc' )     : { 'epsilon' : 0.0649,   'sigma' : 3.3189  },
-              ('o_1', 'hn' )     : { 'epsilon' : 0.0035,   'sigma' : 3.1498  },
+              #('o_1', 'hn' )     : { 'epsilon' : 0.0035,   'sigma' : 3.1498  },
+              ('o_1', 'hn' )     : { 'epsilon' : 0.0035,   'sigma' : 1.6110  },
               
               ('h1', 'h1' )      : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
               ('h1', 'n3a' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
@@ -200,12 +202,11 @@ class FfieldParameters( object ):
               ('hn', 'hn' )      : { 'epsilon' : 0.0130,   'sigma' : 1.0980  },
               ('hc', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('hc', 'np' )      : { 'epsilon' : 0.0251,   'sigma' : 3.3431  },
-              ('hc', 'oc' )      : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },
+              ('hc', 'oc' )      : { 'epsilon' : 0.0615,   'sigma' : 3.3189  }, 
               ('hc', 'c1' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('hx', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('hx', 'nb' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
-#               ('nb', 'hn' )      : { 'epsilon' : 0.0011,   'sigma' : 3.6262  },
-              ('nb', 'hn' )      : { 'epsilon' : 0.2000,   'sigma' : 2.5000  },
+              ('nb', 'hn' )      : { 'epsilon' : 0.0011,   'sigma' : 3.6262  },
               
               ('n3a', 'n3a' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
               ('n3a', 'n2a' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
@@ -311,8 +312,20 @@ class HoomdOptimiser( object ):
         self.impropers = None
         self.atomTypes = None
         self.rCut = 5.0
+        
+        # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
+        # Incoming T is in Kelvin so we multiply by kB
+        self.CONVERSIONFACTOR = 8.310E-23
         return
 
+    def fromStandardUnits(self, value):
+        #return float(value) * self.CONVERSIONFACTOR
+        return float(value)
+    
+    def toStandardUnits(self, value):
+        #return float(value) / self.CONVERSIONFACTOR
+        return float(value)
+        
     def checkParameters(self, xmlFilename=None):
         
         assert self.ffield
@@ -651,7 +664,7 @@ class HoomdOptimiser( object ):
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
-                kw['d'][ i ] = hlog.query( i )
+                kw['d'][ i ] = self.toStandardUnits( hlog.query( i ) )
 
         return True
     
@@ -703,7 +716,7 @@ class HoomdOptimiser( object ):
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
-                kw['d'][ i ] = hlog.query( i )
+                kw['d'][ i ] = self.toStandardUnits( hlog.query( i ) )
         
         return optimised
     
@@ -745,25 +758,28 @@ class HoomdOptimiser( object ):
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
-                kw['d'][ i ] = hlog.query( i )
+                kw['d'][ i ] = self.toStandardUnits( hlog.query( i ) )
 
         return optimised
     
-    def _runMD(self, mdCycles=1000, T=2.0, tau=0.5, dt=0.005, **kw ):
+    def _runMD(self, mdCycles=1000, T=2.0, tau=0.5, dt=0.005, dump=False, **kw ):
         
         # Added **kw arguments so that we don't get confused by arguments intended for the optimise
         # when MD and optimiser run together
         # T= 0.1         
         
+        # Convert T
+        # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
+        # Incoming T is in Kelvin so we multiply by kB
+        T = self.fromStandardUnits(T)
         integrator_mode = hoomdblue.integrate.mode_standard( dt=dt )
         nvt_rigid = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
 
-        record=False
-        if record:
+        if dump:
             xmld = hoomdblue.dump.xml(filename="runmd.xml",
                                       vis=True )
             dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
-                                      period=10,
+                                      period=1,
                                       unwrap_full=True,
                                       overwrite=True )
 
