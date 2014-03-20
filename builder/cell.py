@@ -901,6 +901,7 @@ class Cell():
         'dihedralLabel' : [], 
         'fragmentBond' : [], 
         'fragmentBondLabel' : [], 
+        'label' : [], 
         'mass' : [], 
         'symbol' : [], 
         'type' : [], 
@@ -948,6 +949,7 @@ class Cell():
                 #diameter += "{0}\n".format( frag._atomRadii[ k ] )
                 d['charge'].append( block.atomCharge( i ) )
                 d['diameter'].append( 0.1 )
+                d['label'].append( block.atomLabel( i ) )
                 d['mass'].append( block.atomMass( i ) )
                 d['symbol'].append( block.atomSymbol( i ) )
                 d['type'].append( block.atomType( i ) )
@@ -1030,7 +1032,6 @@ class Cell():
                 #
                 # Dihedrals
                 #
-                
                 for dindices in block.dihedrals( endGroup1Idx, endGroup2Idx ):
                     dlabel = "{0}-{1}-{2}-{3}".format( block.atomType( dindices[0] ),
                                                        block.atomType( dindices[1] ),
@@ -1177,10 +1178,13 @@ class Cell():
             self._fileCount+=1
             prefix=prefix+"_{0}".format(self._fileCount)
             
-        self.writeXyz(prefix+".xyz",skipDummy=True)
-        self.writeXyz(prefix+"_P.xyz",skipDummy=True, periodic=True)
-        self.writeCar(prefix+"_P.car",periodic=True)
-        self.writeCar(prefix+".car",periodic=False)
+        
+        data = self.dataDict()
+            
+        self.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
+        self.writeCar(prefix+"_P.car",data=data,periodic=True)
+        self.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
+        self.writeCml(prefix+"_P.cml", data=data, allBonds=True, periodic=True, pruneBonds=False)
         
         # This is too expensive at the moment
         #self.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml")
@@ -2449,9 +2453,12 @@ class Cell():
         
         return
         
-    def writeCar( self, ofile="ambuild.car", periodic=True, skipDummy=False ):
+    def writeCar( self, ofile="ambuild.car", data=None, periodic=True, skipDummy=False ):
         """Car File
         """
+        
+        if not data:
+            data = self.dataDict()
         
         car = "!BIOSYM archive 3\n"
         if periodic:
@@ -2464,32 +2471,25 @@ class Cell():
         car += "!DATE {0}\n".format( tstr )
         
         if periodic:
-            car += "PBC  {0: < 9.4F} {1: < 9.4F} {2: < 9.4F}  90.0000   90.0000   90.0000 (P1)\n".format( self.A,
-                                                                                                          self.B,
-                                                                                                          self.C )
-        
-        for i, ( idxBlock, block ) in enumerate( self.blocks.iteritems() ):
-            for j, coord in enumerate( block.iterCoord() ):
-                
-                if block.ignoreAtom( j ):
-                    continue
-                
-                if skipDummy and block.invisibleAtom( j ):
-                    continue
-                
+            car += "PBC  {0: < 9.4F} {1: < 9.4F} {2: < 9.4F}  90.0000   90.0000   90.0000 (P1)\n".format( data['A'],
+                                                                                                          data['B'],
+                                                                                                          data['C'] )
+#         for i, ( idxBlock, block ) in enumerate( self.blocks.iteritems() ):
+#             for j, coord in enumerate( block.iterCoord() ):
+        for i, coord in enumerate( data['coord'] ):
                 if periodic:
-                    x, ix = util.wrapCoord( coord[0], self.A, center=False )
-                    y, iy = util.wrapCoord( coord[1], self.B, center=False )
-                    z, iz = util.wrapCoord( coord[2], self.C, center=False )
+                    x, ix = util.wrapCoord( coord[0], data['A'], center=False )
+                    y, iy = util.wrapCoord( coord[1], data['B'], center=False )
+                    z, iz = util.wrapCoord( coord[2], data['C'], center=False )
                 else:
                     x = coord[0]
                     y = coord[1]
                     z = coord[2]
                 
-                label = block.atomLabel( j )[:5]
-                symbol = block.atomSymbol( j )
-                atype = block.atomType( j )
-                charge = block.atomCharge( j )
+                atype = data['type'][ i ]
+                charge = data['charge'][ i ]
+                label = data['label'][ i ][:5]
+                symbol = data['symbol'][ i ]
                 car += "{0: <5} {1: >15.10} {2: >15.10} {3: >15.10} XXXX 1      {4: <4}    {5: <2} {6: > 2.3f}\n".format( label, x, y, z, atype, symbol, charge ) 
         
         car += "end\nend\n\n"
@@ -2501,10 +2501,11 @@ class Cell():
         self.logger.info( "Wrote car file: {0}".format(fpath) )
         return
     
-    def writeCml(self, cmlFilename, allBonds=True, periodic=False):
+    def writeCml(self, cmlFilename, data=None, allBonds=True, periodic=False, pruneBonds=False):
 
         # Get the data on the blocks
-        data = self.dataDict()
+        if not data:
+            data = self.dataDict()
         
         root = ET.Element( 'molecule')
         root.attrib['xmlns']       = "http://www.xml-cml.org/schema"
@@ -2542,10 +2543,20 @@ class Cell():
         crystalBNode.text = str( data['B'] )
         crystalCNode.text = str( data['C'] )
         
-        # Onlt support orthorhombic? cells
+        # Only support orthorhombic? cells
         crystalAlphaNode.text = "90"
         crystalBetaNode.text  = "90"
         crystalGammaNode.text = "90"
+        
+        # Hack to get vis working
+        if pruneBonds:
+            pcoords = []
+            
+        # Need to collate atomTypes
+        for atype in set( data['type'] ):
+            atomTypeNode = ET.SubElement( root, "atomType" )
+            atomTypeNode.attrib['name'] = atype
+            atomTypeNode.attrib['title'] = atype
         
         # Now atom data
         atomArrayNode = ET.SubElement( root, "atomArray" )
@@ -2557,19 +2568,30 @@ class Cell():
                 x, ix = util.wrapCoord( coord[0], data['A'], center=False )
                 y, iy = util.wrapCoord( coord[1], data['B'], center=False )
                 z, iz = util.wrapCoord( coord[2], data['C'], center=False )
+                if pruneBonds:
+                    pcoords.append( numpy.array( [x,y,z] ) )
             else:
                 x = coord[0]
                 y = coord[1]
                 z = coord[2]
-                
+            
             atomNode.attrib['x3'] = str( x )
             atomNode.attrib['y3'] = str( y )
             atomNode.attrib['z3'] = str( z )
+            
+            # Now add atomType as child node referring to the atomType
+            atomTypeNode = ET.SubElement( atomNode, "atomType" )
+            atomTypeNode.attrib['ref'] = data['type'][ i ]
         
         # Now do bonds
         if len(data['bond']):
             bondArrayNode = ET.SubElement( root, "bondArray" )
             for i, b in enumerate( data['bond'] ):
+                if pruneBonds:
+                    # Complete hack - just see if it's longer then any reasonable bond
+                    if util.distance( pcoords[ b[0] ], pcoords[ b[1] ] ) > 3:
+                        continue
+                
                 bondNode = ET.SubElement( bondArrayNode, "bond")
                 bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
                 bondNode.attrib['order'] = "1"
@@ -2577,6 +2599,10 @@ class Cell():
         # internal fragment bonds
         if len(data['fragmentBond']) and allBonds:
             for i, b in enumerate( data['fragmentBond'] ):
+                if pruneBonds:
+                    # Complete hack - just see if it's longer then any reasonable bond
+                    if util.distance( pcoords[ b[0] ], pcoords[ b[1] ]  ) > 3:
+                        continue
                 bondNode = ET.SubElement( bondArrayNode, "bond")
                 bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
                 bondNode.attrib['order'] = "1"
@@ -2592,38 +2618,28 @@ class Cell():
         
         return
     
-    def writeXyz(self, ofile, label=False, periodic=False, skipDummy=False ):
+    def writeXyz(self, ofile, data=None, periodic=False ):
         """Write out the cell atoms to an xyz file
         If label is true we write out the atom label and block, otherwise the symbol
         """
         
-        natoms=0
+        if not data:
+            data = self.dataDict()
+        
         xyz = ""
-        for i,block in self.blocks.iteritems():
-            for j, coord in enumerate( block.iterCoord() ):
+        for i, coord in enumerate( data['coord'] ):
                 
-                if block.ignoreAtom( j ):
-                    continue
+            if periodic:
+                x, ix = util.wrapCoord( coord[0], self.A, center=False )
+                y, iy = util.wrapCoord( coord[1], self.B, center=False )
+                z, iz = util.wrapCoord( coord[2], self.C, center=False )
+            else:
+                x, y, z = coord
                 
-                if skipDummy:
-                    if block.atomSymbol( j ).lower() == 'x':
-                        continue
-                
-                if label:
-                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( "{}_block#{}".format( block.atomLabel(j),
-                                                                                                       coord[0], coord[1], coord[2] ) )
-                else:
-                    if periodic:
-                        x, ix = util.wrapCoord( coord[0], self.A, center=False )
-                        y, iy = util.wrapCoord( coord[1], self.B, center=False )
-                        z, iz = util.wrapCoord( coord[2], self.C, center=False )
-                    else:
-                        x, y, z = coord
-                    xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( block.atomSymbol(j), x, y, z )
-                natoms += 1
+            xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( data['symbol'][i], x, y, z )
         
         # Write out natoms and axes as title
-        xyz = "{}\nAxes:{}:{}:{}\n".format(natoms, self.A, self.B, self.C ) + xyz
+        xyz = "{}\nAxes:{}:{}:{}\n".format( i+1, data['A'], data['B'], data['C'] ) + xyz
         
         with open( ofile, 'w' ) as f:
             fpath = os.path.abspath(f.name)
