@@ -363,7 +363,8 @@ class Fragment(object):
         egfile = os.path.join( dirname, basename+".ambi" )
         if os.path.isfile( egfile ):
             #raise RuntimeError,"Cannot find endgroup file {0} for car file {1}".format( egfile, filepath )
-            egs = [ ( line.strip().split() ) for line in open( egfile, 'r') if not line.startswith("#") ]
+            egs = [ ( line.strip().split() ) for line in open( egfile, 'r') if line.strip() and not line.startswith("#") ]
+            
             for eg in egs:
                 endGroups.append( int( eg[0] ) )
                 capAtoms.append( int( eg[1] ) )
