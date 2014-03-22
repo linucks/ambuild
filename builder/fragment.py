@@ -456,6 +456,14 @@ class Fragment(object):
             eg.fragmentDihedralIdx = dihedralAtoms[ i ]
             eg.fragmentUwIdx       = uwAtoms[ i ]
             
+            # sanity check
+            assert eg.fragmentCapIdx in self.bonded( eg.fragmentEndGroupIdx ),\
+            "capAtom {0} is not bonded to endGroup {1}".format( eg.fragmentCapIdx,eg.fragmentEndGroupIdx )
+            assert eg.fragmentDihedralIdx in self.bonded( eg.fragmentEndGroupIdx ),\
+            "dihedral Atom {0} is not bonded to endGroup {1}".format( eg.fragmentDihedralIdx, eg.fragmentEndGroupIdx )
+            assert eg.fragmentUwIdx in self.bonded( eg.fragmentEndGroupIdx ),\
+            "uwAtom {0} is not bonded to endGroup {1}".format( eg.fragmentUwIdx, eg.fragmentEndGroupIdx )
+            
             self._endGroups.append( eg )
         return
 
