@@ -2584,6 +2584,7 @@ class Cell():
             atomTypeNode.attrib['ref'] = data['type'][ i ]
         
         # Now do bonds
+        bondArrayNode = None
         if len(data['bond']):
             bondArrayNode = ET.SubElement( root, "bondArray" )
             for i, b in enumerate( data['bond'] ):
@@ -2598,6 +2599,8 @@ class Cell():
         
         # internal fragment bonds
         if len(data['fragmentBond']) and allBonds:
+            if not bondArrayNode:
+                bondArrayNode = ET.SubElement( root, "bondArray" )
             for i, b in enumerate( data['fragmentBond'] ):
                 if pruneBonds:
                     # Complete hack - just see if it's longer then any reasonable bond
