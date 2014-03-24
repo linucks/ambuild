@@ -17,15 +17,22 @@ class FfieldParameters( object ):
         
         # REM = bonds are in alphabetical order as in the order of the atoms in a bond
         # e.g. c-h NOT h-c
+        # All parameters calculated to fit PCFF adapted forcefield Holden et al j.phys.chem.c 2012
+        # from combining rules calculated using dlpoly-prep (Willock)
+        # bonds adapted from quartic PCFF 
         self.bonds = { 
-                      'cp-cp'   : { 'k' : 1200.0, 'r0' : 1.54 },
-                      'cp-ct'   : { 'k' : 1200.0, 'r0' : 1.54 },
-                      'c3a-c3a' : { 'k' : 1200.0, 'r0' : 1.54 },
-                      'c-c'     : { 'k' : 1200.0, 'r0' : 1.54 },
-                      'c-h'     : { 'k' : 1200.0, 'r0' : 1.09 },
-                      'cp-hx'   : { 'k' : 1200.0, 'r0' : 1.09 },
-                      'ct-hx'   : { 'k' : 1200.0, 'r0' : 1.09 },
-                      
+                      'cp-cp'   : { 'k' : 1550.0, 'r0' : 1.384 },
+                      'c1-cp'   : { 'k' : 970.0,  'r0' : 1.501 },
+                      'c2-cp'   : { 'k' : 970.0,  'r0' : 1.501 },
+                      #'cp-ct'   : { 'k' : 1200.0, 'r0' : 1.54 },
+                      #'c3a-c3a' : { 'k' : 1200.0, 'r0' : 1.54 },
+                      'c-c'     : { 'k' : 930.0,  'r0' : 1.536 },
+                      'c-h'     : { 'k' : 1400.0, 'r0' : 1.010 },
+                      'cp-h'    : { 'k' : 1400.0, 'r0' : 1.079 },
+                      'cp-hx'   : { 'k' : 1400.0, 'r0' : 1.079 },
+                      #'ct-hx'   : { 'k' : 1200.0, 'r0' : 1.09 },
+                      #Here c_0 is = c= and nb is = n= to maintain ff label. Bondlength fitted to DFT 
+                      #at b3lyp with vdw3 disp 6-311G basis set
                       'c_0-nb'   : { 'k' : 1200.0, 'r0' : 1.320 },
                       }
 
@@ -33,23 +40,30 @@ class FfieldParameters( object ):
                        #2*math.pi/3 = 120
                        #math.pi = 180
   
-                       'cp-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'c-c-h'        : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'c-c-c'        : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'c3a-c3a-c3a'  : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'cp-cp-ct'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'ct-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'cp-cp-ct'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'cp-cp-hx'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'cp-cp-np'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'np-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'cp-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'ct-ct-cp'    : { 'k' : 330.0, 't0' : math.radians(180) },
-                       'cp-ct-ct'    : { 'k' : 330.0, 't0' : math.radians(180) },
-                       'ct-ct-hx'    : { 'k' : 330.0, 't0' : math.radians(180) },
-                       'ct-ct-cp'    : { 'k' : 330.0, 't0' : math.radians(180) },
-                       'cp-ct-nt'    : { 'k' : 330.0, 't0' : math.radians(180) },
-                       
+                       'cp-cp-cp'     : { 'k' : 300.0, 't0' : math.radians(120) },
+                       'c3a-c3a-c3a'  : { 'k' : 700.0, 't0' : math.radians(120) },
+                       'cp-cp-ct'     : { 'k' : 700.0, 't0' : math.radians(120) },
+                       'ct-cp-cp'     : { 'k' : 700.0, 't0' : math.radians(120) },
+                       #'cp-cp-hx'     : { 'k' : 330.0, 't0' : math.radians(120) },
+                       #'cp-cp-np'     : { 'k' : 330.0, 't0' : math.radians(120) },
+                       #'np-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'ct-ct-cp'    : { 'k' : 700.0, 't0' : math.radians(180) },
+                       'cp-ct-ct'    : { 'k' : 700.0, 't0' : math.radians(180) },
+                       #'ct-ct-hx'    : { 'k' : 330.0, 't0' : math.radians(180) },
+                       'ct-ct-cp'    : { 'k' : 700.0, 't0' : math.radians(180) },
+                       'cp-ct-nt'    : { 'k' : 700.0, 't0' : math.radians(180) },
+                       'h1-c1-cp'    : { 'k' : 330.0, 't0' : math.radians(109) },
+                       'hc-c2-cp'    : { 'k' : 330.0, 't0' : math.radians(109) },
+                       'cp-c2-hc'    : { 'k' : 330.0, 't0' : math.radians(109) },
+                       'c1-cp-cp'    : { 'k' : 2500.0, 't0' : math.radians(120) },
+                       'cp-cp-c1'    : { 'k' : 2500.0, 't0' : math.radians(120) },
+                       'c2-cp-cp'    : { 'k' : 2500.0, 't0' : math.radians(120) },
+                       'cp-cp-c2'    : { 'k' : 2500.0, 't0' : math.radians(120) },
+                       'cp-c1-h1'    : { 'k' : 330.0, 't0' : math.radians(120) },
+                       'cp-c1-cp'    : { 'k' : 2500.0, 't0' : math.radians(109) },
+                       'cp-c1-cp'    : { 'k' : 2500.0, 't0' : math.radians(109) },
+                       'cp-c1-o_1'    : { 'k' : 700.0, 't0' : math.radians(109) },
+                       'cp-c2-cp'    : { 'k' : 2500.0, 't0' : math.radians(109) },
                        'c_0-c_0-nb'   : { 'k' : 300.0, 't0' : math.radians(118) },
                        'nb-c_0-c_0'   : { 'k' : 300.0, 't0' : math.radians(118) },
                        'c_0-nb-cpa'   : { 'k' : 800.0, 't0' : math.radians(138) },
@@ -92,6 +106,7 @@ class FfieldParameters( object ):
               ('c2', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('c2', 'nb' )      : { 'epsilon' : 0.0759,   'sigma' : 3.9357  },
               ('c2', 'hx' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
+              ('c2', 'cl' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               
               ('c1', 'c1' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
               ('c1', 'c2' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
@@ -128,6 +143,7 @@ class FfieldParameters( object ):
               
               ('c_0', 'c_0' )    : { 'epsilon' : 0.1200,   'sigma' : 3.3080  },
               ('c_0', 'o_1' )    : { 'epsilon' : 0.1755,   'sigma' : 3.4309  },
+              ('c1', 'o_1' )    : { 'epsilon' : 0.1755,   'sigma' : 3.4309  },
               ('c_0', 'cp' )     : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },
               ('c_0', 'cpa' )    : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },              
               ('c_0', 'nb' )     : { 'epsilon' : 0.0736,   'sigma' : 3.7823  },
@@ -145,6 +161,7 @@ class FfieldParameters( object ):
               ('c3a', 'o2e' )    : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
               
               ('cp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              ('cp', 'cl' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('cp', 'cpa' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cpa', 'cpa' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
@@ -187,6 +204,7 @@ class FfieldParameters( object ):
               ('o_1', 'hc' )     : { 'epsilon' : 0.0649,   'sigma' : 3.3189  },
               #('o_1', 'hn' )     : { 'epsilon' : 0.0035,   'sigma' : 3.1498  },
               ('o_1', 'hn' )     : { 'epsilon' : 0.0035,   'sigma' : 1.6110  },
+              ('o_1', 'h1' )     : { 'epsilon' : 0.0035,   'sigma' : 1.6110  },
               
               ('h1', 'h1' )      : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
               ('h1', 'n3a' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
@@ -194,6 +212,9 @@ class FfieldParameters( object ):
               ('h1', 'p' )       : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
               ('h1', 'f1p' )     : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
               #('h1', 'zn+2' )    : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
+              ('h1', 'c1' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
+              ('h1', 'cp' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
+              ('h1', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               
               ('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('hc', 'nb' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
@@ -204,9 +225,13 @@ class FfieldParameters( object ):
               ('hc', 'np' )      : { 'epsilon' : 0.0251,   'sigma' : 3.3431  },
               ('hc', 'oc' )      : { 'epsilon' : 0.0615,   'sigma' : 3.3189  }, 
               ('hc', 'c1' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
+              ('hc', 'cl' )      : { 'epsilon' : 0.0200,   'sigma' : 2.9950  },
+              
               ('hx', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('hx', 'nb' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
               ('nb', 'hn' )      : { 'epsilon' : 0.0011,   'sigma' : 3.6262  },
+              
+              ('cl', 'cl' )      : { 'epsilon' : 0.0200,   'sigma' : 2.9950  },
               
               ('n3a', 'n3a' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
               ('n3a', 'n2a' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
