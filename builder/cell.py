@@ -1194,11 +1194,11 @@ class Cell():
         
         data = self.dataDict()
             
-        self.writeXyz(prefix+".xyz",data=data, periodic=False)
+        #self.writeXyz(prefix+".xyz",data=data, periodic=False)
         self.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
         self.writeCar(prefix+"_P.car",data=data,periodic=True)
         self.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
-        self.writeCml(prefix+"_P.cml", data=data, allBonds=True, periodic=True, pruneBonds=False)
+        #self.writeCml(prefix+"_P.cml", data=data, allBonds=True, periodic=True, pruneBonds=False)
         
         # This is too expensive at the moment
         #self.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml")
