@@ -126,6 +126,9 @@ class Cell():
     '''
     classdocs
     '''
+    
+    BONDTYPESEP     = "-" # Character for separating bonds
+    ENDGROUPSEP     = ":" # Character for separating endGroups in bonds
 
     def __init__( self, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False ):
         '''
@@ -245,18 +248,29 @@ class Cell():
                 
         return idxBlock
     
-    def addBondType( self, bondtype ):
+    def addBondType( self, bondType ):
         """what it says"""
         
-        t = tuple( bondtype.split("-") )
+        try:
+            b1EndGroupType, b2EndGroupType = bondType.split(self.BONDTYPESEP)
+            b1FragmentType = b1EndGroupType.split(self.ENDGROUPSEP)[0]
+            b2FragmentType = b2EndGroupType.split(self.ENDGROUPSEP)[0]
+        except ValueError:
+            raise RuntimeError,"Error adding BondType {0} - string needs to be of form 'A:a-B:b'".format( bondType )
         
-        if len(t) != 2:
-            raise RuntimeError,"Error adding BondType {0} - string needs to be of form 'A-B'".format( t )
+        # Checks
+        assert b1FragmentType in self._fragmentLibrary,"No fragment type {0} in fragmentLibrary".format( b1FragmentType )
+        assert b1EndGroupType in self._fragmentLibrary[ b1FragmentType ].endGroupTypes(),\
+        "Fragment type {0} has no endGroup type {1}".format( b1FragmentType, b1EndGroupType )
+        assert b2FragmentType in self._fragmentLibrary,"No fragment type {0} in fragmentLibrary".format( b2FragmentType )
+        assert b2EndGroupType in self._fragmentLibrary[ b2FragmentType ].endGroupTypes(),\
+        "Fragment type {0} has no endGroup type {1}".format( b2FragmentType, b2EndGroupType )
         
-        if t in self.bondTypes:
+        bt = (b1EndGroupType, b2EndGroupType)
+        if bt in self.bondTypes:
             raise RuntimeError,"Adding an existing bond type: {0}".format( t )
         
-        self.bondTypes.append( t )
+        self.bondTypes.append( bt )
         
         return
     
@@ -290,15 +304,15 @@ class Cell():
         
         return
     
-    def allowedFragTypes( self, fragmentType ):
-        """Given a fragmentType, return a list of the fragmentTypes it can bond with"""
+    def allowedEndGroupTypes( self, endGroupType ):
+        """Given a endGroupType, return a list of the endGroupTypes it can bond with"""
         
         canBondFrags = []
         for bondA, bondB in self.bondTypes:
-            if fragmentType == bondA:
+            if endGroupType == bondA:
                 if bondB not in canBondFrags:
                     canBondFrags.append( bondB )
-            elif fragmentType == bondB:
+            elif endGroupType == bondB:
                 if bondA not in canBondFrags:
                     canBondFrags.append( bondA )
         
@@ -385,12 +399,12 @@ class Cell():
             # For each block generate a list of which frgmentTypes it can bond to
             possibles = []
             # Returns the free endgroup types
-            for ftype in block.getEndGroupTypes():
+            for ftype in block.freeEndGroupTypes():
                 
                 if ftype not in fragmentTypes:
                     fragmentTypes.append( ftype )
                     
-                for f in self.allowedFragTypes( ftype ):
+                for f in self.allowedEndGroupTypes( ftype ):
                     if f not in possibles:
                         possibles.append( f )
             
@@ -419,7 +433,7 @@ class Cell():
         got=False # Track when there are on possible blocks
         for idxBlock, block in freeBlocks.iteritems():
             blocks = []
-            for ftype in block.getEndGroupTypes():
+            for ftype in block.freeEndGroupTypes():
                 for b in ftype2blocks[ ftype ]:
                     if b not in blocks and b != idxBlock:
                         blocks.append ( b )
@@ -436,22 +450,21 @@ class Cell():
 
         return blockCanbond
 
-    def bondAllowed( self, frag1, frag2 ):
+    def bondAllowed( self, endGroup1, endGroup2 ):
         """Check if the given bond is permitted from the types of the two fragments
         """
         
-        # Get the two fragment types for this bond
-        ftype1 = frag1.type()
-        ftype2 = frag2.type()
-        
         #    self.logger.debug( "checking bondAllowed {0} {1}".format( ftype1, ftype2 ) )
-        
-        if ftype1 == "cap" or ftype2 == "cap":
+        if endGroup1.fragmentType() == "cap" or endGroup2.fragmentType() == "cap":
+            assert False,"NEED TO FIX CAPS!"
             return True
         
+        # Get the two fragment types for this bond
+        eg1 = endGroup1.type()
+        eg2 = endGroup2.type()
         for type1, type2 in self.bondTypes:
             #self.logger.debug("bondTypes {0}".format((type1, type2)) )
-            if ( ftype1 == type1 and ftype2 == type2 ) or ( ftype1 == type2 and ftype2 == type1 ):
+            if ( eg1 == type1 and eg2 == type2 ) or ( eg1 == type2 and eg2 == type1 ):
                 #self.logger.debug( "BOND RETURN TRUE" )
                 return True
             
@@ -512,13 +525,13 @@ class Cell():
             return False
         
         # Now loop over all endGroups seeing if any of the angles are satisfied
-        for staticEndGroup in staticBlock.getEndGroups( idxAtom=idxStaticAtom, checkFree=True ):
-            for addEndGroup in addBlock.getEndGroups( idxAtom=idxAddAtom, checkFree=True ):
+        for staticEndGroup in staticBlock.atomEndGroups( idxStaticAtom ):
+            for addEndGroup in addBlock.atomEndGroups( idxAddAtom ):
             
                 # First check if endGroups of this type can bond - will apply to all so can bail on first fail
-                if not self.bondAllowed( staticEndGroup.fragment, addEndGroup.fragment ):
-                    self.logger.debug( "Bond disallowed by bonding rules: {0} : {1}".format( staticEndGroup.fragment._fragmentType, 
-                                                                                              addEndGroup.fragment._fragmentType
+                if not self.bondAllowed( staticEndGroup, addEndGroup ):
+                    self.logger.debug( "Bond disallowed by bonding rules: {0} : {1}".format( staticEndGroup, 
+                                                                                              addEndGroup
                                                                                              ) )
                     return False
 
@@ -570,7 +583,7 @@ class Cell():
         capBlock = buildingBlock.Block( filePath=filename, fragmentType='cap' )
         
         # The endgroup is always the first only endGroup
-        capEndGroup = capBlock._endGroups[0]
+        capEndGroup = capBlock.freeEndGroups()[0]
         
         # Get a list of blocks - need to do it this way or else we are changing the list of blocks while
         # we iterate through them
@@ -585,7 +598,7 @@ class Cell():
                                                                                         blockId  )  )
             
             # If there are no free this won't loop
-            for endGroup in block.getEndGroups( fragmentTypes=[ fragmentType ] ):
+            for endGroup in block.freeEndGroupsFromTypes( [ fragmentType ] ):
                 
                 cblock = capBlock.copy()
                 #print "ADDING CAPBLOCK ",id(cblock)
@@ -1181,6 +1194,7 @@ class Cell():
         
         data = self.dataDict()
             
+        self.writeXyz(prefix+".xyz",data=data, periodic=False)
         self.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
         self.writeCar(prefix+"_P.car",data=data,periodic=True)
         self.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
@@ -1202,6 +1216,9 @@ class Cell():
                 except:
                     ft[ k ] = v
         return ft
+    
+    def fragmentTypeFromEndGroupType(self, endGroupType):
+        return endGroupType.split( self.ENDGROUPSEP)[0]
 
     def fromHoomdblueSystem(self, system ):
         """Reset the particle positions from hoomdblue system"""
@@ -1355,32 +1372,35 @@ class Cell():
         
         return
 
-    def ftype2block(self, init=False ):
-        """Return a list of which blocks can be bonded to which fragment types
+    def endGroupType2block(self, init=False ):
+        """Return a list of which blocks can be bonded to which endGroup types
         """
         
-        ftype2block = {}
+        endGroupType2block = {}
         numFreeEndGroups = 0
         for idxBlock, block in self.blocks.iteritems():
             
             numFreeEndGroups += block.numFreeEndGroups()
-            # Returns the free endgroup types
-            for ftype in block.getEndGroupTypes():
-                for f in self.allowedFragTypes( ftype ):
-                    if f not in ftype2block:
-                        ftype2block[ f ] = [ idxBlock ]
-                    else:
-                        ftype2block[ f ].append( idxBlock )
             
-        if not len( ftype2block.keys() ):
-            print ftype2block
+            # Get a list of the free endGroup types in the block
+            for ftype in block.freeEndGroupTypes():
+                # For each of these get a list of which endGroups they can bond to and put it
+                # in the dictionary
+                for f in self.allowedEndGroupTypes( ftype ):
+                    if f not in endGroupType2block:
+                        endGroupType2block[ f ] = [ idxBlock ]
+                    else:
+                        endGroupType2block[ f ].append( idxBlock )
+            
+        if not len( endGroupType2block.keys() ):
+            print endGroupType2block
             raise RuntimeError,"No block can bond to any other under the given rules: {0}".format( self.bondTypes )
 
         if numFreeEndGroups == 0:
             #self.dump("noFreeEndGroups")
-            raise RuntimeError,"ftype2block no free endGroup!"
+            raise RuntimeError,"endGroupType2block no free endGroup!"
 
-        return ftype2block
+        return endGroupType2block
 
     def _readXyz(self, xyzFile ):
         """"Read in an xyz file containing a cell - cell axes is title line and 
@@ -1449,10 +1469,10 @@ class Cell():
         return blocks
 
     def getInitBlock( self, fragmentType=None ):
-        """Return an initBlock of type fragmentType. If fragmentType is not set
-        return a random _fragmentLibrary"""
+        """Return an initBlock"""
         
-        if not fragmentType:
+        if fragmentType is None:
+            # Need to determine the fragmentType from the endGroupType
             fragmentType = random.choice( list( self._fragmentLibrary.keys() ) )
         
         # sanity check
@@ -1464,13 +1484,13 @@ class Cell():
         
         return buildingBlock.Block( initFragment=f )
 
-    def growBlocks(self, toGrow, fragmentType=None, dihedral=None, maxTries=50 ):
+    def growBlocks(self, toGrow, endGroupType=None, dihedral=None, maxTries=50 ):
         """
         Add toGrow new blocks to the cell based on the initBlock
         
         Args:
         toGrow: number of blocks to add
-        fragmentType: the type of block to add
+        endGroupType: the type of block to add
         dihedral: the dihedral angle about the bond (3rd column in ambi file)
         maxTries: number of tries to add before we give up
         """
@@ -1496,7 +1516,7 @@ class Cell():
                 return added
 
             # Select two random blocks that can be bonded
-            initBlock, newEG, idxStaticBlock, staticEG = self.randomInitAttachments( fragmentType=fragmentType )
+            initBlock, newEG, idxStaticBlock, staticEG = self.randomInitAttachments( endGroupType=endGroupType )
 
             # Apply random rotation in 3 axes to randomise the orientation before we align
             initBlock.randomRotate( origin=self.origin )
@@ -1887,34 +1907,50 @@ class Cell():
         
         return blockId
 
-    def randomInitAttachments( self, fragmentType=None ):
-        """foo
+    def randomInitAttachments( self, endGroupType=None ):
+        """
+        * get a dictionary mapping which endGroupTypes can bond to the different blocks in the cell
+        * make sure there is a fragment in the library that can bond to one of those endGroupTypes
+        * select a random endGroupType (or use the given one)
+        * randomly select a block that can bond to that endGroup type
+        * randomly select an endGroup in the block that can bond to given endGroupType
+        * select a fragment from the library that has the given endGroupType
+        * select a random endGroup of that type
+        
         """
 
-        # WE CALL THIS EVERY TIME WHICH IS OF COURSE NUTS - NEED TO UPDATE THE STRUCTURES AS BLOCKS ADDED/REMOVED
-        ftype2block = self.ftype2block()
+        # Get dict mapping which blocks in the cell can bond to which endGroupType
+        endGroupType2block = self.endGroupType2block()
         
-        if fragmentType is None:
+#         # Check there is a fragment in the library that can bond to given endGroupTypes
+#         common = frozenset( endGroupType2block.keys() ).intersection( frozenset( self._fragmentLibrary.keys() ) )
+#         if not bool( common ):
+#             raise RuntimeError,"Cannot match available endGroups {0} to fragmentLibrary {1}".format( endGroupType2block.keys(),
+#                                                                                                      self._fragmentLibrary.keys() )
+        
+        if endGroupType is None:
             # Pick a random init fragment type
-            fragmentType= random.choice( ftype2block.keys() )
+            endGroupType= random.choice( endGroupType2block.keys() )
         else:
-            if fragmentType not in ftype2block:
-                raise RuntimeError,"Cannot find free block to attach to type: {0}".format( fragmentType )
+            if endGroupType not in endGroupType2block:
+                raise RuntimeError,"Cannot find free block to attach to type: {0}".format( endGroupType )
         
-        # Pick a random block from that list
-        idxStaticBlock = random.choice( ftype2block[ fragmentType ] )
+        # Pick a random block in the cell that can bond to the selected endGroupType
+        idxStaticBlock = random.choice( endGroupType2block[ endGroupType ] )
         staticBlock = self.blocks[ idxStaticBlock ]
         
         # Get a random end group that can bond to the initblock
-        staticEG  = staticBlock.randomEndGroup( fragmentTypes = self.allowedFragTypes( fragmentType ) )
-        initBlock =  self.getInitBlock( fragmentType )
-        initEG    = initBlock.randomEndGroup( fragmentTypes=[ fragmentType ] )
+        staticEG  = staticBlock.randomEndGroup( endGroupTypes = self.allowedEndGroupTypes( endGroupType ) )
+        assert staticEG
         
+        # Now get a fragment from the library that contains the given endGroupType
+        initBlock =  self.getInitBlock( fragmentType=self.fragmentTypeFromEndGroupType( endGroupType ) )
+        assert initBlock
+        initEG    = initBlock.randomEndGroup( endGroupTypes=[ endGroupType ] )
+        assert initEG
         
-        assert initBlock and initEG and staticEG
-        
-        s = "randomInitAttachents returning: {0} {1} {2} {3}".format( initBlock.id(), initEG, idxStaticBlock, staticEG )
-        self.logger.debug( s )
+        msg = "randomInitAttachents returning: {0} {1} {2} {3}".format( initBlock.id(), initEG, idxStaticBlock, staticEG )
+        self.logger.debug( msg )
         return ( initBlock, initEG, idxStaticBlock, staticEG )
 
     def randomAttachments( self ):
@@ -1949,12 +1985,12 @@ class Cell():
             
             # Pick random endGroups and AA in static
             # FIX TO PICK ONE THAT WE KNOW WORKS
-            staticEG = staticBlock.randomEndGroup( fragmentTypes=None )
+            staticEG = staticBlock.randomEndGroup( endGroupTypes=None )
             
             # Determine which fragmentType this corresponds to
-            fragmentType = staticEG.fragment.type()
+            endGroupType = staticEG.type()
             
-            moveEG = moveBlock.randomEndGroup( fragmentTypes = self.allowedFragTypes( fragmentType ) )
+            moveEG = moveBlock.randomEndGroup( endGroupTypes = self.allowedEndGroupTypes( endGroupType ) )
             if moveEG:
                 break
             
@@ -2187,6 +2223,14 @@ class Cell():
         self.logger.info("After seed numBlocks: {0}".format( len(self.blocks) ) )
         
         return numBlocks
+    
+    def setMaxBond(self, bondType, count ):
+        # Get fragmentType and endGroupType
+        fragmentType, endGroupType = bondType.split(self.ENDGROUPSEP)
+        
+        # Now get the library fragment to set it's maxBond parameter
+        fragment = self._fragmentLibrary[ fragmentType ]
+        return fragment.setMaxBond( bondType, count )
 
     def _setupAnalyse(self):
         self.analyse = Analyse( self )
@@ -2599,7 +2643,7 @@ class Cell():
         
         # internal fragment bonds
         if len(data['fragmentBond']) and allBonds:
-            if not bondArrayNode:
+            if bondArrayNode is None:
                 bondArrayNode = ET.SubElement( root, "bondArray" )
             for i, b in enumerate( data['fragmentBond'] ):
                 if pruneBonds:
@@ -2781,7 +2825,7 @@ class Cell():
         # Get a list of all block, endGroups
         endGroups = []
         for idxBlock, block in self.blocks.iteritems():
-            egs = block.getEndGroups()
+            egs = block.freeEndGroups()
             if len(egs):
                 block.zipCell = {}
                 for endGroup in egs:
@@ -2998,6 +3042,7 @@ class TestCell(unittest.TestCase):
         cls.benzeneCar = os.path.join( cls.ambuildDir, "blocks", "benzene.car" )
         cls.benzene2Car = os.path.join( cls.ambuildDir, "blocks", "benzene2.car" )
         cls.pafCar = os.path.join( cls.ambuildDir, "blocks", "PAF_bb_typed.car" )
+        cls.dcxCar = os.path.join( cls.ambuildDir, "blocks", "DCX.car" )
         
         print "START TEST CELL"
         if True:
@@ -3007,7 +3052,7 @@ class TestCell(unittest.TestCase):
             mycell = Cell()
             mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
             mycell.addInitBlock(filename=cls.benzene2Car, fragmentType='A')
-            mycell.addBondType( 'A-A')
+            mycell.addBondType( 'A:a-A:a')
             mycell.seed( 5 )
             mycell.growBlocks( 8 )
             print "FINISHED TEST CELL"
@@ -3023,9 +3068,8 @@ class TestCell(unittest.TestCase):
         mycell = Cell( )
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
-        fragmentType='A'
-        mycell.addInitBlock( fragmentType=fragmentType, filename=self.cx4Car )
-        mycell.addBondType( '{0}-{1}'.format( fragmentType, fragmentType ) )
+        mycell.addInitBlock( fragmentType='A', filename=self.cx4Car )
+        mycell.addBondType( 'A:a-A:a' )
         mycell.seed( 1 )
         mycell.growBlocks( 1 )
         
@@ -3041,15 +3085,15 @@ class TestCell(unittest.TestCase):
         
         fragmentType='A'
         mycell.addInitBlock( fragmentType=fragmentType, filename=self.benzeneCar )
-        mycell.addBondType( 'A-A' )
+        mycell.addBondType( 'A:a-A:a' )
         
         centralBlock = mycell.getInitBlock( fragmentType=fragmentType )
         
         block1 = mycell.getInitBlock( fragmentType=fragmentType )
         block2 = mycell.getInitBlock( fragmentType=fragmentType )
         
-        centralBlock.positionGrowBlock( centralBlock._endGroups[ 0 ], block1, block1._endGroups[ 0 ] )
-        centralBlock.positionGrowBlock( centralBlock._endGroups[ 1 ], block2, block2._endGroups[ 0 ] )
+        centralBlock.positionGrowBlock( centralBlock.freeEndGroups()[ 0 ], block1, block1.freeEndGroups()[ 0 ] )
+        centralBlock.positionGrowBlock( centralBlock.freeEndGroups()[ 1 ], block2, block2.freeEndGroups()[ 0 ] )
         
         # Now add growBlock to the cell so we can check for clashes
         mycell.addBlock( block1 )
@@ -3114,16 +3158,15 @@ class TestCell(unittest.TestCase):
         mycell.addInitBlock( fragmentType='C', filename=self.ch4Car )
         mycell.addInitBlock( fragmentType='D', filename=self.ch4Car )
         
-        mycell.addBondType( 'A-B' )
-        mycell.addBondType( 'A-C' )
-        mycell.addBondType( 'A-D' )
+        mycell.addBondType( 'A:a-B:a' )
+        mycell.addBondType( 'A:a-C:a' )
+        mycell.addBondType( 'A:a-D:a' )
         
-        mycell.seed( 1 )
-        ok = mycell.growBlocks( 3, fragmentType=None, maxTries=5)
+        mycell.seed( 1, fragmentType='A' )
+        toGrow = 3
+        grew = mycell.growBlocks( toGrow, endGroupType=None, maxTries=5)
         
-        mycell.dump()
-        
-        self.assertTrue( ok, "testBlockTypes not ok")
+        self.assertEqual( toGrow, grew, "testBlockTypes not ok")
         return
 
     def testCapBlocks(self):
@@ -3195,7 +3238,7 @@ class TestCell(unittest.TestCase):
         
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
-        mycell.addBondType( 'A-A')
+        mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
         natoms = block1.numAllAtoms()
@@ -3228,7 +3271,7 @@ class TestCell(unittest.TestCase):
         
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
-        mycell.addBondType( 'A-A')
+        mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
         block1.translateCentroid( [ 1, 1, 1 ] )
@@ -3293,7 +3336,7 @@ class TestCell(unittest.TestCase):
         #mycell.initCell("../ch4_typed.car",incell=False)
         #block1 = mycell.initBlock.copy()
         mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
-        mycell.addBondType( 'A-A')
+        mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
         
@@ -3369,7 +3412,7 @@ class TestCell(unittest.TestCase):
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
         mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
-        mycell.addBondType( 'A-A')
+        mycell.addBondType( 'A:a-A:a')
         
         added = mycell.seed( 1 )
         self.assertEqual( added, 1, 'seed')
@@ -3377,13 +3420,32 @@ class TestCell(unittest.TestCase):
         natoms = mycell.blocks.values()[0].numAllAtoms()
         
         nblocks=3
-        added = mycell.growBlocks( nblocks, fragmentType=None, maxTries=1 )
+        added = mycell.growBlocks( nblocks, endGroupType=None, maxTries=1 )
         
         self.assertEqual( added, nblocks, "growBlocks did not return ok")
         self.assertEqual(1,len(mycell.blocks), "Growing blocks found {0} blocks".format( len(mycell.blocks) ) )
         
         natoms2 = mycell.blocks.values()[0].numAllAtoms()
         self.assertEqual( natoms2, natoms*(nblocks+1) )
+        
+        return
+    
+    def testGrowLimited(self):
+        """Test we can add blocks correctly"""
+        
+        CELLA = CELLB = CELLC = 30
+        
+        mycell = Cell(doLog=False)
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        
+        mycell.addInitBlock(filename=self.dcxCar, fragmentType='A')
+        mycell.addBondType( 'A:CH-A:CCl' )
+        mycell.setMaxBond( 'A:CH', 1 )
+        
+        added = mycell.seed( 1 )
+        mycell.growBlocks(10, endGroupType='A:CH')
+        
+        #mycell.dump()
         
         return
 
@@ -3396,7 +3458,7 @@ class TestCell(unittest.TestCase):
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
         mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
-        mycell.addBondType( 'A-A')
+        mycell.addBondType( 'A:a-A:a')
 
         block1 = mycell.getInitBlock('A')
         
@@ -3412,7 +3474,7 @@ class TestCell(unittest.TestCase):
         
         # Try adding 6 blocks - only 5 will fit
         nblocks=6
-        added = mycell.growBlocks( nblocks, fragmentType=None, maxTries=5 )
+        added = mycell.growBlocks( nblocks, endGroupType=None, maxTries=5 )
         
         self.assertEqual( added, 5, "growBlocks did not add 5 blocks")
         self.assertEqual(1,len(mycell.blocks), "Growing blocks found {0} blocks".format( len(mycell.blocks) ) )
@@ -3428,13 +3490,13 @@ class TestCell(unittest.TestCase):
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
         mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
-        mycell.addBondType( 'A-A')
+        mycell.addBondType( 'A:a-A:a')
 
         added = mycell.seed( 1, center=True )
         
         nblocks=2
         dihedral=90
-        added = mycell.growBlocks( nblocks, fragmentType=None, dihedral=dihedral, maxTries=5 )
+        added = mycell.growBlocks( nblocks, endGroupType=None, dihedral=dihedral, maxTries=5 )
         
         # Check angle between two specified dihedrals is correct
         block1 = mycell.blocks[ mycell.blocks.keys()[0] ]
@@ -3460,7 +3522,7 @@ class TestCell(unittest.TestCase):
         
         #mycell.addInitBlock(filename=self.pafCar, fragmentType='A')
         mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
-        mycell.addBondType( 'A-A')
+        mycell.addBondType( 'A:a-A:a')
         
         added = mycell.seed( 5 )
         self.assertEqual( added, 5, 'seed')
@@ -3499,7 +3561,7 @@ class TestCell(unittest.TestCase):
         mycell = Cell( )
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         mycell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
-        mycell.addBondType( 'A-A' )
+        mycell.addBondType( 'A:a-A:a' )
 
         mycell.seed( 1 )
         mycell.growBlocks(3,'A')
@@ -3547,7 +3609,7 @@ class TestCell(unittest.TestCase):
         mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
         
         mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
-        mycell.addBondType( 'A-A')
+        mycell.addBondType( 'A:a-A:a')
         
         mycell.seed( 5 )
         mycell.growBlocks( 8 )
@@ -3673,8 +3735,8 @@ class TestCell(unittest.TestCase):
         mycell = Cell()
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
-        mycell.addInitBlock( filename=self.pafCar, fragmentType='A' )
-        mycell.addBondType( 'A-A' )
+        mycell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
+        mycell.addBondType( 'A:a-A:a' )
         
         nblocks = 10
         added = mycell.seed( nblocks )
@@ -3760,7 +3822,7 @@ class TestCell(unittest.TestCase):
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         #mycell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
         mycell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
-        mycell.addBondType( 'A-A' )
+        mycell.addBondType( 'A:a-A:a' )
         
         added = mycell.seed( 3 )
         ok = mycell.growBlocks( 3, maxTries=5 )
@@ -3805,7 +3867,7 @@ class TestCell(unittest.TestCase):
         mycell = Cell( )
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         mycell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
-        mycell.addBondType( 'A-A' )
+        mycell.addBondType( 'A:a-A:a' )
 
         mycell.seed( 1 )
         mycell.growBlocks(3,'A')
