@@ -1,4 +1,5 @@
-7	1
-12	2
-17	3
-22	4
+#Type #EndGroup  #CapAtom #Dihedral #DelAtom
+a     7          1
+a     12         2
+a     17         3
+a     22         4
