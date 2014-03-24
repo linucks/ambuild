@@ -462,7 +462,7 @@ class Fragment(object):
             
             for eg in egs:
                 # For now make sure first value is letter
-                assert eg[0].isalpha(),"First column of ambi file needs to be a letter!"
+                assert eg[0][0].isalpha(),"First column of ambi file needs to be a letter!"
                 endGroupTypes.append( eg[0] )
                 endGroups.append( int( eg[1] ) )
                 capAtoms.append( int( eg[2] ) )
