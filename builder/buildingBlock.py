@@ -238,6 +238,13 @@ class Block(object):
         
         assert bond.block1 == self
         
+        assert bond.endGroup1.free()
+        assert bond.endGroup2.free()
+        assert not bond.endGroup1.bonded()
+        assert not bond.endGroup2.bonded()
+        assert not bond.endGroup1.saturated()
+        assert not bond.endGroup2.saturated()
+        
         # Mark both endGroups as used
         bond.endGroup1.setBonded()
         bond.endGroup2.setBonded()
@@ -642,13 +649,11 @@ class Block(object):
         
         return
     
-    def _updateEndGroup(self, endGroup, newBond=False ):
+    def _updateEndGroup(self, endGroup ):
         
         endGroup.updateBlockIndices()
         
         if endGroup.free():
-            assert not newBond
-            
             # Add to the list of all free endGroups
             try:
                 self._freeEndGroups[ endGroup.blockEndGroupIdx ].append( endGroup )
@@ -663,20 +668,6 @@ class Block(object):
             self._endGroupType2EndGroups[ endGroup.type() ].append( endGroup )
             
         elif endGroup.bonded():
-            if newBond:
-                # we are marking a previously free endGroup as bonded
-                
-                # Remove from the list of endGroups at this atomIdx and then remove
-                # if the list is empty
-                self._freeEndGroups[ endGroup.blockEndGroupIdx ].remove( endGroup )
-                if len( self._freeEndGroups[ endGroup.blockEndGroupIdx ] ) == 0:
-                    del self._freeEndGroups[ endGroup.blockEndGroupIdx ]
-                
-                self._numFreeEndGroups -= 1
-                
-                self._endGroupType2EndGroups[ endGroup.type() ].remove( endGroup )
-                if len( self._endGroupType2EndGroups[ endGroup.type() ] ) == 0:
-                    del self._endGroupType2EndGroups[ endGroup.type() ]
             
             # If the endGroup is involved in a bond the capAtom becomes invisible
             self._ignoreAtom[ endGroup.blockCapIdx ] = True
@@ -690,92 +681,132 @@ class Block(object):
                 self._ignoreAtom[ endGroup.blockUwIdx ] = True
                 self._numAtoms -= 1
                 self._mass -= endGroup.fragment._masses[ endGroup.fragmentCapIdx ]
+        elif endGroup.saturated():
+            # Currently nothing to do
+            pass
 
         return
+
+#     def X_updateEndGroup(self, endGroup, newBond=False ):
+#         """
+#         The 'optimised' version that tried only to add new blocks onto the end of the list
+#         Have stopped using this because when when we have a maxBond attributed set for an 
+#         endGroup on adding a bond we potentially need to go through the list of all endGroups
+#         and remove those that are no longer free because they're saturated.
+#         There is a better way to do this but for now I'll just use the dumb approach.
+#         """
+#         
+#         endGroup.updateBlockIndices()
+#         
+#         if endGroup.free():
+#             assert not newBond
+#             
+#             # Add to the list of all free endGroups
+#             try:
+#                 self._freeEndGroups[ endGroup.blockEndGroupIdx ].append( endGroup )
+#             except KeyError:
+#                 self._freeEndGroups[ endGroup.blockEndGroupIdx ] = [ endGroup ]
+#             
+#             self._numFreeEndGroups += 1
+#             
+#             # Now add to the type list
+#             if endGroup.type() not in self._endGroupType2EndGroups:
+#                 self._endGroupType2EndGroups[ endGroup.type() ] = []
+#             self._endGroupType2EndGroups[ endGroup.type() ].append( endGroup )
+#             
+#         elif endGroup.bonded():
+#             if newBond:
+#                 # we are marking a previously free endGroup as bonded
+#                 
+#                 # Remove from the list of endGroups at this atomIdx and then remove
+#                 # if the list is empty
+#                 self._freeEndGroups[ endGroup.blockEndGroupIdx ].remove( endGroup )
+#                 if len( self._freeEndGroups[ endGroup.blockEndGroupIdx ] ) == 0:
+#                     del self._freeEndGroups[ endGroup.blockEndGroupIdx ]
+#                 
+#                 self._numFreeEndGroups -= 1
+#                 
+#                 self._endGroupType2EndGroups[ endGroup.type() ].remove( endGroup )
+#                 if len( self._endGroupType2EndGroups[ endGroup.type() ] ) == 0:
+#                     del self._endGroupType2EndGroups[ endGroup.type() ]
+#             
+#             # If the endGroup is involved in a bond the capAtom becomes invisible
+#             self._ignoreAtom[ endGroup.blockCapIdx ] = True
+#             
+#             # Removed cap atom so remove from list of atoms and also adjust the mass
+#             self._numAtoms -= 1
+#             self._mass -= endGroup.fragment._masses[ endGroup.fragmentCapIdx ]
+#             # Uw - unwanted atoms are atoms that need to be removed when we make a bond - 
+#             # is a bit of a hack at the moment
+#             if endGroup.blockUwIdx != -1:
+#                 self._ignoreAtom[ endGroup.blockUwIdx ] = True
+#                 self._numAtoms -= 1
+#                 self._mass -= endGroup.fragment._masses[ endGroup.fragmentCapIdx ]
+# 
+#         return
 
     def _update( self, addBond=None ):
         """Set the list of _endGroups & update data for new block
         """
         
-        selfBond=False
-        if addBond and addBond.block1 == addBond.block2:
-            selfBond = True
+        #
+        # If we are not just adding a bond between fragments in the block we need to extend the fragment list
+        # (in the case of a bond) and update the block indices.
+        if addBond:
+            addBlock = addBond.block2
+            count = len(self._dataMap) # Start from where the last block finished
+            fragments = addBlock._fragments
+            self._fragments += fragments # Add the new blocks fragments to the list for the parent block
+        else:
+            self._dataMap = []
+            self._mass = 0
+            self._fragmentTypeDict = {}
+            count=0
+            fragments = self._fragments
         
-        if not selfBond:
-            #
-            # If we are not just adding a bond between fragments in the block we need to extend the fragment list
-            # (in the case of a bond) and update the block indices.
-            if addBond:
-                addBlock = addBond.block2
-                count = len(self._dataMap) # Start from where the last block finished
-                fragments = addBlock._fragments
-                self._fragments += fragments # Add the new blocks fragments to the list for the parent block
+        #
+        # Now build up the dataMap listing where each fragment starts in the block and linking the
+        # overall block atom index to the fragment and fragment atom index
+        #
+        #for fragment in self._fragments:
+        for fragment in fragments:
+            # Count the number of each type of fragment in the block (see Analyse)
+            t = fragment.type()
+            if t not in self._fragmentTypeDict:
+                self._fragmentTypeDict[ t ] = 1
             else:
-                self._dataMap = []
-                self._mass = 0
-                self._fragmentTypeDict = {}
-                count=0
-                fragments = self._fragments
-            
-            #
-            # Now build up the dataMap listing where each fragment starts in the block and linking the
-            # overall block atom index to the fragment and fragment atom index
-            #
-            #for fragment in self._fragments:
-            for fragment in fragments:
-                # Count the number of each type of fragment in the block (see Analyse)
-                t = fragment.type()
-                if t not in self._fragmentTypeDict:
-                    self._fragmentTypeDict[ t ] = 1
-                else:
-                    self._fragmentTypeDict[ t ] += 1
-                    
-                fragment._blockIdx = count # Mark where the data starts in the block
-                for j in range( len( fragment._coords ) ):
-                    self._dataMap.append( ( fragment, j ) )
-                    self._mass += fragment._masses[ j ]
-                    count += 1
-            
-            # Have dataMap so now update the endGroup information
-            if addBond:
-                self._ignoreAtom += [ False ] * len(addBlock._dataMap)
-            else:
-                self._freeEndGroups    = {}
-                self._numFreeEndGroups = 0 
-                self._ignoreAtom       = [ False ] * len(self._dataMap) # Use bool array so we can just check an index and don't need to search
-                # through the array each time. Could use indexes and then trigger an exception - not sure which is best yet
-                self._endGroupType2EndGroups   = {}
+                self._fragmentTypeDict[ t ] += 1
                 
-            self._numAtoms = len(self._dataMap) # Get total number of atoms and subtract # endGroups
-            #for fragment in self._fragments:
-            for fragment in fragments:
-                for i, endGroup in enumerate( fragment._endGroups ):
-                    assert endGroup.fragment == fragment
-                    assert id(endGroup) == id( fragment._endGroups[ i ] )
-                    self._updateEndGroup( endGroup )
+            fragment._blockIdx = count # Mark where the data starts in the block
+            for j in xrange( len( fragment._coords ) ):
+                self._dataMap.append( ( fragment, j ) )
+                self._mass += fragment._masses[ j ]
+                count += 1
+        
+        #
+        # Have dataMap so now update the endGroup information
+        # We currently loop through all endGroups as optimising this turned out to be too tricky
+        # (for my small brain)
+        self._numFreeEndGroups         = 0 
+        self._freeEndGroups            = {}
+        self._endGroupType2EndGroups   = {}
+        # Use bool array so we can just check an index and don't need to search
+        # through the array each time. Could use indexes and then trigger an exception - not sure which is best yet
+        self._ignoreAtom = [ False ] * len(self._dataMap)
+        self._numAtoms = len(self._dataMap) # Get total number of atoms and subtract # endGroups
+        for fragment in self._fragments:
+            for i, endGroup in enumerate( fragment._endGroups ):
+                assert endGroup.fragment == fragment
+                assert id(endGroup) == id( fragment._endGroups[ i ] )
+                self._updateEndGroup( endGroup )
 
         # Need to map bonded cap Atoms to the opposite endGroups - required by atomBonded so that
         # we can list what's connected through the whole block
-        if selfBond:
-            self._updateEndGroup( addBond.endGroup1, newBond=True)
-            self._updateEndGroup( addBond.endGroup2, newBond=True)
-            self._bonds.append( addBond )
-            bonds = [ addBond ]
-        elif addBond:
-            # We have now updated all the endGroup information, but if we made a bond the endGroup in the 
-            # list for the original block will still be marked as free so we need to mark it as used and
-            # update the data structures accordingly
-            assert not addBond.endGroup1.free()
-            self._updateEndGroup( addBond.endGroup1, newBond=True)
-            bonds = addBlock._bonds
-            bonds.append( addBond )
-            self._bonds += bonds
-        else:
-            self.cap2EndGroup = {}
-            bonds = self._bonds
+        self.cap2EndGroup = {}
+        if addBond:
+            self._bonds += addBlock._bonds + [ addBond ]
             
-        #for bond in self._bonds:
-        for bond in bonds:
+        for bond in self._bonds:
             self.cap2EndGroup[ bond.endGroup1.blockCapIdx ] = bond.endGroup2.blockEndGroupIdx
             self.cap2EndGroup[ bond.endGroup2.blockCapIdx ] = bond.endGroup1.blockEndGroupIdx
         
@@ -809,9 +840,8 @@ class Block(object):
         mystr = "Block: {0}\n".format(self.__repr__())
         
         mystr += "Num fragments: {0}\n".format( len( self._fragments) )
-        mystr += "endGroups idxs: {0}\n".format( [ e.blockEndGroupIdx for e in self._endGroups ]  )
-        mystr += "_freeEndGroupIdxs: {0}\n".format( self._freeEndGroupIdxs )
-        mystr += "capAtoms: {0}\n".format( [ e.blockCapIdx for e in self._endGroups ] )
+        mystr += "endGroups idxs: {0}\n".format( [ e.blockEndGroupIdx for e in self.freeEndGroups() ]  )
+        mystr += "capAtoms: {0}\n".format( [ e.blockCapIdx for e in self.freeEndGroups() ] )
         #mystr += "_bondedCapAtoms: {0}\n".format( self._bondedCapIdxs )
         mystr += "bonds: {0}\n".format( self._bonds )
         
