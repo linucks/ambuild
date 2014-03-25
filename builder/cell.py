@@ -527,6 +527,8 @@ class Cell():
         # Now loop over all endGroups seeing if any of the angles are satisfied
         for staticEndGroup in staticBlock.atomEndGroups( idxStaticAtom ):
             for addEndGroup in addBlock.atomEndGroups( idxAddAtom ):
+                
+                assert staticEndGroup.free() and addEndGroup.free()
             
                 # First check if endGroups of this type can bond - will apply to all so can bail on first fail
                 if not self.bondAllowed( staticEndGroup, addEndGroup ):
