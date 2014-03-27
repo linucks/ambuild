@@ -2919,10 +2919,10 @@ class Cell():
                         # Don't check endGroups against themselves
                         if idxEndGroup1 == idxEndGroup2:
                             continue
-                        # Make sure the two atoms are separated by at least 2 bonds - could
+                        # Make sure the two atoms are separated by at least 3 bonds - could
                         # probably put this check in canBond but it would slow the normal
                         # bonding down - need to think about best way to do this
-                        if idxEndGroup2 in block1.atomBonded2( idxEndGroup1 ):
+                        if idxEndGroup2 in block1.atomBonded3( idxEndGroup1 ):
                             continue
                     
                     block2 = self.blocks[ idxBlock2 ]

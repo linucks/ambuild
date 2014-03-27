@@ -199,6 +199,14 @@ class Block(object):
             bonded.update( self.atomBonded1( a1 ) )
         return bonded
     
+    def atomBonded3(self, idxAtom ):
+        """Return the indices of all atoms bonded by <= 3 bonds to idxAtom"""
+        bonded = set( self.atomBonded1( idxAtom ) )
+        for a1 in list(bonded): # Convert to list so we're not changing while looping thru it
+            for a2 in self.atomBonded1( a1 ):
+                bonded.update( [ a1, a2 ] + self.atomBonded1( a2 ) )
+        return bonded
+    
     def atomCharge(self, idxAtom ):
         frag, idxData = self._dataMap[ idxAtom ]
         return frag._charges[ idxData ]
