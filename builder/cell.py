@@ -528,7 +528,15 @@ class Cell():
         for staticEndGroup in staticBlock.atomEndGroups( idxStaticAtom ):
             for addEndGroup in addBlock.atomEndGroups( idxAddAtom ):
                 
+                # EndGroups in the same fragment can never bond
+                if staticEndGroup.fragment == addEndGroup.fragment:
+                    break
+                
                 assert staticEndGroup.free() and addEndGroup.free()
+                
+                # We need to check that we've not already added these endGroups as possible bonds
+                if self._endGroupsInPossibleBonds( [ staticEndGroup, addEndGroup ] ):
+                    continue
             
                 # First check if endGroups of this type can bond - will apply to all so can bail on first fail
                 if not self.bondAllowed( staticEndGroup, addEndGroup ):
@@ -556,8 +564,9 @@ class Cell():
                                                                                      math.degrees(angle2) ) )
                     continue
                 
-                self.logger.debug( "Acceptable bond with angles: {0} : {1}".format( math.degrees(angle1),
-                                                                                    math.degrees(angle2) ) )
+                self.logger.debug( "Acceptable bond with angles: {0} : {1} | distance {2}".format( math.degrees(angle1),
+                                                                                    math.degrees(angle2),
+                                                                                    distance ) )
                 
                 # Create bond object and set the parameters
                 bond = buildingBlock.Bond()
@@ -777,11 +786,11 @@ class Cell():
             
             # Also need to remove any clashes of the endGroups with atoms directly bonded to the 
             # opposite endGroup
-            staticBondAtoms = staticBlock.atomBonded( staticEndGroup )
+            staticBondAtoms = staticBlock.atomBonded1( staticEndGroup )
             # Only need to do this if the cap was added to the cell
             if not staticBlock.invisibleAtom( staticCap ):
                 staticBondAtoms.remove( staticCap )
-            addBondAtoms    = addBlock.atomBonded( addEndGroup )
+            addBondAtoms    = addBlock.atomBonded1( addEndGroup )
             # Only need to do this if the cap was added to the cell
             if not addBlock.invisibleAtom( addCap ):
                 addBondAtoms.remove( addCap )
@@ -1004,7 +1013,7 @@ class Cell():
                                     b2g( endGroup2Idx, atomMap, atomCount ) ) )
                 
                 # Atoms connected to the endGroup that we need to specify as connected so we add as angles
-                for batom in block.atomBonded( endGroup1Idx ):
+                for batom in block.atomBonded1( endGroup1Idx ):
                     # The opposite endGroup is included in the list bonded to an endGroup so skip
                     if batom == endGroup2Idx:
                         continue
@@ -1019,7 +1028,7 @@ class Cell():
                     else:
                         print "Skipping angle {0}".format( a )
                     
-                for batom in block.atomBonded( endGroup2Idx ):
+                for batom in block.atomBonded1( endGroup2Idx ):
                     # The opposite endGroup is included in the list bonded to an endGroup so skip
                     if batom == endGroup1Idx:
                         continue
@@ -1200,7 +1209,7 @@ class Cell():
         self.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
         self.writeCar(prefix+"_P.car",data=data,periodic=True)
         self.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
-        #self.writeCml(prefix+"_P.cml", data=data, allBonds=True, periodic=True, pruneBonds=False)
+        #self.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
         
         # This is too expensive at the moment
         #self.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml")
@@ -1208,6 +1217,13 @@ class Cell():
         self.writePickle(prefix+".pkl")
         return
 
+    def _endGroupsInPossibleBonds(self, endGroups ):
+        """Check if any of the endGroups are already in the list of possible bonds"""
+        eg = set()
+        for b in self._possibleBonds:
+            eg.update( [ b.endGroup1, b.endGroup2 ] )
+        return bool( eg.intersection( frozenset( endGroups ) ) )
+    
     def fragmentTypes(self):
         ft = {}
         for b in self.blocks.itervalues():
@@ -1826,6 +1842,20 @@ class Cell():
         
         #self.logger.debug("processBonds addedBlockIdx: {0}".format( addedBlockIdx ) )
         self.logger.debug("processBonds blocks are: {0}".format( sorted( self.blocks ) ) )
+        
+#         for b in self._possibleBonds:
+#             self.logger.debug("Possible bond {0} {1} {2} {3} {4} {5}".format(b.block1.id(),
+#                                                                      b.block2.id(),
+#                                                                      id(b.endGroup1),
+#                                                                      id(b.endGroup2), 
+#                                                                      b.endGroup1.fragmentEndGroupIdx,
+#                                                                      b.endGroup2.fragmentEndGroupIdx,
+#                                                                      ) )
+#             assert b.endGroup1.free()
+#             assert b.endGroup2.free()
+        
+        
+            
         
         # Any blocks that appear as second blocks more than once will need their bond ids
         # changed, as their identity in the cell as blocks will be changed by the earlier bonding step
@@ -2808,6 +2838,8 @@ class Cell():
     
     def zipBlocks( self, bondMargin=None, bondAngleMargin=None  ):
         
+        self.logger.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin )  )
+        
         # Convert to radians
         bondAngleMargin = math.radians(bondAngleMargin)
         
@@ -2882,9 +2914,16 @@ class Cell():
                 
                 for (idxBlock2, idxEndGroup2) in cell1[ sbox ]:
                     
-                    # Don't check endGroups against themselves
-                    if idxBlock1 == idxBlock2 and idxEndGroup1 == idxEndGroup2:
-                        continue
+                    # Self-bonded blocks need special care
+                    if idxBlock1 == idxBlock2:
+                        # Don't check endGroups against themselves
+                        if idxEndGroup1 == idxEndGroup2:
+                            continue
+                        # Make sure the two atoms are separated by at least 2 bonds - could
+                        # probably put this check in canBond but it would slow the normal
+                        # bonding down - need to think about best way to do this
+                        if idxEndGroup2 in block1.atomBonded2( idxEndGroup1 ):
+                            continue
                     
                     block2 = self.blocks[ idxBlock2 ]
                     endGroup2Coord = block2.atomCoord( idxEndGroup2 )
@@ -2900,14 +2939,22 @@ class Cell():
                                         endGroup2Coord,
                                         endGroup2Symbol,
                                         bondMargin,
-                                        bondAngleMargin
+                                        bondAngleMargin,
                                         )
         
         #process the bonds
         todo = len( self._possibleBonds )
         
         self.logger.info("zipBlocks: found {0} additional bonds".format( todo ) )
-        
+#         for b in self._possibleBonds:
+#             print "Attempting to bond: {0} {1} {2} -> {3} {4} {5}".format( b.block1.id(),
+#                                                                    b.endGroup1.blockEndGroupIdx,
+#                                                                    b.block1.atomCoord( b.endGroup1.blockEndGroupIdx),
+#                                                                    b.block2.id(),
+#                                                                    b.endGroup2.blockEndGroupIdx,
+#                                                                    b.block2.atomCoord( b.endGroup2.blockEndGroupIdx),
+#                                                                 )
+#         
         bondsMade = self.processBonds()
         
         if bondsMade != todo:
