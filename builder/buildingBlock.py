@@ -48,7 +48,7 @@ class Bond(object):
         """List the data attributes of this object"""
         
         s = "Bond {0}: {1}-{2} -> {3}-{4}".format( id(self), self.idxBlock1, self.endGroup1.blockEndGroupIdx,
-                                                   self.idxBlock2, self.endGroup1.blockEndGroupIdx )
+                                                   self.idxBlock2, self.endGroup2.blockEndGroupIdx )
         return s
 
 class Block(object):
@@ -163,7 +163,8 @@ class Block(object):
         #print "alignBlock AFTER: {0} | {1}".format( self.atomCoord( idxAtom ), refVector )
         return
 
-    def atomBonded(self, idxAtom):
+    def atomBonded1(self, idxAtom):
+        """Return the indices of all atoms directly bonded to idxAtom"""
         
         # Make sure the atom isn't one that has been removed from the cell
         assert not self.invisibleAtom(idxAtom)
@@ -189,6 +190,13 @@ class Block(object):
             
             bonded.append( atom )
         
+        return bonded
+    
+    def atomBonded2(self, idxAtom ):
+        """Return the indices of all atoms bonded by <= 2 bonds to idxAtom"""
+        bonded = set( self.atomBonded1( idxAtom ) )
+        for a1 in list(bonded): # Convert to list so we're not changing while looping thru it
+            bonded.update( self.atomBonded1( a1 ) )
         return bonded
     
     def atomCharge(self, idxAtom ):
@@ -249,9 +257,20 @@ class Block(object):
         bond.endGroup1.setBonded()
         bond.endGroup2.setBonded()
         
-        # Previously we just added the two fragment lists and bonds and updated from the 
-        # start - simpler but much slower
-        return self._update( addBond=bond )
+        # Tried optimising this by passing in the bond to update and only updating those fragments/
+        # endGroups that had changed but it rapidly got rather complicated so we keep to a simple
+        # update and add the data for the new block here
+        # Append fragments and bonds of other block to this one
+        selfBond=True
+        if bond.block1 != bond.block2:
+            selfBond=False
+            self._fragments += bond.block2._fragments
+            self._bonds += bond.block2._bonds
+        
+        # add the new bond
+        self._bonds.append( bond )
+        
+        return self._update( selfBond=selfBond )
     
     def bonds(self):
         return self._bonds
@@ -343,15 +362,15 @@ class Block(object):
         # Add all dihedrals across the bond - both endGroups plus 1 either side
         
         # Check are bonded (remove when sure of code)
-        #assert atom2Idx in self.atomBonded( atom1Idx ) and atom1Idx in self.atomBonded( atom2Idx )
+        #assert atom2Idx in self.atomBonded1( atom1Idx ) and atom1Idx in self.atomBonded1( atom2Idx )
         
         # Create list of what's bonded to atom1 - we exclude anything that loops back on itself
         atom1Bonded = {}
-        for a1 in self.atomBonded( atom1Idx ):
+        for a1 in self.atomBonded1( atom1Idx ):
             if a1 == atom2Idx:
                 continue
             atom1Bonded[ a1 ] = []
-            for a2 in self.atomBonded( a1 ):
+            for a2 in self.atomBonded1( a1 ):
                 if a2 == atom1Idx:
                     continue
                 assert not a2 == atom2Idx,"Dihedral atom loops back onto bond!"
@@ -359,11 +378,11 @@ class Block(object):
                 
         # Create list of what's bonded to atom2 - we exclude anything that loops back on itself
         atom2Bonded = {}
-        for a1 in self.atomBonded( atom2Idx ):
+        for a1 in self.atomBonded1( atom2Idx ):
             if a1 == atom1Idx:
                 continue
             atom2Bonded[ a1 ] = []
-            for a2 in self.atomBonded( a1 ):
+            for a2 in self.atomBonded1( a1 ):
                 if a2 == atom2Idx:
                     continue
                 assert not a2 == atom1Idx,"Dihedral atom loops back onto bond!"
@@ -745,48 +764,38 @@ class Block(object):
 # 
 #         return
 
-    def _update( self, addBond=None ):
+    def _update( self, selfBond=False ):
         """Set the list of _endGroups & update data for new block
         """
         
-        #
-        # If we are not just adding a bond between fragments in the block we need to extend the fragment list
-        # (in the case of a bond) and update the block indices.
-        if addBond:
-            addBlock = addBond.block2
-            count = len(self._dataMap) # Start from where the last block finished
-            fragments = addBlock._fragments
-            self._fragments += fragments # Add the new blocks fragments to the list for the parent block
-        else:
+        if not selfBond:
             self._dataMap = []
             self._mass = 0
             self._fragmentTypeDict = {}
             count=0
-            fragments = self._fragments
-        
-        #
-        # Now build up the dataMap listing where each fragment starts in the block and linking the
-        # overall block atom index to the fragment and fragment atom index
-        #
-        #for fragment in self._fragments:
-        for fragment in fragments:
-            # Count the number of each type of fragment in the block (see Analyse)
-            t = fragment.type()
-            if t not in self._fragmentTypeDict:
-                self._fragmentTypeDict[ t ] = 1
-            else:
-                self._fragmentTypeDict[ t ] += 1
-                
-            fragment._blockIdx = count # Mark where the data starts in the block
-            for j in xrange( len( fragment._coords ) ):
-                self._dataMap.append( ( fragment, j ) )
-                self._mass += fragment._masses[ j ]
-                count += 1
+            #
+            # Now build up the dataMap listing where each fragment starts in the block and linking the
+            # overall block atom index to the fragment and fragment atom index
+            #
+            #for fragment in self._fragments:
+            for fragment in self._fragments:
+                # Count the number of each type of fragment in the block (see Analyse)
+                t = fragment.type()
+                if t not in self._fragmentTypeDict:
+                    self._fragmentTypeDict[ t ] = 1
+                else:
+                    self._fragmentTypeDict[ t ] += 1
+                    
+                fragment._blockIdx = count # Mark where the data starts in the block
+                for j in xrange( len( fragment._coords ) ):
+                    self._dataMap.append( ( fragment, j ) )
+                    self._mass += fragment._masses[ j ]
+                    count += 1
         
         #
         # Have dataMap so now update the endGroup information
         # We currently loop through all endGroups as optimising this turned out to be too tricky
-        # (for my small brain)
+        # for my small brain
         self._numFreeEndGroups         = 0 
         self._freeEndGroups            = {}
         self._endGroupType2EndGroups   = {}
@@ -800,12 +809,9 @@ class Block(object):
                 assert id(endGroup) == id( fragment._endGroups[ i ] )
                 self._updateEndGroup( endGroup )
 
-        # Need to map bonded cap Atoms to the opposite endGroups - required by atomBonded so that
+        # Need to map bonded cap Atoms to the opposite endGroups - required by atomBonded1 so that
         # we can list what's connected through the whole block
         self.cap2EndGroup = {}
-        if addBond:
-            self._bonds += addBlock._bonds + [ addBond ]
-            
         for bond in self._bonds:
             self.cap2EndGroup[ bond.endGroup1.blockCapIdx ] = bond.endGroup2.blockEndGroupIdx
             self.cap2EndGroup[ bond.endGroup2.blockCapIdx ] = bond.endGroup1.blockEndGroupIdx
