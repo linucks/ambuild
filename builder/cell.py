@@ -2148,7 +2148,7 @@ class Cell():
         if not len( self._fragmentLibrary ):
             raise RuntimeError,"Must have set an initBlock before seeding."
         
-        numBlocks = 0
+        numBlocksAdded = 0
         block = self.getInitBlock( fragmentType=fragmentType )
         # hack - get the type of the first fragment
         ftype = block._fragments[0]._fragmentType
@@ -2163,12 +2163,12 @@ class Cell():
         idxBlock = self.addBlock( block )
         if self.checkMove( idxBlock ):
             self.processBonds( addedBlockIdx=idxBlock )
-            numBlocks += 1
+            numBlocksAdded += 1
             self.logger.debug("seed added first block: {0}".format( block.id() ) )
             self.analyse.stop('seed')
             
         if nblocks == 1:
-            return numBlocks
+            return numBlocksAdded
         
         # Loop through the nblocks adding the blocks to
         # the cell - nblocks-1 as we've already added the first
@@ -2181,9 +2181,9 @@ class Cell():
             while not ok:
                 # quit on maxTries
                 if tries >= maxTries:
-                    self.logger.critical("Exceeded maxtries when seeding")
-                    self.analyse.stop()
-                    return numBlocks
+                    self.logger.critical("Exceeded maxtries when seeding after adding {0}".format(numBlocksAdded))
+                    self.analyse.stop( 'seed',d={'num_tries':tries} )
+                    return numBlocksAdded
                 
                 # Move the block and rotate it
                 #margin = self.A/3
@@ -2200,7 +2200,7 @@ class Cell():
                         self.logger.info("Added bond in seed!")
                     self.logger.debug("seed added block {0} after {1} tries.".format( seedCount+2, tries ) )
                     self.analyse.stop('seed',d={'num_tries':tries} )
-                    numBlocks += 1
+                    numBlocksAdded += 1
                     break
                 
                 # Unsuccessful so remove the block from cell
@@ -2212,9 +2212,9 @@ class Cell():
             # End Clash loop
         # End of loop to seed cell
         
-        self.logger.info("After seed numBlocks: {0}".format( len(self.blocks) ) )
+        self.logger.info("After seed numBlocksAdded: {0}".format( len(self.blocks) ) )
         
-        return numBlocks
+        return numBlocksAdded
     
     def setMaxBond(self, bondType, count ):
         # Get fragmentType and endGroupType
@@ -2855,8 +2855,6 @@ class Cell():
         self._possibleBonds = []
         for block1, idxEndGroup1 in endGroups:
             
-            endGroup1Coord = block1.atomCoord( idxEndGroup1 )
-            
             # Get the box this atom is in
             key = block1.zipCell[ idxEndGroup1 ]
             
@@ -2917,7 +2915,6 @@ class Cell():
             self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(
                                                                                             todo, 
                                                                                             bondsMade ) )
-            
         
         self.analyse.stop('zip')
         
@@ -3740,8 +3737,6 @@ class TestCell(unittest.TestCase):
         #mycell.writeXyz("seedTest.xyz")
         
         return
-    
-    
 
     def testSurroundBoxes(self):
         """
@@ -3770,19 +3765,20 @@ class TestCell(unittest.TestCase):
         self.assertEqual(s, sb , "periodic: {0}".format( sb ) )
         return
     
-    def XtestZipBlocks(self):
+    def testZipBlocks(self):
+
+        CELLA = CELLB = CELLC = 10.0
+        mycell = Cell()
+        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+        mycell.seed( 8 )
         
-        zpkl = os.path.join( self.ambuildDir, "misc","canZip.pkl" )
-        with open(zpkl) as f:
-            mycell=cPickle.load(f)
+        mycell.dump()
+        made = mycell.zipBlocks( bondMargin=10, bondAngleMargin=45 )
+        mycell.dump()
         
-        # DIRTY HACK AS WAS PICKELD WIHT OLDER VERSION OF CODE
-        mycell.numFreeEndGroups = self.testCell.numFreeEndGroups
-        
-        #logging.disable(logging.NOTSET)
-        made = mycell.zipBlocks( bondMargin=5, bondAngleMargin=100 )
-        
-        self.assertEqual( made, 2 )
+        self.assertGreater(made, 0, "ZipBlocks found no additional bonds!")
         
         return
     
