@@ -494,15 +494,11 @@ class Cell():
         return
 
     def canBond( self,
-                 idxStaticBlock,
                  staticBlock,
                  idxStaticAtom,
-                 staticCoord,
-                 idxAddBlock,
                  addBlock,
                  idxAddAtom,
-                 addCoord,
-                 addSymbol,
+                 distance,
                  bondMargin,
                  bondAngleMargin
                 ):
@@ -511,15 +507,13 @@ class Cell():
 #             return False
         
         # Checking for a bond
-        staticSymbol = staticBlock.atomSymbol( idxStaticAtom )
-        bond_length = util.bondLength( addSymbol, staticSymbol )
-        
+        bond_length = util.bondLength( addBlock.atomSymbol( idxAddAtom ), staticBlock.atomSymbol( idxStaticAtom ) )
         if bond_length < 0:
-            raise RuntimeError,"Missing bond distance for: {0}-{1}".format( addSymbol, staticSymbol )
+            raise RuntimeError,"Missing bond distance for: {0}-{1}".format( addBlock.atomSymbol( idxAddAtom ),
+                                                                            staticBlock.atomSymbol( idxStaticAtom ) )
         
         # See if the distance between them is acceptable
         #print "CHECKING BOND ATOMS ",bond_length,self.distance( addCoord, staticCoord )
-        distance = self.distance( addCoord, staticCoord )
         if  not ( max( 0.1, bond_length - bondMargin ) < distance < bond_length + bondMargin ):
             self.logger.debug( "Cannot bond due to distance: {0}".format( distance ) )
             return False
@@ -549,6 +543,8 @@ class Cell():
                 #                                                       idxStaticBlock,
                 #                                                       idxStaticAtom, 
                 #                                                       self.distance( addCoord, staticCoord ) )
+                addCoord = addBlock.atomCoord( idxAddAtom )
+                staticCoord = staticBlock.atomCoord( idxStaticAtom )
                 addCapAtom = addBlock.atomCoord( addEndGroup.blockCapIdx )
                 angle1 = util.angle( addCapAtom, addCoord, staticCoord )
                 staticCapAtom = staticBlock.atomCoord( staticEndGroup.blockCapIdx )
@@ -574,11 +570,11 @@ class Cell():
                 # Rem the block and idxBlocks could change - see processBonds
                 #bond.block1                    = self.blocks[ idxStaticBlock ]
                 bond.block1                    = staticBlock
-                bond.idxBlock1                 = idxStaticBlock
+                bond.idxBlock1                 = staticBlock.id()
                 bond.endGroup1                 = staticEndGroup
                 
                 bond.block2                    = addBlock
-                bond.idxBlock2                 = idxAddBlock
+                bond.idxBlock2                 = addBlock.id()
                 bond.endGroup2                 = addEndGroup
                     
                 self._possibleBonds.append( bond )
@@ -648,23 +644,6 @@ class Cell():
         self.C = float(C)
         return
 
-    def checkFinished(self):
-        """
-        See if we've finished according to our criteria
-        """
-        
-        print "Got density: ",self.density()
-        if self.density() < self.targetDensity:
-            return True
-        
-        print "Got _endGroups: ",self._endGroups()
-        if self._endGroups() < self.targetEndGroups:
-            return True
-        
-        return False
-    
-
-        
     def checkMove( self, idxAddBlock ):
         clashing = self._checkMove( idxAddBlock )
         if clashing > 0:
@@ -714,13 +693,12 @@ class Cell():
         
         clashAtoms = []
         self._possibleBonds = []
-        for ( idxAddAtom, idxStaticBlock, idxStaticAtom ) in close:
+        for ( idxAddAtom, staticBlock, idxStaticAtom, distance ) in close:
             
-            addSymbol = addBlock.atomSymbol( idxAddAtom )
-            addRadius = addBlock.atomRadius( idxAddAtom )
-            addCoord = addBlock.atomCoord( idxAddAtom )
-            staticBlock = self.blocks[ idxStaticBlock ]
-            staticCoord = staticBlock.atomCoord( idxStaticAtom )
+            #addSymbol = addBlock.atomSymbol( idxAddAtom )
+            #staticBlock = self.blocks[ idxStaticBlock ]
+            #addCoord = addBlock.atomCoord( idxAddAtom )
+            #staticCoord = staticBlock.atomCoord( idxStaticAtom )
             
 #             print "CHECKING  ATOMS {}:{} {} -> {}:{} {}= {}".format( idxAddBlock,
 #                                                               idxAddAtom,
@@ -732,26 +710,20 @@ class Cell():
             
             if not ( addBlock.isEndGroup( idxAddAtom ) and \
                      staticBlock.isEndGroup( idxStaticAtom ) and \
-                     self.canBond( idxStaticBlock,
-                                    staticBlock,
-                                    idxStaticAtom,
-                                    staticCoord,
-                                    idxAddBlock,
-                                    addBlock,
-                                    idxAddAtom,
-                                    addCoord,
-                                    addSymbol,
-                                    self.bondMargin,
-                                    self.bondAngleMargin
-                                    ) ):
+                     self.canBond( staticBlock,
+                                   idxStaticAtom,
+                                   addBlock,
+                                   idxAddAtom,
+                                   distance,
+                                   self.bondMargin,
+                                   self.bondAngleMargin,
+                                                        )
+                    ):
             
                 # No bond so just check if the two atoms are close enough for a clash
-                oradius = staticBlock.atomRadius( idxStaticAtom )
-                d = self.distance( addCoord, staticCoord )
-                l = addRadius + oradius + self.atomMargin
-                if d <= l:
+                if distance <= addBlock.atomRadius( idxAddAtom ) + staticBlock.atomRadius( idxStaticAtom ) + self.atomMargin:
                     #print "CLASH {}->{} = {} < {}".format( addCoord,staticCoord, d, l  )
-                    clashAtoms.append( ( idxStaticBlock, idxStaticAtom, idxAddBlock, idxAddAtom ) )
+                    clashAtoms.append( ( staticBlock, idxStaticAtom, addBlock, idxAddAtom ) )
         
         # Now have list of possible bonds and clashes
         
@@ -796,20 +768,20 @@ class Cell():
                 addBondAtoms.remove( addCap )
 
             toGo = [] # Need to remember indices as we can't remove from a list while we cycle through it
-            for i, ( idxStaticBlock, idxStaticAtom, idxAddBlock, idxAddAtom) in enumerate(clashAtoms):
+            for i, ( staticBlock, idxStaticAtom, addBlock, idxAddAtom) in enumerate(clashAtoms):
                 #self.logger.debug("CHECKING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                 
                 # Remove any clashes with the cap atoms
-                if ( bond.idxBlock1 == idxStaticBlock and idxStaticAtom == staticCap ) or \
-                   ( bond.idxBlock2 == idxAddBlock and idxAddAtom == addCap ):
+                if ( bond.block1 == staticBlock and idxStaticAtom == staticCap ) or \
+                   ( bond.block2 == addBlock and idxAddAtom == addCap ):
                     #self.logger.debug("REMOVING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     #clashAtoms.remove( ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     toGo.append( i )
                     continue
                 
                 # remove any clashes with directly bonded atoms
-                if ( bond.idxBlock1 == idxStaticBlock and idxStaticAtom == staticEndGroup and idxAddAtom in addBondAtoms ) or \
-                   ( bond.idxBlock2 == idxAddBlock and idxAddAtom == addEndGroup and idxStaticAtom in staticBondAtoms ):
+                if ( bond.block1 == staticBlock and idxStaticAtom == staticEndGroup and idxAddAtom in addBondAtoms ) or \
+                   ( bond.block2 == addBlock and idxAddAtom == addEndGroup and idxStaticAtom in staticBondAtoms ):
                     #clashAtoms.remove( ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     #self.logger.info( "REMOVING BOND ATOMS FROM CLASH TEST" )
                     toGo.append( i )
@@ -828,18 +800,6 @@ class Cell():
         self.logger.debug( "CHECKMOVE RETURN 0" )
         return 0
     
-    def _endGroups(self):
-        """
-        The number of free _endGroups in the cell
-        """
-        
-        numEndGroups = 0
-        for idxBlock in self.blocks.keys():
-            block = self.blocks[ idxBlock ]
-            numEndGroups += len( block._endGroups )
-        
-        return numEndGroups
-        
     def closeAtoms(self, idxBlock1):
         """
         Find all atoms that are close to the atoms in the given block.
@@ -848,7 +808,7 @@ class Cell():
         idxBlock1: index of the block in self.blocks
         
         Returns:
-        a list of tuples: (thisAtomIndex, otherBlockIndex, otherAtomIndex) or None if there we no close contacts
+        a list of tuples: (thisAtomIndex, otherBlockIndex, otherAtomIndex, distance) or None if there we no close contacts
         """
         
         contacts=[]
@@ -862,7 +822,7 @@ class Cell():
             key = block1.atomCell[ idxAtom1 ]
             
             # Skip checking dummy atoms
-            if key == None:
+            if key is None:
                 continue
             
             #print "Close checking [{}] {}: {} : {}".format(key,idxBlock1,idxAtom1,coord1)
@@ -895,12 +855,12 @@ class Cell():
                     #y = coord2[1] % self.B
                     #z = coord2[2] % self.C
                     #print "PBC: {}                         {}".format(self.distance( coord2,coord ),[x,y,z] )
-                    
-                    if ( self.distance( coord2,coord1 ) < self.boxSize ):
+                    distance = self.distance( coord2,coord1 )
+                    if ( distance < self.boxSize ):
                         #print "CLOSE {}-{}:({}) and {}-{}:({}): {}".format( idxBlock1,idxAtom1,coord1,idxBlock2,idxAtom2,coord2, self.distance( coord2,coord1 ))
-                        if ( idxAtom1, idxBlock2, idxAtom2 ) in contacts:
+                        if ( idxAtom1, block2, idxAtom2, distance ) in contacts:
                             raise RuntimeError,"Duplicate contacts"
-                        contacts.append( ( idxAtom1, idxBlock2, idxAtom2 ) )
+                        contacts.append( ( idxAtom1, block2, idxAtom2, distance ) )
                         
         if len(contacts):
             return contacts
@@ -2858,17 +2818,16 @@ class Cell():
         
         # Get a list of all block, endGroups
         endGroups = []
-        for idxBlock, block in self.blocks.iteritems():
+        for block in self.blocks.itervalues():
             egs = block.freeEndGroups()
             if len(egs):
                 block.zipCell = {}
                 for endGroup in egs:
-                    endGroups.append( ( idxBlock, endGroup.blockEndGroupIdx ) )
+                    endGroups.append( ( block, endGroup.blockEndGroupIdx ) )
         
         # Add all (block, idxEndGroup) tuples to the cells
-        for (idxBlock, idxEndGroup) in endGroups:
+        for (block, idxEndGroup) in endGroups:
             
-            block = self.blocks[ idxBlock ]
             coord = block.atomCoord( idxEndGroup )
             
             # Periodic Boundaries
@@ -2885,18 +2844,17 @@ class Cell():
             
             try:
                 # Add the atom to the cell
-                cell1[ key ].append( ( idxBlock, idxEndGroup ) )
+                cell1[ key ].append( ( block, idxEndGroup ) )
             except KeyError:
                 # Add the cell to the list and then add the atom
-                cell1[ key ] = [ ( idxBlock, idxEndGroup ) ]
+                cell1[ key ] = [ ( block, idxEndGroup ) ]
                 # Map the cells surrounding this one
                 cell3[ key ] = self._surroundCells( key, numBoxA, numBoxB, numBoxC )
         
         # Loop through all the end groups and run canBond
         self._possibleBonds = []
-        for idxBlock1, idxEndGroup1 in endGroups:
+        for block1, idxEndGroup1 in endGroups:
             
-            block1 = self.blocks[ idxBlock1 ]
             endGroup1Coord = block1.atomCoord( idxEndGroup1 )
             
             # Get the box this atom is in
@@ -2905,17 +2863,19 @@ class Cell():
             # Get a list of the boxes surrounding this one
             surrounding = cell3[ key ]
             
-            #For each box loop through all its atoms chekcking for clashes
+            # For each box loop through all its atoms
             for i, sbox in enumerate( surrounding ):
                 
                 # Check if we have a box with anything in it
-                if not cell1.has_key(sbox):
+                try:
+                    alist = cell1[ sbox ]
+                except KeyError:
                     continue
                 
-                for (idxBlock2, idxEndGroup2) in cell1[ sbox ]:
+                for (block2, idxEndGroup2) in alist:
                     
                     # Self-bonded blocks need special care
-                    if idxBlock1 == idxBlock2:
+                    if block1 == block2:
                         # Don't check endGroups against themselves
                         if idxEndGroup1 == idxEndGroup2:
                             continue
@@ -2925,19 +2885,15 @@ class Cell():
                         if idxEndGroup2 in block1.atomBonded3( idxEndGroup1 ):
                             continue
                     
-                    block2 = self.blocks[ idxBlock2 ]
-                    endGroup2Coord = block2.atomCoord( idxEndGroup2 )
-                    endGroup2Symbol = block2.atomSymbol( idxEndGroup2 )
+                    distance = self.distance( block1.atomCoord( idxEndGroup1 ),
+                                              block2.atomCoord( idxEndGroup2 ),
+                                             )
                     
-                    got = self.canBond( idxBlock1,
-                                        block1,
+                    got = self.canBond( block1,
                                         idxEndGroup1,
-                                        endGroup1Coord,
-                                        idxBlock2,
                                         block2,
                                         idxEndGroup2,
-                                        endGroup2Coord,
-                                        endGroup2Symbol,
+                                        distance,
                                         bondMargin,
                                         bondAngleMargin,
                                         )
@@ -3251,34 +3207,6 @@ class TestCell(unittest.TestCase):
         
         return
 
-#     def testCellIO2(self):
-#         """Check we can write out and then read in a cell
-#         """
-#         
-#         # Remember a coordinate for checking
-#         test_coord = self.testCell.blocks[ self.testCell.blocks.keys()[1] ].atomCoord(4)
-#         
-#         outFile = "testCellio2.car"
-#         self.testCell.writeCar( ofile=outFile, periodic=False, skipDummy=False )
-#         
-# #         for i, ( idxBlock, block ) in enumerate( self.testCell.blocks.iteritems() ):
-# #             for j, coord in enumerate( block.iterCoord() ):
-# #                 print "Looping through 2: {0} {1} {2}".format( block.atomSymbol( j ),
-# #                                                                block.atomType( j ),
-# #                                                                block.atomCoord( j ) )
-# 
-#         self.testCell.fromCar( carFile=outFile )
-#         
-#         self.assertTrue( numpy.allclose( test_coord,
-#                                          self.testCell.blocks[ self.testCell.blocks.keys()[1] ].atomCoord( 4 ),
-#                                          rtol=1e-9,
-#                                          atol=1e-9 ),
-#                        msg="Incorrect testCoordinate of cell after car.")   
-#         
-#         os.unlink( outFile )
-#         
-#         return
-
     def testCloseAtoms1(self):
         
         CELLA = CELLB = CELLC = 2.1
@@ -3333,7 +3261,7 @@ class TestCell(unittest.TestCase):
         # Updated refPairs as now have 
         refPairs = [ (0, 3), (1, 3), (2, 3) ] # Also used to check PBC
         closePairs = []
-        for iatom, ioblock, ioatom in closeList:
+        for iatom, block, ioatom, distance in closeList:
             closePairs.append( (iatom,ioatom) )
             
         #mycell.writeXyz("close1.xyz", label=False)
@@ -3365,7 +3293,7 @@ class TestCell(unittest.TestCase):
         
         closeList =  mycell.closeAtoms(block1_id)
         closePairs = []
-        for iatom, ioblock, ioatom in closeList:
+        for iatom, block, ioatom, distance in closeList:
             closePairs.append( (iatom,ioatom) )
 
         self.assertEqual(closePairs, refPairs, "Periodic boundary: {}".format(closePairs))
