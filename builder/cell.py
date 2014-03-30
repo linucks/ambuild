@@ -216,9 +216,7 @@ class Cell():
         block.atomCell = [ None ] * block.numAllAtoms()
         
         #print "nbox ",self.numBoxA,self.numBoxB,self.numBoxC
-        #for idxCoord,coord in enumerate(block._coords):
         for idxCoord,coord in enumerate( block.iterCoord() ):
-        #for idxCoord, coord in enumerate( block._coords ):
             
             # Skip adding dummy atoms
             if block.invisibleAtom( idxCoord ):
@@ -347,6 +345,8 @@ class Cell():
             self.logger.debug("attachBlock first checkMove returned False")
         
         # Only attempt rotation if we're not worried about the dihedral
+        # NOTE! - should only bother with the rotation if the cell is relatively crowded - otherwise
+        # the multiple rotations are the slowest step
         if not dihedral:
             # Didn't work so try rotating the growBlock about the bond to see if that lets it fit
             
@@ -357,7 +357,8 @@ class Cell():
             axis = blockSEndGroup - blockEndGroup
             center = blockSEndGroup
             
-            step = math.pi/18 # 10 degree increments
+            #step = math.pi/18 # 10 degree increments
+            step = math.pi/9 # 20 degree increments
             for angle in util.frange( step, math.pi*2, step):
                 
                 #print "attachBlock rotating as clash: {}".format(angle*util.RADIANS2DEGREES)
@@ -366,6 +367,8 @@ class Cell():
                 self.delBlock(blockId)
                 
                 # rotate by increment
+                self.logger.debug("attachBlock rotating by {0} to {1}".format( math.degrees(step),
+                                                                               math.degrees(angle) ) )
                 growBlock.rotate( axis, angle, center=center)
                 
                 # add it and check
@@ -623,15 +626,6 @@ class Cell():
         
         return
     
-    def _clearCells(self):
-        """Remove all blocks and atoms from their cells"""
-        
-        # Empty cells
-        self.box1 = {}
-        self.box3 = {}
-        
-        return
-    
     def cellAxis(self,A=None,B=None,C=None):
         """
         Set the cell axes
@@ -677,7 +671,6 @@ class Cell():
         
         """
         
-        
         # Get a list of the close atoms
         close = self.closeAtoms( idxAddBlock )
         #if close:
@@ -695,18 +688,13 @@ class Cell():
         self._possibleBonds = []
         for ( idxAddAtom, staticBlock, idxStaticAtom, distance ) in close:
             
-            #addSymbol = addBlock.atomSymbol( idxAddAtom )
-            #staticBlock = self.blocks[ idxStaticBlock ]
-            #addCoord = addBlock.atomCoord( idxAddAtom )
-            #staticCoord = staticBlock.atomCoord( idxStaticAtom )
-            
 #             print "CHECKING  ATOMS {}:{} {} -> {}:{} {}= {}".format( idxAddBlock,
 #                                                               idxAddAtom,
 #                                                               addSymbol,
 #                                                               idxStaticBlock,
 #                                                               idxStaticAtom,
 #                                                               staticBlock.atomSymbol( idxStaticAtom ),
-#                                                               self.distance( addCoord, staticCoord ) )
+#                                                               distance )
             
             if not ( addBlock.isEndGroup( idxAddAtom ) and \
                      staticBlock.isEndGroup( idxStaticAtom ) and \
@@ -775,14 +763,12 @@ class Cell():
                 if ( bond.block1 == staticBlock and idxStaticAtom == staticCap ) or \
                    ( bond.block2 == addBlock and idxAddAtom == addCap ):
                     #self.logger.debug("REMOVING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
-                    #clashAtoms.remove( ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     toGo.append( i )
                     continue
                 
                 # remove any clashes with directly bonded atoms
                 if ( bond.block1 == staticBlock and idxStaticAtom == staticEndGroup and idxAddAtom in addBondAtoms ) or \
                    ( bond.block2 == addBlock and idxAddAtom == addEndGroup and idxStaticAtom in staticBondAtoms ):
-                    #clashAtoms.remove( ( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     #self.logger.info( "REMOVING BOND ATOMS FROM CLASH TEST" )
                     toGo.append( i )
             
@@ -793,16 +779,18 @@ class Cell():
         
         # If there are any clashing atoms remaining this move failed
         if len( clashAtoms ):
-            self.logger.debug( "GOT CLASH ATOMS {0}".format( clashAtoms ) )
+            self.logger.debug( "Got clash atoms {0}".format( clashAtoms ) )
             return len( clashAtoms )
         
         # Got bonds and no clashes
-        self.logger.debug( "CHECKMOVE RETURN 0" )
+        self.logger.debug( "Checkmove no clashes" )
         return 0
     
-    def closeAtoms(self, idxBlock1):
+    def XXXcloseAtoms(self, idxBlock1):
         """
         Find all atoms that are close to the atoms in the given block.
+        
+        This is the old unoptimised version
         
         Args:
         idxBlock1: index of the block in self.blocks
@@ -855,17 +843,86 @@ class Cell():
                     #y = coord2[1] % self.B
                     #z = coord2[2] % self.C
                     #print "PBC: {}                         {}".format(self.distance( coord2,coord ),[x,y,z] )
-                    distance = self.distance( coord2,coord1 )
+                    distance = self.distanceSimple( coord2,coord1 )
                     if ( distance < self.boxSize ):
                         #print "CLOSE {}-{}:({}) and {}-{}:({}): {}".format( idxBlock1,idxAtom1,coord1,idxBlock2,idxAtom2,coord2, self.distance( coord2,coord1 ))
                         if ( idxAtom1, block2, idxAtom2, distance ) in contacts:
                             raise RuntimeError,"Duplicate contacts"
                         contacts.append( ( idxAtom1, block2, idxAtom2, distance ) )
-                        
+        
         if len(contacts):
             return contacts
         else:
             return False
+
+    def closeAtoms(self, idxBlock1):
+        """
+        Find all atoms that are close to the atoms in the given block.
+        
+        This version is optimised to use numpy to do the PBC distance calculations, so builds up a vector of points and then
+        calculates the distances in one go with the distanceV function
+        
+        Args:
+        idxBlock1: index of the block in self.blocks
+        
+        Returns:
+        a list of tuples: (thisAtomIndex, otherBlockIndex, otherAtomIndex, distance) or None if there we no close contacts
+        """
+        
+        # Build up list of the coordinates and an initial contacts array
+        c1 = []
+        c2 = []
+        allContacts=[]
+        
+        count=0
+        block1=self.blocks[ idxBlock1 ]
+        for idxAtom1,coord1 in enumerate( block1.iterCoord() ):
+            
+            # Get the box this atom is in
+            key = block1.atomCell[ idxAtom1 ]
+            
+            # Skip checking dummy atoms
+            if key is None:
+                continue
+            
+            #print "Close checking [{}] {}: {} : {}".format(key,idxBlock1,idxAtom1,coord1)
+            
+            # Get a list of the boxes surrounding this one
+            surrounding = self.box3[key]
+            
+            #For each box loop through all its atoms chekcking for clashes
+            for i, sbox in enumerate(surrounding):
+                
+                #print "KEY ",i,sbox
+                # For each box, get the list of the atoms as (block,coord1) tuples
+                # Check if we have a box with anything in it
+                try:
+                    alist = self.box1[ sbox ]
+                except KeyError:
+                    continue
+                
+                for (idxBlock2, idxAtom2) in alist:
+                    
+                    # Check we are not checking ourself - need to check block index too!
+                    if idxBlock1 == idxBlock2:
+                        continue
+                    
+                    block2 = self.blocks[idxBlock2]
+                    
+                    c1.append( coord1 )
+                    c2.append( block2.atomCoord( idxAtom2 ) )
+                    allContacts.append( ( idxAtom1, block2, idxAtom2 ) )
+                    count += 1
+        
+        # Have list so now calculate distances
+        if count == 0:
+            return []
+        
+        # Calculate array of distances for all coordinates
+        distances = self.distance(c1, c2)
+        
+        # prune contacts array according to distances
+        return [ ( c[0], c[1], c[2], distances[i] ) for i, c in enumerate( allContacts ) if distances[i] < self.boxSize ]
 
     def dataDict( self ):
         """Get the data for the current cell
@@ -1136,11 +1193,33 @@ class Cell():
 #        #End shimmy
 #        return
 
+    def XdistanceV(self, x0, x1):
+        """Calculate vectors of distances between 2 vectors of points.
+        http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
+        """
+        dimensions = numpy.array( [ self.A, self.B, self.C ] )
+        x0 = numpy.array( x0 )
+        x1 = numpy.array( x1 )
+        delta = numpy.abs(x0 - x1)
+        delta = numpy.where(delta > 0.5 * dimensions, dimensions - delta, delta)
+        return numpy.sqrt((delta ** 2).sum(axis=-1))
+
     def distance(self, v1, v2):
+        """Distance with numpy taking PBC into account
+        This works either with 2 points or a vector of any number of points
+        Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
+        Changed so that it can cope with distances across more than one cell
+        """
+        dimensions = numpy.array( [ self.A, self.B, self.C ] )
+        delta = numpy.array(v1) - numpy.array(v2)
+        delta = numpy.remainder( delta, dimensions )
+        delta = numpy.where(numpy.abs(delta) > 0.5 * dimensions, delta - numpy.copysign( dimensions, delta ), delta)
+        return numpy.sqrt((delta ** 2).sum(axis=-1))
+
+    def distanceSimple(self, v1, v2):
         """
         my attempt to do PBC
         """
-        
         dx = v2[0] % self.A - v1[0] % self.A
         if math.fabs(dx) > self.A * 0.5:
             dx = dx - math.copysign( self.A, dx)
@@ -2050,22 +2129,24 @@ class Cell():
         return
     
     def repopulateCells(self):
-        """Clear all cells"""
+        """Add all the blocks to resized cells"""
 
         # Remove all blocks from their cells
-        self._clearCells()
+        self.box1 = {}
+        self.box3 = {}
         
-        # Put all the blocks into the new cells
-        # First copy the blocks dictionary
-        blocks = copy.copy( self.blocks )
-        
-        self.blocks.clear() # Delete the old one and reset
-        
-        self.logger.debug("repopulateCells, adding blocks into new cells")
-        for idxBlock, block in blocks.iteritems():
-            self.addBlock( block, idxBlock=idxBlock )
+        if len( self.blocks ):
+            # Put all the blocks into the new cells
+            # First copy the blocks dictionary
+            blocks = copy.copy( self.blocks )
             
-        del blocks
+            self.blocks.clear() # Delete the old one and reset
+            
+            self.logger.debug("repopulateCells, adding blocks into new cells")
+            for idxBlock, block in blocks.iteritems():
+                self.addBlock( block, idxBlock=idxBlock )
+                
+            del blocks
 
         return
 
@@ -2434,33 +2515,35 @@ class Cell():
         return
     
     def updateCellSize(self, boxMargin=None, maxAtomRadius=None, MARGIN=0.01 ):
-
-            if maxAtomRadius != None:
-                self.maxAtomRadius = maxAtomRadius
-            
-            if not boxMargin is None:
-                self.boxMargin = boxMargin
-            else:
-                assert self.atomMargin and self.bondMargin
-                # box margin is largest we'll be looking for plus a bit to account for arithmetic overflow
-                self.boxMargin = max( self.atomMargin, self.bondMargin ) + MARGIN
-            
-            assert self.boxMargin != 0 and self.maxAtomRadius != 0
-            
-            self.boxSize = ( self.maxAtomRadius * 2 ) + self.boxMargin
-            
-            #jmht - ceil or floor
-            self.numBoxA = int(math.ceil( self.A / self.boxSize ) )
-            self.numBoxB = int(math.ceil( self.B / self.boxSize ) )
-            self.numBoxC = int(math.ceil( self.C / self.boxSize ) ) 
-            
-            self.logger.debug( "updateCellSize: boxSize {0} nboxes: {1} maxR {2} margin {3}".format( self.boxSize,
-                                                                                          ( self.numBoxA, self.numBoxB, self.numBoxC ),
-                                                                                         self.maxAtomRadius, 
-                                                                                         self.boxMargin)
-                              )
-            
-            return
+        """The cell size is the vdw radius of the largest atom plus the largest of atom or bondMargin
+        plus a MARGIN to account for overflows
+        """
+        if maxAtomRadius != None:
+            self.maxAtomRadius = maxAtomRadius
+        
+        if not boxMargin is None:
+            self.boxMargin = boxMargin
+        else:
+            assert self.atomMargin and self.bondMargin
+            # box margin is largest we'll be looking for plus a bit to account for arithmetic overflow
+            self.boxMargin = max( self.atomMargin, self.bondMargin ) + MARGIN
+        
+        assert self.boxMargin != 0 and self.maxAtomRadius != 0
+        
+        self.boxSize = ( self.maxAtomRadius * 2 ) + self.boxMargin
+        
+        #jmht - ceil or floor
+        self.numBoxA = int(math.ceil( self.A / self.boxSize ) )
+        self.numBoxB = int(math.ceil( self.B / self.boxSize ) )
+        self.numBoxC = int(math.ceil( self.C / self.boxSize ) ) 
+        
+        self.logger.debug( "updateCellSize: boxSize {0} nboxes: {1} maxR {2} margin {3}".format( self.boxSize,
+                                                                                      ( self.numBoxA, self.numBoxB, self.numBoxC ),
+                                                                                     self.maxAtomRadius, 
+                                                                                     self.boxMargin)
+                          )
+        
+        return
 
     def writePickle( self, fileName="cell.pkl" ):
         """Pickle ourselves"""
@@ -2478,6 +2561,9 @@ class Cell():
             self.logger.removeHandler( self._flLogHandler )
             del self._clLogHandler
             del self._flLogHandler
+            
+        
+        fileName = os.path.abspath( fileName )
         
         # Create the pickle file
         util.pickleObj( self, fileName )
@@ -2650,6 +2736,7 @@ class Cell():
         
         #ET.dump(tree)
         
+        cmlFilename = os.path.abspath( cmlFilename )
         #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
         tree.write( cmlFilename, encoding="utf-8", xml_declaration=True)
         
@@ -2853,6 +2940,9 @@ class Cell():
         
         # Loop through all the end groups and run canBond
         self._possibleBonds = []
+        egPairs             = []
+        c1                  = []
+        c2                  = []
         for block1, idxEndGroup1 in endGroups:
             
             # Get the box this atom is in
@@ -2883,20 +2973,28 @@ class Cell():
                         if idxEndGroup2 in block1.atomBonded3( idxEndGroup1 ):
                             continue
                     
-                    distance = self.distance( block1.atomCoord( idxEndGroup1 ),
-                                              block2.atomCoord( idxEndGroup2 ),
-                                             )
-                    
-                    got = self.canBond( block1,
+                    egPairs.append(  ( block1,
                                         idxEndGroup1,
                                         block2,
-                                        idxEndGroup2,
-                                        distance,
-                                        bondMargin,
-                                        bondAngleMargin,
-                                        )
+                                        idxEndGroup2 ) )
+                    c1.append( block1.atomCoord( idxEndGroup1 ) )
+                    c2.append( block2.atomCoord( idxEndGroup2 ) )
+
+        # Calculate distances between all pairs
+        distances = self.distance(c1, c2)
         
-        #process the bonds
+        # Now check for bonds
+        for i, ( block1, idxEndGroup1, block2, idxEndGroup2 ) in enumerate( egPairs ):
+            got = self.canBond( block1,
+                                idxEndGroup1,
+                                block2,
+                                idxEndGroup2,
+                                distances[i],
+                                bondMargin,
+                                bondAngleMargin,
+                                )
+        
+        # Process any bonds
         todo = len( self._possibleBonds )
         
         self.logger.info("zipBlocks: found {0} additional bonds".format( todo ) )
@@ -2909,13 +3007,14 @@ class Cell():
 #                                                                    b.block2.atomCoord( b.endGroup2.blockEndGroupIdx),
 #                                                                 )
 #         
-        bondsMade = self.processBonds()
-        
-        if bondsMade != todo:
-            self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(
-                                                                                            todo, 
-                                                                                            bondsMade ) )
-        
+        bondsMade = 0
+        if todo > 0:
+            bondsMade = self.processBonds()
+            if bondsMade != todo:
+                self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(
+                                                                                                todo, 
+                                                                                                bondsMade ) )
+            
         self.analyse.stop('zip')
         
         return bondsMade
@@ -3047,7 +3146,7 @@ class TestCell(unittest.TestCase):
         cls.dcxCar = os.path.join( cls.ambuildDir, "blocks", "DCX.car" )
         
         print "START TEST CELL"
-        if True:
+        if False:
             # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
             # From code looks like default r_buff is 0.4 and our default r_cut is 5.0 
             CELLA = CELLB = CELLC = 20.0
@@ -3075,6 +3174,34 @@ class TestCell(unittest.TestCase):
         mycell.seed( 1 )
         mycell.growBlocks( 1 )
         
+        return
+
+    def XXXtimeCheck(self):
+        """NOT A TEST JUST CODE TO TIME CHECKMOVE"""
+    
+        def cellFromPickle(pickleFile):
+            with open(pickleFile) as f:
+                myCell=cPickle.load(f)
+            return myCell
+        
+        mycell = cellFromPickle("step_1.pkl")
+        # Get the last block
+        idxb = mycell.blocks.keys()[-1]
+        b = mycell.blocks[ idxb ]
+        be = b.freeEndGroups()[0]
+         
+        i =  mycell.getInitBlock()
+        ie = i.freeEndGroups()[0]
+         
+        def run():
+            global b, be, i, ie
+            for _ in xrange( 1000):
+                b.positionGrowBlock( be, i, ie, dihedral=None )
+                blockId = mycell.addBlock( i )
+                mycell.checkMove( blockId )
+                mycell.delBlock(blockId)
+        
+        cProfile.run('run()','restats')
         return
 
     def testBond(self):
@@ -3376,6 +3503,8 @@ class TestCell(unittest.TestCase):
         v2 = numpy.array([ 0.0, 0.0, 8.0 ])
         dc = mycell.distance(v1,v2)
         self.assertEqual( dc, 2.0, "Distance across boundary cell:{}".format(dc) )
+        
+        return
         
     def testGrowBlocks(self):
         """Test we can add blocks correctly"""
