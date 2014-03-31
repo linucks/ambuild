@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 '''
 Created on Feb 3, 2013
 
@@ -692,6 +693,10 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
     
     return bonds, md
 
+def cellFromPickle(pickleFile):
+    with open(pickleFile) as f:
+        myCell=cPickle.load(f)
+    return myCell
 
 def dihedral(p1, p2, p3, p4):
     """ From the CCP1GUI"""
@@ -765,6 +770,24 @@ def Xdistance(self, v1, v2 ):
         dz = dz - math.copysign( self.C[2], dz)
     
     return math.sqrt( dx*dx + dy*dy + dz*dz )
+
+def dumpPkl(pickleFile):
+    
+    fpath = os.path.abspath( pickleFile )
+    print "Dumping pkl file: {0}".format( fpath )
+    dname,fname = os.path.split( fpath )
+    prefix = os.path.splitext(fname)[0]
+    
+    mycell = cellFromPickle(pickleFile)
+    
+    data = mycell.dataDict()
+    mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
+    #self.writeCar(prefix+"_P.car",data=data,periodic=True)
+    mycell.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
+    #self.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
+    mycell.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml")
+    
+    return
 
 def frange(start, stop, step):
     """
@@ -1001,5 +1024,7 @@ if __name__ == '__main__':
     """
     #unittest.main()
     #xyzContacts( sys.argv[1] )
-    hoomdContacts( sys.argv[1] )
+    #hoomdContacts( sys.argv[1] )
+    assert len(sys.argv) == 2,"To dump coordinates from pickle: {0} <file.pkl>".format( sys.argv[0] )
+    dumpPkl( sys.argv[1] )
 
