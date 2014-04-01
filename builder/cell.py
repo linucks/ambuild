@@ -1245,9 +1245,9 @@ class Cell():
         data = self.dataDict()
             
         #self.writeXyz(prefix+".xyz",data=data, periodic=False)
-        self.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
-        self.writeCar(prefix+"_P.car",data=data,periodic=True)
-        self.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
+        #self.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
+        #self.writeCar(prefix+"_P.car",data=data,periodic=True)
+        #self.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
         #self.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
         
         # This is too expensive at the moment
@@ -1667,7 +1667,6 @@ class Cell():
         return sum( [ b.numAtoms() for b in self.blocks.itervalues() ] )
     
     def optimiseGeometry(self,
-                         optAttempts=3,
                          xmlFilename="hoomdOpt.xml",
                          doDihedral=False,
                          doImproper=False,
@@ -1692,38 +1691,21 @@ class Cell():
                             doDihedral=doDihedral,
                             doImproper=doImproper )
         
-        count=0
-        system=None
-        while True:
-            
-            count += 1
-            if count > optAttempts:
-                self.logger.critical( "Optimisation exceeded optAttempts on attempt: {0}".format( count ) )
-                return False
-            
-            self.logger.info( "Running optimisation attempt: {0}".format( count ) )
-            if True:
-            #try:
-                d = {}
-                ok = optimiser.optimiseGeometry( xmlFilename,
-                                                     doDihedral=doDihedral,
-                                                     doImproper=doImproper,
-                                                     d=d,
-                                                      **kw )
-                self.analyse.stop('optimiseGeometry', d )
-#             except RuntimeError, e:
-#                 self.logger.critical( "Optimisation raised exception: {0}".format( e ) )
-# 
-#                 if count < optAttempts:
-#                     # Give Hoomdblue a chance to reset itself and clean up
-#                     time.sleep( 20 )
-#                     system=None
+        self.logger.info( "Running optimisation" )
+        d = {}
+        ok = optimiser.optimiseGeometry( xmlFilename,
+                                             doDihedral=doDihedral,
+                                             doImproper=doImproper,
+                                             d=d,
+                                              **kw )
+        self.analyse.stop('optimiseGeometry', d )
                 
-            if ok:
-                self.logger.info( "Optimisation succeeded on attempt: {0}".format( count ) )
-                break
-        
-        return self.fromHoomdblueSystem( optimiser.system )
+        if ok:
+            self.logger.info( "Optimisation succeeded" )
+            return self.fromHoomdblueSystem( optimiser.system )
+        else:
+            self.logger.critical( "Optimisation Failed" )
+            return False
 
     def positionInCell(self, block):
         """Make sure the given block is positioned within the cell"""
@@ -1876,6 +1858,8 @@ class Cell():
             self.logger.debug("processBonds got no bonds" )
             return 0
         
+        #self.logger.debug = lambda x: sys.stdout.write(x + "\n")
+        
         # Here no atoms clash and we have a list of possible bonds - so bond'em!
         self.logger.debug("processBonds got bonds: {0}".format( self._possibleBonds ) )
         
@@ -1917,11 +1901,15 @@ class Cell():
         
         bondsMade = 0
         bmap = {}
-        bondedEndGroups = [] # Need to keep track of which endGroups have been used in bonding as they will
+        #bondedEndGroups = [] # Need to keep track of which endGroups have been used in bonding as they will
         # no longer be available
         for count, bond in enumerate( self._possibleBonds ):
             
-            if bond.endGroup1 not in bondedEndGroups and bond.endGroup2 not in bondedEndGroups:
+            # With the bonding rules some endGroups may become not free when other endGroups in that fragment
+            # are involved in bonds so we need to make sure they are free before we do
+            
+            #if bond.endGroup1 not in bondedEndGroups and bond.endGroup2 not in bondedEndGroups:
+            if bond.endGroup1.free() and bond.endGroup2.free():
                 
                 if bond.idxBlock1 not in bmap:
                     bmap[ bond.idxBlock1 ] = None
@@ -1946,8 +1934,8 @@ class Cell():
                 if bond.idxBlock1 != bond.idxBlock2: # Update dictionary
                     bmap[ bond.idxBlock2 ] = bond.idxBlock1
                 
-                bondedEndGroups.append( bond.endGroup1 )
-                bondedEndGroups.append( bond.endGroup2 )
+                #bondedEndGroups.append( bond.endGroup1 )
+                #bondedEndGroups.append( bond.endGroup2 )
                 
         self._possibleBonds = []
         
