@@ -23,7 +23,7 @@ class FfieldParameters( object ):
         self.bonds = { 
                       'cp-cp'   : { 'k' : 1550.0, 'r0' : 1.384 },
                       'c1-cp'   : { 'k' : 970.0,  'r0' : 1.501 },
-                      'c2-cp'   : { 'k' : 970.0,  'r0' : 1.501 },
+                      'c2-cp'   : { 'k' : 2000.0,  'r0' : 1.524 },
                       #'cp-ct'   : { 'k' : 1200.0, 'r0' : 1.54 },
                       #'c3a-c3a' : { 'k' : 1200.0, 'r0' : 1.54 },
                       'c-c'     : { 'k' : 930.0,  'r0' : 1.536 },
@@ -71,12 +71,26 @@ class FfieldParameters( object ):
                       }
 
         self.dihedrals = { 
-                       'cp-cp-cp-cp'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
-                       'cp-cp-cp-hc'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
-                       'ct-cp-cp-cp'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
-                       'ct-cp-cp-hc'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
-                       'cp-cp-ct-nt'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
+                       #'cp-cp-cp-cp'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
+                       #'cp-cp-cp-hc'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
+                       #'ct-cp-cp-cp'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
+                       #'ct-cp-cp-hc'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
+                       #'cp-cp-ct-nt'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
                        
+                       #DCX
+                       # Needs minima at 180
+                       'c2-cp-cp-cp'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
+                       # 
+                       'c2-cp-cp-hc'     : { 'k' : 70, 'd' : -1, 'n' : 1 },
+                       'c2-cp-cp-c2'     : { 'k' : 70, 'd' : -1, 'n' : 1 },
+                       # Acceptable values from optimised dimer: -172, -129, -109, -13, 7, 13, 52, 70, 109, 168
+                       # Decided that values were ~ 0, 60, 120, 180 - need best minima at 120.3.
+                       'cp-cp-c2-hc'     : { 'k' : 3, 'd' : -1, 'n' : 3 },
+                       'hc-c2-cp-cp'     : { 'k' : 3, 'd' : -1, 'n' : 3 },
+                       'cp-cp-c2-cp'     : { 'k' : 70, 'd' : -1, 'n' : 1 },
+                       'cp-c2-cp-cp'     : { 'k' : 70, 'd' : -1, 'n' : 1 },
+                       
+                       #aza
                        'nb-c_0-c_0-c_0'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'nb-c_0-c_0-o_1'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'c_0-nb-cpa-cp'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
@@ -103,7 +117,9 @@ class FfieldParameters( object ):
               ('c2', 'c2' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
               ('c2', 'ct' )      : { 'epsilon' : 0.0760,   'sigma' : 3.9007  },
               ('c2', 'cp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
+              #c2-hc for DCX
               ('c2', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
+              #else:('c2', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('c2', 'nb' )      : { 'epsilon' : 0.0759,   'sigma' : 3.9357  },
               ('c2', 'hx' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('c2', 'cl' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
@@ -160,12 +176,16 @@ class FfieldParameters( object ):
               ('c3a', 'f1p' )    : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('c3a', 'o2e' )    : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
               
-              ('cp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              #cp-cp for DCX
+              ('cp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
+              #else:('cp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'cl' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('cp', 'cpa' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('cpa', 'cpa' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('cp', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('cpa', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              ('cpa', 'cpa' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              #cp-hc for DCX
+              ('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 1.4893  },
+              #else('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
+              ('cpa', 'hc' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'ct' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'nb' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
               ('cpa', 'nb' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
@@ -216,7 +236,9 @@ class FfieldParameters( object ):
               ('h1', 'cp' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h1', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               
-              ('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              #hc-hc for DCX
+              ('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
+              #else('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('hc', 'nb' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
               ('hc', 'nt' )      : { 'epsilon' : 0.0316,   'sigma' : 3.3431  },
               ('hc', 'hn' )      : { 'epsilon' : 0.0016,   'sigma' : 2.6693  },
@@ -337,6 +359,8 @@ class HoomdOptimiser( object ):
         self.impropers = None
         self.atomTypes = None
         self.rCut = 5.0
+        
+        self.debug=True
         
         # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
         # Incoming T is in Kelvin so we multiply by kB
@@ -472,7 +496,7 @@ class HoomdOptimiser( object ):
         
         for p in system.particles:
             
-                label = p.type.strip()
+                label = util.label2symbol( p.type.strip() )
                 x, y, z  = p.position
                 ix, iy, iz = p.image
                 
@@ -485,8 +509,7 @@ class HoomdOptimiser( object ):
                     x = x + ( xdim / 2 )
                     y = y + ( ydim / 2 )
                     z = z + ( zdim / 2 )
-                
-                xyz += "{0:<5} {1: > 14.10} {2: > 14.10} {3: > 14.10} XXXX 1      {4: <4}    {5: <2} {6: > 2.3f}\n".format( label, x, y, z )
+                xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( label, x, y, z )
         
         with open( filename, 'w' ) as f:
             f.writelines( xyz )
@@ -496,12 +519,16 @@ class HoomdOptimiser( object ):
     def setAngle( self, anglePotential ):
         for angle in self.angles:
             param = self.ffield.angleParameter( angle )
+            if self.debug:
+                print "DEBUG: angle set_coeff( '{0}',  k={1}, t0={2} )".format( angle, param['k'],param['t0']  )
             anglePotential.set_coeff( angle, k=param['k'], t0=param['t0'] )
         return
     
     def setBond( self, bondPotential ):
         for bond in self.bonds:
             param = self.ffield.bondParameter( bond )
+            if self.debug:
+                print "DEBUG: bond_coeff.set( '{0}',  k={1}, r0={2} )".format( bond, param['k'],param['r0']  )
             bondPotential.bond_coeff.set( bond, k=param['k'], r0=param['r0'] )
         return
     
@@ -528,8 +555,13 @@ class HoomdOptimiser( object ):
                                                       epsilon = 0.0,
                                                       sigma   = 0.0,
                                                       rcut    = 0.0  )
+                        if self.debug:
+                            print "DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3}, rcut={4} )".format(atype,btype,0.0,0.0,0.0  )
+
                     else:
                         param = self.ffield.pairParameter( atype, btype )
+                        if self.debug:
+                            print "DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype,btype,param['epsilon'],param['sigma']  )
                         pairPotential.pair_coeff.set( atype, btype, epsilon = param['epsilon'], sigma=param['sigma'] )
         return
     
@@ -812,6 +844,11 @@ class HoomdOptimiser( object ):
         hoomdblue.run( mdCycles )
         
         nvt_rigid.disable()
+        if dump:
+            xmld.disable()
+            dcdd.disable()
+            del xmld
+            del dcdd
         
         del nvt_rigid
         del integrator_mode
@@ -821,8 +858,9 @@ class HoomdOptimiser( object ):
     def _optimiseGeometry(self,
                           carOut="hoomdOpt.car",
                           optCycles = 100000,
-                          maxOptIter=100,
+                          maxOptIter=10,
                           dt=0.005,
+                          dump=False,
                           **kw ):
         """Optimise the geometry with hoomdblue"""
         
@@ -837,8 +875,7 @@ class HoomdOptimiser( object ):
                                                              fdec=0.5
                                                             )
         
-        record=False
-        if record:
+        if dump:
             # For tracking the optimsation        
             xmld = hoomdblue.dump.xml(filename="runopt.xml", vis=True)
             dcdd = hoomdblue.dump.dcd(filename="runopt.dcd",
@@ -859,6 +896,12 @@ class HoomdOptimiser( object ):
     
         # Delete variables before we return to stop memory leaks
         del fire
+        
+        if dump:
+            xmld.disable()
+            dcdd.disable()
+            del xmld
+            del dcdd
 #         del harmonic
 #         del aharmonic
 #         del improper
@@ -918,6 +961,6 @@ if __name__ == "__main__":
     xyzFilename = xmlFilename +".xyz"
     xml2xyz( xmlFilename, xyzFilename )
     #optimiser.runMDAndOptimise( xmlFilename=xmlFilename, doDihedral=True )
-    #optimiser.optimiseGeometry( xmlFilename=xmlFilename, doDihedral=True )
-    #optimiser.writeXyz(optimiser.system, "opted.xyz", unwrap=False)
+    optimiser.optimiseGeometry( xmlFilename=xmlFilename, doDihedral=False )
+    optimiser.writeXyz(optimiser.system, "opted.xyz", unwrap=False)
 
