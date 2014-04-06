@@ -54,12 +54,7 @@ class Analyse():
         for f in self.fieldnames:
             if f == 'time':
                 d[ f ] = self._startTime
-            elif f == 'file_count':
-                # HACK FOR ZIPTEST!!
-                try:
-                    d[ f ] = self.cell._fileCount
-                except:
-                    d[ f ] = 0
+            #elif f == 'file_count':
             elif f == 'type':
                 d[ f ] = 'init'
             else:
@@ -1251,7 +1246,7 @@ class Cell():
         #self.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
         
         # This is too expensive at the moment
-        #self.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml")
+        #self.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
         
         self.writePickle(prefix+".pkl")
         return
@@ -1736,11 +1731,10 @@ class Cell():
         
         return
 
-    def prepareHoomdData(self ):
-        
-        
+    def prepareHoomdData(self,data=None):
         # Get the data on the blocks
-        data = self.dataDict()
+        if data is None:
+            data = self.dataDict()
         
         if self.minCell:
         
@@ -2766,14 +2760,16 @@ class Cell():
                       xmlFilename="ambuildhoomd.xml",
                       doCharges=True,
                       doDihedral=False,
-                      doImproper=False ):
+                      doImproper=False,
+                      data=None, 
+                      ):
         """Write out a HOOMD Blue XML file.
         """
         
         # For time being use zero so just under LJ potential & bond
         #diameter += "{0}\n".format( frag._atomRadii[ k ] )
         
-        data = self.prepareHoomdData()
+        data = self.prepareHoomdData(data=data)
         
         body     = "\n" + "\n".join( map( str, data['body'] ) ) + "\n"
         charge   = "\n" + "\n".join( map( str, data['charge'] ) ) + "\n"
@@ -3097,8 +3093,11 @@ class Cell():
     def __setstate__(self, d):
         """Called when we are unpickled """
         self.__dict__.update(d)
-        self.setupLogging()
-        self._setupAnalyse()
+        # Hack - just set up a default logger so we have one to call
+        logging.basicConfig()
+        self.logger = logging.getLogger()
+        #self.setupLogging()
+        #self._setupAnalyse()
         return
     
 class TestCell(unittest.TestCase):
