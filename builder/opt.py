@@ -56,8 +56,10 @@ class FfieldParameters( object ):
                        'hc-c2-cp'    : { 'k' : 330.0, 't0' : math.radians(109) },
                        'cp-c2-hc'    : { 'k' : 330.0, 't0' : math.radians(109) },
                        'c1-cp-cp'    : { 'k' : 2500.0, 't0' : math.radians(120) },
+                       'c1-cp-np'    : { 'k' : 2500.0, 't0' : math.radians(120) },
                        'cp-cp-c1'    : { 'k' : 2500.0, 't0' : math.radians(120) },
                        'c2-cp-cp'    : { 'k' : 2500.0, 't0' : math.radians(120) },
+                       'np-cp-c1'    : { 'k' : 2500.0, 't0' : math.radians(120) },
                        'cp-cp-c2'    : { 'k' : 2500.0, 't0' : math.radians(120) },
                        'cp-c1-h1'    : { 'k' : 330.0, 't0' : math.radians(120) },
                        'cp-c1-cp'    : { 'k' : 2500.0, 't0' : math.radians(109) },
@@ -98,6 +100,18 @@ class FfieldParameters( object ):
                        'c_0-c_0-nb-cpa'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'cpa-nb-c_0-c_0'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'nb-c_0-c_0-nb'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       
+                       #CTF
+                       'c1-cp-np-cp'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
+                       'c1-cp-np-cp'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
+                       'cp-c1-cp-np'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
+                       'np-cp-c1-h1'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
+                       'h1-c1-cp-np'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
+                       'np-cp-c1-cp'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
+                       
+                       #PAF
+                       'cp-cp-cp-cp'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cp-cp-cp-hc'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
                          }
         
         self.impropers = { 
@@ -125,6 +139,8 @@ class FfieldParameters( object ):
               ('c2', 'cl' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               
               ('c1', 'c1' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
+              ('c', 'c' )        : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
+              ('c', 'br' )       : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
               ('c1', 'c2' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
               
               ('c=1', 'c=1' )    : { 'epsilon' : 0.0640,   'sigma' : 4.0100  },
@@ -159,7 +175,7 @@ class FfieldParameters( object ):
               
               ('c_0', 'c_0' )    : { 'epsilon' : 0.1200,   'sigma' : 3.3080  },
               ('c_0', 'o_1' )    : { 'epsilon' : 0.1755,   'sigma' : 3.4309  },
-              ('c1', 'o_1' )    : { 'epsilon' : 0.1755,   'sigma' : 3.4309  },
+              ('c1', 'o_1' )     : { 'epsilon' : 0.1755,   'sigma' : 3.4309  },
               ('c_0', 'cp' )     : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },
               ('c_0', 'cpa' )    : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },              
               ('c_0', 'nb' )     : { 'epsilon' : 0.0736,   'sigma' : 3.7823  },
@@ -180,22 +196,25 @@ class FfieldParameters( object ):
               ('cp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
               #else:('cp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'cl' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('cp', 'cpa' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('cpa', 'cpa' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              ('cp', 'cpa' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              ('cpa', 'cpa' )    : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               #cp-hc for DCX
-              ('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 1.4893  },
+              #('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 1.4893  },
+              ('cp', 'br' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               #else('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
+              ('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('cpa', 'hc' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'ct' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'nb' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
-              ('cpa', 'nb' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
+              ('cpa', 'nb' )     : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
               ('cp', 'nt' )      : { 'epsilon' : 0.0836,   'sigma' : 3.6788  },
               ('cp', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'np' )      : { 'epsilon' : 0.0664,   'sigma' : 3.6788  },
               ('cp', 'oc' )      : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
               ('cp', 'c1' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
+              ('cp', 'c' )       : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
               ('cp', 'hn' )      : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
-              ('cpa', 'hn' )      : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
+              ('cpa', 'hn' )     : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
               
               ('ct', 'ct' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('ct', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
@@ -240,6 +259,7 @@ class FfieldParameters( object ):
               ('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
               #else('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('hc', 'nb' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
+              ('h1', 'np' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
               ('hc', 'nt' )      : { 'epsilon' : 0.0316,   'sigma' : 3.3431  },
               ('hc', 'hn' )      : { 'epsilon' : 0.0016,   'sigma' : 2.6693  },
               ('hn', 'hn' )      : { 'epsilon' : 0.0130,   'sigma' : 1.0980  },
@@ -248,6 +268,7 @@ class FfieldParameters( object ):
               ('hc', 'oc' )      : { 'epsilon' : 0.0615,   'sigma' : 3.3189  }, 
               ('hc', 'c1' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('hc', 'cl' )      : { 'epsilon' : 0.0200,   'sigma' : 2.9950  },
+              ('hc', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               
               ('hx', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('hx', 'nb' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
@@ -275,6 +296,8 @@ class FfieldParameters( object ):
               ('np', 'nt' )      : { 'epsilon' : 0.0516,   'sigma' : 3.5700  },
               ('np', 'c1' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },#needs changing
               ('np', 'c2' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },#needs changing
+              
+              ('br', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               
               ('nt', 'nt' )      : { 'epsilon' : 0.0650,   'sigma' : 3.5700  },
               
@@ -857,8 +880,8 @@ class HoomdOptimiser( object ):
     
     def _optimiseGeometry(self,
                           carOut="hoomdOpt.car",
-                          optCycles = 100000,
-                          maxOptIter=10,
+                          optCycles = 1000000,
+                          maxOptIter=5,
                           dt=0.005,
                           dump=False,
                           **kw ):
