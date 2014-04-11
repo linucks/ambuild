@@ -62,7 +62,8 @@ class Analyse():
         
         self.last = d
         
-        self.logfile = csv.DictWriter( open(logfile, 'w'), self.fieldnames )
+        self.logname = logfile
+        self.logfile = csv.DictWriter( open(self.logname, 'w'), self.fieldnames )
         
         self.logfile.writeheader()
         
@@ -1275,8 +1276,7 @@ class Cell():
     def fromHoomdblueSystem(self, system ):
         """Reset the particle positions from hoomdblue system"""
     
-        if not system:
-            return False
+        assert system,"No system!"
         
         if self.minCell:
             # Need to take unwrapped coords and put back into 
@@ -1334,7 +1334,7 @@ class Cell():
         # Now have the new coordinates, so we need to put the atoms in their new cells
         self.repopulateCells()
         
-        return True
+        return
         
     def fromCar(self, carFile ):
         """ Read in an xyz file containing a cell and recreate the cell object"""
@@ -1697,7 +1697,8 @@ class Cell():
                 
         if ok:
             self.logger.info( "Optimisation succeeded" )
-            return self.fromHoomdblueSystem( optimiser.system )
+            self.fromHoomdblueSystem( optimiser.system )
+            return True
         else:
             self.logger.critical( "Optimisation Failed" )
             return False
@@ -2160,8 +2161,10 @@ class Cell():
                                   **kw )
         
         self.analyse.stop('runMD', d )
-        
-        return self.fromHoomdblueSystem( optimiser.system )
+
+        self.fromHoomdblueSystem( optimiser.system )
+
+        return ok
     
     def runMDAndOptimise(self,
                          xmlFilename="hoomdMDOpt.xml",
@@ -2195,7 +2198,9 @@ class Cell():
         
         self.analyse.stop('runMDAndOptimise', d )
         
-        return self.fromHoomdblueSystem( optimiser.system )
+        self.fromHoomdblueSystem( optimiser.system )
+
+        return ok
 
     def seed( self, nblocks, fragmentType=None, maxTries=500, center=False ):
         """ Seed a cell with nblocks.
@@ -2287,8 +2292,8 @@ class Cell():
         fragment = self._fragmentLibrary[ fragmentType ]
         return fragment.setMaxBond( bondType, count )
 
-    def _setupAnalyse(self):
-        self.analyse = Analyse( self )
+    def _setupAnalyse(self, logfile=None):
+        self.analyse = Analyse( self, logfile=logfile )
         return
 
     def setupLogging( self, filename="ambuild.log", mode='w', doLog=False ):
@@ -3088,6 +3093,7 @@ class Cell():
         d = dict(self.__dict__)
         del d['logger']
         del d['analyse']
+        d['analyselogname']=d['analyse'].logname
         return d
     
     def __setstate__(self, d):
@@ -3097,7 +3103,11 @@ class Cell():
         logging.basicConfig()
         self.logger = logging.getLogger()
         #self.setupLogging()
-        #self._setupAnalyse()
+        if 'analyselogname' in d:
+            logfile = util.newFilename( d['analyselogname'] )
+        else:
+            logfile = 'ambuild_1.csv'
+        self._setupAnalyse( logfile=logfile )
         return
     
 class TestCell(unittest.TestCase):
