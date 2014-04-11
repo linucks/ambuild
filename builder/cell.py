@@ -3092,8 +3092,8 @@ class Cell():
         # Return everything bar our logger
         d = dict(self.__dict__)
         del d['logger']
-        del d['analyse']
         d['analyselogname']=d['analyse'].logname
+        del d['analyse']
         return d
     
     def __setstate__(self, d):
