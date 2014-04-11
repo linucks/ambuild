@@ -3098,10 +3098,11 @@ class Cell():
     
     def __setstate__(self, d):
         """Called when we are unpickled """
-        self.__dict__.update(d)
         # Hack - just set up a default logger so we have one to call
         logging.basicConfig()
-        self.logger = logging.getLogger()
+        logger = logging.getLogger()
+        d['logger']=logger
+        self.__dict__.update(d)
         #self.setupLogging()
         if 'analyselogname' in d:
             logfile = util.newFilename( d['analyselogname'] )
