@@ -849,7 +849,7 @@ def newFilename(filename,separator="_"):
         basename, num = name.split( separator )
     except ValueError:
         # No separator so assume is an un-numbered file
-        return os.path.join( dname, name+separator+"0"+suffix )
+        return os.path.join( dname, name+separator+"1"+suffix )
     
     num = int(num) + 1
     return os.path.join( dname, basename+separator+str(num)+suffix )
