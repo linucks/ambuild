@@ -62,10 +62,10 @@ class Analyse():
         
         self.last = d
         
-        self.logname = logfile
-        self.logfile = csv.DictWriter( open(self.logname, 'w'), self.fieldnames )
+        self.logfile = logfile
+        self._logWriter = csv.DictWriter( open(self.logfile, 'w'), self.fieldnames )
         
-        self.logfile.writeheader()
+        self._logWriter.writeheader()
         
         return
     
@@ -111,7 +111,7 @@ class Analyse():
             else:
                 new[ f ] = self.last[ f ]
         
-        self.logfile.writerow( new )
+        self._logWriter.writerow( new )
         
         self.last = new
         self._stepTime = None
@@ -189,10 +189,11 @@ class Cell():
         self.logger = None
         self.setupLogging( doLog=doLog )
         
-        self._fileCount=0 # for naming output files
-        
         # For analysis csv
         self._setupAnalyse()
+        
+        self._fileCount=0 # for naming output files
+        
         
         return
     
@@ -1039,7 +1040,7 @@ class Cell():
                                                                       endGroup2Label ) )
                         d['angle'].append( a )
                     else:
-                        print "Skipping angle {0}".format( a )
+                        self.logger.debug( "Skipping angle {0}".format( a ) )
                     
                 for batom in block.atomBonded1( endGroup2Idx ):
                     # The opposite endGroup is included in the list bonded to an endGroup so skip
@@ -1054,7 +1055,7 @@ class Cell():
                                                                       block.atomType( batom ) ) )
                         d['angle'].append( a )
                     else:
-                        print "Skipping angle {0}".format( a )
+                        self.logger.debug( "Skipping angle {0}".format( a ) )
 
 #                 useAngle=False
 #                 if useAngle:
@@ -1423,7 +1424,7 @@ class Cell():
         self = cell
         
         return
-
+    
     def endGroupType2block(self, init=False ):
         """Return a list of which blocks can be bonded to which endGroup types
         """
@@ -2292,21 +2293,35 @@ class Cell():
         fragment = self._fragmentLibrary[ fragmentType ]
         return fragment.setMaxBond( bondType, count )
 
-    def _setupAnalyse(self, logfile=None):
+    def _setupAnalyse(self, logfile='ambuild.csv'):
         self.analyse = Analyse( self, logfile=logfile )
         return
 
-    def setupLogging( self, filename="ambuild.log", mode='w', doLog=False ):
+    def setupLogging( self, logfile="ambuild.log", mode='w', doLog=False ):
         """
         Set up the various log files/console logging and return the logger
         """
         
         logger = logging.getLogger()
+        #if not doLog:
+        #    logging.disable(logging.DEBUG)
+
+        # First check if there are any handlers active - if so we remove them
+        if len(logger.handlers):
+            # Need to copy as otherwise the list changes while we're cycling through it
+            for hdlr in copy.copy(logger.handlers):
+                logger.removeHandler(hdlr)
+        
+        # Not entirely sure why this needed - set overall level of the logger to debug
         logger.setLevel( logging.DEBUG )
         
         # create file handler and set level to debug
-        fl = logging.FileHandler( filename, mode=mode )
-        fl.setLevel( logging.DEBUG )
+        self.logfile=logfile
+        fl = logging.FileHandler( self.logfile, mode=mode )
+        if doLog:
+            fl.setLevel( logging.DEBUG )
+        else:
+            fl.setLevel( logging.INFO )
         
         # create formatter for fl
         formatter = logging.Formatter( '%(asctime)s - %(name)s - %(levelname)s - %(message)s' )
@@ -2324,9 +2339,7 @@ class Cell():
             cl = logging.StreamHandler( stream=sys.stdout )
         except TypeError:
             cl = logging.StreamHandler( strm=sys.stdout )
-
         cl.setLevel( logging.INFO )
-        #cl.setLevel( logging.DEBUG )
 
         # create formatter for fl
         # Always add a blank line after every print
@@ -2339,12 +2352,8 @@ class Cell():
         logger.addHandler( cl )
         
         self.logger = logger
-        
-        if not doLog:
-            logging.disable(logging.DEBUG)
-            
         return
-
+    
     def surroundCells(self, key ):
         return self._surroundCells( key, self.numBoxA, self.numBoxB, self.numBoxC )
         
@@ -3092,23 +3101,25 @@ class Cell():
         # Return everything bar our logger
         d = dict(self.__dict__)
         del d['logger']
-        d['analyselogname']=d['analyse'].logname
+        d['analyseLogfile']=d['analyse'].logfile
         del d['analyse']
         return d
     
     def __setstate__(self, d):
         """Called when we are unpickled """
-        # Hack - just set up a default logger so we have one to call
-        logging.basicConfig()
-        logger = logging.getLogger()
-        d['logger']=logger
         self.__dict__.update(d)
-        #self.setupLogging()
-        if 'analyselogname' in d:
-            logfile = util.newFilename( d['analyselogname'] )
+        if 'logfile' in d: # Hack for older versions with no logfile attribute
+            logfile = util.newFilename( d['logfile'] )
+        else:
+            logfile = 'ambuild_1.log'
+        self.setupLogging( logfile=logfile )
+        
+        if 'analyseLogfile' in d:
+            logfile = util.newFilename( d['analyseLogfile'] )
         else:
             logfile = 'ambuild_1.csv'
         self._setupAnalyse( logfile=logfile )
+        
         return
     
 class TestCell(unittest.TestCase):
@@ -3144,7 +3155,7 @@ class TestCell(unittest.TestCase):
         cls.dcxCar = os.path.join( cls.ambuildDir, "blocks", "DCX.car" )
         
         print "START TEST CELL"
-        if False:
+        if True:
             # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
             # From code looks like default r_buff is 0.4 and our default r_cut is 5.0 
             CELLA = CELLB = CELLC = 20.0
