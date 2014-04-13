@@ -2237,7 +2237,7 @@ class Cell():
 
                 # if center put the first one in the center of the cell
                 if center and seedCount == 0:
-                    block.translateCentroid( [ self.A/2, self.B/2, self.C/2 ] )
+                    newblock.translateCentroid( [ self.A/2, self.B/2, self.C/2 ] )
                 else:
                     # Move the block and rotate it
                     self.randomMoveBlock( newblock )
