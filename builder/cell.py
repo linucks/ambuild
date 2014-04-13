@@ -2217,34 +2217,15 @@ class Cell():
         if not len( self._fragmentLibrary ):
             raise RuntimeError,"Must have set an initBlock before seeding."
         
-        numBlocksAdded = 0
-        block = self.getInitBlock( fragmentType=fragmentType )
-        # hack - get the type of the first fragment
-        ftype = block._fragments[0]._fragmentType
-        self.logger.info("seed adding {0} block of type {1}".format( nblocks, ftype ) )
+        self.logger.info("seed adding {0} block of type {1}".format( nblocks, fragmentType ) )
 
-        # if center put the first one in the center of the cell
-        if center:
-            block.translateCentroid( [ self.A/2, self.B/2, self.C/2 ] )
-        else:
-            self.randomMoveBlock( block )
+        numBlocksAdded = 0
+        # Loop through the nblocks adding the blocks to the cell
+        for seedCount in range( nblocks ):
             
-        idxBlock = self.addBlock( block )
-        if self.checkMove( idxBlock ):
-            self.processBonds( addedBlockIdx=idxBlock )
-            numBlocksAdded += 1
-            self.logger.debug("seed added first block: {0}".format( block.id() ) )
-            self.analyse.stop('seed')
-            
-        if nblocks == 1:
-            return numBlocksAdded
-        
-        # Loop through the nblocks adding the blocks to
-        # the cell - nblocks-1 as we've already added the first
-        for seedCount in range( nblocks-1 ):
             # Create new block
-            #newblock = self.initBlock.copy()
             newblock = self.getInitBlock( fragmentType=fragmentType )
+            
             tries = 0
             ok = False
             while not ok:
@@ -2253,12 +2234,13 @@ class Cell():
                     self.logger.critical("Exceeded maxtries when seeding after adding {0}".format(numBlocksAdded))
                     self.analyse.stop( 'seed',d={'num_tries':tries} )
                     return numBlocksAdded
-                
-                # Move the block and rotate it
-                #margin = self.A/3
-                #self.randomMoveBlock( newblock, margin=margin )
-                self.randomMoveBlock( newblock )
-                #print "RANDOM TO MOVE TO: {}".format( newblock.centroid() )
+
+                # if center put the first one in the center of the cell
+                if center and seedCount == 0:
+                    block.translateCentroid( [ self.A/2, self.B/2, self.C/2 ] )
+                else:
+                    # Move the block and rotate it
+                    self.randomMoveBlock( newblock )
                 
                 #Add the block so we can check for clashes/bonds
                 idxBlock = self.addBlock( newblock )
@@ -2267,7 +2249,7 @@ class Cell():
                 if self.checkMove( idxBlock ):
                     if self.processBonds( addedBlockIdx=idxBlock ) > 0:
                         self.logger.info("Added bond in seed!")
-                    self.logger.debug("seed added block {0} after {1} tries.".format( seedCount+2, tries ) )
+                    self.logger.debug("seed added block {0} after {1} tries.".format( seedCount+1, tries ) )
                     self.analyse.stop('seed',d={'num_tries':tries} )
                     numBlocksAdded += 1
                     break
@@ -2281,7 +2263,8 @@ class Cell():
             # End Clash loop
         # End of loop to seed cell
         
-        self.logger.info("After seed numBlocksAdded: {0}".format( len(self.blocks) ) )
+        self.logger.info("Seed added {0} blocks. Cell now contains {1} blocks".format( numBlocksAdded,
+                                                                                       len(self.blocks) ) )
         
         return numBlocksAdded
     
