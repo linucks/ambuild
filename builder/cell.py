@@ -986,7 +986,11 @@ class Cell():
                 # For time being use zero so just under LJ potential & bond
                 #diameter += "{0}\n".format( frag._atomRadii[ k ] )
                 d['charge'].append( block.atomCharge( i ) )
-                d['diameter'].append( 0.1 )
+                # HACK
+                if block.atomSymbol( i ) == 'j':
+                    d['diameter'].append( 0.1 )
+                else:
+                    d['diameter'].append( 0.1 )
                 d['label'].append( block.atomLabel( i ) )
                 d['mass'].append( block.atomMass( i ) )
                 d['symbol'].append( block.atomSymbol( i ) )
@@ -1207,6 +1211,7 @@ class Cell():
         Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
         Changed so that it can cope with distances across more than one cell
         """
+        assert len(v1) > 0 and len(v2) > 0, "distance needs vectors!"
         dimensions = numpy.array( [ self.A, self.B, self.C ] )
         delta = numpy.array(v1) - numpy.array(v2)
         delta = numpy.remainder( delta, dimensions )
@@ -1319,9 +1324,13 @@ class Cell():
                     #assert y >= 0 and y <= self.B
                     #assert z >= 0 and z <= self.C
                 else:
-                    x = util.unWrapCoord( xt, ix, system.box[0], centered=True )
-                    y = util.unWrapCoord( yt, iy, system.box[1], centered=True )
-                    z = util.unWrapCoord( zt, iz, system.box[2], centered=True )
+                    # Need to check for different versions...
+                    #x = util.unWrapCoord( xt, ix, system.box[0], centered=True )
+                    #y = util.unWrapCoord( yt, iy, system.box[1], centered=True )
+                    #z = util.unWrapCoord( zt, iz, system.box[2], centered=True )
+                    x = util.unWrapCoord( xt, ix, system.box.Lx, centered=True )
+                    y = util.unWrapCoord( yt, iy, system.box.Ly, centered=True )
+                    z = util.unWrapCoord( zt, iz, system.box.Lz, centered=True )
                 
                 block.atomCoord( k )[0] = x
                 block.atomCoord( k )[1] = y
@@ -1983,6 +1992,8 @@ class Cell():
 #             raise RuntimeError,"Cannot match available endGroups {0} to fragmentLibrary {1}".format( endGroupType2block.keys(),
 #                                                                                                      self._fragmentLibrary.keys() )
         
+        
+        #print "TYPES ",endGroupType2block
         if endGroupType is None:
             # Pick a random init fragment type
             endGroupType= random.choice( endGroupType2block.keys() )
@@ -2705,7 +2716,7 @@ class Cell():
             for i, b in enumerate( data['fragmentBond'] ):
                 if pruneBonds:
                     # Complete hack - just see if it's longer then any reasonable bond
-                    if util.distance( pcoords[ b[0] ], pcoords[ b[1] ]  ) > 3:
+                    if util.distance( pcoords[ b[0] ], pcoords[ b[1] ]  ) > 4.5:
                         continue
                 bondNode = ET.SubElement( bondArrayNode, "bond")
                 bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
@@ -2892,6 +2903,10 @@ class Cell():
                 block.zipCell = {}
                 for endGroup in egs:
                     endGroups.append( ( block, endGroup.blockEndGroupIdx ) )
+
+        if not len(endGroups) > 0:
+            sys.logger.warn("zipBlocks found no endGroups!")
+            return 0
         
         # Add all (block, idxEndGroup) tuples to the cells
         for (block, idxEndGroup) in endGroups:
@@ -2960,6 +2975,9 @@ class Cell():
                                         idxEndGroup2 ) )
                     c1.append( block1.atomCoord( idxEndGroup1 ) )
                     c2.append( block2.atomCoord( idxEndGroup2 ) )
+
+        if not len(egPairs) > 0:
+            return 0 
 
         # Calculate distances between all pairs
         distances = self.distance(c1, c2)
