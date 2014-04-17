@@ -358,7 +358,7 @@ class Block(object):
         new._blockId = id( new )
         return new
 
-    def dihedrals(self, atom1Idx, atom2Idx):
+    def dihedrals(self, atom1Idx, atom2Idx, bondOnly=False):
         """Return a list of all the dihedrals around these two bonded atoms
         
         This needs more work to check for when things are looped back and bonded to each other
@@ -397,15 +397,16 @@ class Block(object):
                 atom2Bonded[ a1 ].append( a2 )
                 
         dindices = []
-        # Add all dihedrals on endGroup1's side of the bond
-        for a3 in atom1Bonded:
-            for a4 in atom1Bonded[ a3 ]:
-                dindices.append( ( atom2Idx, atom1Idx, a3, a4 ) )
-                    
-        # Add all dihedrals on endGroup2's side of the bond
-        for a3 in atom2Bonded:
-            for a4 in atom2Bonded[ a3 ]:
-                dindices.append( ( atom1Idx, atom2Idx, a3, a4 ) )
+        if not bondOnly:
+            # Add all dihedrals on endGroup1's side of the bond
+            for a3 in atom1Bonded:
+                for a4 in atom1Bonded[ a3 ]:
+                    dindices.append( ( atom2Idx, atom1Idx, a3, a4 ) )
+                        
+            # Add all dihedrals on endGroup2's side of the bond
+            for a3 in atom2Bonded:
+                for a4 in atom2Bonded[ a3 ]:
+                    dindices.append( ( atom1Idx, atom2Idx, a3, a4 ) )
         
         # Now add dihedrals across the bond
         for a1 in atom1Bonded:
