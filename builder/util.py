@@ -408,6 +408,17 @@ Sn           2.14 2.28           1.71 2.67
 Te                     1.82      1.66
 """
 
+ABBIE_LENGTHS = {}
+ABBIE_LENGTHS['c_o'] = { 'c_o' : 1.54,
+                         'o_1' : 1.21,
+                         'nb'  : 1.32}
+            
+ABBIE_LENGTHS['cp'] = { 'cp' : 1.40,
+                        'nb' : 1.33,
+                        'hc'  : 1.08 }
+
+ABBIE_LENGTHS['nb'] = { 'hn' : 1.01 }
+
 # REM - symbols should be in lower case!
 # UNITS ARE IN ANGSTROM!!!
 BOND_LENGTHS = {}
@@ -573,6 +584,32 @@ def bondLength( symbol1,symbol2 ):
     print 'No data for bond length for %s-%s' % (symbol1,symbol2)
     return 1.0
 
+def calcBondsHACK( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0 ):
+    """HACK FOR NETWORK"""
+    
+    #print "s ",symbols
+    bonds = []
+    for i, coord1 in enumerate( coords ):
+        symbol1 = symbols[ i ]
+        for j, coord2 in enumerate( coords ):
+            if j < i:
+                continue
+            symbol2 = symbols[ j ]
+            dist = distance( coord1, coord2 )
+            if symbol1 == 'j' and symbol2 == 'C':
+                bond_length = 4.31
+            elif symbol2 == 'j' and symbol1 == 'C':
+                bond_length = 4.31
+            else:
+                bond_length = bondLength( symbol1, symbol2 )
+            
+            #print "GOT ",symbol1,symbol2,bond_length, dist
+                
+            if  bond_length - bondMargin < dist < bond_length + bondMargin:
+                #print "BONDING"
+                bonds.append( (i, j) )
+    return bonds
+
 def calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0 ):
     """Calculate the bonds for the fragments. This is done at the start when the only coordinates
     are those in the fragment.
@@ -591,7 +628,7 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
     """Calculate the bonds for the fragments. This is done at the start when the only coordinates
     are those in the fragment.
     """
-    
+
     def getSurroundCells( key ):
         """Returns the list of cells surrounding a cell"""
         a,b,c = key
@@ -784,8 +821,8 @@ def dumpPkl(pickleFile):
     mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
     #self.writeCar(prefix+"_P.car",data=data,periodic=True)
     mycell.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
-    #self.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
-    mycell.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml")
+    #mycell.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
+    mycell.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
     
     return
 
