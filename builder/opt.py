@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #!/opt/hoomd-0.11.3/hoomdblue-install/bin/hoomd
 #!/Applications/HOOMD-blue.app/Contents/MacOS/hoomd
 
@@ -70,6 +71,10 @@ class FfieldParameters( object ):
                        'nb-c_0-c_0'   : { 'k' : 300.0, 't0' : math.radians(118) },
                        'c_0-nb-cpa'   : { 'k' : 800.0, 't0' : math.radians(138) },
                        'cpa-nb-c_0'   : { 'k' : 800.0, 't0' : math.radians(138) },
+                       #for PAF topology
+                       'cp-cp-c'      : { 'k' : 200.0, 't0' : math.radians(180) },
+                       'c-cp-cp'      : { 'k' : 200.0, 't0' : math.radians(0) },
+                       
                       }
 
         self.dihedrals = { 
@@ -112,6 +117,9 @@ class FfieldParameters( object ):
                        #PAF
                        'cp-cp-cp-cp'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'cp-cp-cp-hc'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       
+                       #PAF topology
+                       'c-cp-cp-c'     : { 'k' : 500, 'd' : -1, 'n' : 1 },
                          }
         
         self.impropers = { 
@@ -137,12 +145,19 @@ class FfieldParameters( object ):
               ('c2', 'nb' )      : { 'epsilon' : 0.0759,   'sigma' : 3.9357  },
               ('c2', 'hx' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('c2', 'cl' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              
+            
+              ('c', 'o1=' )     : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
+
+              ('c', 'n3m' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  }, 
+ 
               ('c1', 'c1' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
               ('c', 'c' )        : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
               ('c', 'br' )       : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
               ('c1', 'c2' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              
+              ('c', 'n3a' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },             
+              ('c3', 'br' )       : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
+              ('c4', 'br' )       : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
+ 
               ('c=1', 'c=1' )    : { 'epsilon' : 0.0640,   'sigma' : 4.0100  },
               ('c=1', 'c1' )     : { 'epsilon' : 0.0760,   'sigma' : 3.9007  },
               ('c=1', 'hc' )     : { 'epsilon' : 0.0254,   'sigma' : 3.6691  },
@@ -150,11 +165,22 @@ class FfieldParameters( object ):
               ('c=1', 'cp' )     : { 'epsilon' : 0.0828,   'sigma' : 3.9007  },
               ('c=1', 'np' )     : { 'epsilon' : 0.0828,   'sigma' : 3.9007  },#needs changing
               
-              ("c3'", 'c4' )     : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              
+              ('c3', 'c4' )     : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
+              ('c3', 'o1=' )     : { 'epsilon' : 0.1598,   'sigma' : 3.6640  }, 
+              ('c3', 'c3' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
+              ('c3', 'h1' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
+              ('c3', 'n3m' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
+              ('c3', 'cp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
+              ('c3', 'c' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
+              ('c3', 'hc' )     : { 'epsilon' : 0.0254,   'sigma' : 3.6691  },
+ 
+              ('c4', 'hc' )     : { 'epsilon' : 0.0254,   'sigma' : 3.6691  },
               ('c4', 'c4' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
+              ('c4', 'c' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  }, 
+              ('c4', 'cp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
               ('c4', 'c4o' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('c4', 'o2e' )     : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
+              ('c4', 'o1=' )     : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
               ('c4', 'h1' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('c4', 'n3a' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
               ('c4', 'n2a' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
@@ -162,6 +188,7 @@ class FfieldParameters( object ):
               ('c4', 'p' )       : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('c4', 'f1p' )     : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('c4', 'c3a' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              ('c4', 'n3m' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
               
               ('c4o', 'c4o' )    : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('c4o', 'c3a' )    : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
@@ -215,7 +242,8 @@ class FfieldParameters( object ):
               ('cp', 'c' )       : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
               ('cp', 'hn' )      : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
               ('cpa', 'hn' )     : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
-              
+              ('cp', 'n3m' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },             
+ 
               ('ct', 'ct' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('ct', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('ct', 'nb' )      : { 'epsilon' : 0.0644,   'sigma' : 4.0406  },
@@ -244,7 +272,15 @@ class FfieldParameters( object ):
               #('o_1', 'hn' )     : { 'epsilon' : 0.0035,   'sigma' : 3.1498  },
               ('o_1', 'hn' )     : { 'epsilon' : 0.0035,   'sigma' : 1.6110  },
               ('o_1', 'h1' )     : { 'epsilon' : 0.0035,   'sigma' : 1.6110  },
-              
+             
+              ('o1=', 'o1=' )    : { 'epsilon' : 0.2400,   'sigma' : 3.5350  },
+              ('o1=', 'h1' )     : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },	
+              ('o1=', 'cp' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  }, 
+              ('o1=', 'hc' )     : { 'epsilon' : 0.0615,   'sigma' : 3.3189  }, 
+
+              ('h', 'n3m' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
+              ('hc', 'n3m' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
+ 
               ('h1', 'h1' )      : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
               ('h1', 'n3a' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
               ('h1', 'n2a' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
@@ -254,7 +290,10 @@ class FfieldParameters( object ):
               ('h1', 'c1' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h1', 'cp' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h1', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              
+              ('h1', 'c' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  }, 
+              ('h1', 'n3m' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
+              ('h1', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
+ 
               #hc-hc for DCX
               ('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
               #else('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
@@ -281,7 +320,11 @@ class FfieldParameters( object ):
              # ('n3a', 'zn+2' )   : { 'epsilon' : 0.25106,  'sigma' : 3.296   },
               ('n3a', 'p' )      : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
               ('n3a', 'f1p' )    : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
-              
+            
+              ('n3m', 'n3m' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
+              ('o1=', 'n3m' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
+              ('o1=', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  }, 
+ 
               ('n2a', 'n2a' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
               #('n2a', 'zn+2' )   : { 'epsilon' : 0.25106,  'sigma' : 3.296   },
               ('n2a', 'p' )      : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
@@ -297,8 +340,12 @@ class FfieldParameters( object ):
               ('np', 'c1' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },#needs changing
               ('np', 'c2' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },#needs changing
               
-              ('br', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
+           #   ('br', 'br' )      : { 'epsilon' : 100.0376,   'sigma' : 3.4893  },
+           
+              ('br', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  }, 
               
+              ('br', 'n3m' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  }, 
+               
               ('nt', 'nt' )      : { 'epsilon' : 0.0650,   'sigma' : 3.5700  },
               
               ('n=', 'n=' )      : { 'epsilon' : 0.1382,   'sigma' : 3.5759  },
@@ -769,7 +816,7 @@ class HoomdOptimiser( object ):
                                         quiet=quiet )
         
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        hlog = hoomdblue.analyze.log(filename='mylog.log',
+        self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
                                      quantities=[
                                                  'num_particles',
                                                  'pair_lj_energy',
@@ -796,7 +843,7 @@ class HoomdOptimiser( object ):
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
-                kw['d'][ i ] = self.toStandardUnits( hlog.query( i ) )
+                kw['d'][ i ] = self.toStandardUnits( self.hlog.query( i ) )
         
         return optimised
     
@@ -821,14 +868,14 @@ class HoomdOptimiser( object ):
                                         quiet=quiet )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        hlog = hoomdblue.analyze.log(filename='mylog.log',
+        self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
                                      quantities=[
                                                  'num_particles',
                                                  'pair_lj_energy',
                                                  'potential_energy',
                                                  'kinetic_energy',
                                                  ],
-                                     period=0,
+                                     period=100,
                                      header_prefix='#',
                                      overwrite=True
                                      )
@@ -838,11 +885,11 @@ class HoomdOptimiser( object ):
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
-                kw['d'][ i ] = self.toStandardUnits( hlog.query( i ) )
+                kw['d'][ i ] = self.toStandardUnits( self.hlog.query( i ) )
 
         return optimised
     
-    def _runMD(self, mdCycles=1000, T=2.0, tau=0.5, dt=0.005, dump=False, **kw ):
+    def _runMD(self, mdCycles=100000, T=5.0, tau=0.5, dt=0.005, dump=False, **kw ):
         
         # Added **kw arguments so that we don't get confused by arguments intended for the optimise
         # when MD and optimiser run together
@@ -880,8 +927,8 @@ class HoomdOptimiser( object ):
     
     def _optimiseGeometry(self,
                           carOut="hoomdOpt.car",
-                          optCycles = 1000000,
-                          maxOptIter=5,
+                          optCycles = 100,
+                          maxOptIter=5000,
                           dt=0.005,
                           dump=False,
                           **kw ):
@@ -892,8 +939,9 @@ class HoomdOptimiser( object ):
                                                              dt=dt,
                                                              Nmin=5,
                                                              alpha_start=0.1,
-                                                             ftol=1e-2,
-                                                             Etol=1e-4,
+                                                             ftol=1,
+                                                             #Etol=1e-4,
+                                                             Etol=1e-5,
                                                              finc=1.1,
                                                              fdec=0.5
                                                             )
@@ -907,20 +955,21 @@ class HoomdOptimiser( object ):
                                       overwrite=True,
                                        )
             
-        count = 0
-        optimised=True
-        while not( fire.has_converged() ):
+        optimised=False
+        for i in range(maxOptIter):
             hoomdblue.run( optCycles )
-            count += 1
-            if count >= maxOptIter:
-                print "********** DID NOT OPTIMISE!!!! ***************"
-                optimised=False
-                break
+            if fire.has_converged():
+                optimised=True
+                break  
+            #if float( self.hlog.query( 'potential_energy' ) ) < 1E-2:
+            #    print "!!!!!!!!!!!HACK CONVERGENCE CRITERIA!!!!!!"
+            #    optimised=True
+            #    break
     
         # Delete variables before we return to stop memory leaks
         del fire
         
-        if dump:
+        if dump and False:
             xmld.disable()
             dcdd.disable()
             del xmld
@@ -984,6 +1033,6 @@ if __name__ == "__main__":
     xyzFilename = xmlFilename +".xyz"
     xml2xyz( xmlFilename, xyzFilename )
     #optimiser.runMDAndOptimise( xmlFilename=xmlFilename, doDihedral=True )
-    optimiser.optimiseGeometry( xmlFilename=xmlFilename, doDihedral=False )
-    optimiser.writeXyz(optimiser.system, "opted.xyz", unwrap=False)
+    #optimiser.optimiseGeometry( xmlFilename=xmlFilename, doDihedral=False )
+    #optimiser.writeXyz(optimiser.system, "opted.xyz", unwrap=False)
 
