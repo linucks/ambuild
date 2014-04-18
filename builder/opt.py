@@ -927,8 +927,8 @@ class HoomdOptimiser( object ):
     
     def _optimiseGeometry(self,
                           carOut="hoomdOpt.car",
-                          optCycles = 100,
-                          maxOptIter=5000,
+                          optCycles = 1000000,
+                          maxOptIter=1,
                           dt=0.005,
                           dump=False,
                           **kw ):
@@ -957,17 +957,21 @@ class HoomdOptimiser( object ):
             
         optimised=False
         for i in range(maxOptIter):
-            hoomdblue.run( optCycles )
+            hoomdblue.run( optCycles,
+                           callback=lambda x: -1 if fire.has_converged() else 0,
+                           callback_period=1 )
+            #hoomdblue.run( optCycles )
             if fire.has_converged():
                 optimised=True
-                break  
+                break
+            
             #if float( self.hlog.query( 'potential_energy' ) ) < 1E-2:
             #    print "!!!!!!!!!!!HACK CONVERGENCE CRITERIA!!!!!!"
             #    optimised=True
             #    break
     
         # Delete variables before we return to stop memory leaks
-        del fire
+        #del fire
         
         if dump and False:
             xmld.disable()
