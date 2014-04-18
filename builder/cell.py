@@ -1284,6 +1284,14 @@ class Cell():
     
         assert system,"No system!"
         
+        # Need to check HOOMD version
+        #Lx = system.box[0]
+        #Ly = system.box[1]
+        #Lz = system.box[2]
+        Lx = system.box.Lx
+        Ly = system.box.Ly
+        Lz = system.box.Lz
+        
         if self.minCell:
             # Need to take unwrapped coords and put back into 
             # the original cell
@@ -1304,20 +1312,20 @@ class Cell():
                 
                 if self.minCell:
                     
-                    assert self.minCellData['A'] == system.box[0]
-                    assert self.minCellData['B'] == system.box[1]
-                    assert self.minCellData['C'] == system.box[2]
+                    assert self.minCellData['A'] == Lx
+                    assert self.minCellData['B'] == Ly
+                    assert self.minCellData['C'] == Lz
                     
                     # Unwrap the coordinates in the centered cell
-                    x = util.unWrapCoord( xt, ix, system.box[0], centered=False )
-                    y = util.unWrapCoord( yt, iy, system.box[1], centered=False )
-                    z = util.unWrapCoord( zt, iz, system.box[2], centered=False )
+                    x = util.unWrapCoord( xt, ix, Lx, centered=False )
+                    y = util.unWrapCoord( yt, iy, Ly, centered=False )
+                    z = util.unWrapCoord( zt, iz, Lz, centered=False )
                 
                     # Need to take unwrapped coords and put back into 
                     # the original cell
-                    x = x + system.box[0]/2 + self.minCellData['minA']
-                    y = y + system.box[1]/2 + self.minCellData['minB']
-                    z = z + system.box[2]/2 + self.minCellData['minC']
+                    x = x + Lx/2 + self.minCellData['minA']
+                    y = y + Ly/2 + self.minCellData['minB']
+                    z = z + Lz/2 + self.minCellData['minC']
                     
                     # Not the case as could be in a different image
                     #assert x >= 0 and x <= self.A
@@ -1325,12 +1333,12 @@ class Cell():
                     #assert z >= 0 and z <= self.C
                 else:
                     # Need to check for different versions...
-                    #x = util.unWrapCoord( xt, ix, system.box[0], centered=True )
+                    #x = util.unWrapCoord( xt, ix, Lx, centered=True )
                     #y = util.unWrapCoord( yt, iy, system.box[1], centered=True )
                     #z = util.unWrapCoord( zt, iz, system.box[2], centered=True )
-                    x = util.unWrapCoord( xt, ix, system.box.Lx, centered=True )
-                    y = util.unWrapCoord( yt, iy, system.box.Ly, centered=True )
-                    z = util.unWrapCoord( zt, iz, system.box.Lz, centered=True )
+                    x = util.unWrapCoord( xt, ix, Lx, centered=True )
+                    y = util.unWrapCoord( yt, iy, Ly, centered=True )
+                    z = util.unWrapCoord( zt, iz, Lz, centered=True )
                 
                 block.atomCoord( k )[0] = x
                 block.atomCoord( k )[1] = y
@@ -3662,7 +3670,7 @@ class TestCell(unittest.TestCase):
         """
         
         #self.testCell.dump()
-        self.testCell.optimiseGeometry( optAttempts=1, quiet=True )
+        self.testCell.optimiseGeometry( quiet=True )
         return
     
     def XtestOptimiseGeometryMinCell(self):
@@ -3702,15 +3710,13 @@ class TestCell(unittest.TestCase):
     def testOptimiseGeometryDihedral(self):
         """
         """
-        self.testCell.optimiseGeometry( doDihedral=True, optAttempts=1, quiet=True  )
-        
+        self.testCell.optimiseGeometry( doDihedral=True, quiet=True )
         return
     
     def testRunMDAndOptimise(self):
         """
         """
-        self.testCell.runMDAndOptimise( doDihedral=True, optAttempts=1, quiet=True  )
-        
+        self.testCell.runMDAndOptimise( doDihedral=True, quiet=True )
         return
     
     def testRunMDandOpt(self):
