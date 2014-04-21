@@ -35,6 +35,9 @@ class EndGroup(object):
         
         return
     
+    def block(self):
+        return self.fragment.block()
+    
     def fragmentType(self):
         return self.fragment.type()
     
@@ -124,6 +127,7 @@ class Fragment(object):
         # The variables below here are specific to a fragment and change as the fragment moves
         # and is involved in bonds - each fragment gets its own copy of these
         individualAttrs = {
+            '_block'          : None,
             '_coords'         : [],
             '_centroid'       : None,
             '_centerOfMass'   : None,
@@ -155,6 +159,9 @@ class Fragment(object):
     def addBond(self, endGroupType):
         self._endGroupBonded[ endGroupType ] += 1
         return
+    
+    def block(self):
+        return self._block
 
     def body(self, atomIdx ):
         """Return the body in this fragment that the atom is in"""
@@ -524,7 +531,7 @@ class Fragment(object):
         self._changed = True
         
         return
-
+    
     def setData(self,
                 coords         = None,
                 labels         = None,
