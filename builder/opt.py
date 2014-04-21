@@ -889,7 +889,7 @@ class HoomdOptimiser( object ):
 
         return optimised
     
-    def _runMD(self, mdCycles=100000, T=5.0, tau=0.5, dt=0.005, dump=False, **kw ):
+    def _runMD(self, mdCycles=100000, T=1.0, tau=0.5, dt=0.0005, dump=False, **kw ):
         
         # Added **kw arguments so that we don't get confused by arguments intended for the optimise
         # when MD and optimiser run together
@@ -939,7 +939,7 @@ class HoomdOptimiser( object ):
                                                              dt=dt,
                                                              Nmin=5,
                                                              alpha_start=0.1,
-                                                             ftol=1,
+                                                             ftol=1e-2,
                                                              #Etol=1e-4,
                                                              Etol=1e-5,
                                                              finc=1.1,
