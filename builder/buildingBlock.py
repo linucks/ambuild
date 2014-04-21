@@ -788,6 +788,10 @@ class Block(object):
             #
             #for fragment in self._fragments:
             for fragment in self._fragments:
+                
+                # Set the block
+                fragment._block = self
+                
                 # Count the number of each type of fragment in the block (see Analyse)
                 t = fragment.type()
                 if t not in self._fragmentTypeDict:
