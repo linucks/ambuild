@@ -921,7 +921,7 @@ class Cell():
         # prune contacts array according to distances
         return [ ( c[0], c[1], c[2], distances[i] ) for i, c in enumerate( allContacts ) if distances[i] < self.boxSize ]
 
-    def dataDict( self ):
+    def dataDict( self, fragmentType=None ):
         """Get the data for the current cell
         """
 
@@ -952,7 +952,6 @@ class Cell():
             """
             return atomCount - len( atomMap ) + atomMap[ atomIdx ]
         
-        
         # Cell parameters
         d['A'] = self.A
         d['B'] = self.B
@@ -967,6 +966,10 @@ class Cell():
             atomMap = {} # For each block map the internal block index to the one without capAtoms
             lastFrag = (-1, -1)
             for i, ( fragment, atomIdx ) in enumerate( block._dataMap ):
+                
+                # We are only outputting one of the framgment types so ignore the others
+                if fragmentType is not None and fragment.type() != fragmentType:
+                    continue
                 
                 # Increment body count
                 if lastFrag != ( fragment, fragment.body( atomIdx ) ):
@@ -1015,6 +1018,10 @@ class Cell():
                 except KeyError:
                     # This is a bond that is to a bondedCapAtom so ignored
                     pass
+            
+            # If we're only outputting one fragment type, bonding etc will be screwed up so skip this
+            if fragmentType is not None:
+                continue
             
             # Collect all bond information
             for bond in block.bonds():
@@ -1090,6 +1097,8 @@ class Cell():
                      
                     d['dihedralLabel'].append( dlabel )
                     d['dihedral'].append( dihedral )
+
+        assert len(d['coord']) > 0,"Found no atoms for fragmentType {0}".format( fragmentType )
 
         return d
 
@@ -1554,7 +1563,11 @@ class Cell():
         
         return buildingBlock.Block( initFragment=f )
 
-    def growBlocks(self, toGrow, endGroupType=None, dihedral=None, maxTries=50 ):
+    def growBlocks(self,
+                   toGrow,
+                   endGroupType=None,
+                   dihedral=None,
+                   maxTries=50 ):
         """
         Add toGrow new blocks to the cell based on the initBlock
         
@@ -1584,7 +1597,7 @@ class Cell():
             if self.numFreeEndGroups() == 0:
                 self.logger.critical("growBlocks got no free endGroups!")
                 return added
-
+            
             # Select two random blocks that can be bonded
             initBlock, newEG, idxStaticBlock, staticEG = self.randomInitAttachments( endGroupType=endGroupType )
 
@@ -1978,6 +1991,34 @@ class Cell():
                 blockId = random.choice( list( self.blocks.keys() ) )
         
         return blockId
+
+    def endGroupPair(self, cellEndGroupTypes=None, libraryEndGroupTypes=None ):
+        """
+        Can have multiple endGroupTypes for each of cell and library
+        need to randomly pick one and then get a block, then pick antoher block
+        """
+        
+        # Need routine that returns a list of which endGroup types can bond to a given list of endGroupTypes
+        
+        if cellEndGroupTypes is None and libraryEndGroupTypes is None:
+            # We first get a random free endGroup from the library
+            libraryBlock, libraryEndGroup = self.libraryEndGroup( libraryEndGroupTypes=None )
+            libraryEndGroupTypes = [ libraryEndGroup.type() ]
+        
+        if cellEndGroupTypes is None and libraryEndGroupTypes:
+            # If we've been given libaryEndGroupTypes we create a list of cellEndGroupTypes that can bond to it
+            cellEndGroupTypes = self.endGroupTypes2endGroups( libraryEndGroupTypes ) 
+        
+        cellBlock, cellEndGroup = self.cellEndGroup( cellEndGroupTypes=cellEndGroupTypes )
+        
+        
+        libraryBlock, libraryEndGroup = self.libraryEndGroup( libraryEndGroupTypes=libraryEndGroupTypes )
+        
+        # Now 
+        
+        
+        return
+
 
     def randomInitAttachments( self, endGroupType=None ):
         """

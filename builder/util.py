@@ -808,7 +808,7 @@ def Xdistance(self, v1, v2 ):
     
     return math.sqrt( dx*dx + dy*dy + dz*dz )
 
-def dumpPkl(pickleFile):
+def dumpPkl(pickleFile,split=False):
     
     fpath = os.path.abspath( pickleFile )
     print "Dumping pkl file: {0}".format( fpath )
@@ -817,12 +817,24 @@ def dumpPkl(pickleFile):
     
     mycell = cellFromPickle(pickleFile)
     
-    data = mycell.dataDict()
-    mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
-    #self.writeCar(prefix+"_P.car",data=data,periodic=True)
-    mycell.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
-    #mycell.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
-    mycell.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
+    if split:
+        for t in mycell.fragmentTypes().keys():
+            data = mycell.dataDict( fragmentType=t)
+            mycell.writeXyz("{0}_{1}_P.xyz".format(prefix,t),
+                            data=data,
+                            periodic=True)
+            mycell.writeCml("{0}_{1}_PV.cml".format(prefix,t),
+                            data=data,
+                            allBonds=True,
+                            periodic=True,
+                            pruneBonds=True)
+    else:
+        data = mycell.dataDict()
+        mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
+        #self.writeCar(prefix+"_P.car",data=data,periodic=True)
+        mycell.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
+        #mycell.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
+        mycell.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
     
     return
 
@@ -1062,6 +1074,12 @@ if __name__ == '__main__':
     #unittest.main()
     #xyzContacts( sys.argv[1] )
     #hoomdContacts( sys.argv[1] )
-    assert len(sys.argv) == 2,"To dump coordinates from pickle: {0} <file.pkl>".format( sys.argv[0] )
-    dumpPkl( sys.argv[1] )
+    assert len(sys.argv) >= 2,"To dump coordinates from pickle: {0} [split] <file.pkl>".format( sys.argv[0] )
+    split=False
+    if sys.argv[1] == "split":
+        split=True
+        pklFile=sys.argv[2]
+    else:
+        pklFile=sys.argv[1]
+    dumpPkl( pklFile, split=split )
 
