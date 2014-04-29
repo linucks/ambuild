@@ -178,6 +178,7 @@ class Cell():
         self._fragmentLibrary = {} # fragmentType -> parentFragment
         self._endGroup2LibraryFragment = {} # endGroup type -> parentFragment
         self.bondTypes = []
+        self._bondTable = {} # endGroup type -> set of endGroups it can bond to
         
         # dictionary mapping id of the block to the block - can't use a list and indices
         # as we add and remove blocks and need to keep track of them
@@ -254,12 +255,18 @@ class Cell():
             raise RuntimeError,"Error adding BondType {0} - string needs to be of form 'A:a-B:b'".format( bondType )
         
         # Checks
-        assert b1FragmentType in self._fragmentLibrary,"No fragment type {0} in fragmentLibrary".format( b1FragmentType )
+        assert b1FragmentType in self._fragmentLibrary,\
+        "No fragment type {0} in fragmentLibrary".format( b1FragmentType )
         assert b1EndGroupType in self._fragmentLibrary[ b1FragmentType ].endGroupTypes(),\
         "Fragment type {0} has no endGroup type {1}".format( b1FragmentType, b1EndGroupType )
         assert b2FragmentType in self._fragmentLibrary,"No fragment type {0} in fragmentLibrary".format( b2FragmentType )
         assert b2EndGroupType in self._fragmentLibrary[ b2FragmentType ].endGroupTypes(),\
         "Fragment type {0} has no endGroup type {1}".format( b2FragmentType, b2EndGroupType )
+        
+        assert b1EndGroupType in self._endGroup2LibraryFragment.keys(),\
+        "No endGroup type {0} in fragmentLibrary!".format(b1EndGroupType)
+        assert b2EndGroupType in self._endGroup2LibraryFragment.keys(),\
+        "No endGroup type {0} in fragmentLibrary!".format(b2EndGroupType)
         
         bt = (b1EndGroupType, b2EndGroupType)
         if bt in self.bondTypes:
@@ -267,6 +274,22 @@ class Cell():
         
         self.bondTypes.append( bt )
         
+        # Now recalculate the bond table
+        self._updateBondTable()
+        
+        return
+    
+    def _updateBondTable(self):
+        """Recalculate the dicionary of what endGroups can bond to which"""
+        self._bondTable = {}
+        for bondA, bondB in self.bondTypes:
+            if bondA not in self._bondTable:
+                self._bondTable[ bondA ] = set()
+            if bondB not in self._bondTable:
+                self._bondTable[ bondB ] = set()
+            
+            self._bondTable[ bondA ].add( bondB )
+            self._bondTable[ bondB ].add( bondA )
         return
     
     def addInitBlock( self, filename, fragmentType='A' ):
@@ -296,6 +319,7 @@ class Cell():
         
         return
     
+    # TOGO
     def allowedEndGroupTypes( self, endGroupType ):
         """Given a endGroupType, return a list of the endGroupTypes it can bond with"""
         
@@ -1574,6 +1598,8 @@ class Cell():
 
     def growBlocks(self,
                    toGrow,
+                   cellEndGroups=None,
+                   libraryEndGroups=None,
                    endGroupType=None,
                    dihedral=None,
                    maxTries=50 ):
@@ -1590,6 +1616,11 @@ class Cell():
         self.logger.info( "Growing {0} new blocks".format( toGrow ) )
         
         assert len(self.blocks),"Need to seed blocks before growing!"
+        
+        if endGroupType:
+            self.logger.warn('endGroupType is deprecated! Use cellEndGroups/libraryEndGroups instead')
+            assert not cellEndGroups or libraryEndGroups
+            libraryEndGroups = endGroupTypes
         
         if dihedral:
             # Convert dihedral to radians
@@ -1608,13 +1639,19 @@ class Cell():
                 return added
             
             # Select two random blocks that can be bonded
-            initBlock, newEG, idxStaticBlock, staticEG = self.randomInitAttachments( endGroupType=endGroupType )
+            #initBlock, newEG, idxStaticBlock, staticEG = self.randomInitAttachments( endGroupType=endGroupType )
+            cellEndGroup, libraryEndGroup = self.libraryEndGroupPair(cellEndGroups=cellEndGroups,
+                                                                     libraryEndGroups=libraryEndGroups)
+            
+            cellBlock = cellEndGroup.block()
+            libraryBlock = libraryEndGroup.block()
 
             # Apply random rotation in 3 axes to randomise the orientation before we align
-            initBlock.randomRotate( origin=self.origin )
+            libraryBlock.randomRotate( origin=self.origin )
             
             # Try and attach it
-            ok =  self.attachBlock( initBlock, newEG, idxStaticBlock, staticEG, dihedral=dihedral )
+            idxCellBlock = cellBlock.id()
+            ok =  self.attachBlock( libraryBlock, libraryEndGroup, idxCellBlock, cellEndGroup, dihedral=dihedral )
             
             if ok:
                 added +=1
@@ -2018,136 +2055,90 @@ class Cell():
         return endGroupTypes2Block
     
     def libraryEndGroupPair(self, cellEndGroups=None, libraryEndGroups=None ):
-        """
-        Get a list of all available eg in the cell: cellEgTypes
-        - bail if none available
-        
-        Get a list of EgTypes that can bond to these types: possibleTypes
-        - bail if none available
-        
-        Get a list of library eg that are in possibleTypes: libEgTypes
-        - bail if None
-        
-        If user supplied cellEndGroups:
-        - prune cellEgTypes to remove any not in cellEndGroups
-        -- bail if None
-        
-        If user supplied libraryEndGroups
-        - prune libEgTypes to remove any not in libraryEndGroups
-        -- bail if None
-        
-        Pick a random cellEgType
-        Pick a random libraryEgType that matches cellEgType
-        
-        Pick a random Eg of type cellEgType from the cell
-        
-        Pick a random Eg of type libraryEg Type
-        
-        return
-        
-        """
+        """Return a fee endGroup from the cell and a bonding pair from the library"""
         
         #
         # Get a list of available free endGroups in the cell
         # TOGO: self.endGroupType2block()
         #
         endGroupTypes2Block = self.endGroupTypes2Block()
-        cellEgTypes = endGroupTypes2Block.keys()
+        cellEgTypes = set( endGroupTypes2Block.keys() )
         if len(cellEgTypes) == 0:
-            raise RuntimeError,"No available EndGroup types in the cell"
+            raise RuntimeError,"No available endGroups in the cell"
         
         #
-        # Get a set of endGroup types that can bond to the available types
+        # We create a dictionary mapping cell endGroups to possible libraryEndGroups
         #
-        possibleTypes = self.allowedEndGroupTypes(cellEgTypes)
-        if len(possibleTypes) == 0:
-            raise RuntimeError,"No blocks can bond to available types under the given rules: {0}".format(cellEgTypes)
+        cell2Library = {}
+        for ceg in cellEgTypes:
+            # We add those endGroup types that can be bonded to that are also in the library
+            leg = self._bondTable[ ceg ].intersection( self._endGroup2LibraryFragment.keys() )
+            if len(leg) > 0:
+                cell2Library[ ceg ] = leg
+        
+        # Check that there are some available
+        if len(cell2Library.keys()) == 0:
+            raise RuntimeError,"No library fragments available to bond under the given rules: {0}".format(cellEgTypes)
         
         #
-        # Get a list of library endGroup types that are in possibleTypes
-        #
-        libraryTypes = self._endGroup2LibraryFragment.keys()
-        libraryTypes = possibleTypes.intersection( libraryTypes )
-        if len(libraryTypes) == 0:
-            raise RuntimeError,"No library fragments available to bond under the given rules: {0} - {1}".format(cellEgTypes, libraryTypes)
-        
-        #
-        # If the user supplied a list of cellEndGroups find the ones that are in the available cellEgTypes
+        # If the user supplied a list of cellEndGroups we prune the list of cell endGroups to those that are in this list
         #
         if cellEndGroups is not None:
             # Convert to a set - make sure is a list first
             if isinstance(cellEndGroups, str):
                 cellEndGroups = [ cellEndGroups ]
-            cellEndGroups = set( cellEndGroups )
-            # Find the ones in common
-            tmp = cellEgTypes
-            cellEgTypes = cellEgTypes.intersection( cellEndGroups )
-            if len(cellEgTypes) == 0:
-                raise RuntimeError,"No free endGroups of types in cellEndGroups: {0} - {1}".format(cellEndGroups, tmp)
+            for ceg in cell2Library.keys():
+                if ceg not in cellEndGroups:
+                    del cell2Library[ ceg ]
             
+            if len(cell2Library.keys()) == 0:
+                raise RuntimeError,"No free endGroups of types in cellEndGroups: {0} - {1}".format(cellEndGroups,
+                                                                                                   cellEgTypes)
+        
         #
-        # If the user supplied a list of libraryEndGroups find the ones that are in libraryTypes
+        # If the user supplied a list of libraryEndGroups we remove any library endGroups that aren't in the list
         #
         if libraryEndGroups is not None:
             # Convert to a set - make sure is a list first
             if isinstance(libraryEndGroups, str):
                 libraryEndGroups = [ libraryEndGroups ]
-            libraryEndGroups = set( libraryEndGroups )
-            # Find the ones in common
-            tmp = libraryTypes
-            libraryTypes = libraryTypes.intersection( libraryEndGroups )
-            if len(libraryTypes) == 0:
-                raise RuntimeError,"No library endGroups of types in libraryEndGroups: {0} - {1}".format(libraryEndGroups, tmp)
-        
-        if libraryEndGroups is not None or cellEndGroups is not None:
-            # Now have a list of possible cell and library endGroups.
-            # We've pruned the list down, we need so make sure the remaining types can bond
-            # For each cell type we see if the library types can bond to it and then add them
-            t_cellEgTypes  = cellEgTypes
-            t_libraryTypes = libraryTypes
-            cellEgTypes    = set()
-            libraryTypes   = set()
-            for t in t_cellEgTypes:
-                possible = t_libraryTypes.intersection( self.allowedEndGroupTypes( t ) )
-                if len(possible) > 0:
-                    cellEgTypes.append(t)
-                    libraryTypes.update( possible )
-            if not len(cellEgTypes) > 0 or len(libraryTypes) > 0:
-                raise RuntimeError,"Cannot make any bonds after pruning: {0} {1}".format( cellEgTypes, libraryTypes )
-        
-        self.logger.debug("libraryEndGroupPair got cell/library endGroups: {0} / {1}".format(cellEgTypes,libraryTypes) )
+            libraryEndGroups = set( libraryEndGroups ) # Save old so we can warn user and also find matching
+            tmp = cell2Library
+            cell2Library = {}
+            for ceg, leg in tmp.iteritems():
+                # Only select those that are in the libraryEndGroups
+                pleg = libraryEndGroups.intersection( leg )
+                if len(pleg) > 0:
+                    cell2Library[ ceg ] = pleg
+            
+            if not len(cell2Library.keys()):
+                raise RuntimeError,"No library fragments of type {0} available to bond under the given rules: {0}".format(libraryEndGroups,cellEgTypes)
+
+        self.logger.info("libraryEndGroupPair got cell/library endGroups: {0}".format(cell2Library) )
         
         # Now we can pick a random endGroup from the cell, get the corresponding library group
-        cellEgT = random.choice( cellEgTypes )
+        cellEgT = random.choice( cell2Library.keys() )
         
         # First get a block that contains this type of endGroup
         # Need to use sample as sets don't support random.choice
         cellBlock = random.sample( endGroupTypes2Block[ cellEgT ], 1 )[0]
-        assert cellBlock
         
         # Now select a random endGroup of that type from it
         cellEndGroup = cellBlock.randomEndGroup( endGroupTypes=[cellEgT] )
-        assert cellEndGroup
         
         # Now get a corresponding library endGroup
-        # We need to pick one of the types that we can bond to that is also in libraryTypes
-        libEgTypes = libraryTypes.intersection( frozenset( self._endGroup2LibraryFragment.keys() ) )
-        assert libEgTypes
-        # Now pick a random one
-        libEgT = random.sample(libEgTypes,1)[0]
-        assert libEgT
+        # We need to pick a random one of the types that we can bond to that is also in libraryTypes
+        libEgT = random.sample( cell2Library[ cellEgT ], 1)[0]
         
         # Now determine the fragmentType and create the block and fragment
         fragmentType = self._endGroup2LibraryFragment[ libEgT ]
-        
         libraryBlock = self.getInitBlock( fragmentType=fragmentType )
         
         # now get the endGroup
         libraryEndGroup = libraryBlock.randomEndGroup( endGroupTypes=[libEgT] )
         
-        assert libraryEndGroup
-        
         # Return them both - phew!
+        self.logger.info("libraryEndGroupPair returning: {0} {1}".format(cellEndGroup.type(),libraryEndGroup.type()) )
         return cellEndGroup, libraryEndGroup
 
     def randomInitAttachments( self, endGroupType=None ):
@@ -3708,16 +3699,33 @@ class TestCell(unittest.TestCase):
         mycell.addInitBlock( fragmentType='C', filename=self.ch4Car )
         mycell.addInitBlock( fragmentType='D', filename=self.ch4Car )
         
+        # Everything can bond to A (apart from A itself), but nothing can bond to anything else 
         mycell.addBondType( 'A:a-B:a' )
         mycell.addBondType( 'A:a-C:a' )
         mycell.addBondType( 'A:a-D:a' )
         
         mycell.seed( 1, fragmentType='A' )
+        mycell.seed( 1, fragmentType='B' )
+        mycell.seed( 1, fragmentType='C' )
         
-        cellEndGroup, libraryEndGroup = mycell.libraryEndGroupPair()
-        #cellEndGroup, libraryEndGroup = mycell.libraryEndGroupPair(cellEndGroups, libraryEndGroups)
-        #cellEndGroup, libraryEndGroup = mycell.libraryEndGroupPair(cellEndGroups, libraryEndGroups)
+        banned = ['B:a','C:a','D:a']
+        for _ in xrange( 5 ):
+            cellEndGroup, libraryEndGroup = mycell.libraryEndGroupPair()
+            if cellEndGroup.type() != 'A:a':
+                self.assertNotIn( libraryEndGroup.type(),
+                                  banned,
+                                  "cell: {0} library: {1}".format( cellEndGroup.type(), libraryEndGroup.type() )
+                                  )
         
+        # Check it works if we give a cellEndGroup to bond
+        cellEndGroup, libraryEndGroup = mycell.libraryEndGroupPair(cellEndGroups='B:a')
+        
+        # Check it fails if we ask for a block not in the cell
+        self.assertRaises(RuntimeError, mycell.libraryEndGroupPair,{'cellEndGroups','D:a'} )
+        
+        # Check it works if we give it a list of libraryBlocks
+        cellEndGroup, libraryEndGroup = mycell.libraryEndGroupPair(libraryEndGroups='B:a')
+        self.assertEqual(  libraryEndGroup.type(),'B:a' )
         
         return
         
