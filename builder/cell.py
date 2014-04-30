@@ -346,7 +346,7 @@ class Cell():
 #                     canBondFrags.append( bondA )
         return canBondFrags
 
-    def attachBlock(self, growBlock, growEndGroup, idxStaticBlock, staticEndGroup, dihedral=None ):
+    def attachBlock(self, growEndGroup, staticEndGroup, dihedral=None ):
         """
         Position growBlock so it can bond to blockS, using the given _endGroups
         
@@ -356,8 +356,10 @@ class Cell():
         success or failure
         """
         
-        #self.positionGrowBlock(growBlock, idxGrowAtom, idxStaticBlock, idxStaticAtom)
-        staticBlock = self.blocks[ idxStaticBlock ]
+        growBlock      = growEndGroup.block()
+        staticBlock    = staticEndGroup.block()
+        idxStaticBlock = staticBlock.id()
+        
         staticBlock.positionGrowBlock( staticEndGroup, growBlock, growEndGroup, dihedral=dihedral )
         
         # Now add growBlock to the cell so we can check for clashes
@@ -413,6 +415,7 @@ class Cell():
         
         return False
 
+    # TOGO
     def block2block( self ):
         """Return a dictionary mapping which blocks can bond to which blocks"""
         
@@ -1326,13 +1329,15 @@ class Cell():
     
         assert system,"No system!"
         
-        # Need to check HOOMD version
-        #Lx = system.box[0]
-        #Ly = system.box[1]
-        #Lz = system.box[2]
-        Lx = system.box.Lx
-        Ly = system.box.Ly
-        Lz = system.box.Lz
+        # Should really check HOOMD version but...
+        if hasattr(system,"Lx"):
+            Lx = system.box.Lx
+            Ly = system.box.Ly
+            Lz = system.box.Lz
+        else:
+            Lx = system.box[0]
+            Ly = system.box[1]
+            Lz = system.box[2]
         
         if self.minCell:
             # Need to take unwrapped coords and put back into 
@@ -1374,10 +1379,6 @@ class Cell():
                     #assert y >= 0 and y <= self.B
                     #assert z >= 0 and z <= self.C
                 else:
-                    # Need to check for different versions...
-                    #x = util.unWrapCoord( xt, ix, Lx, centered=True )
-                    #y = util.unWrapCoord( yt, iy, system.box[1], centered=True )
-                    #z = util.unWrapCoord( zt, iz, system.box[2], centered=True )
                     x = util.unWrapCoord( xt, ix, Lx, centered=True )
                     y = util.unWrapCoord( yt, iy, Ly, centered=True )
                     z = util.unWrapCoord( zt, iz, Lz, centered=True )
@@ -1398,10 +1399,7 @@ class Cell():
         
     def fromCar(self, carFile ):
         """ Read in an xyz file containing a cell and recreate the cell object"""
-
-
         reading = True
-        
         coords = []
         atomTypes = []
         symbols = []
@@ -1620,7 +1618,7 @@ class Cell():
         if endGroupType:
             self.logger.warn('endGroupType is deprecated! Use cellEndGroups/libraryEndGroups instead')
             assert not cellEndGroups or libraryEndGroups
-            libraryEndGroups = endGroupTypes
+            libraryEndGroups = endGroupType
         
         if dihedral:
             # Convert dihedral to radians
@@ -1643,15 +1641,12 @@ class Cell():
             cellEndGroup, libraryEndGroup = self.libraryEndGroupPair(cellEndGroups=cellEndGroups,
                                                                      libraryEndGroups=libraryEndGroups)
             
-            cellBlock = cellEndGroup.block()
-            libraryBlock = libraryEndGroup.block()
-
             # Apply random rotation in 3 axes to randomise the orientation before we align
+            libraryBlock = libraryEndGroup.block()
             libraryBlock.randomRotate( origin=self.origin )
             
             # Try and attach it
-            idxCellBlock = cellBlock.id()
-            ok =  self.attachBlock( libraryBlock, libraryEndGroup, idxCellBlock, cellEndGroup, dihedral=dihedral )
+            ok =  self.attachBlock( libraryEndGroup, cellEndGroup, dihedral=dihedral )
             
             if ok:
                 added +=1
@@ -1667,7 +1662,7 @@ class Cell():
         
         return added
 
-    def joinBlocks(self, toJoin, dihedral=None, maxTries=100 ):
+    def joinBlocks(self, toJoin, cellEndGroups=None, dihedral=None, maxTries=100 ):
         """
         Try joining number of blocks together
         
@@ -1699,23 +1694,23 @@ class Cell():
                 return added
             
             # Select 2 random blocks that can be joined
-            idxMoveBlock, moveEG, idxStaticBlock, staticEG = self.randomAttachments()
+            moveEndGroup, staticEndGroup = self.cellEndGroupPair(cellEndGroups=cellEndGroups)
             
             # Copy the original block so we can replace it if the join fails
-            moveBlock = self.blocks[ idxMoveBlock ]
+            moveBlock = moveEndGroup.block()
+            idxMoveBlock = moveBlock.id()
             blockCopy = moveBlock.copy()
             
             # Remove from cell so we don't check against itself and pick a different out
             self.delBlock( idxMoveBlock )
     
-            self.logger.debug( "joinBlocks calling attachBlock: {0} {1} {2} {3}".format( idxMoveBlock, moveEG, idxStaticBlock, staticEG ) )
-            #self.logger.debug( "endGroup types are: {0} {1}".format( moveBlock.atomFragType( idxMoveBlockEG ), staticBlock.atomFragType( idxStaticBlockEG ) ) )
+            self.logger.debug( "joinBlocks calling attachBlock: {0} {1}".format( moveEndGroup, staticEndGroup ) )
             
             # now attach it
-            ok = self.attachBlock( moveBlock, moveEG, idxStaticBlock, staticEG, dihedral=dihedral )
+            ok = self.attachBlock( moveEndGroup, staticEndGroup, dihedral=dihedral )
             if ok:
                 added+=1
-                self.logger.info("joinBlocks added block {0} after {1} tries.".format( added, tries ) )
+                self.logger.info("joinBlocks joined block {0} after {1} tries.".format( added, tries ) )
                 tries=0
             else:
                 # Put the original block back in the cell
@@ -2054,23 +2049,83 @@ class Cell():
                 endGroupTypes2Block[ endGroupType ].add( block )
         return endGroupTypes2Block
     
-    def libraryEndGroupPair(self, cellEndGroups=None, libraryEndGroups=None ):
-        """Return a fee endGroup from the cell and a bonding pair from the library"""
+    def cellEndGroupPair(self, cellEndGroups=None):
+        """Return two free endGroups from two different blocks in the cell"""
         
         #
         # Get a list of available free endGroups in the cell
-        # TOGO: self.endGroupType2block()
         #
         endGroupTypes2Block = self.endGroupTypes2Block()
-        cellEgTypes = set( endGroupTypes2Block.keys() )
-        if len(cellEgTypes) == 0:
+        if len(endGroupTypes2Block.keys()) == 0:
             raise RuntimeError,"No available endGroups in the cell"
+        #
+        # If the user supplied a list of cellEndGroups we use this to determine what can bond - 
+        # other wise we use all available endGroups
+        allTypes = endGroupTypes2Block.keys() # just for informing the user
+        if cellEndGroups is not None:
+            if isinstance(cellEndGroups,str):
+                cellEndGroups = [ cellEndGroups ]
+            cellEndGroups = set( cellEndGroups )
+        else:
+            cellEndGroups = set(endGroupTypes2Block.keys()) 
+        #
+        # We create a dictionary mapping which cell endGroups can bond to which
+        # This is basically a truncated _bondTable with any endGroups removed that aren't present
+        #
+        cell2cell = copy.copy(self._bondTable)
+        for eg in self._bondTable:
+            if eg not in cellEndGroups:
+                # First remove all references in the keys
+                del cell2cell[ eg ]
+            else:
+                # The key is valid so remove any missing endGroups from the values
+                ceg = cellEndGroups.intersection( cell2cell[ eg ] )
+                # Need to check there are some other types that this can bond to, but also there is at least
+                # one other block if both are of the same type
+                # NB the strange next/iter thing is the only way to get an item from the set
+                if len( ceg ) == 0 or \
+                   (len( ceg ) == 1 and eg == next(iter(ceg)) and len( endGroupTypes2Block[ eg ] ) < 2 ):
+                    # No valid blocks that could bond with this endGroup so delete the entire key
+                    del cell2cell[ eg ]
+                else:
+                    cell2cell[ eg ] = ceg
+                    
+        if len(cell2cell.keys()) == 0:
+            raise RuntimeError,"No endGroups of types {0} are available to bond from {1}".format( cellEndGroups, allTypes )
         
+        # At this point we assume we can definitely bond at least 2 blocks
+        self.logger.debug("cellEndGroupPair got cell/library endGroups: {0}".format(cell2cell) )
+        
+        # Select a random block/endGroup from the list
+        eg1Type = random.choice( cell2cell.keys() )
+        block1 = random.sample( endGroupTypes2Block[ eg1Type ], 1 )[0]
+        endGroup1 = block1.randomEndGroup( endGroupTypes=[eg1Type] )
+        
+        # Pick a random endGroup type that can bond to this
+        eg2Type = random.sample( cell2cell[ eg1Type ], 1 )[0]
+        
+        # Select a random block/endGroup of that type
+        # (REM: need to remove the first block from the list of possibles hence the difference thing
+        block2 = random.sample( endGroupTypes2Block[ eg2Type ].difference(set([block1])), 1 )[0]
+        endGroup2 = block2.randomEndGroup( endGroupTypes=[eg2Type] )
+        
+        self.logger.debug("cellEndGroupPair returning: {0} {1}".format(endGroup1.type(),endGroup2.type()) )
+        return endGroup1, endGroup2
+    
+    def libraryEndGroupPair(self, cellEndGroups=None, libraryEndGroups=None ):
+        """Return a fee endGroup from the cell and one from the library that can be bonded to it."""
+        
+        #
+        # Get a list of available free endGroups in the cell
+        #
+        endGroupTypes2Block = self.endGroupTypes2Block()
+        if len(endGroupTypes2Block.keys()) == 0:
+            raise RuntimeError,"No available endGroups in the cell"
         #
         # We create a dictionary mapping cell endGroups to possible libraryEndGroups
         #
         cell2Library = {}
-        for ceg in cellEgTypes:
+        for ceg in endGroupTypes2Block.keys():
             # We add those endGroup types that can be bonded to that are also in the library
             leg = self._bondTable[ ceg ].intersection( self._endGroup2LibraryFragment.keys() )
             if len(leg) > 0:
@@ -2078,7 +2133,7 @@ class Cell():
         
         # Check that there are some available
         if len(cell2Library.keys()) == 0:
-            raise RuntimeError,"No library fragments available to bond under the given rules: {0}".format(cellEgTypes)
+            raise RuntimeError,"No library fragments available to bond under the given rules: {0}".format(endGroupTypes2Block.keys())
         
         #
         # If the user supplied a list of cellEndGroups we prune the list of cell endGroups to those that are in this list
@@ -2093,7 +2148,7 @@ class Cell():
             
             if len(cell2Library.keys()) == 0:
                 raise RuntimeError,"No free endGroups of types in cellEndGroups: {0} - {1}".format(cellEndGroups,
-                                                                                                   cellEgTypes)
+                                                                                                   endGroupTypes2Block.keys())
         
         #
         # If the user supplied a list of libraryEndGroups we remove any library endGroups that aren't in the list
@@ -2112,9 +2167,9 @@ class Cell():
                     cell2Library[ ceg ] = pleg
             
             if not len(cell2Library.keys()):
-                raise RuntimeError,"No library fragments of type {0} available to bond under the given rules: {0}".format(libraryEndGroups,cellEgTypes)
+                raise RuntimeError,"No library fragments of type {0} available to bond under the given rules: {0}".format(libraryEndGroups,endGroupTypes2Block.keys())
 
-        self.logger.info("libraryEndGroupPair got cell/library endGroups: {0}".format(cell2Library) )
+        self.logger.debug("libraryEndGroupPair got cell/library endGroups: {0}".format(cell2Library) )
         
         # Now we can pick a random endGroup from the cell, get the corresponding library group
         cellEgT = random.choice( cell2Library.keys() )
@@ -2138,9 +2193,11 @@ class Cell():
         libraryEndGroup = libraryBlock.randomEndGroup( endGroupTypes=[libEgT] )
         
         # Return them both - phew!
-        self.logger.info("libraryEndGroupPair returning: {0} {1}".format(cellEndGroup.type(),libraryEndGroup.type()) )
+        self.logger.debug("libraryEndGroupPair returning: {0} {1}".format(cellEndGroup.type(),libraryEndGroup.type()) )
         return cellEndGroup, libraryEndGroup
 
+
+    # TOGO
     def randomInitAttachments( self, endGroupType=None ):
         """
         * get a dictionary mapping which endGroupTypes can bond to the different blocks in the cell
@@ -2189,6 +2246,7 @@ class Cell():
         self.logger.debug( msg )
         return ( initBlock, initEG, idxStaticBlock, staticEG )
 
+    # TOGO
     def randomAttachments( self ):
         """Return 2 blocks, EndGroups and AngleAtoms that can be bonded.
         """
@@ -2241,7 +2299,8 @@ class Cell():
          If buffer is given, use this as a buffer from the edges of the cell
          when selecting the coord
         """
-        # Get _coords of random point in the cell
+        # Get _coords of random point in the cell that we will move the block to after 
+        # we've rotated at the origin
         if margin:
             x = random.uniform(margin,self.A-margin)
             y = random.uniform(margin,self.B-margin)
@@ -2250,21 +2309,20 @@ class Cell():
             x = random.uniform(0,self.A)
             y = random.uniform(0,self.B)
             z = random.uniform(0,self.C)
-            
+        
         coord = numpy.array([x,y,z], dtype=numpy.float64 )
         
-        #print "Got random coord: {}".format(coord)
+         #print "Got random coord: {}".format(coord)
         
         # Move to origin, rotate there and then move to new coord
         # Use the cell axis definitions
         block.translateCentroid( self.origin )
-        
         block.randomRotate( origin=self.origin, atOrigin=True )
         
         # Now move to new coord
         block.translateCentroid( coord )
         
-        #print "After rotate centroid at: {}".format( block.centroid() )
+        return
         
     def randomMoveAroundCenter(self, move_block, center, radius ):
         """
@@ -2285,12 +2343,9 @@ class Cell():
         return
     
     def resizeCells( self, boxMargin ):
-
         # Change the cell size
         self.updateCellSize( boxMargin=boxMargin )
-        
         self.repopulateCells()
-
         return
     
     def repopulateCells(self):
@@ -2312,7 +2367,6 @@ class Cell():
                 self.addBlock( block, idxBlock=idxBlock )
                 
             del blocks
-
         return
 
     def runMD(self,
@@ -2408,8 +2462,7 @@ class Cell():
             newblock = self.getInitBlock( fragmentType=fragmentType )
             
             tries = 0
-            ok = False
-            while not ok:
+            while True:
                 # quit on maxTries
                 if tries >= maxTries:
                     self.logger.critical("Exceeded maxtries when seeding after adding {0}".format(numBlocksAdded))
@@ -3843,22 +3896,26 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 30
         
-        mycell = Cell( )
+        mycell = Cell()
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
         #mycell.addInitBlock(filename=self.pafCar, fragmentType='A')
         mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
-        added = mycell.seed( 5 )
-        self.assertEqual( added, 5, 'seed')
+        toAdd = 5
+        added = mycell.seed( toAdd )
+        self.assertEqual( added, toAdd, 'seed')
         nc = 0
         for block in mycell.blocks.itervalues():
             nc += block.numAllAtoms()
         
-        added = mycell.joinBlocks( 4, maxTries=1 )
+        toJoin=4
+        added = mycell.joinBlocks( toJoin, cellEndGroups=None, maxTries=1 )
         
-        self.assertEqual( added, 4, "joinBlocks did join enough")
+        mycell.dump()
+        
+        self.assertEqual( added, toJoin, "joinBlocks did join enough")
         
         self.assertEqual( 1, len(mycell.blocks), "joinBlocks found {0} blocks".format( len( mycell.blocks ) ) )
         
