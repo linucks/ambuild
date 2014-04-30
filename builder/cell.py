@@ -3019,6 +3019,7 @@ class TestCell(unittest.TestCase):
         cls.benzene2Car = os.path.join( cls.ambuildDir, "blocks", "benzene2.car" )
         cls.pafCar = os.path.join( cls.ambuildDir, "blocks", "PAF_bb_typed.car" )
         cls.dcxCar = os.path.join( cls.ambuildDir, "blocks", "DCX.car" )
+        cls.ch4Ca2Car = os.path.join( cls.ambuildDir, "blocks", "ch4Ca2.car" )
         
         print "START TEST CELL"
         if True:
@@ -3077,6 +3078,21 @@ class TestCell(unittest.TestCase):
                 mycell.delBlock(blockId)
         
         cProfile.run('run()','restats')
+        return
+    
+    def testAmbody(self):
+        CELLA = CELLB = CELLC = 30
+        
+        mycell = Cell()
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        
+        mycell.addInitBlock(filename=self.ch4Ca2Car, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+        
+        added = mycell.seed( 3 )
+        
+        self.assertEqual(added, 3)
+        
         return
 
     def testBond(self):
@@ -3429,7 +3445,7 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 30
         
-        mycell = Cell(doLog=True)
+        mycell = Cell()
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
         mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
