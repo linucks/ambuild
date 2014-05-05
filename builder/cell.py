@@ -2628,10 +2628,10 @@ class Cell():
             bondArrayNode = ET.SubElement( root, "bondArray" )
             for i, b in enumerate( data['bond'] ):
                 if pruneBonds:
-                    # Complete hack - just see if it's longer then any reasonable bond
-                    if util.distance( pcoords[ b[0] ], pcoords[ b[1] ] ) > 3:
+                    # Complete hack - just see if it's longer then 0.5 the cell A distance
+                    # - this assumes that the cell is cubic
+                    if util.distance( pcoords[ b[0] ], pcoords[ b[1] ] ) >= data['A'] * 0.5:
                         continue
-                
                 bondNode = ET.SubElement( bondArrayNode, "bond")
                 bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
                 bondNode.attrib['order'] = "1"
@@ -2642,8 +2642,9 @@ class Cell():
                 bondArrayNode = ET.SubElement( root, "bondArray" )
             for i, b in enumerate( data['fragmentBond'] ):
                 if pruneBonds:
-                    # Complete hack - just see if it's longer then any reasonable bond
-                    if util.distance( pcoords[ b[0] ], pcoords[ b[1] ]  ) > 4.5:
+                    # Complete hack - just see if it's longer then 0.5 the cell A distance
+                    # - this assumes that the cell is cubic
+                    if util.distance( pcoords[ b[0] ], pcoords[ b[1] ]  ) >= data['A'] * 0.5:
                         continue
                 bondNode = ET.SubElement( bondArrayNode, "bond")
                 bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
