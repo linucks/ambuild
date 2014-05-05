@@ -146,10 +146,8 @@ class Cell():
         # are close enough to clash
         self.atomMargin = atomMargin
         
-        # The acceptable bond angle
         # convert bondAngle and bondMargin to angstroms
         # Could check values are in degrees and not radians?
-        self.bondAngle = 0.0
         self.bondAngleMargin = math.radians(bondAngleMargin)
         
         self.targetDensity = 10
@@ -492,8 +490,14 @@ class Cell():
                 #print "{} < {} < {}".format( (self.bondAngle-bondAngleMargin) * util.RADIANS2DEGREES,
                 #                             angle * util.RADIANS2DEGREES, 
                 #                             (self.bondAngle+bondAngleMargin) * util.RADIANS2DEGREES  )
-                if not ( self.bondAngle-bondAngleMargin < angle1 < self.bondAngle+bondAngleMargin  and \
-                         self.bondAngle-bondAngleMargin < angle2 < self.bondAngle+bondAngleMargin ):
+                
+                # Need to check if it's close to 180 and adapt accordinly - NEED TO THINK ABOUT THIS MORE
+                if angle1  > math.pi/2:
+                    angle1 = angle1 - math.pi
+                if angle2  > math.pi/2:
+                    angle2 = angle2 - math.pi
+                if not ( 0.0-bondAngleMargin < angle1 < 0.0+bondAngleMargin  and \
+                         0.0-bondAngleMargin < angle2 < 0.0+bondAngleMargin ):
                     self.logger.debug( "Cannot bond due to angles: {0} : {1}".format( math.degrees(angle1),
                                                                                      math.degrees(angle2) ) )
                     continue
@@ -2833,7 +2837,7 @@ class Cell():
                     endGroups.append( ( block, endGroup.blockEndGroupIdx ) )
 
         if not len(endGroups) > 0:
-            sys.logger.warn("zipBlocks found no endGroups!")
+            sys.logger.warn("zipBlocks found no free endGroups!")
             return 0
         
         # Add all (block, idxEndGroup) tuples to the cells
@@ -2897,14 +2901,18 @@ class Cell():
                         if idxEndGroup2 in block1.atomBonded3( idxEndGroup1 ):
                             continue
                     
-                    egPairs.append(  ( block1,
-                                        idxEndGroup1,
-                                        block2,
-                                        idxEndGroup2 ) )
-                    c1.append( block1.atomCoord( idxEndGroup1 ) )
-                    c2.append( block2.atomCoord( idxEndGroup2 ) )
+                    # PROBABLY A BETTER WAY OF DOING THIS
+                    p1 = ( block1,idxEndGroup1, block2, idxEndGroup2 )
+                    p2 = ( block2, idxEndGroup2, block1, idxEndGroup1 )
+                    if p1 not in egPairs and p2 not in egPairs:
+                        # Need to check if it is already in there as we loop over all endGroups
+                        # so we will have both sides twice
+                        egPairs.append( p1 )
+                        c1.append( block1.atomCoord( idxEndGroup1 ) )
+                        c2.append( block2.atomCoord( idxEndGroup2 ) )
 
         if not len(egPairs) > 0:
+            self.logger.info("zipBlocks: no endGroups close enough to bond" )
             return 0 
 
         # Calculate distances between all pairs
@@ -3847,6 +3855,51 @@ class TestCell(unittest.TestCase):
         self.assertGreater(made, 0, "ZipBlocks found no additional bonds!")
         
         return
+
+    def testZipBlocks2(self):
+
+        CELLA = CELLB = CELLC = 12.0
+        mycell = Cell(doLog=True)
+        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        
+        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+        
+        # Create block manually
+        import buildingBlock
+        b1 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A'  )
+        b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A'  )
+        
+        # Position block so that it's aligned along x-axis
+        # - use two opposing C-atoms 0 & 3
+        b1.alignAtoms( 0, 3, [ 1, 0, 0 ] )
+        
+        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        
+        endGroup1 = b1.freeEndGroups()[ 0 ]
+        endGroup2 = b2.freeEndGroups()[ 0 ]
+        
+        # Position the block
+        b1.positionGrowBlock( endGroup1, b2, endGroup2 )
+        
+        # and bond
+        bond = buildingBlock.Bond()
+        bond.block1          = b1
+        bond.endGroup1       = endGroup1
+        
+        bond.block2          = b2
+        bond.endGroup2       = endGroup2
+        
+        b1.bondBlock( bond )
+        
+        b1_id = mycell.addBlock(b1)
+        
+        made = mycell.zipBlocks( bondMargin=5, bondAngleMargin=5 )
+        
+        self.assertEqual( made, 1)
+        return
+
+
     
     def testWriteHoomdblue(self):
         """
