@@ -491,13 +491,11 @@ class Cell():
                 #                             angle * util.RADIANS2DEGREES, 
                 #                             (self.bondAngle+bondAngleMargin) * util.RADIANS2DEGREES  )
                 
-                # Need to check if it's close to 180 and adapt accordinly - NEED TO THINK ABOUT THIS MORE
-                if angle1  > math.pi/2:
-                    angle1 = angle1 - math.pi
-                if angle2  > math.pi/2:
-                    angle2 = angle2 - math.pi
-                if not ( 0.0-bondAngleMargin < angle1 < 0.0+bondAngleMargin  and \
-                         0.0-bondAngleMargin < angle2 < 0.0+bondAngleMargin ):
+                # Check if atoms are in line (i.e. angle is 0 or 180) within given margin
+                if not ( ( 0.0-bondAngleMargin < angle1 < 0.0+bondAngleMargin and \
+                         0.0-bondAngleMargin < angle2 < 0.0+bondAngleMargin ) or \
+                        ( math.pi-bondAngleMargin < angle1 < math.pi+bondAngleMargin and \
+                         math.pi-bondAngleMargin < angle2 < math.pi+bondAngleMargin ) ):
                     self.logger.debug( "Cannot bond due to angles: {0} : {1}".format( math.degrees(angle1),
                                                                                      math.degrees(angle2) ) )
                     continue
