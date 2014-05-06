@@ -1243,7 +1243,7 @@ class Cell():
         assert system,"No system!"
         
         # Should really check HOOMD version but...
-        if hasattr(system,"Lx"):
+        if hasattr(system.box,"Lx"):
             Lx = system.box.Lx
             Ly = system.box.Ly
             Lz = system.box.Lz
@@ -3845,11 +3845,7 @@ class TestCell(unittest.TestCase):
         mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         mycell.seed( 8 )
-        
-        mycell.dump()
         made = mycell.zipBlocks( bondMargin=10, bondAngleMargin=45 )
-        mycell.dump()
-        
         self.assertGreater(made, 0, "ZipBlocks found no additional bonds!")
         
         return
