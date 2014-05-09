@@ -638,6 +638,20 @@ class Block(object):
             
         return
     
+    def rotateT( self, axis, angle, center=None ):
+        """Rotation with translation to center"""
+
+        position = self.centroid()
+        origin = numpy.array( [ 0, 0, 0 ] )
+        self.translateCentroid( origin )
+        
+        rotationMatrix = util.rotation_matrix( axis, angle )
+        for f in self._fragments:
+            f.rotate( rotationMatrix, origin )
+        
+        self.translateCentroid( position )
+        return
+    
     def setCoord(self, idxAtom, coord ):
         frag, idxData = self._dataMap[ idxAtom ]
         frag._coords[ idxData] = coord
