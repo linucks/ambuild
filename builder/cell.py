@@ -3059,45 +3059,7 @@ class TestCell(unittest.TestCase):
         centralId = mycell.addBlock( centralBlock )
         
         self.assertTrue( mycell.checkMove( centralId ), "checkMove failed!" )
-        
-        mycell.processBonds( centralId )
-        
-        return
-
-    def testBond2(self):
-        """Tests the logic of the bond addition as it's a tad complicated for my small brain to understand in context"""
-
-        l = [(1, 2), (4, 5), (3, 2), (5, 1), (5, 2), (2, 3)]
-        
-        def getValue( key, bmap ):
-            k = key
-            seen = [] # sanity check
-            while True:
-                v = bmap[ k ]
-                assert v not in seen
-                if v is None:
-                    return k
-                seen.append( k )
-                k = v
-        
-        bmap = {}
-        done = []
-        for ( b1, b2 ) in l:
-            
-            if b1 not in bmap:
-                bmap[ b1 ] = None
-            if b2 not in bmap:
-                bmap[ b2 ] = None
-            
-            b1 = getValue( b1, bmap )
-            b2 = getValue( b2, bmap )
-            
-            done.append( ( b1, b2 ) ) # This is the join step
-            if b1 != b2:
-                bmap[ b2 ] = b1
-                
-        
-        self.assertEquals( [(1, 2), (4, 5), (3, 1), (4, 3), (4, 4), (4,4)], done )
+        self.assertEqual( mycell.processBonds(), 2 )
         
         return
 
@@ -3125,15 +3087,10 @@ class TestCell(unittest.TestCase):
         self.assertEqual( toGrow, grew, "testBlockTypes not ok")
         return
 
-    def testCapBlocks(self):
-        
+    def XtestCapBlocks(self):
         self.testCell.capBlocks(fragmentType='A', filename=self.capLinker )
-        
         #mycell.dump()
-        
         block = self.testCell.blocks[ self.testCell.blocks.keys()[0] ]
-        #self.assertEqual( len( block._freeEndGroupIdxs ), 0 )
-        
         return
     
     def testCellIO(self):
@@ -3847,7 +3804,45 @@ class TestCell(unittest.TestCase):
         self.assertEqual( made, 1)
         return
 
+    def testZipBlocks3(self):
+        """Bonding with margin"""
 
+        CELLA = CELLB = CELLC = 12.0
+        mycell = Cell(doLog=True)
+        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        
+        ch4Car=self.ch4Car
+        mycell.addInitBlock(filename=ch4Car, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+        
+        # Create block manually
+        b1 = buildingBlock.Block( filePath=ch4Car, fragmentType='A' )
+        b2 = buildingBlock.Block( filePath=ch4Car, fragmentType='A' )
+        
+        # Align bond along x-axis
+        b1.alignAtoms( 0, 1, [ 1, 0, 0 ] )
+        
+        # b1 in center of cell
+        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        mycell.addBlock(b1)
+        
+        endGroup1 = b1.freeEndGroups()[ 0 ]
+        endGroup2 = b2.freeEndGroups()[ 0 ]
+        
+        # Position b2
+        b1.positionGrowBlock( endGroup1, b2, endGroup2, dihedral=180 )
+        mycell.addBlock(b2)
+        
+        # Rotate on y-axis so that it's slightly off
+        b2.rotateT([0,1,0],math.radians(15))
+        
+        made = mycell.zipBlocks( bondMargin=0.5, bondAngleMargin=5 )
+        self.assertEqual( made, 0 )
+        
+        made = mycell.zipBlocks( bondMargin=0.5, bondAngleMargin=16 )
+        self.assertEqual( made, 1 )
+        
+        return
     
     def testWriteHoomdblue(self):
         """
