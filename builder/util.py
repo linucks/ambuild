@@ -559,7 +559,7 @@ def angle( c1, c2, c3 ):
 #             theta = numpy.arccos( x )
         
     #print "ANGLE THETA IS ",theta
-    return theta;
+    return theta
 
 def bondLength( symbol1,symbol2 ):
     """ Get the characteristic lengths of single bonds as defined in:
