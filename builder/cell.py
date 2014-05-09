@@ -316,6 +316,28 @@ class Cell():
             self._endGroup2LibraryFragment[ ft ] = fragmentType
         
         return
+
+    def angle( self, c1, c2, c3 ):
+        """Return the angle in radians c1---c2---c3
+        where c are the coordinates in a numpy array
+        Taken from the CCP1GUI
+        jmht - think about PBC
+        """
+        r1 = self.distance( c2, c1 )
+        r2 = self.distance( c3, c2 )
+        r3 = self.distance( c3, c1 )
+        x = (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2)
+        assert not numpy.isnan( x )
+        
+        #print "r1: {0}, r2: {1}, r3: {2}, x: {3}".format( r1, r2, r3, x )
+        if numpy.allclose(x, 1.0):
+            theta = 0.0
+        elif numpy.allclose(x, -1.0):
+            theta = math.pi
+        else:
+            theta = numpy.arccos( x )
+        return theta
+
     
     def attachBlock(self, growEndGroup, staticEndGroup, dihedral=None ):
         """
@@ -478,20 +500,18 @@ class Cell():
                 addCoord      = addBlock.atomCoord( idxAddAtom )
                 staticCoord   = staticBlock.atomCoord( idxStaticAtom )
                 addCapAtom    = addBlock.atomCoord( addEndGroup.blockCapIdx )
-                angle1        = util.angle( addCapAtom, addCoord, staticCoord )
+                angle1        = self.angle( addCapAtom, addCoord, staticCoord )
                 staticCapAtom = staticBlock.atomCoord( staticEndGroup.blockCapIdx )
-                angle2        = util.angle( staticCapAtom, staticCoord, addCoord )
+                angle2        = self.angle( staticCapAtom, staticCoord, addCoord )
                 
                 #print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( angleAtom, addCoord, staticCoord )
                 #print "{} < {} < {}".format( (self.bondAngle-bondAngleMargin) * util.RADIANS2DEGREES,
                 #                             angle * util.RADIANS2DEGREES, 
                 #                             (self.bondAngle+bondAngleMargin) * util.RADIANS2DEGREES  )
                 
-                # Check if atoms are in line (i.e. angle is 0 or 180) within given margin
+                # Check if atoms are in line (zero degrees) within margin
                 if not ( ( 0.0-bondAngleMargin < angle1 < 0.0+bondAngleMargin and \
-                           0.0-bondAngleMargin < angle2 < 0.0+bondAngleMargin ) or \
-                        ( math.pi-bondAngleMargin < angle1 < math.pi+bondAngleMargin and \
-                          math.pi-bondAngleMargin < angle2 < math.pi+bondAngleMargin ) ):
+                           0.0-bondAngleMargin < angle2 < 0.0+bondAngleMargin ) ):
                     self.logger.debug( "Cannot bond due to angles: {0} : {1}".format( math.degrees(angle1),
                                                                                      math.degrees(angle2) ) )
                     continue
@@ -1142,7 +1162,9 @@ class Cell():
         assert len(v1) > 0 and len(v2) > 0, "distance needs vectors!"
         dimensions = numpy.array( [ self.A, self.B, self.C ] )
         delta = numpy.array(v1) - numpy.array(v2)
+         # is basically modulus - returns what's left when divided by dim
         delta = numpy.remainder( delta, dimensions )
+        # Set all where it's > half the cell to subtract the cell dimension
         delta = numpy.where(numpy.abs(delta) > 0.5 * dimensions, delta - numpy.copysign( dimensions, delta ), delta)
         return numpy.sqrt((delta ** 2).sum(axis=-1))
 
