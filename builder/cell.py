@@ -1080,6 +1080,60 @@ class Cell():
         d = ( sum( [ b.mass() for b in self.blocks.itervalues() ] ) / ( self.A * self.B * self.C ) )
         return d * (10/6.022)
 
+    def dihedral(self, p1, p2, p3, p4):
+        """ From the CCP1GUI
+        """
+        #vec_ij = p1 - p2
+        #vec_kj = p3 - p2
+        #vec_kl = p3 - p4
+        # jmht fix for PBC
+        dimensions = numpy.array( [ self.A, self.B, self.C ] )
+        vec_ij = numpy.remainder( p1 - p2, dimensions )
+        vec_kl = numpy.remainder( p3 - p4, dimensions )
+        vec_kj = numpy.remainder( p3 - p2, dimensions )
+        vec_ij = numpy.where(numpy.abs(vec_ij) > 0.5 * dimensions, vec_ij - numpy.copysign( dimensions, vec_ij ),vec_ij)
+        vec_kj = numpy.where(numpy.abs(vec_kj) > 0.5 * dimensions, vec_kj - numpy.copysign( dimensions, vec_kj ),vec_kj)
+        vec_kl = numpy.where(numpy.abs(vec_kl) > 0.5 * dimensions, vec_kl - numpy.copysign( dimensions, vec_kl ),vec_kl)
+    
+        # vec1 is the normal to the plane defined by atoms i, j, and k    
+        vec1 = numpy.cross(vec_ij,vec_kj)
+        magvec1 = numpy.dot(vec1,vec1)
+    
+        #  vec2 is the normal to the plane defined by atoms j, k, and l
+        vec2 = numpy.cross(vec_kl,vec_kj)
+        magvec2 = numpy.dot(vec2,vec2)
+    
+        # the definition of a dot product is used to find the angle between  
+        # vec1 and vec2 and hence the angle between the planes defined by    
+        # atoms i, j, k and j, k, l                                          
+        #                                                                    
+        # the factor of pi (180.0) is present since when we defined the      
+        # vectors vec1 and vec2, one used the right hand rule while the      
+        # other used the left hand rule                                      
+    
+        dotprod = numpy.dot(vec1,vec2)
+        #print magvec1, magvec2
+        #print type(magvec1), type(magvec2)
+        fac = dotprod / math.sqrt(magvec1*magvec2)
+        if(fac > 1.0):
+            fac = 1.0
+        if(fac < -1.0):
+            fac = -1.0
+        #dihed = 180.0 - math.degrees( math.acos(fac ) )
+        dihed = math.pi - math.acos(fac )
+    
+        # the dot product between the bond between atoms i and j and the     
+        # normal to the plane defined by atoms j, k, and l is used to        
+        # determine whether or not the dihedral angle is clockwise or        
+        # anti_clockwise                                                     
+        #                                                                    
+        # if the dot product is positive, the rotation is clockwise          
+        sign_check = numpy.dot(vec_ij,vec2)
+        if( sign_check > 0.0):
+            dihed = dihed * -1.0
+    
+        return dihed
+
 #    def directedShimmy(self, nsteps=100, nmoves=50):
 #        """ Shuffle the molecules about making bonds where necessary for nsteps
 #        minimoves is number of sub-moves to attempt when the blocks are close
@@ -3309,6 +3363,29 @@ class TestCell(unittest.TestCase):
         v2 = numpy.array([ 0.0, 0.0, 8.0 ])
         dc = mycell.distance(v1,v2)
         self.assertEqual( dc, 2.0, "Distance across boundary cell:{}".format(dc) )
+        
+        return
+    
+    def testDihedral(self):
+        
+        CELLA = CELLB = CELLC = 30
+        mycell = Cell()
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        
+        p1 = numpy.array([ 0.0, 0.0, 0.0 ])
+        p2 = numpy.array([ 10.0, 0.0, 0.0 ])
+        p3 = numpy.array([ 10.0, 10.0, 0.0 ])
+        p4 = numpy.array([ 20.0, 10.0, 10.0 ])
+        
+        ref = util.dihedral( p1, p2, p3, p4)
+        
+        self.assertEqual( ref, mycell.dihedral( p1, p2, p3, p4) )
+        
+        # Move by a full cell along x-axis - result should be the same
+        p3 = numpy.array([ 10.0+CELLA, 10.0, 0.0 ])
+        p4 = numpy.array([ 20.0+CELLA, 10.0, 10.0 ])
+        
+        self.assertEqual( ref, mycell.dihedral( p1, p2, p3, p4) )
         
         return
         
