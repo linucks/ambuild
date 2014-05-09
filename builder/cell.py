@@ -203,7 +203,7 @@ class Cell():
         
         # The id of the new block
         if idxBlock == None:
-            idxBlock = block.id()
+            idxBlock = block.id
         
         # Add to the dict
         self.blocks[ idxBlock ] = block
@@ -329,7 +329,7 @@ class Cell():
         
         growBlock      = growEndGroup.block()
         staticBlock    = staticEndGroup.block()
-        idxStaticBlock = staticBlock.id()
+        idxStaticBlock = staticBlock.id
         
         staticBlock.positionGrowBlock( staticEndGroup, growBlock, growEndGroup, dihedral=dihedral )
         
@@ -341,7 +341,7 @@ class Cell():
         #sys.exit()
         
         # Check it doesn't clash
-        if self.checkMove( blockId ) and self.processBonds( addedBlockIdx=blockId ) > 0:
+        if self.checkMove( blockId ) and self.processBonds() > 0:
             self.logger.debug("attachBlock first checkMove returned True")
             return True
         else:
@@ -377,7 +377,7 @@ class Cell():
                 # add it and check
                 self.addBlock(growBlock)
                 
-                if self.checkMove( blockId ) and self.processBonds( addedBlockIdx=blockId ) > 0:
+                if self.checkMove( blockId ) and self.processBonds() > 0:
                     self.logger.debug("attachBlock rotate worked")
                     return True
         
@@ -410,23 +410,20 @@ class Cell():
     def bondBlock(self, bond ):
         """ Bond the second block1 to the first and update the data structures
         """
-        
         self.logger.debug( "cell bondBlock: {0}".format( bond ) )
-        
         #self.logger.debug("before bond: {0} - {1}".format( bond.idxBlock1, bond.block1._bondObjects) )
         
         # We need to remove the block even if we are bonding to self as we need to recalculate the atomCell list
-        self.delBlock( bond.idxBlock1 )
-        if bond.block1 != bond.block2:
-            self.delBlock( bond.idxBlock2 )
+        self.delBlock( bond.endGroup1.block().id )
+        if bond.endGroup1.block() != bond.endGroup2.block():
+            self.delBlock( bond.endGroup2.block().id )
         else:
             self.logger.info("self-bonded block1: {0}".format( bond ) )
         
-        bond.block1.bondBlock( bond )
+        #bond.block1.bondBlock( bond )
+        bond.endGroup1.block().bondBlock( bond )
         #self.logger.debug("after bond: {0} - {1}".format( idxBlock1, block1._bondObjects) )
-        
-        idxBlock = self.addBlock( bond.block1 )
-        
+        idxBlock = self.addBlock( bond.endGroup1.block() )
         return
 
     def canBond( self,
@@ -437,12 +434,11 @@ class Cell():
                  distance,
                  bondMargin,
                  bondAngleMargin
-                ):
+                ): 
         
-#         if not addBlock.isEndGroup( idxAddAtom ) or not staticBlock.isEndGroup( idxStaticAtom ):
-#             return False
+        # The check should have been made before this is called on whether the two atoms are endGroup
         
-        # Checking for a bond
+        # Check length
         bond_length = util.bondLength( addBlock.atomSymbol( idxAddAtom ), staticBlock.atomSymbol( idxStaticAtom ) )
         if bond_length < 0:
             raise RuntimeError,"Missing bond distance for: {0}-{1}".format( addBlock.atomSymbol( idxAddAtom ),
@@ -479,12 +475,12 @@ class Cell():
                 #                                                       idxStaticBlock,
                 #                                                       idxStaticAtom, 
                 #                                                       self.distance( addCoord, staticCoord ) )
-                addCoord = addBlock.atomCoord( idxAddAtom )
-                staticCoord = staticBlock.atomCoord( idxStaticAtom )
-                addCapAtom = addBlock.atomCoord( addEndGroup.blockCapIdx )
-                angle1 = util.angle( addCapAtom, addCoord, staticCoord )
+                addCoord      = addBlock.atomCoord( idxAddAtom )
+                staticCoord   = staticBlock.atomCoord( idxStaticAtom )
+                addCapAtom    = addBlock.atomCoord( addEndGroup.blockCapIdx )
+                angle1        = util.angle( addCapAtom, addCoord, staticCoord )
                 staticCapAtom = staticBlock.atomCoord( staticEndGroup.blockCapIdx )
-                angle2 = util.angle( staticCapAtom, staticCoord, addCoord )
+                angle2        = util.angle( staticCapAtom, staticCoord, addCoord )
                 
                 #print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( angleAtom, addCoord, staticCoord )
                 #print "{} < {} < {}".format( (self.bondAngle-bondAngleMargin) * util.RADIANS2DEGREES,
@@ -493,9 +489,9 @@ class Cell():
                 
                 # Check if atoms are in line (i.e. angle is 0 or 180) within given margin
                 if not ( ( 0.0-bondAngleMargin < angle1 < 0.0+bondAngleMargin and \
-                         0.0-bondAngleMargin < angle2 < 0.0+bondAngleMargin ) or \
+                           0.0-bondAngleMargin < angle2 < 0.0+bondAngleMargin ) or \
                         ( math.pi-bondAngleMargin < angle1 < math.pi+bondAngleMargin and \
-                         math.pi-bondAngleMargin < angle2 < math.pi+bondAngleMargin ) ):
+                          math.pi-bondAngleMargin < angle2 < math.pi+bondAngleMargin ) ):
                     self.logger.debug( "Cannot bond due to angles: {0} : {1}".format( math.degrees(angle1),
                                                                                      math.degrees(angle2) ) )
                     continue
@@ -505,18 +501,7 @@ class Cell():
                                                                                     distance ) )
                 
                 # Create bond object and set the parameters
-                bond = buildingBlock.Bond()
-                
-                # Rem the block and idxBlocks could change - see processBonds
-                #bond.block1                    = self.blocks[ idxStaticBlock ]
-                bond.block1                    = staticBlock
-                bond.idxBlock1                 = staticBlock.id()
-                bond.endGroup1                 = staticEndGroup
-                
-                bond.block2                    = addBlock
-                bond.idxBlock2                 = addBlock.id()
-                bond.endGroup2                 = addEndGroup
-                    
+                bond = buildingBlock.Bond(staticEndGroup,addEndGroup)
                 self._possibleBonds.append( bond )
                 self.logger.debug( "canBond returning True with bonds: {0}".format( self._possibleBonds ) )
                 return True
@@ -554,7 +539,7 @@ class Cell():
                 idxBlock = self.addBlock( cblock )
             
                 # Test for Clashes with other blocks
-                if self.checkMove( idxBlock ) and self.processBonds( addedBlockIdx=idxBlock ) > 0:
+                if self.checkMove( idxBlock ) and self.processBonds() > 0:
                     self.logger.info("Capped block {0} endGroup {1}".format( blockId, endGroup ) )
                 else:
                     self.logger.critical("Failed to cap block {0} endGroup {1}".format( blockId, endGroup ) )
@@ -671,41 +656,41 @@ class Cell():
         staticBlock = None
         for bond in self._possibleBonds:
             
-            staticBlock = self.blocks[ bond.idxBlock1 ] 
-            addBlock    = self.blocks[ bond.idxBlock2 ] 
+            b1Block = bond.endGroup1.block()
+            b2Block = bond.endGroup2.block()
             
             # We need to remove any clashes with the cap atoms - the added block isn't bonded
             # so the cap atoms aren't excluded
-            staticCap       = bond.endGroup1.blockCapIdx
-            addCap          = bond.endGroup2.blockCapIdx
-            staticEndGroup  = bond.endGroup1.blockEndGroupIdx
-            addEndGroup     = bond.endGroup2.blockEndGroupIdx
+            b1Cap      = bond.endGroup1.blockCapIdx
+            b2Cap      = bond.endGroup2.blockCapIdx
+            b1EndGroup = bond.endGroup1.blockEndGroupIdx
+            b2EndGroup = bond.endGroup2.blockEndGroupIdx
             
             # Also need to remove any clashes of the endGroups with atoms directly bonded to the 
             # opposite endGroup
-            staticBondAtoms = staticBlock.atomBonded1( staticEndGroup )
+            b1BondAtoms = b1Block.atomBonded1( b1EndGroup )
             # Only need to do this if the cap was added to the cell
-            if not staticBlock.invisibleAtom( staticCap ):
-                staticBondAtoms.remove( staticCap )
-            addBondAtoms    = addBlock.atomBonded1( addEndGroup )
+            if not b1Block.invisibleAtom( b1Cap ):
+                 b1BondAtoms.remove( b1Cap )
+                
+            b2BondAtoms    = b2Block.atomBonded1( b2EndGroup )
             # Only need to do this if the cap was added to the cell
-            if not addBlock.invisibleAtom( addCap ):
-                addBondAtoms.remove( addCap )
+            if not b2Block.invisibleAtom( b2Cap ):
+                b2BondAtoms.remove( b2Cap )
 
             toGo = [] # Need to remember indices as we can't remove from a list while we cycle through it
-            for i, ( staticBlock, idxStaticAtom, addBlock, idxAddAtom) in enumerate(clashAtoms):
+            for i, ( cellBlock, idxCellAtom, addBlock, idxAddAtom) in enumerate(clashAtoms):
                 #self.logger.debug("CHECKING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
-                
                 # Remove any clashes with the cap atoms
-                if ( bond.block1 == staticBlock and idxStaticAtom == staticCap ) or \
-                   ( bond.block2 == addBlock and idxAddAtom == addCap ):
+                if ( b1Block == cellBlock and idxCellAtom == b1Cap ) or \
+                   ( b2Block == addBlock  and idxAddAtom  == b2Cap ):
                     #self.logger.debug("REMOVING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     toGo.append( i )
                     continue
                 
                 # remove any clashes with directly bonded atoms
-                if ( bond.block1 == staticBlock and idxStaticAtom == staticEndGroup and idxAddAtom in addBondAtoms ) or \
-                   ( bond.block2 == addBlock and idxAddAtom == addEndGroup and idxStaticAtom in staticBondAtoms ):
+                if (b1Block == cellBlock and idxCellAtom == b1EndGroup and idxAddAtom  in b2BondAtoms ) or \
+                   (b2Block == b2Block   and idxAddAtom  == b2EndGroup and idxCellAtom in b1BondAtoms ):
                     #self.logger.info( "REMOVING BOND ATOMS FROM CLASH TEST" )
                     toGo.append( i )
             
@@ -1581,7 +1566,7 @@ class Cell():
             
             # Copy the original block so we can replace it if the join fails
             moveBlock = moveEndGroup.block()
-            idxMoveBlock = moveBlock.id()
+            idxMoveBlock = moveBlock.id
             blockCopy = moveBlock.copy()
             
             # Remove from cell so we don't check against itself and pick a different out
@@ -1880,7 +1865,7 @@ class Cell():
             
         return data
 
-    def processBonds( self, addedBlockIdx=None, checkAllowed=True ):
+    def processBonds(self):
         """Make any bonds that were found during checkMove
         return Number of bonds made
         
@@ -1896,81 +1881,19 @@ class Cell():
         
         # Here no atoms clash and we have a list of possible bonds - so bond'em!
         self.logger.debug("processBonds got bonds: {0}".format( self._possibleBonds ) )
-        
-        #self.logger.debug("processBonds addedBlockIdx: {0}".format( addedBlockIdx ) )
         self.logger.debug("processBonds blocks are: {0}".format( sorted( self.blocks ) ) )
         
-#         for b in self._possibleBonds:
-#             self.logger.debug("Possible bond {0} {1} {2} {3} {4} {5}".format(b.block1.id(),
-#                                                                      b.block2.id(),
-#                                                                      id(b.endGroup1),
-#                                                                      id(b.endGroup2), 
-#                                                                      b.endGroup1.fragmentEndGroupIdx,
-#                                                                      b.endGroup2.fragmentEndGroupIdx,
-#                                                                      ) )
-#             assert b.endGroup1.free()
-#             assert b.endGroup2.free()
-        
-        
-            
-        
-        # Any blocks that appear as second blocks more than once will need their bond ids
-        # changed, as their identity in the cell as blocks will be changed by the earlier bonding step
-        # we therefore need to change the indexes
-        # See testBond2 for the logic
-        
-        # THINK ABOUT WHAT HAPPENS WHEN WE BOND TO THE SAME FRAGMENT/ENDGROUP MORE THAN ONCE
-        def getValue( key, bmap ):
-            k = key
-            seen = [] # sanity check
-            while True:
-                v = bmap[ k ]
-                assert v not in seen
-                if v is None:
-                    return k
-                seen.append( k )
-                k = v
-                
-            raise RuntimeError,"FOO"
-        
         bondsMade = 0
-        bmap = {}
-        #bondedEndGroups = [] # Need to keep track of which endGroups have been used in bonding as they will
-        # no longer be available
         for count, bond in enumerate( self._possibleBonds ):
-            
             # With the bonding rules some endGroups may become not free when other endGroups in that fragment
             # are involved in bonds so we need to make sure they are free before we do
-            
-            #if bond.endGroup1 not in bondedEndGroups and bond.endGroup2 not in bondedEndGroups:
             if bond.endGroup1.free() and bond.endGroup2.free():
-                
-                if bond.idxBlock1 not in bmap:
-                    bmap[ bond.idxBlock1 ] = None
-                if bond.idxBlock2 not in bmap:
-                    bmap[ bond.idxBlock2 ] = None
-                    
-                bond.idxBlock1 = getValue( bond.idxBlock1, bmap )
-                bond.idxBlock2 = getValue( bond.idxBlock2, bmap )
-                
-                # Update the pointers to the bond
-                block1 = self.blocks[ bond.idxBlock1 ]
-                block2 = self.blocks[ bond.idxBlock2 ]
-                bond.block1 = block1
-                bond.block2 = block2
-            
                 self.bondBlock( bond )
                 self.logger.debug("Added bond: {0}".format( self._possibleBonds[count] ) )
                 bondsMade += 1
-                
                 #self.logger.debug( "process bonds after bond self.blocks is  ",sorted(self.blocks) )
-                
-                if bond.idxBlock1 != bond.idxBlock2: # Update dictionary
-                    bmap[ bond.idxBlock2 ] = bond.idxBlock1
-                
-                #bondedEndGroups.append( bond.endGroup1 )
-                #bondedEndGroups.append( bond.endGroup2 )
-                
+        
+        # Clear any other possible bonds
         self._possibleBonds = []
         
         return bondsMade
@@ -2150,7 +2073,7 @@ class Cell():
         Return the number of blocks we added
         """
         
-        if self.A == None or self.B == None or self.C == None:
+        if self.A is None or self.B is None or self.C is None:
             raise RuntimeError,"Need to specify cell before seeding"
         
         #if not len( self._fragmentLibrary ) or not len( self.bondTypes):
@@ -2175,8 +2098,9 @@ class Cell():
                     self.analyse.stop( 'seed',d={'num_tries':tries} )
                     return numBlocksAdded
 
-                # if center put the first one in the center of the cell
-                if center and seedCount == 0:
+                # if center put the first one in the center of the cell 
+                # only if this is the first attempt as otherwise we always fail if there is already something there
+                if center and seedCount==0 and tries==0:
                     newblock.translateCentroid( [ self.A/2, self.B/2, self.C/2 ] )
                 else:
                     # Move the block and rotate it
@@ -2187,7 +2111,7 @@ class Cell():
                 
                 # Test for Clashes with other molecules
                 if self.checkMove( idxBlock ):
-                    if self.processBonds( addedBlockIdx=idxBlock ) > 0:
+                    if self.processBonds() > 0:
                         self.logger.info("Added bond in seed!")
                     self.logger.debug("seed added block {0} after {1} tries.".format( seedCount+1, tries ) )
                     self.analyse.stop('seed',d={'num_tries':tries} )
@@ -2197,6 +2121,10 @@ class Cell():
                 # Unsuccessful so remove the block from cell
                 self.delBlock(idxBlock)
                 
+                # If seed fails with center need to bail on first one.
+                if center and seedCount == 0:
+                    self.logger.warn("Seed with center failed to place first block in center!")
+                    
                 # increment tries counter
                 tries += 1
             
@@ -2881,6 +2809,7 @@ class Cell():
             for i, sbox in enumerate( surrounding ):
                 
                 # Check if we have a box with anything in it
+                # use exception so we don't have to search through the whole list
                 try:
                     alist = cell1[ sbox ]
                 except KeyError:
@@ -3839,14 +3768,46 @@ class TestCell(unittest.TestCase):
     
     def testZipBlocks(self):
 
-        CELLA = CELLB = CELLC = 10.0
-        mycell = Cell()
+        CELLA = CELLB = CELLC = 12.0
+        mycell = Cell(doLog=True)
         mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
-        mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
+        
+        ch4Car=self.ch4Car
+        #mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.addInitBlock(filename=ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
-        mycell.seed( 8 )
-        made = mycell.zipBlocks( bondMargin=10, bondAngleMargin=45 )
-        self.assertGreater(made, 0, "ZipBlocks found no additional bonds!")
+        
+        # Create block manually
+        b1 = buildingBlock.Block( filePath=ch4Car, fragmentType='A'  )
+        b2 = buildingBlock.Block( filePath=ch4Car, fragmentType='A'  )
+        b3 = buildingBlock.Block( filePath=ch4Car, fragmentType='A'  )
+        b4 = buildingBlock.Block( filePath=ch4Car, fragmentType='A'  )
+        
+        # b1 in center of cell
+        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        mycell.addBlock(b1)
+        endGroup1 = b1.freeEndGroups()[ 0 ]
+        endGroup2 = b2.freeEndGroups()[ 0 ]
+        
+        # Position b2 - all blocks will be positioned around this one
+        b1.positionGrowBlock( endGroup1, b2, endGroup2, dihedral=180 )
+        mycell.addBlock(b2)
+        
+        # Position b3
+        endGroup1 = b2.freeEndGroups()[ 1 ]
+        endGroup2 = b3.freeEndGroups()[ 0 ]
+        b2.positionGrowBlock( endGroup1, b3, endGroup2, dihedral=180 )
+        mycell.addBlock(b3)
+        
+        # Position b4
+        endGroup1 = b2.freeEndGroups()[ 2 ]
+        endGroup2 = b4.freeEndGroups()[ 0 ]
+        b2.positionGrowBlock( endGroup1, b4, endGroup2, dihedral=180 )
+        mycell.addBlock(b4)
+        
+        made = mycell.zipBlocks( bondMargin=0.5, bondAngleMargin=0.5 )
+        
+        self.assertEqual(made,3)
         
         return
 
@@ -3860,7 +3821,6 @@ class TestCell(unittest.TestCase):
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually
-        import buildingBlock
         b1 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A'  )
         b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A'  )
         
@@ -3877,13 +3837,7 @@ class TestCell(unittest.TestCase):
         b1.positionGrowBlock( endGroup1, b2, endGroup2 )
         
         # and bond
-        bond = buildingBlock.Bond()
-        bond.block1          = b1
-        bond.endGroup1       = endGroup1
-        
-        bond.block2          = b2
-        bond.endGroup2       = endGroup2
-        
+        bond = buildingBlock.Bond(endGroup1, endGroup2)
         b1.bondBlock( bond )
         
         b1_id = mycell.addBlock(b1)

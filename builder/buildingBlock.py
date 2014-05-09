@@ -32,23 +32,16 @@ import util
 class Bond(object):
     """An object to hold all info on a bond
     """
-    def __init__(self):
-        
-        self.block1         = None
-        self.idxBlock1      = None
-        self.endGroup1      = None
-        
-        self.block2         = None
-        self.idxBlock2      = None
-        self.endGroup2      = None
-        
+    def __init__(self, endGroup1, endGroup2):
+        self.endGroup1 = endGroup1
+        self.endGroup2 = endGroup2
         return
     
     def __str__(self):
         """List the data attributes of this object"""
-        
-        s = "Bond {0}: {1}-{2} -> {3}-{4}".format( id(self), self.idxBlock1, self.endGroup1.blockEndGroupIdx,
-                                                   self.idxBlock2, self.endGroup2.blockEndGroupIdx )
+        s = "Bond {0}: {1}-{2} -> {3}-{4}".format( id(self),
+                                                   self.endGroup1.block().id, self.endGroup1.blockEndGroupIdx,
+                                                   self.endGroup2.block().id, self.endGroup2.blockEndGroupIdx )
         return s
 
 class Block(object):
@@ -97,7 +90,7 @@ class Block(object):
         self._mass = 0
         self._numAtoms = 0
 
-        self._blockId = id(self)
+        self.id = id(self) 
         
         return self._update()
     
@@ -252,8 +245,7 @@ class Block(object):
         """ Add newBlock to this one
         """
         
-        assert bond.block1 == self
-        
+        assert bond.endGroup1.block() == self
         assert bond.endGroup1.free()
         assert bond.endGroup2.free()
         assert not bond.endGroup1.bonded()
@@ -270,10 +262,10 @@ class Block(object):
         # update and add the data for the new block here
         # Append fragments and bonds of other block to this one
         selfBond=True
-        if bond.block1 != bond.block2:
+        if bond.endGroup1.block() != bond.endGroup2.block():
             selfBond=False
-            self._fragments += bond.block2._fragments
-            self._bonds += bond.block2._bonds
+            self._fragments += bond.endGroup2.block()._fragments
+            self._bonds += bond.endGroup2.block()._bonds
         
         # add the new bond
         self._bonds.append( bond )
@@ -355,7 +347,7 @@ class Block(object):
         also had a copy of the cell
         """
         new = copy.deepcopy(self)
-        new._blockId = id( new )
+        new.id=id( new )
         return new
 
     def dihedrals(self, atom1Idx, atom2Idx, bondOnly=False):
@@ -466,9 +458,6 @@ class Block(object):
         """Return a list of the fragmentTypes for the available endGroups"""
         return self._endGroupType2EndGroups.keys()
     
-    def id(self):
-        return self._blockId
-
     def ignoreAtom(self, idxAtom ):
         return self._ignoreAtom[ idxAtom ]
     
@@ -498,8 +487,8 @@ class Block(object):
         """
         
         targetEndGroup  = self.atomCoord( endGroup.blockEndGroupIdx )
-        targetSymbol    = self.atomSymbol( endGroup.blockEndGroupIdx )
-        targetCapAtom = self.atomCoord( endGroup.blockCapIdx )
+        targetSymbol   = self.atomSymbol( endGroup.blockEndGroupIdx )
+        targetCapAtom  = self.atomCoord( endGroup.blockCapIdx )
         
         # Get the bond length between these two atoms
         bondLength = util.bondLength( targetSymbol, symbol )
@@ -715,68 +704,9 @@ class Block(object):
 
         return
 
-#     def X_updateEndGroup(self, endGroup, newBond=False ):
-#         """
-#         The 'optimised' version that tried only to add new blocks onto the end of the list
-#         Have stopped using this because when when we have a maxBond attributed set for an 
-#         endGroup on adding a bond we potentially need to go through the list of all endGroups
-#         and remove those that are no longer free because they're saturated.
-#         There is a better way to do this but for now I'll just use the dumb approach.
-#         """
-#         
-#         endGroup.updateBlockIndices()
-#         
-#         if endGroup.free():
-#             assert not newBond
-#             
-#             # Add to the list of all free endGroups
-#             try:
-#                 self._freeEndGroups[ endGroup.blockEndGroupIdx ].append( endGroup )
-#             except KeyError:
-#                 self._freeEndGroups[ endGroup.blockEndGroupIdx ] = [ endGroup ]
-#             
-#             self._numFreeEndGroups += 1
-#             
-#             # Now add to the type list
-#             if endGroup.type() not in self._endGroupType2EndGroups:
-#                 self._endGroupType2EndGroups[ endGroup.type() ] = []
-#             self._endGroupType2EndGroups[ endGroup.type() ].append( endGroup )
-#             
-#         elif endGroup.bonded():
-#             if newBond:
-#                 # we are marking a previously free endGroup as bonded
-#                 
-#                 # Remove from the list of endGroups at this atomIdx and then remove
-#                 # if the list is empty
-#                 self._freeEndGroups[ endGroup.blockEndGroupIdx ].remove( endGroup )
-#                 if len( self._freeEndGroups[ endGroup.blockEndGroupIdx ] ) == 0:
-#                     del self._freeEndGroups[ endGroup.blockEndGroupIdx ]
-#                 
-#                 self._numFreeEndGroups -= 1
-#                 
-#                 self._endGroupType2EndGroups[ endGroup.type() ].remove( endGroup )
-#                 if len( self._endGroupType2EndGroups[ endGroup.type() ] ) == 0:
-#                     del self._endGroupType2EndGroups[ endGroup.type() ]
-#             
-#             # If the endGroup is involved in a bond the capAtom becomes invisible
-#             self._ignoreAtom[ endGroup.blockCapIdx ] = True
-#             
-#             # Removed cap atom so remove from list of atoms and also adjust the mass
-#             self._numAtoms -= 1
-#             self._mass -= endGroup.fragment._masses[ endGroup.fragmentCapIdx ]
-#             # Uw - unwanted atoms are atoms that need to be removed when we make a bond - 
-#             # is a bit of a hack at the moment
-#             if endGroup.blockUwIdx != -1:
-#                 self._ignoreAtom[ endGroup.blockUwIdx ] = True
-#                 self._numAtoms -= 1
-#                 self._mass -= endGroup.fragment._masses[ endGroup.fragmentCapIdx ]
-# 
-#         return
-
     def _update( self, selfBond=False ):
         """Set the list of _endGroups & update data for new block
         """
-        
         if not selfBond:
             self._dataMap = []
             self._mass = 0
@@ -790,7 +720,7 @@ class Block(object):
             for fragment in self._fragments:
                 
                 # Set the block
-                fragment._block = self
+                fragment.block= self
                 
                 # Count the number of each type of fragment in the block (see Analyse)
                 t = fragment.type()
@@ -809,9 +739,9 @@ class Block(object):
         # Have dataMap so now update the endGroup information
         # We currently loop through all endGroups as optimising this turned out to be too tricky
         # for my small brain
-        self._numFreeEndGroups         = 0 
-        self._freeEndGroups            = {}
-        self._endGroupType2EndGroups   = {}
+        self._numFreeEndGroups       = 0 
+        self._freeEndGroups          = {}
+        self._endGroupType2EndGroups = {}
         # Use bool array so we can just check an index and don't need to search
         # through the array each time. Could use indexes and then trigger an exception - not sure which is best yet
         self._ignoreAtom = [ False ] * len(self._dataMap)
@@ -907,21 +837,6 @@ class TestBlock(unittest.TestCase):
         
         return
     
-    def bondBlocks(self, block1, block2, endGroup1, endGroup2):
-        
-        block1.positionGrowBlock( endGroup1, block2, endGroup2 )
-        
-        bond = Bond()
-        bond.block1          = block1
-        bond.endGroup1       = endGroup1
-        
-        bond.block2          = block2
-        bond.endGroup2       = endGroup2
-        
-        block1.bondBlock( bond )
-        
-        return
-    
     def testCH4(self):
         """Test the creation of a CH4 molecule"""
         
@@ -947,8 +862,11 @@ class TestBlock(unittest.TestCase):
         
         eg1 = cx4_1.freeEndGroups()[0]
         eg2 = cx4_2.freeEndGroups()[0]
-        self.bondBlocks( cx4_1, cx4_2, eg1, eg2 )
         
+
+        cx4_1.positionGrowBlock( eg1, cx4_2, eg2 )
+        bond = Bond(eg1,eg2)
+        cx4_1.bondBlock( bond )
         return
 
     def testCH4_Fragmentbond(self):
@@ -967,7 +885,10 @@ class TestBlock(unittest.TestCase):
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
-        self.bondBlocks( ch4_1, ch4_2, eg1, eg2 )
+        
+        ch4_1.positionGrowBlock( eg1, ch4_2, eg2 )
+        bond = Bond(eg1,eg2)
+        ch4_1.bondBlock( bond )
         
         #ch4_1.writeXyz("testBond.xyz")
         
@@ -990,12 +911,14 @@ class TestBlock(unittest.TestCase):
 
         eg1 = ch4_1.freeEndGroups()[1]
         eg2 = ch4_2.freeEndGroups()[2]
-        self.bondBlocks( ch4_1, ch4_2, eg1, eg2 )
-        
+        ch4_1.positionGrowBlock( eg1, ch4_2, eg2 )
+        bond = Bond(eg1,eg2)
+        ch4_1.bondBlock( bond )
+
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_1.freeEndGroups()[5]
-        self.bondBlocks( ch4_1, ch4_1, eg1, eg2 )
-
+        bond = Bond(eg1,eg2)
+        ch4_1.bondBlock( bond )
         return
 
     def XtestAlignBlocks(self):

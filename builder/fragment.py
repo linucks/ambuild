@@ -36,7 +36,7 @@ class EndGroup(object):
         return
     
     def block(self):
-        return self.fragment.block()
+        return self.fragment.block
     
     def fragmentType(self):
         return self.fragment.type()
@@ -90,7 +90,9 @@ class EndGroup(object):
 #                                    
 #         return "{0} : {1}".format(self.__repr__(), ",".join( t ) )
 
-        return self.type()
+        s = "{0} {1}->{2}".format( self.type(), self.fragmentEndGroupIdx, self.fragmentCapIdx)
+
+        return s
 
 class Fragment(object):
     '''
@@ -127,7 +129,7 @@ class Fragment(object):
         # The variables below here are specific to a fragment and change as the fragment moves
         # and is involved in bonds - each fragment gets its own copy of these
         individualAttrs = {
-            '_block'          : None,
+            'block'           : None,
             '_coords'         : [],
             '_centroid'       : None,
             '_centerOfMass'   : None,
@@ -160,9 +162,6 @@ class Fragment(object):
         self._endGroupBonded[ endGroupType ] += 1
         return
     
-    def block(self):
-        return self._block
-
     def body(self, atomIdx ):
         """Return the body in this fragment that the atom is in"""
         return self._body[ atomIdx ]
@@ -257,7 +256,6 @@ class Fragment(object):
         Those in single are deep-copied as each fragment has its own"""
         
         f = Fragment()
-
         for a in f.__dict__:
             if a in self._sharedAttrs.keys():
                 setattr( f, a, getattr( self, a ) )
@@ -577,7 +575,6 @@ class Fragment(object):
         self._endGroupBonded = {}
         
         for i, e in enumerate( endGroups ):
-            
             eg                     = EndGroup()
             eg.fragment            = self
             eg._endGroupType        = endGroupTypes[ i ]
