@@ -519,46 +519,22 @@ BOND_LENGTHS['SE'] = { 'SE' : 2.33 }
 BOND_LENGTHS['SI'] = { 'SI' : 2.33 }
 
 
-def angle( c1, c2, c3 ):
+def angle( c1, c2, c3, cell=None ):
     """Return the angle in radians c1---c2---c3
     where c are the coordinates in a numpy array
-    Taken from the CCP1GUI
-    jmht - think about PBC
     """
-
-    #r1 = numpy.linalg.norm( c1 - c2 )
-    #r2 = numpy.linalg.norm( c2 - c3 )
-    #r3 = numpy.linalg.norm( c1 - c3 )
-    r1 = distance( c2, c1 )
-    r2 = distance( c3, c2 )
-    r3 = distance( c3, c1 )
-    
+    r1 = distance( c2, c1, cell=cell )
+    r2 = distance( c3, c2, cell=cell )
+    r3 = distance( c3, c1, cell=cell )
     x = (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2)
     assert not numpy.isnan( x )
-    
     #print "r1: {0}, r2: {1}, r3: {2}, x: {3}".format( r1, r2, r3, x )
     if numpy.allclose(x, 1.0):
         theta = 0.0
     elif numpy.allclose(x, -1.0):
         theta = math.pi
     else:
-        #theta = math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
         theta = numpy.arccos( x )
- 
-#     small = 1.0e-10
-#     if r1 + r2 - r3 < small:
-#         # printf("trig error %f\n",r3-r1-r2)
-#         # This seems to happen occasionally for 180 angles 
-#         theta = math.pi
-#     else:
-#         x = (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2)
-#         if numpy.allclose(x, 1.0):
-#             theta = 0.0
-#         else:
-#             #theta = math.acos( (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2) )
-#             theta = numpy.arccos( x )
-        
-    #print "ANGLE THETA IS ",theta
     return theta
 
 def bondLength( symbol1,symbol2 ):
@@ -735,14 +711,22 @@ def cellFromPickle(pickleFile):
         myCell=cPickle.load(f)
     return myCell
 
-def dihedral(p1, p2, p3, p4):
-    """ From the CCP1GUI"""
-
-    #cnv=57.29577951
-
-    vec_ij = p1 - p2
-    vec_kj = p3 - p2
-    vec_kl = p3 - p4
+def dihedral(p1, p2, p3, p4,cell=None):
+    """ From the CCP1GUI
+    """
+    if cell is not None:
+        # We need to fix all distances between vectors for PBC
+        dimensions = numpy.array( cell )
+        vec_ij = numpy.remainder( p1 - p2, dimensions )
+        vec_kl = numpy.remainder( p3 - p4, dimensions )
+        vec_kj = numpy.remainder( p3 - p2, dimensions )
+        vec_ij = numpy.where(numpy.abs(vec_ij) > 0.5 * dimensions, vec_ij - numpy.copysign( dimensions, vec_ij ),vec_ij)
+        vec_kj = numpy.where(numpy.abs(vec_kj) > 0.5 * dimensions, vec_kj - numpy.copysign( dimensions, vec_kj ),vec_kj)
+        vec_kl = numpy.where(numpy.abs(vec_kl) > 0.5 * dimensions, vec_kl - numpy.copysign( dimensions, vec_kl ),vec_kl)
+    else:
+        vec_ij = p1 - p2
+        vec_kj = p3 - p2
+        vec_kl = p3 - p4
 
     # vec1 is the normal to the plane defined by atoms i, j, and k    
     vec1 = numpy.cross(vec_ij,vec_kj)
@@ -783,19 +767,31 @@ def dihedral(p1, p2, p3, p4):
 
     return dihed
 
-def distance(x,y):
+def distance(v1, v2, cell=None ):
+    """Distance with numpy taking PBC into account
+    This works either with 2 points or a vector of any number of points
+    Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
+    Changed so that it can cope with distances across more than one cell
     """
-    Calculate the distance between two vectors - for distances between coordinates we use the
-    one in the cell as this works with periodic boundaries - this one is just used here.
-    """
-    return numpy.linalg.norm(y-x)
+    assert len(v1) > 0 and len(v2) > 0, "distance needs vectors!"
+    delta = numpy.array(v1) - numpy.array(v2)
+    if cell is not None:
+        dimensions = numpy.array( cell )
+        # is basically modulus - returns what's left when divided by dim
+        delta = numpy.remainder( delta, dimensions )
+        # Set all where it's > half the cell to subtract the cell dimension
+        delta = numpy.where(numpy.abs(delta) > 0.5 * dimensions,
+                            delta - numpy.copysign( dimensions, delta ),
+                            delta)
+    return numpy.sqrt((delta ** 2).sum(axis=-1))
 
-def Xdistance(self, v1, v2 ):
+def XdistanceP(self, v1, v2 ):
     """
     Calculate the distance between two vectors in the cell
     under periodic boundary conditions - from wikipedia entry
     """
     
+    #return numpy.linalg.norm(v1-v2)
     dx = v2[0] - v1[0]
     if math.fabs(dx) > self.A[0] * 0.5:
         dx = dx - math.copysign( self.A[0], dx)

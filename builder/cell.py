@@ -317,27 +317,10 @@ class Cell():
         
         return
 
-    def angle( self, c1, c2, c3 ):
+    def angle(self, c1, c2, c3):
         """Return the angle in radians c1---c2---c3
-        where c are the coordinates in a numpy array
-        Taken from the CCP1GUI
-        jmht - think about PBC
-        """
-        r1 = self.distance( c2, c1 )
-        r2 = self.distance( c3, c2 )
-        r3 = self.distance( c3, c1 )
-        x = (r1*r1 + r2*r2  - r3*r3) / (2.0 * r1*r2)
-        assert not numpy.isnan( x )
-        
-        #print "r1: {0}, r2: {1}, r3: {2}, x: {3}".format( r1, r2, r3, x )
-        if numpy.allclose(x, 1.0):
-            theta = 0.0
-        elif numpy.allclose(x, -1.0):
-            theta = math.pi
-        else:
-            theta = numpy.arccos( x )
-        return theta
-
+        where c are the coordinates in a numpy array"""
+        return util.angle(c1, c2, c3, cell=[self.A,self.B,self.C])
     
     def attachBlock(self, growEndGroup, staticEndGroup, dihedral=None ):
         """
@@ -1081,164 +1064,15 @@ class Cell():
         return d * (10/6.022)
 
     def dihedral(self, p1, p2, p3, p4):
-        """ From the CCP1GUI
-        """
-        #vec_ij = p1 - p2
-        #vec_kj = p3 - p2
-        #vec_kl = p3 - p4
-        # jmht fix for PBC
-        dimensions = numpy.array( [ self.A, self.B, self.C ] )
-        vec_ij = numpy.remainder( p1 - p2, dimensions )
-        vec_kl = numpy.remainder( p3 - p4, dimensions )
-        vec_kj = numpy.remainder( p3 - p2, dimensions )
-        vec_ij = numpy.where(numpy.abs(vec_ij) > 0.5 * dimensions, vec_ij - numpy.copysign( dimensions, vec_ij ),vec_ij)
-        vec_kj = numpy.where(numpy.abs(vec_kj) > 0.5 * dimensions, vec_kj - numpy.copysign( dimensions, vec_kj ),vec_kj)
-        vec_kl = numpy.where(numpy.abs(vec_kl) > 0.5 * dimensions, vec_kl - numpy.copysign( dimensions, vec_kl ),vec_kl)
-    
-        # vec1 is the normal to the plane defined by atoms i, j, and k    
-        vec1 = numpy.cross(vec_ij,vec_kj)
-        magvec1 = numpy.dot(vec1,vec1)
-    
-        #  vec2 is the normal to the plane defined by atoms j, k, and l
-        vec2 = numpy.cross(vec_kl,vec_kj)
-        magvec2 = numpy.dot(vec2,vec2)
-    
-        # the definition of a dot product is used to find the angle between  
-        # vec1 and vec2 and hence the angle between the planes defined by    
-        # atoms i, j, k and j, k, l                                          
-        #                                                                    
-        # the factor of pi (180.0) is present since when we defined the      
-        # vectors vec1 and vec2, one used the right hand rule while the      
-        # other used the left hand rule                                      
-    
-        dotprod = numpy.dot(vec1,vec2)
-        #print magvec1, magvec2
-        #print type(magvec1), type(magvec2)
-        fac = dotprod / math.sqrt(magvec1*magvec2)
-        if(fac > 1.0):
-            fac = 1.0
-        if(fac < -1.0):
-            fac = -1.0
-        #dihed = 180.0 - math.degrees( math.acos(fac ) )
-        dihed = math.pi - math.acos(fac )
-    
-        # the dot product between the bond between atoms i and j and the     
-        # normal to the plane defined by atoms j, k, and l is used to        
-        # determine whether or not the dihedral angle is clockwise or        
-        # anti_clockwise                                                     
-        #                                                                    
-        # if the dot product is positive, the rotation is clockwise          
-        sign_check = numpy.dot(vec_ij,vec2)
-        if( sign_check > 0.0):
-            dihed = dihed * -1.0
-    
-        return dihed
+        return util.dihedral(p1, p2, p3, p4,cell=[self.A,self.B,self.C])
 
-#    def directedShimmy(self, nsteps=100, nmoves=50):
-#        """ Shuffle the molecules about making bonds where necessary for nsteps
-#        minimoves is number of sub-moves to attempt when the blocks are close
-#        """
-#        
-#        #For writing out our progress
-#        filename= "SHIMMY_0.xyz"
-#        self.writeXyz( filename )
-#        
-#        for step in range( nsteps ):
-#            
-#            if len(self.blocks) == 1:
-#                print "NO MORE BLOCKS TO BOND _ HOORAY!"
-#                return
-#            
-#            #if not step % 100:
-#            print "Step: {}".format(step)
-#            print "BLOCKS",self.blocks.keys()
-#            print "KEYS ",self.box1
-#            filename = util.newFilename(filename)
-#            self.writeXyz( filename )
-#            
-#            imove_block, istatic_block = self.randomBlockId(count=2)
-#            move_block = self.blocks[imove_block]
-#            static_block = self.blocks[istatic_block]
-#            
-#            # Copy the original coordinates so we can reject the move
-#            # we copy the whole block so we don't need to recalculate
-#            # anything - not sure if this quicker then saving the _coords & updating tho
-#            orig_block = copy.deepcopy( move_block )
-#            
-#            # Calculate how far to move
-#            circ = move_block.radius() + static_block.radius()
-#            radius = (circ/2) + self.atomMargin
-#            
-#            for move in range( nmoves ):
-#                
-#                # Remove the block from the cell so we don't check against itself
-#                self.delBlock(imove_block)
-#                
-#                self.randomMoveAroundCenter( move_block, static_block.centroid(), radius )
-#                
-#                #Add the block so we can check for clashes/bonds
-#                imove_block = self.addBlock(move_block)
-#                
-#                # Test for Clashes with other molecules
-#                ok = self.checkMove( imove_block )
-#                
-#                # Break out if no clashes
-#                if ok:
-#                    print "Successful move ",move
-#                    break
-#                
-#                # Put it back where we got it from
-#                self.delBlock(imove_block)
-#                imove_block = self.addBlock(orig_block)
-#                
-#                #End move loop
-#            #End step loop
-#        #End shimmy
-#        return
-
-    def XdistanceV(self, x0, x1):
-        """Calculate vectors of distances between 2 vectors of points.
-        http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
-        """
-        dimensions = numpy.array( [ self.A, self.B, self.C ] )
-        x0 = numpy.array( x0 )
-        x1 = numpy.array( x1 )
-        delta = numpy.abs(x0 - x1)
-        delta = numpy.where(delta > 0.5 * dimensions, dimensions - delta, delta)
-        return numpy.sqrt((delta ** 2).sum(axis=-1))
-
-    def distance(self, v1, v2):
+    def distance(self, v1, v2, cell=None ):
         """Distance with numpy taking PBC into account
         This works either with 2 points or a vector of any number of points
         Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
         Changed so that it can cope with distances across more than one cell
         """
-        assert len(v1) > 0 and len(v2) > 0, "distance needs vectors!"
-        dimensions = numpy.array( [ self.A, self.B, self.C ] )
-        delta = numpy.array(v1) - numpy.array(v2)
-         # is basically modulus - returns what's left when divided by dim
-        delta = numpy.remainder( delta, dimensions )
-        # Set all where it's > half the cell to subtract the cell dimension
-        delta = numpy.where(numpy.abs(delta) > 0.5 * dimensions, delta - numpy.copysign( dimensions, delta ), delta)
-        return numpy.sqrt((delta ** 2).sum(axis=-1))
-
-    def distanceSimple(self, v1, v2):
-        """
-        my attempt to do PBC
-        """
-        dx = v2[0] % self.A - v1[0] % self.A
-        if math.fabs(dx) > self.A * 0.5:
-            dx = dx - math.copysign( self.A, dx)
-            
-        dy = v2[1] % self.B - v1[1] % self.B
-        if math.fabs(dy) > self.B * 0.5:
-            dy = dy - math.copysign( self.B, dy)
-            
-        dz = v2[2] % self.C - v1[2] % self.C
-        if math.fabs(dz) > self.C * 0.5:
-            dz = dz - math.copysign( self.C, dz)
-            
-        return math.sqrt( dx*dx + dy*dy + dz*dz )
+        return util.distance(v1, v2, cell=[self.A,self.B,self.C])
 
     def dump(self, prefix="step", addCount=True ):
         """Write out our current state"""
@@ -2198,7 +2032,7 @@ class Cell():
                 self.delBlock(idxBlock)
                 
                 # If seed fails with center need to bail on first one.
-                if center and seedCount == 0:
+                if center and seedCount==0 and tries==0:
                     self.logger.warn("Seed with center failed to place first block in center!")
                     
                 # increment tries counter
@@ -2809,7 +2643,7 @@ class Cell():
         
         return True
     
-    def zipBlocks( self, bondMargin=None, bondAngleMargin=None  ):
+    def zipBlocks(self, bondMargin=None, bondAngleMargin=None):
         
         self.logger.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin )  )
         
@@ -2919,6 +2753,7 @@ class Cell():
             return 0 
 
         # Calculate distances between all pairs
+        #distances = util.distance(c1, c2)
         distances = self.distance(c1, c2)
         
         # Now check for bonds
@@ -2931,6 +2766,9 @@ class Cell():
                                 bondMargin,
                                 bondAngleMargin,
                                 )
+            
+        # Assumption is that zipBlocks called on a valid structure, so we don't do any checks for clashes
+        # just process the bonds
         
         # Process any bonds
         todo = len( self._possibleBonds )
