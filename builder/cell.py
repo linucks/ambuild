@@ -1037,7 +1037,7 @@ class Cell():
         
     def density(self):
         """The density of the cell"""
-        d = ( sum( [ b.mass() for b in self.blocks.itervalues() ] ) / ( self.A * self.B * self.C ) )
+        d = ( sum( [ b.blockMass() for b in self.blocks.itervalues() ] ) / ( self.A * self.B * self.C ) )
         return d * (10/6.022)
 
     def dihedral(self, p1, p2, p3, p4):
@@ -2266,21 +2266,20 @@ class Cell():
                     images.append([0,0,0])
                 
                 atomTypes.append(block.type(i))
-                charges.append(block.type(i))
+                charges.append(block.charge(i))
                 diameters.append(0.1)
-                masses.append(block.type(i))
+                masses.append(block.mass(i))
                 symbols.append(block.symbol(i))
+                
                 # Work out which body this is in
                 b = block.body(i)
                 if b != lastBody:
                     bodyCount +=1
                     lastBody = b
                 bodies.append( bodyCount )
-                
                 atomCount += 1
                 
             # End block loop
-            
         # 
         # Got data so now put into xml
         #
@@ -3513,36 +3512,81 @@ class TestCell(unittest.TestCase):
         self.assertEqual( made, 1 )
         
         return
+
+    def testWriteCml(self):
+        """
+        write out cml
+        """
+        
+        CELLA = CELLB = CELLC = 20.0
+        mycell = Cell()
+        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        
+        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+        
+        # Create block manually - this is so we have reproducible results
+        b1 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        
+        # b1 in center of cell
+        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        mycell.addBlock(b1)
+        endGroup1 = b1.freeEndGroups()[ 0 ]
+        endGroup2 = b2.freeEndGroups()[ 0 ]
+        
+        # Add b2
+        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=180 )
+        mycell.addBlock(b2)
+
+        # bond them
+        bond = buildingBlock.Bond(endGroup1, endGroup2)
+        b1.bondBlock( bond )
+        
+        mycell.writeCml("test.cml")
+        
+        return
+
     
     def testWriteHoomdblue(self):
         """
         write out hoomdblue xml
         """
-        
         import hoomdblue
         
-        # USE TEST CELL
+        CELLA = CELLB = CELLC = 20.0
+        mycell = Cell()
+        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
         
-        CELLA = CELLB = CELLC = 30
+        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
         
-        mycell = Cell( )
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        #mycell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
-        mycell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
-        mycell.addBondType( 'A:a-A:a' )
+        # Create block manually - this is so we have reproducible results
+        b1 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
         
-        added = mycell.seed( 3 )
-        ok = mycell.growBlocks( 3, maxTries=5 )
+        # b1 in center of cell
+        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        mycell.addBlock(b1)
+        endGroup1 = b1.freeEndGroups()[ 0 ]
+        endGroup2 = b2.freeEndGroups()[ 0 ]
         
-        mycell.writeCml("foo.cml")
+        # Add b2
+        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=180 )
+        mycell.addBlock(b2)
+
+        # bond them
+        bond = buildingBlock.Bond(endGroup1, endGroup2)
+        b1.bondBlock( bond )
         
         initcoords = []
         for block in mycell.blocks.itervalues():
             for c in block.iterCoord():
                 initcoords.append( c )
         
+        mycell.writeCml("foo.cml")
         filename = "testWriteHoomdblue.xml"
-        natoms = mycell.writeHoomdXml( xmlFilename=filename )
+        natoms = mycell.writeHoomdXml( xmlFilename=filename, doDihedral=True )
 
         # Init the sytem from the file
         if hoomdblue.init.is_initialized():

@@ -92,7 +92,7 @@ class Block(object):
         self._centerOfMass = numpy.zeros( 3 )
         self._maxAtomRadius = -1
         self._radius = None
-        self._mass = 0
+        self._blockMass = 0
         self.id = id(self) 
         
         return self._update()
@@ -401,9 +401,7 @@ class Block(object):
 
     def dihedrals(self, idxAtom1,idxAtom2, bondOnly=False):
         """Return a list of all the dihedrals around these two bonded atoms
-        input and output is in external coordinates
-        """
-        print "QUERYING ",idxAtom1,idxAtom2
+        input and output is in external coordinates"""
         # Not sure if the lambda thing entirely kosha...
         return [ tuple( map( lambda x: self._int2ext[x], di ) ) for di in self._dihedrals( self._ext2int[idxAtom1],
                                   self._ext2int[idxAtom2],
@@ -431,7 +429,6 @@ class Block(object):
                     continue
                 assert not a2 == atom2Idx,"Dihedral atom loops back onto bond!"
                 atom1Bonded[ a1 ].append( a2 )
-        
         
         # Create list of what's bonded to atom2 - we exclude anything that loops back on itself
         atom2Bonded = {}
@@ -567,8 +564,8 @@ class Block(object):
         """Number of atoms visible externally"""
         return len(self._ext2int)
     
-    def mass(self):
-        return self._mass
+    def blockMass(self):
+        return self._blockMass
 
     def positionGrowBlock( self, endGroup, growEndGroup, dihedral=None ):
         """
@@ -734,7 +731,7 @@ class Block(object):
         self._dataMap = []
         self._int2ext = collections.OrderedDict()
         self._ext2int = collections.OrderedDict()
-        self._mass = 0
+        self._blockMass = 0
         self._fragmentTypeDict = {}
         icount=0
         ecount=0
@@ -755,7 +752,7 @@ class Block(object):
                 self._dataMap.append( ( fragment, i ) )
                 # Sort out indexing for masked/available atoms
                 if not fragment.isMasked(i):
-                    self._mass += fragment.masses[i]
+                    self._blockMass += fragment.masses[i]
                     self._ext2int[ecount] = icount
                     self._int2ext[icount] = ecount
                     ecount += 1
@@ -817,7 +814,6 @@ class Block(object):
         self._calcProperties()
         
         return
-
 
     def writeCml(self,cmlFilename):
 
@@ -1377,6 +1373,23 @@ class TestBlock(unittest.TestCase):
                          msg="testRotate arrays after rotation incorrect.")
         
         return
+    
+    def testWriteCml(self):
+        """foo"""
+        ch4_1 = Block( filePath=self.benzeneCar, fragmentType='A' )
+        ch4_2 = ch4_1.copy()
+        ch4_3 = ch4_1.copy()
+        
+        eg1 = ch4_1.freeEndGroups()[0]
+        eg2 = ch4_2.freeEndGroups()[0]
+        ch4_1.positionGrowBlock( eg1, eg2 )
+        bond = Bond(eg1,eg2)
+        ch4_1.bondBlock( bond )
+        
+        ch4_1.writeCml("test.cml")
+        
+        return
+
 
 if __name__ == '__main__':
     """
