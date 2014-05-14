@@ -136,18 +136,18 @@ class Fragment(object):
         # When we copy a fragment the new fragment gets references to the variables
         # that were created for the first fragment (see copy)
         sharedAttrs = { 
-            'radii'       : [],
-            'types'       : [],
-            'body'            : [], # a list of which body within this fragment each atom belongs to
+            'radii'            : [],
+            'types'            : [],
+            'bodies'           : [], # a list of which body within this fragment each atom belongs to
             '_bonds'           : [], # List of internal fragment bonds
             '_bonded'          : [], # List of which atoms are bonded to which
-            'charges'         : [],
+            'charges'          : [],
             'fragmentType'     : fragmentType, 
-            'labels'          : [],
-            'masses'          : [],
+            'labels'           : [],
+            'masses'           : [],
             '_maxBonds'        : {},
             '_radius'          : -1,
-            'symbols'         : [], # ordered array of symbols (in upper case)
+            'symbols'          : [], # ordered array of symbols (in upper case)
             '_totalMass'       : -1,
             '_individualAttrs' : None,
             '_sharedAttrs'     : None,
@@ -191,10 +191,6 @@ class Fragment(object):
         self._endGroupBonded[ endGroupType ] += 1
         return
     
-#     def body(self, atomIdx ):
-#         """Return the body in this fragment that the atom is in"""
-#         return self._body[ atomIdx ]
-
     def bonds(self):
         """Return a list of bonds in block indices
         We exclude masked atoms"""
@@ -546,12 +542,12 @@ class Fragment(object):
         
         bodyFile = os.path.join( dirname, basename+".ambody" )
         if os.path.isfile( bodyFile ):
-            self.body = [ int( l.strip() ) for l in open( bodyFile ) ]
+            self.bodies = [ int( l.strip() ) for l in open( bodyFile ) ]
             assert len( self.body ) == len(self.coords), \
             "Must have as many bodies as coordinates: {0} - {1}!".format( len( self.body ), self._dataLen )
         else:
             # Just create an array with 0
-            self.body = [ 0 ] * len( self.coords )
+            self.bodies = [ 0 ] * len( self.coords )
         return
 
 #     def radius(self,atomIdx):

@@ -206,13 +206,21 @@ class Block(object):
                 bonded.update( [ a1, a2 ] + self.atomBonded1( a2 ) )
         return bonded
 
+    def body(self, idxAtom):
+        frag, idxData = self._dataMap[ self._ext2int[ idxAtom ] ]
+        return frag.bodies[idxData]
+ 
+    def _body(self, idxAtom):
+        frag, idxData = self._dataMap[ idxAtom ]
+        return frag.bodies[idxData]
+    
     def charge(self, idxAtom):
         frag, idxData = self._dataMap[ self._ext2int[ idxAtom ] ]
         return frag.charges[idxData]
 
     def _charge(self, idxAtom):
         frag, idxData = self._dataMap[ idxAtom ]
-        return frag.chargs[idxData]
+        return frag.charges[idxData]
     
     def coord(self, idxAtom, coord=None):
         """Get and set coordinate in external indices"""
@@ -386,21 +394,24 @@ class Block(object):
         return self._centroid
 
     def copy( self ):
-        """
-        Create a copy of ourselves and return it.
-        Hit problem when passing in the distance function from the cell as the deepcopy
-        also had a copy of the cell
-        """
+        """Return a copy of ourselves."""
         new = copy.deepcopy(self)
         new.id=id( new )
         return new
 
-    def dihedrals(self, atom1Idx, atom2Idx, bondOnly=False):
-        return [ self._int2ext[a] for a in self._dihedrals( self._ext2int[idxAtom]) ]
-        
-    def _dihedrals(self, atom1Idx, atom2Idx, bondOnly=False):
+    def dihedrals(self, idxAtom1,idxAtom2, bondOnly=False):
         """Return a list of all the dihedrals around these two bonded atoms
         input and output is in external coordinates
+        """
+        print "QUERYING ",idxAtom1,idxAtom2
+        # Not sure if the lambda thing entirely kosha...
+        return [ tuple( map( lambda x: self._int2ext[x], di ) ) for di in self._dihedrals( self._ext2int[idxAtom1],
+                                  self._ext2int[idxAtom2],
+                                  bondOnly=bondOnly ) ]
+    
+    def _dihedrals(self, atom1Idx, atom2Idx, bondOnly=False):
+        """Return a list of all the dihedrals around these two bonded atoms
+        input & output in internacl coodrdinates
         
         This needs more work to check for when things are looped back and bonded to each other
         """
@@ -420,7 +431,8 @@ class Block(object):
                     continue
                 assert not a2 == atom2Idx,"Dihedral atom loops back onto bond!"
                 atom1Bonded[ a1 ].append( a2 )
-                
+        
+        
         # Create list of what's bonded to atom2 - we exclude anything that loops back on itself
         atom2Bonded = {}
         for a1 in self._atomBonded1( atom2Idx ):
@@ -432,7 +444,7 @@ class Block(object):
                     continue
                 assert not a2 == atom1Idx,"Dihedral atom loops back onto bond!"
                 atom2Bonded[ a1 ].append( a2 )
-                
+        
         dindices = []
         if not bondOnly:
             # Add all dihedrals on endGroup1's side of the bond
@@ -805,6 +817,32 @@ class Block(object):
         self._calcProperties()
         
         return
+
+
+    def writeCml(self,cmlFilename):
+
+        atomTypes = []
+        coords    = []
+        symbols   = []
+        count     = 0
+        
+        for i, coord in enumerate(self.iterCoord()):
+            coords.append(coord)
+            symbols.append(self.symbol(i))
+            atomTypes.append(self.type(i))
+        
+        cell = None
+        cmlFilename = util.writeCml(cmlFilename,
+                                    coords,
+                                    symbols,
+                                    bonds=self.bonds(),
+                                    atomTypes=atomTypes,
+                                    cell=cell,
+                                    pruneBonds=False)
+        
+        print "wrote CML file ",cmlFilename
+
+        return
         
     def writeXyz(self,name=None):
         
@@ -819,9 +857,9 @@ class Block(object):
                 c = frag.coords[i]
                 s = frag.symbols[i]
                 
-                print count, id(frag), s, frag._masked[i], c[0], c[1], c[2]
-                if not frag._masked[i]:
-                    coords.append("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( s, c[0], c[1], c[2]) )
+                #print count, id(frag), s, frag._masked[i], c[0], c[1], c[2]
+                #if not frag._masked[i]:
+                coords.append("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( s, c[0], c[1], c[2]) )
                 count += 1
             
             fpath = os.path.abspath(f.name)
@@ -1089,6 +1127,67 @@ class TestBlock(unittest.TestCase):
         com = ch4.centerOfMass()
         self.assertTrue( numpy.allclose( correct, com, rtol=1e-6, atol=1e-6 ),
                          msg="testCenterOfMass incorrect COM: {0}".format( com ) )
+        return
+
+    def testDihedrals(self):
+        """foo"""
+
+        ch4_1 = Block( filePath=self.benzeneCar, fragmentType='A' )
+        ch4_2 = ch4_1.copy()
+        ch4_3 = ch4_1.copy()
+        
+        eg1 = ch4_1.freeEndGroups()[0]
+        eg2 = ch4_2.freeEndGroups()[0]
+        ch4_1.positionGrowBlock( eg1, eg2 )
+        bond = Bond(eg1,eg2)
+        ch4_1.bondBlock( bond )
+        
+        # Check just across bonds
+        ref = [ (1,0,12,17),
+                (1,0,12,13),
+                (5,0,12,17),
+                (5,0,12,13) ]
+        dihedrals = ch4_1._dihedrals(eg1.blockEndGroupIdx, eg2.blockEndGroupIdx, bondOnly=True)
+        self.assertEqual(dihedrals,ref,"internal indices")
+        
+        ref = [ (1,0,11,16),
+                (1,0,11,12),
+                (5,0,11,16),
+                (5,0,11,12) ]
+        dihedrals = ch4_1.dihedrals(eg1.endGroupIdx(), eg2.endGroupIdx(), bondOnly=True)
+        self.assertEqual(dihedrals,ref,"external indices")
+        
+        # Now all dihedrals
+        ref = [(12, 0, 1, 2),
+               (12, 0, 1, 6),
+               (12, 0, 5, 11),
+               (12, 0, 5, 4),
+               (0, 12, 17, 16),
+               (0, 12, 17, 23),
+               (0, 12, 13, 18),
+               (0, 12, 13, 14),
+               (1, 0, 12, 17),
+               (1, 0, 12, 13),
+               (5, 0, 12, 17),
+               (5, 0, 12, 13)]
+        dihedrals = ch4_1._dihedrals(eg1.blockEndGroupIdx, eg2.blockEndGroupIdx, bondOnly=False)
+        self.assertEqual(dihedrals,ref,"internal indices")
+        
+        ref = [(11, 0, 1, 2),
+               (11, 0, 1, 6),
+               (11, 0, 5, 10),
+               (11, 0, 5, 4),
+               (0, 11, 16, 15),
+               (0, 11, 16, 21),
+               (0, 11, 12, 17),
+               (0, 11, 12, 13),
+               (1, 0, 11, 16),
+               (1, 0, 11, 12),
+               (5, 0, 11, 16),
+               (5, 0, 11, 12)]
+        dihedrals = ch4_1.dihedrals(eg1.endGroupIdx(), eg2.endGroupIdx(), bondOnly=False)
+        self.assertEqual(dihedrals,ref,"external indices")
+        
         return
 
     def testMove(self):

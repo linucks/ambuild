@@ -2171,22 +2171,20 @@ class Cell():
                       xmlFilename="ambuildhoomd.xml",
                       doCharges=True,
                       doDihedral=False,
-                      doImproper=False,
-                      data=None, 
-                      ):
+                      doImproper=False):
         """Write out a HOOMD Blue XML file.
         """
         
         # For time being use zero so just under LJ potential & bond
         #diameter += "{0}\n".format( frag._atomRadii[ k ] )
         
-        data = self.prepareHoomdData(data=data)
-        
         periodic=True
         
         atomTypes               = []
+        bodies                  = []
         coords                  = []
         charges                 = []
+        diameters               = []
         images                  = []
         masses                  = []
         symbols                 = []
@@ -2198,12 +2196,26 @@ class Cell():
         blockBondAngleLabels    = []
         blockBondDihedrals      = []
         blockBondDihedralLabels = []
-        count      = 0
+        atomCount = 0
+        bodyCount = -1
+        lastBody = 0
         for block in self.blocks.itervalues():
-            bonds += [ (b1+count, b2+count) for (b1, b2 ) in block.bonds() ]
             
-            #blockBonds += [ (b1+count, b2+count) for (b1, b2 ) in block.blockBonds() ]
+            # Always increment the bodyCount with a new block
+            bodyCount += 1
+            lastBody = 0
+            
+            #bonds += [ (b1+atomCount, b2+atomCount) for (b1, b2 ) in block.bonds() ]
+            
+            #blockBonds += [ (b1+atomCount, b2+atomCount) for (b1, b2 ) in block.blockBonds() ]
+            # Add the bonds between blocks. Also add angles for all atoms connected to the bonds
+            # we do this so that we can exclude them from VdW interactions in MD codes
             for b1, b2 in block.blockBonds():
+                
+                # The bonds themselves
+                blockBonds.append( (b1+atomCount,b2+atomCount) )
+                blockBondLabels.append("{0}-{1}".format( block.type(b1),block.type(b2) ) )
+                
                 _angles=set()
                 # Atoms connected to the endGroup that we need to specify as connected so we add as angles
                 for batom in block.atomBonded1( b1 ):
@@ -2220,81 +2232,101 @@ class Cell():
                 
                 # Add to overall lists
                 for a1, a2, a3 in _angles:
-                    blockBondAngles.append( a1+count, a2+count, a3+count )
+                    blockBondAngles.append( (a1+atomCount, a2+atomCount, a3+atomCount) )
                     l = "{0}-{1}-{2}".format( block.type( a1 ),
                                               block.type( a2 ),
                                               block.type( a3 ) )
                     blockBondAngleLabels.append( l )
 
-            for i, c in enumerate(block.iterCoord() ):
+                #
+                # Dihedrals
+                #
+                for dindices in block.dihedrals( b1, b2 ):
+                    dihedral = ( dindices[0] + atomCount,
+                                 dindices[1] + atomCount,
+                                 dindices[2] + atomCount,
+                                 dindices[3] + atomCount )
+                    blockBondDihedrals.append( dihedral )
+                    dlabel = "{0}-{1}-{2}-{3}".format( block.type( dindices[0] ),
+                                                       block.type( dindices[1] ),
+                                                       block.type( dindices[2] ), 
+                                                       block.type( dindices[3] )
+                                                    )
+                    blockBondDihedralLabels.append( dlabel )
+
+            for i, coord in enumerate(block.iterCoord() ):
                 if periodic:
-                    x, ix = wrapCoord( coord[0], cell[0], center=True )
-                    y, iy = wrapCoord( coord[1], cell[1], center=True )
-                    z, iz = wrapCoord( coord[2], cell[2], center=True )
+                    x, ix = util.wrapCoord( coord[0], self.A, center=True )
+                    y, iy = util.wrapCoord( coord[1], self.B, center=True )
+                    z, iz = util.wrapCoord( coord[2], self.C, center=True )
                     coords.append( numpy.array([x,y,z]))
-                    images.append([ix, iy,iz])
+                    images.append([ix,iy,iz])
                 else:
-                    coords.append(c)
-                    images.append([0, 0,0])
-                    
+                    coords.append(coord)
+                    images.append([0,0,0])
+                
                 atomTypes.append(block.type(i))
                 charges.append(block.type(i))
+                diameters.append(0.1)
                 masses.append(block.type(i))
                 symbols.append(block.symbol(i))
-                count += 1
-        
-        body     = "\n" + "\n".join( map( str, data['body'] ) ) + "\n"
-        charge   = "\n" + "\n".join( map( str, data['charge'] ) ) + "\n"
-        diameter = "\n" + "\n".join( map( str, data['diameter'] ) ) + "\n"
-        mass     = "\n" + "\n".join( map( str, data['mass'] ) ) + "\n"
-        ptype    = "\n" + "\n".join( map( str, data['type'] ) ) + "\n"
+                # Work out which body this is in
+                b = block.body(i)
+                if b != lastBody:
+                    bodyCount +=1
+                    lastBody = b
+                bodies.append( bodyCount )
+                
+                atomCount += 1
+                
+            # End block loop
+            
+        # 
+        # Got data so now put into xml
+        #
+        body     = "\n" + "\n".join( map( str, bodies ) ) + "\n"
+        charge   = "\n" + "\n".join( map( str, charges ) ) + "\n"
+        diameter = "\n" + "\n".join( map( str, diameters ) ) + "\n"
+        mass     = "\n" + "\n".join( map( str, masses ) ) + "\n"
+        ptype    = "\n" + "\n".join( map( str, atomTypes ) ) + "\n"
         
         image = "\n"
         position = "\n"
-        for i in range( len( data['position'] ) ):
-            image += "{0} {1} {2}\n".format( 
-                                          data['image'][i][0],
-                                          data['image'][i][1],
-                                          data['image'][i][2],
-                                          )
-            position += "{0} {1} {2}\n".format( 
-                                          data['position'][i][0],
-                                          data['position'][i][1],
-                                          data['position'][i][2],
-                                          )
+        for i, coord in enumerate(coords):
+            image += "{0} {1} {2}\n".format( images[i][0],
+                                             images[i][1],
+                                             images[i][2] )
+            position += "{0} {1} {2}\n".format( coord[0],
+                                                coord[1],
+                                                coord[2] )
         
         # Now do all angles and bonds
         bond=False
-        if len( data['bond'] ):
+        if len( blockBonds):
             bond = "\n"
-            for i, b in enumerate( data['bond'] ):
-                bond += "{0} {1} {2}\n".format( data['bondLabel'][i], b[0], b[1] )
+            for i, b in enumerate( blockBonds ):
+                bond += "{0} {1} {2}\n".format( blockBondLabels[i], b[0], b[1] )
         
         angle=False
-        if len( data['angle'] ):
+        if len( blockBondAngles ):
             angle = "\n"
-            for i, a in enumerate( data['angle'] ):
-                if data['angleLabel'][i] != "aatom":
-                    angle += "{0} {1} {2} {3}\n".format( data['angleLabel'][i], a[0], a[1], a[2] )
+            for i, a in enumerate( blockBondAngles ):
+                angle += "{0} {1} {2} {3}\n".format( blockBondAngleLabels[i], a[0], a[1], a[2] )
         
         dihedral=False
-        if len( data['dihedral'] ):
+        if len( blockBondDihedrals ):
             dihedral = "\n"
-            for i, dh in enumerate( data['dihedral'] ):
-                dihedral += "{0} {1} {2} {3} {4}\n".format( data['dihedralLabel'][i], dh[0], dh[1], dh[2], dh[3] )
+            for i, dh in enumerate( blockBondDihedrals  ):
+                dihedral += "{0} {1} {2} {3} {4}\n".format( blockBondDihedralLabels[i], dh[0], dh[1], dh[2], dh[3] )
         
-#         for f in fragmentBonds:
-#             bond += "fbond {0} {1}\n".format( f[0], f[1] )
-
-
         root = ET.Element( 'hoomd_xml', version="1.4" )
         config = ET.SubElement( root, "configuration", timestep="0" )
         
         #e = ET.SubElement( config, "box", 
         ET.SubElement( config, "box", 
-                        Lx=str(data['A']), 
-                        Ly=str(data['B']), 
-                        Lz=str(data['C']) )
+                        Lx=str(self.A), 
+                        Ly=str(self.B), 
+                        Lz=str(self.C) )
 
         e = ET.SubElement(config, "position" )
         e.text = position
@@ -2326,7 +2358,6 @@ class Cell():
             elif doImproper:
                 e = ET.SubElement(config, "improper" )
                 e.text = dihedral
-                
         
         tree = ET.ElementTree(root)
         
@@ -3490,6 +3521,8 @@ class TestCell(unittest.TestCase):
         
         import hoomdblue
         
+        # USE TEST CELL
+        
         CELLA = CELLB = CELLC = 30
         
         mycell = Cell( )
@@ -3500,6 +3533,8 @@ class TestCell(unittest.TestCase):
         
         added = mycell.seed( 3 )
         ok = mycell.growBlocks( 3, maxTries=5 )
+        
+        mycell.writeCml("foo.cml")
         
         initcoords = []
         for block in mycell.blocks.itervalues():
@@ -3516,7 +3551,6 @@ class TestCell(unittest.TestCase):
         
         # Read it back in to make sure we get the same values
         mycell.fromHoomdblueSystem( system )
-        
         finalcoords = []
         for block in mycell.blocks.itervalues():
             for c in block.iterCoord():
