@@ -906,7 +906,7 @@ class HoomdOptimiser( object ):
             xmld = hoomdblue.dump.xml(filename="runmd.xml",
                                       vis=True )
             dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
-                                      period=1,
+                                      period=10,
                                       unwrap_full=True,
                                       overwrite=True )
 
@@ -914,7 +914,7 @@ class HoomdOptimiser( object ):
         hoomdblue.run( mdCycles )
         
         nvt_rigid.disable()
-        if dump:
+        if dump and False:
             xmld.disable()
             dcdd.disable()
             del xmld

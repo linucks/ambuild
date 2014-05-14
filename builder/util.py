@@ -603,6 +603,8 @@ def calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.
 def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0 ):
     """Calculate the bonds for the fragments. This is done at the start when the only coordinates
     are those in the fragment.
+    
+    The slightly strange form of this is because I needed a routine to work out the closest atoms
     """
 
     def getSurroundCells( key ):
@@ -820,7 +822,6 @@ def dumpPkl(pickleFile,split=False):
                             data=data,
                             periodic=True)
             mycell.writeCml("{0}_{1}_PV.cml".format(prefix,t),
-                            data=data,
                             allBonds=True,
                             periodic=True,
                             pruneBonds=True)
@@ -985,6 +986,120 @@ def wrapCoord( coord, ldim, center=False ):
         wcoord -= ldim / 2
         
     return wcoord, image
+
+def writeCml(cmlFilename,
+             coords,
+             symbols,
+             bonds=None,
+             atomTypes=None,
+             cell=None,
+             pruneBonds=False):
+
+    assert len(coords) == len(symbols)
+    if pruneBonds:
+        assert cell
+        pcoords = [] # need to save periodic coordinates
+    
+    root = ET.Element( 'molecule')
+    root.attrib['xmlns']       = "http://www.xml-cml.org/schema"
+    root.attrib['xmlns:cml']   = "http://www.xml-cml.org/dict/cml"
+    root.attrib['xmlns:units'] = "http://www.xml-cml.org/units/units"
+    root.attrib['xmlns:xsd']   = "http://www.w3c.org/2001/XMLSchema"
+    root.attrib['xmlns:iupac'] = "http://www.iupac.org"
+    root.attrib['id']          = "mymolecule"
+    
+    if cell is not None:
+        # First set up the cell
+        crystal = ET.SubElement( root, "crystal" )
+    
+        crystalANode = ET.SubElement( crystal,"scalar")
+        crystalBNode = ET.SubElement( crystal,"scalar")
+        crystalCNode = ET.SubElement( crystal,"scalar")
+        crystalAlphaNode = ET.SubElement( crystal,"scalar")
+        crystalBetaNode  = ET.SubElement( crystal,"scalar")
+        crystalGammaNode = ET.SubElement( crystal,"scalar")
+    
+        crystalANode.attrib["title"] = "a"
+        crystalBNode.attrib["title"] = "b"
+        crystalCNode.attrib["title"] = "c"
+        crystalAlphaNode.attrib["title"] = "alpha"
+        crystalBetaNode.attrib["title"] =  "beta"
+        crystalGammaNode.attrib["title"] = "gamma"
+        
+        crystalANode.attrib["units"] = "units:angstrom"
+        crystalBNode.attrib["units"] = "units:angstrom"
+        crystalCNode.attrib["units"] = "units:angstrom"
+        crystalAlphaNode.attrib["units"] = "units:degree"
+        crystalBetaNode.attrib["units"]  = "units:degree"
+        crystalGammaNode.attrib["units"] = "units:degree"
+        
+        crystalANode.text = str( cell[0] )
+        crystalBNode.text = str( cell[1] )
+        crystalCNode.text = str( cell[2] )
+        
+        # Only support orthorhombic? cells
+        crystalAlphaNode.text = "90"
+        crystalBetaNode.text  = "90"
+        crystalGammaNode.text = "90"
+    
+    if atomTypes is not None:
+        assert len(atomTypes) == len(coords)
+        # Need to collate atomTypes
+        for atype in set( atomTypes ):
+            atomTypeNode = ET.SubElement( root, "atomType" )
+            atomTypeNode.attrib['name'] = atype
+            atomTypeNode.attrib['title'] = atype
+    
+    # Now atom data
+    atomArrayNode = ET.SubElement( root, "atomArray" )
+    for i, coord in enumerate( coords ):
+        atomNode = ET.SubElement( atomArrayNode, "atom")
+        atomNode.attrib['id'] = "a{0}".format( i )
+        atomNode.attrib['elementType'] = symbols[i]
+        if cell:
+            x, ix = wrapCoord( coord[0], cell[0], center=False )
+            y, iy = wrapCoord( coord[1], cell[1], center=False )
+            z, iz = wrapCoord( coord[2], cell[2], center=False )
+            if pruneBonds:
+                pcoords.append( numpy.array([x,y,z]))
+        else:
+            x = coord[0]
+            y = coord[1]
+            z = coord[2]
+        
+        atomNode.attrib['x3'] = str( x )
+        atomNode.attrib['y3'] = str( y )
+        atomNode.attrib['z3'] = str( z )
+        
+        # Now add atomType as child node referring to the atomType
+        atomTypeNode = ET.SubElement( atomNode, "atomType" )
+        atomTypeNode.attrib['ref'] = atomTypes[ i ]
+    
+    if bonds is not None:
+        # Now do bonds
+        if pruneBonds:
+            # Hack to get vis working
+            # Calculate all bond distances
+            distances = distance( [ pcoords[b1] for b1, b2 in bonds],
+                                  [ pcoords[b2] for b1, b2 in bonds] )
+            
+            # Complete hack - just see if it's longer then 0.5 the cell A distance - assumes cubic cell
+            bonds = [ b for i, b in enumerate( bonds ) if distances[i] <= cell[0] * 0.5 ]
+            
+        bondArrayNode = ET.SubElement( root, "bondArray" )
+        for b in bonds:
+            bondNode = ET.SubElement( bondArrayNode, "bond")
+            bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
+            bondNode.attrib['order'] = "1"
+
+    tree = ET.ElementTree(root)
+    #ET.dump(tree)
+    
+    cmlFilename = os.path.abspath( cmlFilename )
+    #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
+    tree.write( cmlFilename, encoding="utf-8", xml_declaration=True)
+    
+    return cmlFilename
 
 
 def hoomdContacts( xmlFilename ):

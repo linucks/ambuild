@@ -15,7 +15,7 @@ class EndGroup(object):
     
     def __init__(self):
         
-        self._bonded              = False
+        self._isBonded            = False
         
         self._endGroupType        = None
         
@@ -33,46 +33,72 @@ class EndGroup(object):
         self.fragmentUwIdx       = -1
         self.blockUwIdx          = -1
         
-        return
+        return 
     
     def block(self):
         return self.fragment.block
+
+    def capIdx(self):
+        """Return the index of the endGroup atom in external block indices"""
+        return self.fragment.block._int2ext[self.blockCapIdx]
     
+    def endGroupIdx(self):
+        """Return the index of the endGroup atom in external block indices"""
+        return self.fragment.block._int2ext[self.blockEndGroupIdx]
+
     def fragmentType(self):
-        return self.fragment.type()
+        return self.fragment.fragmentType
     
-    def bonded(self):
-        return self._bonded
+    def isBonded(self):
+        return self._isBonded
     
     def free(self):
-        return not self.bonded() and not self.saturated()
+        return not self.isBonded() and not self.saturated()
     
     def saturated(self):
         return self.fragment.endGroupSaturated( self.type() )
     
     def setBonded(self):
-        self._bonded = True
+        self._isBonded = True
         self.fragment.addBond( self.type() )
+        # Mask fragment cap and uw atoms now
+        self.fragment._masked[ self.fragmentCapIdx ] = True
+        if self.fragmentUwIdx != -1:
+            self.fragment._masked[ self.fragmentUwIdx ] = True
         return
     
     def type(self):
         """The type of the endGroup"""
-        return "{0}:{1}".format( self.fragment.type(), self._endGroupType )
+        return "{0}:{1}".format( self.fragment.fragmentType, self._endGroupType )
     
-    def updateBlockIndices(self):
+    def updateAncillaryIndices(self,cap2endGroup):
         """The block has been updated so we need to update our block indices based on where the
         fragment starts in the block"""
-        
-        # Update the block-wide indices for the endGroups
-        self.blockEndGroupIdx  = self.fragment._blockIdx + self.fragmentEndGroupIdx
-        self.blockCapIdx       = self.fragment._blockIdx + self.fragmentCapIdx
+        if self.fragment.isMasked( self.fragmentCapIdx ):
+            assert self.isBonded()
+            # If this endGroup is involved in a bond, we want to get the block index of the
+            # opposite endGroup as this has now become our cap atom
+            self.blockCapIdx = cap2endGroup[ (self.fragment,self.fragmentCapIdx) ]
+        else:
+            self.blockCapIdx = self.fragmentCapIdx + self.fragment._blockIdx 
         
         # -1 means no dihedral or uw atom set
         if self.fragmentDihedralIdx != -1:
-            self.blockDihedralIdx = self.fragment._blockIdx + self.fragmentDihedralIdx
+            if self.fragment.isMasked( self.fragmentDihedralIdx ):
+                # Now work out which atom this is bonded to
+                self.blockDihedralIdx = cap2endGroup[ (self.fragment,self.fragmentDihedralIdx) ]
+            else:
+                self.blockDihedralIdx = self.fragmentDihedralIdx + self.fragment._blockIdx
+                
         if self.fragmentUwIdx != -1:
-            self.blockUwIdx = self.fragment._blockIdx + self.fragmentUwIdx
-        
+            #assert not self.fragment.isMasked( self.fragmentUwIdx )
+            self.blockUwIdx = self.fragmentUwIdx + self.fragment._blockIdx 
+        return
+    
+    def updateEndGroupIndex(self):
+        """The block has been updated so we need to update our block indices based on where the
+        fragment starts in the block"""
+        self.blockEndGroupIdx = self.fragmentEndGroupIdx + self.fragment._blockIdx
         return
     
     def __str__(self):
@@ -90,7 +116,9 @@ class EndGroup(object):
 #                                    
 #         return "{0} : {1}".format(self.__repr__(), ",".join( t ) )
 
-        s = "{0} {1}->{2}".format( self.type(), self.fragmentEndGroupIdx, self.fragmentCapIdx)
+        s = "{0} {1}:{2}:{3} {4}->{5} {6}->{7}".format( self.type(), self.block().id,id(self.fragment),id(self),
+                                                    self.fragmentEndGroupIdx, self.fragmentCapIdx,
+                                                    self.blockEndGroupIdx,self.blockCapIdx)
 
         return s
 
@@ -108,18 +136,18 @@ class Fragment(object):
         # When we copy a fragment the new fragment gets references to the variables
         # that were created for the first fragment (see copy)
         sharedAttrs = { 
-            '_atomRadii'       : [],
-            '_atomTypes'       : [],
-            '_body'            : [], # a list of which body within this fragment each atom belongs to
+            'radii'       : [],
+            'types'       : [],
+            'body'            : [], # a list of which body within this fragment each atom belongs to
             '_bonds'           : [], # List of internal fragment bonds
             '_bonded'          : [], # List of which atoms are bonded to which
-            '_charges'         : [],
-            '_fragmentType'    : fragmentType, 
-            '_labels'          : [],
-            '_masses'          : [],
+            'charges'         : [],
+            'fragmentType'     : fragmentType, 
+            'labels'          : [],
+            'masses'          : [],
             '_maxBonds'        : {},
             '_radius'          : -1,
-            '_symbols'         : [], # ordered array of _symbols (in upper case)
+            'symbols'         : [], # ordered array of symbols (in upper case)
             '_totalMass'       : -1,
             '_individualAttrs' : None,
             '_sharedAttrs'     : None,
@@ -130,7 +158,7 @@ class Fragment(object):
         # and is involved in bonds - each fragment gets its own copy of these
         individualAttrs = {
             'block'           : None,
-            '_coords'         : [],
+            'coords'         : [],
             '_centroid'       : None,
             '_centerOfMass'   : None,
             '_maxAtomRadius'  : -1,
@@ -138,6 +166,7 @@ class Fragment(object):
             '_blockIdx'       : None, # The index in the list of block data where the data for this fragment starts
             '_endGroups'      : [], # A list of the endGroup objects
             '_endGroupBonded' : [], # A list of the number of each endGroup that are used in bonds
+            '_masked'         : [], # bool - whether the atoms is hidden (e.g. cap or uw atom)
             }
         
         # Set as attributes of self
@@ -162,19 +191,27 @@ class Fragment(object):
         self._endGroupBonded[ endGroupType ] += 1
         return
     
-    def body(self, atomIdx ):
-        """Return the body in this fragment that the atom is in"""
-        return self._body[ atomIdx ]
+#     def body(self, atomIdx ):
+#         """Return the body in this fragment that the atom is in"""
+#         return self._body[ atomIdx ]
 
-    def bonded(self, idxAtom):
-        return self._bonded[ idxAtom ]
+    def bonds(self):
+        """Return a list of bonds in block indices
+        We exclude masked atoms"""
+        bonds = []
+        for b1, b2 in self._bonds:
+            if not ( self._masked[b1] or self._masked[b2] ):
+                # Map to internal and then add _blockIdx to get position in block
+                b1 = b1 + self._blockIdx
+                b2 = b2 + self._blockIdx
+                bonds.append( (b1, b2) )
+        return bonds
 
     def _calcBonded(self):
-        
         assert len(self._bonds)
         # Create empty lists for all
-        self._bonded =  [ [] for _ in xrange( len(self._coords) ) ]
-        for (b1,b2) in self._bonds:
+        self._bonded =  [ [] for _ in xrange( len(self.coords) ) ]
+        for b1,b2 in self._bonds:
             if b1 not in self._bonded[ b2 ]:
                 self._bonded[ b2 ].append( b1 )
             if b2 not in self._bonded[ b1 ]:
@@ -184,18 +221,17 @@ class Fragment(object):
     def _calcCenters(self):
         """Calculate the center of mass and geometry for this fragment
         """
-        
         sumG = numpy.zeros( 3 )
         sumM = numpy.zeros( 3 )
         
         self._totalMass = 0.0 # Not sure if it sensible to calculate each time - prob irrelevant
-        for i, coord in enumerate( self._coords ):
-            mass = self._masses[i]
+        for i, coord in enumerate( self.coords ):
+            mass = self.masses[i]
             self._totalMass += mass
             sumG += coord
             sumM += mass * coord
         
-        self._centroid = sumG / len( self._coords )
+        self._centroid = sumG / len( self.coords )
         self._centerOfMass = sumM / self._totalMass
         
         return
@@ -215,7 +251,7 @@ class Fragment(object):
         """
         
         distances = []
-        for i, coord in enumerate( self._coords ):
+        for i, coord in enumerate( self.coords ):
             #distances.append( numpy.linalg.norm(coord-cog) )
             distances.append( util.distance(self._centroid, coord) )
             
@@ -248,11 +284,17 @@ class Fragment(object):
         if self._changed:
             self._calcProperties()
         return self._centerOfMass
+
+#     def charge(self,atomIdx):
+#         return self._charges[ atomIdx ]
+# 
+#     def coord(self,atomIdx):
+#         return self._coords[ atomIdx ]
     
     def copy(self):
         """Create a copy of ourselves.
         Those attributes in shared are just copied as references as they do not change between fragments
-        of the same type
+        of the same fragmentType
         Those in single are deep-copied as each fragment has its own"""
         
         f = Fragment()
@@ -269,7 +311,10 @@ class Fragment(object):
                 e.fragment = f
                 
         return f
-    
+
+    def endGroups(self):
+        return [ eg for eg in self._endGroups ]
+
     def endGroupSaturated(self, endGroupType):
         if self._maxBonds[ endGroupType ] is not None and \
         self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]:
@@ -283,27 +328,30 @@ class Fragment(object):
     def fillData(self):
         """ Fill the data arrays from the label """
         
+        self._masked = [ False ] * len(self.coords)
         self._totalMass = 0.0
         self._maxAtomRadius = 0.0
-        for i in range( len(self._coords) ):
+        for i in range( len(self.coords) ):
             
-            symbol = self._symbols[ i ]
+            symbol = self.symbols[ i ]
                 
             # Masses
             mass = util.ATOMIC_MASS[ symbol ]
-            self._masses.append( mass )
+            self.masses.append( mass )
             self._totalMass += mass
             
             # Radii
             z = util.SYMBOL_TO_NUMBER[ symbol.upper() ]
             r = util.COVALENT_RADII[z] * util.BOHR2ANGSTROM
-            self._atomRadii.append(r)
+            self.radii.append(r)
             
             # Remember the largest
             self._maxAtomRadius = max( r, self._maxAtomRadius )
-            #print "ADDING R {} for label {}".format(r,label)
-        
+            
         return
+    
+    def freeEndGroups(self):
+        return [ eg for eg in self._endGroups if eg.free() ]
 
     def fromCarFile(self, carFile):
         """"Abbie did this.
@@ -412,10 +460,10 @@ class Fragment(object):
         endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms = self.parseEndgroupFile( filePath )
 
         # Set the root fragment and its attributes
-        self.setData( coords        = coords,
+        self.setData( coords       = coords,
                      labels        = labels,
                      symbols       = symbols,
-                     atomTypes     = atomTypes,
+                     types         = atomTypes,
                      charges       = charges,
                      endGroupTypes = endGroupTypes,
                      endGroups     = endGroups,
@@ -430,25 +478,27 @@ class Fragment(object):
         
         return
     
-    def isCapAtom(self, atomIdx):
-        """Return True if this atom is a capAtom - doesn't check if bodned"""
-        #return atomIdx in self._endGroups
-        return atomIdx in [ eg.fragmentCapIdx for eg in self._endGroups ]
+    def isMasked(self,atomIdx):
+        return self._masked[atomIdx]
     
-    def isEndGroup(self, atomIdx):
-        """Return True if this atom is an endGroup - doesn't check if free"""
-        #return atomIdx in self._endGroups
-        return atomIdx in [ eg.fragmentEndGroupIdx for eg in self._endGroups ]
+#     def label(self,atomIdx):
+#         return self._labels[ atomIdx ]
+# 
+#     def mass(self,atomIdx):
+#         return self._masses[ atomIdx ]
 
     def maxAtomRadius(self):
         assert self._maxAtomRadius > 0
         return self._maxAtomRadius
     
-    def mass(self):
+    def totalMass(self):
         """Return the total mass for this block"""
         
         assert self._totalMass > 0
         return self._totalMass
+    
+    def numAtoms(self):
+        return len(self.coords)
 
     def parseEndgroupFile(self, filePath ):
         
@@ -481,7 +531,7 @@ class Fragment(object):
                     uwAtoms.append( -1 )
                     
                 
-            if self._fragmentType == 'cap' and len( endGroups ) != 1:
+            if self.fragmentType == 'cap' and len( endGroups ) != 1:
                 raise RuntimeError, "Capfile had >1 endGroup specified!"
             
         return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
@@ -489,22 +539,25 @@ class Fragment(object):
     def processBodies(self, filepath ):
         """See if we split the fragment into bodies or not"""
         
-        assert len(self._coords) > 0, "Coordinates must have been read before processing bodies"
+        assert len(self.coords) > 0, "Coordinates must have been read before processing bodies"
         
         dirname, filename = os.path.split( filepath )
         basename, suffix = os.path.splitext( filename )
         
         bodyFile = os.path.join( dirname, basename+".ambody" )
         if os.path.isfile( bodyFile ):
-            self._body = [ int( l.strip() ) for l in open( bodyFile ) ]
-            assert len( self._body ) == len(self._coords), \
-            "Must have as many bodies as coordinates: {0} - {1}!".format( len( self._body ), self._dataLen )
+            self.body = [ int( l.strip() ) for l in open( bodyFile ) ]
+            assert len( self.body ) == len(self.coords), \
+            "Must have as many bodies as coordinates: {0} - {1}!".format( len( self.body ), self._dataLen )
         else:
             # Just create an array with 0
-            self._body = [ 0 ] * len( self._coords )
+            self.body = [ 0 ] * len( self.coords )
         return
 
-    def radius(self):
+#     def radius(self,atomIdx):
+#         return self._radii[ atomIdx ]
+
+    def totalRadius(self):
         
         if self._changed:
             self._calcProperties()
@@ -518,13 +571,13 @@ class Fragment(object):
 #             center = numpy.array([0,0,0])
 #         rmat = util.rotation_matrix( axis, angle )
         
-        # loop through all _blocks and change all _coords
+        # loop through all _blocks and change all coords
         # Need to check that the center bit is the best way of doing this-
         # am almost certainly doing more ops than needed
-        for i,coord in enumerate( self._coords ):
+        for i,coord in enumerate( self.coords ):
             coord = coord - center
             coord = numpy.dot( rotationMatrix, coord )
-            self._coords[i] = coord + center
+            self.coords[i] = coord + center
         
         self._changed = True
         
@@ -534,7 +587,7 @@ class Fragment(object):
                 coords         = None,
                 labels         = None,
                 symbols        = None,
-                atomTypes      = None,
+                types          = None,
                 charges        = None,
                 endGroupTypes  = None,
                 endGroups      = None,
@@ -543,11 +596,11 @@ class Fragment(object):
                 uwAtoms        = None
                 ):
         
-        self._coords = coords
-        self._labels = labels
-        self._symbols = symbols
-        self._atomTypes = atomTypes
-        self._charges = charges
+        self.coords  = coords
+        self.labels  = labels
+        self.symbols = symbols
+        self.types   = types
+        self.charges = charges
         
         # Calculate anything we haven't been given
         self.fillData()
@@ -589,16 +642,22 @@ class Fragment(object):
                 self._endGroupBonded[ eg.type() ] = 0
             
             # sanity check
-            assert eg.fragmentCapIdx in self.bonded( eg.fragmentEndGroupIdx ),\
+            assert eg.fragmentCapIdx in self._bonded[ eg.fragmentEndGroupIdx ],\
             "capAtom {0} is not bonded to endGroup {1}".format( eg.fragmentCapIdx,eg.fragmentEndGroupIdx )
             if eg.fragmentDihedralIdx != -1:
-                assert eg.fragmentDihedralIdx in self.bonded( eg.fragmentEndGroupIdx ),\
+                assert eg.fragmentDihedralIdx in self._bonded[ eg.fragmentEndGroupIdx ],\
             "dihedral Atom {0} is not bonded to endGroup {1}".format( eg.fragmentDihedralIdx, eg.fragmentEndGroupIdx )
             if eg.fragmentUwIdx != -1:
-                assert eg.fragmentUwIdx in self.bonded( eg.fragmentEndGroupIdx ),\
+                assert eg.fragmentUwIdx in self._bonded[ eg.fragmentEndGroupIdx ],\
             "uwAtom {0} is not bonded to endGroup {1}".format( eg.fragmentUwIdx, eg.fragmentEndGroupIdx )
             
             self._endGroups.append( eg )
+        
+        # sanity check - make sure no endGroup is the cap Atom for another endGroup
+        eg = set( [ e.fragmentEndGroupIdx for e in self._endGroups ] )
+        caps = set( [ e.fragmentCapIdx for e in self._endGroups ] )
+        assert len(eg.intersection( caps )) == 0,"Cap atom for one endGroup is another endGroup!"
+        
         return
 
     def setMaxBond(self, endGroupType, maxBond):
@@ -606,21 +665,24 @@ class Fragment(object):
         self._maxBonds[ endGroupType ] = maxBond
         return
 
+#     def symbol(self,atomIdx):
+#         return self._symbols[ atomIdx ]
+
     def translate(self, tvector):
         """ translate the molecule by the given vector"""
         
         # FIX!!
         #assert isinstance( tvector, numpy.array )
 
-        # Use len as we don't need to return the _coords
-        for i in range( len (self._coords ) ):
-            self._coords[i] += tvector
+        # Use len as we don't need to return the coords
+        for i in range( len (self.coords ) ):
+            self.coords[i] += tvector
         
         self._changed = True
         return
 
-    def type(self):
-        return self._fragmentType
+#     def type(self,atomIdx):
+#         return self._types[ atomIdx ]
 
     def __str__(self):
         """List the data attributes of this object"""
