@@ -1386,7 +1386,17 @@ class TestBlock(unittest.TestCase):
         bond = Bond(eg1,eg2)
         ch4_1.bondBlock( bond )
         
-        ch4_1.writeCml("test.cml")
+        # Write out the cml and see if it matches what we've saved
+        fname="test.cml"
+        ch4_1.writeCml(fname)
+        with open(fname) as f:
+            test = f.readlines()
+        
+        with open(os.path.join( self.ambuildDir, "tests", "benzeneBond.cml" )) as f:
+            ref = f.readlines()
+        
+        self.assertEqual(test,ref,"cml compare")
+        os.unlink(fname)
         
         return
 
