@@ -814,7 +814,6 @@ def dumpPkl(pickleFile,split=False):
     prefix = os.path.splitext(fname)[0]
     
     mycell = cellFromPickle(pickleFile)
-    
     if split:
         for t in mycell.fragmentTypes().keys():
             data = mycell.dataDict( fragmentType=t)
@@ -822,15 +821,16 @@ def dumpPkl(pickleFile,split=False):
                             data=data,
                             periodic=True)
             mycell.writeCml("{0}_{1}_PV.cml".format(prefix,t),
-                            allBonds=True,
+                            data=data,
                             periodic=True,
                             pruneBonds=True)
     else:
         data = mycell.dataDict()
         mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
         #self.writeCar(prefix+"_P.car",data=data,periodic=True)
-        mycell.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
+        mycell.writeCml(prefix+"_PV.cml", data=data, periodic=True, pruneBonds=True)
         #mycell.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
+        data = mycell.dataDict(center=True)
         mycell.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
     
     return

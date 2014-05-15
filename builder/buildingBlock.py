@@ -70,6 +70,9 @@ class Block(object):
         # List of tuples of atoms that are bonded
         self._bonds = []
         
+        # List of the bonds within fragments as a tuple (fragmentType, bond)
+        self._bondsByFragmentType = []
+        
         # List of which atom is bonded to which
         self._bondedToAtom = []
         
@@ -233,6 +236,11 @@ class Block(object):
     def _coord(self, idxAtom ):
         frag, idxData = self._dataMap[ idxAtom ]
         return frag.coords[idxData]
+
+    def fragmentType(self, idxAtom ):
+        """The type of the fragment that this atom belongs to."""
+        frag, idxData = self._dataMap[ self._ext2int[idxAtom] ]
+        return frag.fragmentType
     
     def label(self, idxAtom):
         frag, idxData = self._dataMap[ self._ext2int[ idxAtom ] ]
@@ -282,15 +290,15 @@ class Block(object):
             return self._freeEndGroups[ self._ext2int[idxAtom] ]
         except KeyError,e:
             return False
-    
-    def atomFragType(self, idxAtom ):
-        """The type of the fragment that this atom belongs to."""
-        frag, idxData = self._dataMap[ idxAtom ]
-        return frag.fragmentType
 
     def bonds(self):
         """All bonds in external indices"""
         return [ (self._int2ext[b1], self._int2ext[b2]) for b1, b2 in self._bonds ]
+    
+    def bondsByType(self, fragmentType):
+        """Return all bonds within a fragment if the fragment is of a given type in external indices"""
+        return [ (self._int2ext[b[0]], self._int2ext[b[1]]) \
+                for ftype, b in self._bondsByFragmentType if ftype == fragmentType ]
 
     def blockBonds(self):
         """External indices"""
@@ -795,10 +803,12 @@ class Block(object):
         
         # Now need to create the list of all bonds throughout the block
         self._bonds = []
+        self._bondsByFragmentType = []
         # First all bonds within the fragments
         for fragment in self._fragments:
             for b in fragment.bonds():
                 self._bonds.append( b )
+                self._bondsByFragmentType.append( (fragment.fragmentType, b) )
         
         # Then all bonds between fragments
         cap2EndGroup = {}
@@ -834,7 +844,6 @@ class Block(object):
         coords    = []
         symbols   = []
         count     = 0
-        
         for i, coord in enumerate(self.iterCoord()):
             coords.append(coord)
             symbols.append(self.symbol(i))
