@@ -42,6 +42,10 @@ class EndGroup(object):
         """Return the index of the endGroup atom in external block indices"""
         return self.fragment.block._int2ext[self.blockCapIdx]
     
+    def dihedralIdx(self):
+        """Return the index of the dihedral atom in external block indices"""
+        return self.fragment.block._int2ext[self.blockDihedralIdx]
+    
     def endGroupIdx(self):
         """Return the index of the endGroup atom in external block indices"""
         return self.fragment.block._int2ext[self.blockEndGroupIdx]

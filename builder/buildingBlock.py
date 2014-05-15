@@ -191,9 +191,9 @@ class Block(object):
 
     def _atomBonded2(self, idxAtom ):
         """Return the indices of all atoms bonded by <= 2 bonds to idxAtom"""
-        bonded = copy.copy( self.atomBonded1( idxAtom ) )
-        for a1 in list(bonded): # Convert to list so we're not changing while looping thru it
-            bonded.update( self.atomBonded1( a1 ) )
+        bonded = copy.copy( self._atomBonded1( idxAtom ) )
+        for a1 in list(bonded): # Copy to list so we're not changing while looping thru it
+            bonded.update( self._atomBonded1( a1 ) )
         return bonded
 
     def atomBonded3(self, idxAtom):
@@ -201,12 +201,11 @@ class Block(object):
 
     def _atomBonded3(self, idxAtom ):
         """Return the indices of all atoms bonded by <= 3 bonds to idxAtom"""
-        bonded = copy.copy( self.atomBonded1( idxAtom ) )
-        for a1 in list(bonded): # Convert to list so we're not changing while looping thru it
-            for a2 in self.atomBonded1( a1 ):
-                bonded.update( [ a1, a2 ] + self.atomBonded1( a2 ) )
+        bonded = copy.copy( self._atomBonded2( idxAtom ) )
+        for a1 in list(bonded): # Copy to list so we're not changing while looping thru it
+            bonded.update( self._atomBonded1( a1 ) )
         return bonded
-
+        
     def body(self, idxAtom):
         return self._bodies[ self._ext2int[ idxAtom ] ]
  

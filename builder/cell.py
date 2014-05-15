@@ -2464,8 +2464,8 @@ class Cell():
                         # Need to check if it is already in there as we loop over all endGroups
                         # so we will have both sides twice
                         egPairs.append( p1 )
-                        c1.append( block1.atomCoord( idxEndGroup1 ) )
-                        c2.append( block2.atomCoord( idxEndGroup2 ) )
+                        c1.append( block1.coord( idxEndGroup1 ) )
+                        c2.append( block2.coord( idxEndGroup2 ) )
 
         if not len(egPairs) > 0:
             self.logger.info("zipBlocks: no endGroups close enough to bond" )
@@ -2591,7 +2591,7 @@ class TestCell(unittest.TestCase):
         cls.ch4Ca2Car = os.path.join( cls.ambuildDir, "blocks", "ch4Ca2.car" )
         
         print "START TEST CELL"
-        if False:
+        if True:
             # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
             # From code looks like default r_buff is 0.4 and our default r_cut is 5.0 
             CELLA = CELLB = CELLC = 20.0
@@ -2657,9 +2657,7 @@ class TestCell(unittest.TestCase):
         
         mycell.addInitBlock(filename=self.ch4Ca2Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
-        
         added = mycell.seed( 3 )
-        
         self.assertEqual(added, 3)
         
         return
@@ -2716,7 +2714,6 @@ class TestCell(unittest.TestCase):
         mycell.seed( 1, fragmentType='A' )
         toGrow = 3
         grew = mycell.growBlocks( toGrow, endGroupType=None, maxTries=5)
-        
         self.assertEqual( toGrow, grew, "testBlockTypes not ok")
         return
 
@@ -2731,19 +2728,18 @@ class TestCell(unittest.TestCase):
         """
         
         # Remember a coordinate for checking
-        test_coord = self.testCell.blocks[ self.testCell.blocks.keys()[0] ].atomCoord(4)
+        test_coord = self.testCell.blocks[ self.testCell.blocks.keys()[0] ].coord(4)
         
         outfile = "./testCellIO.pkl"
         self.testCell.writePickle( outfile )
-        
         with open( outfile ) as f:
             newCell = cPickle.load( f )
-            
-        self.assertTrue( numpy.allclose( test_coord, self.testCell.blocks[ self.testCell.blocks.keys()[0] ].atomCoord(4), rtol=1e-9, atol=1e-9 ),
+        
+        self.assertTrue( numpy.allclose( test_coord, self.testCell.blocks[ self.testCell.blocks.keys()[0] ].coord(4),
+                                         rtol=1e-9, atol=1e-9 ),
                          msg="Incorrect testCoordinate of cell.")
         
         self.testCell.growBlocks( 5 )
-        
         os.unlink( outfile ) 
         
         return
@@ -2751,7 +2747,6 @@ class TestCell(unittest.TestCase):
     def testCloseAtoms1(self):
         
         CELLA = CELLB = CELLC = 2.1
-        
         mycell = Cell( atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
         
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
@@ -2759,7 +2754,7 @@ class TestCell(unittest.TestCase):
         mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
-        natoms = block1.numAllAtoms()
+        natoms = block1.numAtoms()
         
         # block radius is 1.8
         block1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
@@ -2770,7 +2765,9 @@ class TestCell(unittest.TestCase):
         
         # Add second block overlapping first but in other image
         block2 = mycell.getInitBlock('A')
-        block2.translateCentroid( [ mycell.A/2 + mycell.A, mycell.B/2 + mycell.B, mycell.C/2 + mycell.C ] )
+        block2.translateCentroid( [ mycell.A/2 + mycell.A,
+                                   mycell.B/2 + mycell.B,
+                                   mycell.C/2 + mycell.C ] )
         block2Idx = mycell.addBlock(block2)
         
         # Make sure every atom overlaps with ever other
@@ -2857,7 +2854,6 @@ class TestCell(unittest.TestCase):
         mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
-        
         b1 = numpy.array([2,2,2], dtype=numpy.float64 )
         block1.translateCentroid( b1 )
         block1_id = mycell.addBlock(block1)
@@ -2879,7 +2875,7 @@ class TestCell(unittest.TestCase):
             
         # Distance measured with Avogadro so it MUST be right...
         refd = 0.673354948616
-        distance = mycell.distance( block1.atomCoord(1), mycell.blocks[ block2_id ].atomCoord(3) )
+        distance = mycell.distance( block1.coord(1), mycell.blocks[ block2_id ].coord(3) )
         self.assertAlmostEqual( refd, distance, 12, "Closest atoms: {}".format(distance) )
         
         return
@@ -2950,7 +2946,6 @@ class TestCell(unittest.TestCase):
         """Test we can add a block correctly"""
         
         CELLA = CELLB = CELLC = 30
-        
         mycell = Cell()
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
@@ -2994,7 +2989,7 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 30
         
-        mycell = Cell(doLog=True)
+        mycell = Cell(doLog=False)
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
         mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
@@ -3003,14 +2998,11 @@ class TestCell(unittest.TestCase):
         
         added = mycell.seed( 1 )
         self.assertEqual( added, 1, 'seed')
-        
         natoms = mycell.numAtoms()
-        
         nblocks=10
         added = mycell.growBlocks( nblocks, endGroupType=None, maxTries=1 )
         
         #mycell.writeCml("foo.cml", periodic=True, pruneBonds=False)
-        
         self.assertEqual( added, nblocks, "growBlocks did not return ok")
         self.assertEqual(1,len(mycell.blocks), "Growing blocks found {0} blocks".format( len(mycell.blocks) ) )
         
@@ -3091,12 +3083,12 @@ class TestCell(unittest.TestCase):
         
         # Check angle between two specified dihedrals is correct
         block1 = mycell.blocks[ mycell.blocks.keys()[0] ]
-        bond1 = block1.bonds()[0]
+        bond1 = block1._blockBonds[0]
         
-        p1 = block1.atomCoord( bond1.endGroup1.blockDihedralIdx )
-        p2 = block1.atomCoord( bond1.endGroup1.endGroupIdx() )
-        p3 = block1.atomCoord( bond1.endGroup2.endGroupIdx() )
-        p4 = block1.atomCoord( bond1.endGroup2.blockDihedralIdx )
+        p1 = block1.coord( bond1.endGroup1.dihedralIdx() )
+        p2 = block1.coord( bond1.endGroup1.endGroupIdx() )
+        p3 = block1.coord( bond1.endGroup2.endGroupIdx() )
+        p4 = block1.coord( bond1.endGroup2.dihedralIdx() )
         
         self.assertAlmostEqual( math.degrees( util.dihedral( p1, p2, p3, p4) ), dihedral )
         
@@ -3116,35 +3108,32 @@ class TestCell(unittest.TestCase):
         mycell.addBondType( 'A:a-A:a')
         
         toAdd = 5
-        added = mycell.seed( toAdd )
+        added = mycell.seed( toAdd, center=True )
         self.assertEqual( added, toAdd, 'seed')
         nc = 0
         for block in mycell.blocks.itervalues():
-            nc += block.numAllAtoms()
+            nc += block.numAtoms()
         
         toJoin=4
         added = mycell.joinBlocks( toJoin, cellEndGroups=None, maxTries=1 )
-        
-        mycell.dump()
-        
         self.assertEqual( added, toJoin, "joinBlocks did join enough")
-        
         self.assertEqual( 1, len(mycell.blocks), "joinBlocks found {0} blocks".format( len( mycell.blocks ) ) )
         
         nc2 = 0
         for block in mycell.blocks.itervalues():
-            nc2 += block.numAllAtoms()
+            nc2 += block.numAtoms()
             
-        self.assertEqual(nc, nc2, "Growing blocks found {0} coords".format( nc2 ) )
+        # Need to subtract cap atoms
+        self.assertEqual(nc-(toJoin*2), nc2, "Growing blocks found {0} coords".format( nc2 ) )
         
         return
     
     def testOptimiseGeometry(self):
         """
         """
-        
         #self.testCell.dump()
         self.testCell.optimiseGeometry( quiet=True )
+        os.unlink("hoomdOpt.xml")
         return
     
     def XtestOptimiseGeometryMinCell(self):
@@ -3185,30 +3174,14 @@ class TestCell(unittest.TestCase):
         """
         """
         self.testCell.optimiseGeometry( doDihedral=True, quiet=True )
+        os.unlink("hoomdOpt.xml")
         return
     
     def testRunMDAndOptimise(self):
         """
         """
         self.testCell.runMDAndOptimise( doDihedral=True, quiet=True )
-        return
-    
-    def testRunMDandOpt(self):
-        """
-        """
-        
-        CELLA = CELLB = CELLC = 20.0
-        mycell = Cell()
-        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
-        
-        mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
-        mycell.addBondType( 'A:a-A:a')
-        
-        mycell.seed( 5 )
-        mycell.growBlocks( 8 )
-        
-        mycell.runMDAndOptimise( mdCycles=100, optCycles=10000, quiet=True )
-        
+        os.unlink("hoomdMDOpt.xml")
         return
     
     def testPeriodic(self):
@@ -3221,8 +3194,6 @@ class TestCell(unittest.TestCase):
         coords = []
         for block in mycell.blocks.itervalues():
             for i, coord in enumerate( block.iterCoord() ):
-                if block.masked( i ):
-                    continue
                 coords.append( coord )
                 
         # Wrap them
@@ -3388,7 +3359,7 @@ class TestCell(unittest.TestCase):
     def testZipBlocks(self):
 
         CELLA = CELLB = CELLC = 12.0
-        mycell = Cell(doLog=True)
+        mycell = Cell(doLog=False)
         mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
         
         ch4Car=self.ch4Car
@@ -3409,19 +3380,19 @@ class TestCell(unittest.TestCase):
         endGroup2 = b2.freeEndGroups()[ 0 ]
         
         # Position b2 - all blocks will be positioned around this one
-        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=180 )
+        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
         mycell.addBlock(b2)
         
         # Position b3
         endGroup1 = b2.freeEndGroups()[ 1 ]
         endGroup2 = b3.freeEndGroups()[ 0 ]
-        b2.positionGrowBlock( endGroup1, endGroup2, dihedral=180 )
+        b2.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
         mycell.addBlock(b3)
         
         # Position b4
         endGroup1 = b2.freeEndGroups()[ 2 ]
         endGroup2 = b4.freeEndGroups()[ 0 ]
-        b2.positionGrowBlock( endGroup1, endGroup2, dihedral=180 )
+        b2.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
         mycell.addBlock(b4)
         
         made = mycell.zipBlocks( bondMargin=0.5, bondAngleMargin=0.5 )
@@ -3433,7 +3404,7 @@ class TestCell(unittest.TestCase):
     def testZipBlocks2(self):
 
         CELLA = CELLB = CELLC = 12.0
-        mycell = Cell(doLog=True)
+        mycell = Cell(doLog=False)
         mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
         
         mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
@@ -3470,7 +3441,7 @@ class TestCell(unittest.TestCase):
         """Bonding with margin"""
 
         CELLA = CELLB = CELLC = 12.0
-        mycell = Cell(doLog=True)
+        mycell = Cell(doLog=False)
         mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
         
         ch4Car=self.ch4Car
@@ -3492,7 +3463,7 @@ class TestCell(unittest.TestCase):
         endGroup2 = b2.freeEndGroups()[ 0 ]
         
         # Position b2
-        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=180 )
+        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
         mycell.addBlock(b2)
         
         # Rotate on y-axis so that it's slightly off
@@ -3529,15 +3500,23 @@ class TestCell(unittest.TestCase):
         endGroup2 = b2.freeEndGroups()[ 0 ]
         
         # Add b2
-        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=180 )
+        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
         mycell.addBlock(b2)
 
         # bond them
         bond = buildingBlock.Bond(endGroup1, endGroup2)
         b1.bondBlock( bond )
         
-        mycell.writeCml("test.cml")
+        fname = "test.cml"
+        mycell.writeCml(fname)
+        # Test is same as reference
+        with open(fname) as f:
+            test = f.readlines()
+        with open(os.path.join( self.ambuildDir, "tests", "testCell.cml" )) as f:
+            ref = f.readlines()
         
+        self.assertEqual(test,ref,"cml compare")
+        os.unlink(fname)
         return
 
     
