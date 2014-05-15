@@ -75,7 +75,8 @@ class Block(object):
         
         # list of tuples of ( idFrag, idxData )
         self._dataMap = []
-        self._int2ext = {} # Maps internal block index to external with masked atoms remvoed
+        self._bodies  = [] # List of which body in the block each atom belongs too - frags can contain multiple bodies
+        self._int2ext = {} # Maps internal block index to external with masked atoms removed
         self._ext2int = {} # reverse lookup
         
         # The list of atoms that are endGroups and their corresponding angleAtoms
@@ -207,12 +208,10 @@ class Block(object):
         return bonded
 
     def body(self, idxAtom):
-        frag, idxData = self._dataMap[ self._ext2int[ idxAtom ] ]
-        return frag.bodies[idxData]
+        return self._bodies[ self._ext2int[ idxAtom ] ]
  
     def _body(self, idxAtom):
-        frag, idxData = self._dataMap[ idxAtom ]
-        return frag.bodies[idxData]
+        return self._bodies[ idxAtom ]
     
     def charge(self, idxAtom):
         frag, idxData = self._dataMap[ self._ext2int[ idxAtom ] ]
@@ -571,7 +570,7 @@ class Block(object):
         """
         Position growBlock so it can bond to us
         """
-
+        
         # The vector we want to align along is the vector from the endGroup
         # to the capAtom
         endGroupAtom = self._coord( endGroup.blockEndGroupIdx )
@@ -597,6 +596,7 @@ class Block(object):
         
         # We need to rotate to adhere to the specified dihedral angle
         if dihedral is not None:
+            assert 0 <= dihedral < math.pi*2
             # Get current angle
             current = util.dihedral( self._coord( endGroup.blockDihedralIdx ),
                                      self._coord( endGroup.blockEndGroupIdx ),
@@ -729,16 +729,22 @@ class Block(object):
         # overall block atom index to the fragment and fragment atom index
         #
         self._dataMap = []
+        self._bodies  = []
         self._int2ext = collections.OrderedDict()
         self._ext2int = collections.OrderedDict()
         self._blockMass = 0
         self._fragmentTypeDict = {}
         icount=0
         ecount=0
+        bodyCount=-1
+        lastBody=0
         for fragment in self._fragments:
             
             # Set the block
             fragment.block = self
+            
+            # Increment body count for each fragment
+            bodyCount+=1
             
             # Count the number of each type of fragment in the block (see Analyse)
             t = fragment.fragmentType
@@ -750,6 +756,14 @@ class Block(object):
             fragment._blockIdx = len(self._dataMap) # Mark where the data starts in the block
             for i in xrange( fragment.numAtoms() ):
                 self._dataMap.append( ( fragment, i ) )
+                
+                # Bring up the bodies
+                b = fragment.bodies[i]
+                if b != lastBody:
+                    bodyCount +=1
+                    lastBody = b
+                self._bodies.append( bodyCount )
+                
                 # Sort out indexing for masked/available atoms
                 if not fragment.isMasked(i):
                     self._blockMass += fragment.masses[i]
@@ -917,6 +931,7 @@ class TestBlock(unittest.TestCase):
         #self.pafCar = os.path.join( self.ambuildDir, "blocks", "PAF_bb_typed.car" )
         self.benzeneCar = os.path.join( self.ambuildDir, "blocks", "benzene.car" )
         self.benzene2Car = os.path.join( self.ambuildDir, "blocks", "benzene2.car" )
+        self.ch4Ca2Car = os.path.join( self.ambuildDir, "blocks", "ch4Ca2.car" )
         
         return
     
@@ -937,6 +952,22 @@ class TestBlock(unittest.TestCase):
                 f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( symbols[ i ], c[0], c[1], c[2]))
         
         print "Wrote file: {0}".format(fpath)
+        
+        return
+    
+    def testBodies(self):
+        
+        b1 = Block(filePath=self.ch4Ca2Car, fragmentType='A')
+        b2 = b1.copy()
+
+        eg1 = b1.freeEndGroups()[0]
+        eg2 = b2.freeEndGroups()[0]
+        b1.positionGrowBlock( eg1, eg2 )
+        bond = Bond(eg1,eg2)
+        b1.bondBlock( bond )
+        
+        ref = [0, 0, 0, 0, 0, 1, 2, 4, 4, 4, 4, 4, 5, 6]
+        self.assertEqual( b1._bodies, ref )
         
         return
     
@@ -1039,7 +1070,7 @@ class TestBlock(unittest.TestCase):
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
-        ch4_1.positionGrowBlock( eg1, eg2, dihedral=180 )
+        ch4_1.positionGrowBlock( eg1, eg2, dihedral=math.radians(180) )
         bond = Bond(eg1,eg2)
         ch4_1.bondBlock( bond )
         
@@ -1382,7 +1413,7 @@ class TestBlock(unittest.TestCase):
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
-        ch4_1.positionGrowBlock( eg1, eg2 )
+        ch4_1.positionGrowBlock( eg1, eg2, dihedral=math.radians(180) )
         bond = Bond(eg1,eg2)
         ch4_1.bondBlock( bond )
         

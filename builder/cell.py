@@ -1110,11 +1110,7 @@ class Cell():
         return endGroupType.split( self.ENDGROUPSEP)[0]
 
     def fromHoomdblueSystem(self, system ):
-        """Reset the particle positions from hoomdblue system"""
-    
-        assert system,"No system!"
-        
-        # Should really check HOOMD version but...
+        """Reset the particle positions from hoomdblue system"""        # Should really check HOOMD version but...
         if hasattr(system.box,"Lx"):
             Lx = system.box.Lx
             Ly = system.box.Ly
@@ -1132,11 +1128,7 @@ class Cell():
         # Read back in the particle positions
         atomCount=0
         for block in self.blocks.itervalues():
-            for k in range( block.numAllAtoms() ):
-                
-                if block.masked( k ):
-                    # We didn't write out these so don't read back in 
-                    continue
+            for k in range( block.numAtoms() ):
                 
                 p = system.particles[ atomCount ]
                 xt, yt, zt  = p.position
@@ -1144,6 +1136,7 @@ class Cell():
                 
                 if self.minCell:
                     
+                    assert False,"FIX MINCELL"
                     assert self.minCellData['A'] == Lx
                     assert self.minCellData['B'] == Ly
                     assert self.minCellData['C'] == Lz
@@ -3567,26 +3560,29 @@ class TestCell(unittest.TestCase):
         
         # b1 in center of cell
         b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
-        mycell.addBlock(b1)
         endGroup1 = b1.freeEndGroups()[ 0 ]
         endGroup2 = b2.freeEndGroups()[ 0 ]
         
-        # Add b2
-        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=180 )
-        mycell.addBlock(b2)
-
-        # bond them
+        # Bond b2 to it
+        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
         bond = buildingBlock.Bond(endGroup1, endGroup2)
         b1.bondBlock( bond )
+        mycell.addBlock(b1)
         
         initcoords = []
         for block in mycell.blocks.itervalues():
             for c in block.iterCoord():
                 initcoords.append( c )
         
-        mycell.writeCml("foo.cml")
         filename = "testWriteHoomdblue.xml"
         natoms = mycell.writeHoomdXml( xmlFilename=filename, doDihedral=True )
+
+        # Test what we've written out matches the reference file
+        with open(filename) as f:
+            test = f.readlines()
+        with open(os.path.join( self.ambuildDir, "tests", filename )) as f:
+            ref = f.readlines()
+        self.assertEqual(test,ref,"xml compare")
 
         # Init the sytem from the file
         if hoomdblue.init.is_initialized():
@@ -3603,7 +3599,7 @@ class TestCell(unittest.TestCase):
         self.assertTrue( all( map( lambda x : numpy.allclose( x[0], x[1] ),  zip( initcoords, finalcoords ) ) ),
                          "coords don't match")
         
-        #os.unlink( filename )
+        os.unlink( filename )
         
         return
 

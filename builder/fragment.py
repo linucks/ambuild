@@ -543,8 +543,8 @@ class Fragment(object):
         bodyFile = os.path.join( dirname, basename+".ambody" )
         if os.path.isfile( bodyFile ):
             self.bodies = [ int( l.strip() ) for l in open( bodyFile ) ]
-            assert len( self.body ) == len(self.coords), \
-            "Must have as many bodies as coordinates: {0} - {1}!".format( len( self.body ), self._dataLen )
+            assert len( self.bodies ) == len(self.coords), \
+            "Must have as many bodies as coordinates: {0} - {1}!".format( len( self.bodies ), self._dataLen )
         else:
             # Just create an array with 0
             self.bodies = [ 0 ] * len( self.coords )
