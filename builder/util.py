@@ -778,7 +778,8 @@ def distance(v1, v2, cell=None ):
     assert len(v1) > 0 and len(v2) > 0, "distance needs vectors!"
     delta = numpy.array(v1) - numpy.array(v2)
     if cell is not None:
-        dimensions = numpy.array( cell )
+        #dimensions = numpy.array( cell )
+        dimensions = cell
         # is basically modulus - returns what's left when divided by dim
         delta = numpy.remainder( delta, dimensions )
         # Set all where it's > half the cell to subtract the cell dimension
@@ -825,7 +826,7 @@ def dumpPkl(pickleFile,split=False):
                             periodic=True,
                             pruneBonds=True)
     else:
-        data = mycell.dataDict()
+        data = mycell.dataDict(rigidBody=False)
         mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
         #self.writeCar(prefix+"_P.car",data=data,periodic=True)
         mycell.writeCml(prefix+"_PV.cml", data=data, periodic=True, pruneBonds=True)

@@ -341,7 +341,7 @@ class Cell():
     def angle(self, c1, c2, c3):
         """Return the angle in radians c1---c2---c3
         where c are the coordinates in a numpy array"""
-        return util.angle(c1, c2, c3, cell=[self.A,self.B,self.C])
+        return util.angle(c1, c2, c3, cell=numpy.array([self.A,self.B,self.C]))
     
     def attachBlock(self, growEndGroup, staticEndGroup, dihedral=None ):
         """
@@ -1041,7 +1041,7 @@ class Cell():
         Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
         Changed so that it can cope with distances across more than one cell
         """
-        return util.distance(v1, v2, cell=[self.A,self.B,self.C])
+        return util.distance(v1, v2, cell=numpy.array([self.A,self.B,self.C]))
 
     def dump(self, prefix="step", addCount=True ):
         """Write out our current state"""
@@ -3026,12 +3026,20 @@ class TestCell(unittest.TestCase):
         
         return
     
-    def testOptimiseGeometry(self):
+    def testOptimiseGeometryRigid(self):
         """
         """
-        self.testCell.writeCml("foo.cml")
-        #self.testCell.optimiseGeometry( quiet=True )
-        #os.unlink("hoomdOpt.xml")
+        #self.testCell.writeCml("foo.cml")
+        self.testCell.optimiseGeometry( rigidBody=True, doDihedral=True, quiet=True )
+        os.unlink("hoomdOpt.xml")
+        return
+    
+    def testOptimiseGeometryAll(self):
+        """
+        """
+        #self.testCell.writeCml("foo.cml")
+        self.testCell.optimiseGeometry( rigidBody=False, doDihedral=True, quiet=True )
+        os.unlink("hoomdOpt.xml")
         return
     
     def XtestOptimiseGeometryMinCell(self):

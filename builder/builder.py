@@ -29,7 +29,7 @@ def cellFromPickle(pickleFile):
 # sys.exit()
 
 #cell dimensions:
-CELLA = CELLB = CELLC = 20
+CELLA = CELLB = CELLC = 50
    
 # Create Cell and seed it with the blocks
 mycell = cell.Cell( atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False )
@@ -45,10 +45,11 @@ mycell.addInitBlock( filename=fragB, fragmentType='B' )
 mycell.addBondType( 'A:a-B:a' )
 
 # Use center argument to place the first block at the center of the cell. Only for first seed.
-mycell.seed( 20, fragmentType='B', center=True )
-mycell.seed( 50, fragmentType='A', center=True )
+mycell.seed( 10, fragmentType='B', center=True )
+mycell.seed( 10, fragmentType='A', center=True )
 
 #cProfile.run('mycell.zipBlocks( bondMargin=5, bondAngleMargin=20)', 'restats' )
+cProfile.run('mycell.growBlocks( 1000)', 'restats' )
 mycell.dump()
 
 sys.exit()
