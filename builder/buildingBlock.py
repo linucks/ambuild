@@ -242,6 +242,11 @@ class Block(object):
         frag, idxData = self._dataMap[ self._ext2int[idxAtom] ]
         return frag.fragmentType
     
+    def _fragmentType(self, idxAtom ):
+        """The type of the fragment that this atom belongs to."""
+        frag, idxData = self._dataMap[idxAtom]
+        return frag.fragmentType
+    
     def label(self, idxAtom):
         frag, idxData = self._dataMap[ self._ext2int[ idxAtom ] ]
         return frag.labels[idxData]
@@ -297,8 +302,11 @@ class Block(object):
     
     def bondsByType(self, fragmentType):
         """Return all bonds within a fragment if the fragment is of a given type in external indices"""
-        return [ (self._int2ext[b[0]], self._int2ext[b[1]]) \
-                for ftype, b in self._bondsByFragmentType if ftype == fragmentType ]
+        # bonds are in internal indices _fbondRen is in external
+        bonds= [ ( self._fbondRen[self._int2ext[b1]],self._fbondRen[self._int2ext[b2]]) \
+                for ftype, (b1,b2) in self._bondsByFragmentType if ftype == fragmentType ]
+        del self._fbondRen
+        return bonds
 
     def blockBonds(self):
         """External indices"""
@@ -404,6 +412,27 @@ class Block(object):
         new = copy.deepcopy(self)
         new.id=id( new )
         return new
+    
+    def dataByFragment(self,fragmentType):
+        """Return the data for a specific fragmentType within the block"""
+        
+        coords = []
+        symbols = []
+        
+        atomCount=0
+        self._fbondRen = {}
+        for i in range( len(self._ext2int) ):
+            if  self.fragmentType(i) == fragmentType:
+                self._fbondRen[i] = atomCount
+                coords.append( self.coord(i) )
+                symbols.append( self.symbol(i) )
+                atomCount+=1
+        
+        bonds = []
+        bonds = [ (self._fbondRen[self._int2ext[b1]], self._fbondRen[self._int2ext[b2]]) \
+                 for ftype, (b1,b2) in self._bondsByFragmentType if ftype == fragmentType ]
+        
+        return coords, symbols, bonds
 
     def dihedrals(self, idxAtom1,idxAtom2, bondOnly=False):
         """Return a list of all the dihedrals around these two bonded atoms
@@ -529,8 +558,10 @@ class Block(object):
     
     def iterCoord(self):
         """Generator to return the coordinates"""
+        atomCount=0
         for i in range( len(self._ext2int) ):
             yield self.coord( i )
+        return
     
     def maxAtomRadius(self):
         assert self._maxAtomRadius > 0
@@ -862,47 +893,29 @@ class Block(object):
 
         return
         
-    def writeXyz(self,name=None):
+    def writeXyz(self,name):
         
-        if not name:
-            name = str(id(self))+".xyz"
+        symbols = []
+        coords =  []
+        all=False
+        if all:
+            for frag, i in self._dataMap:
+                coords.append( frag.coords[i] )
+                symbols.append( frag.symbols[i] )
+        else:
+            for i, c in enumerate(self.iterCoord()):
+                coords.append(c)
+                symbols.append(self.symbol(i))
         
         with open(name,"w") as f:
-            
-            coords = []
-            count=0
-            for frag, i in self._dataMap:
-                c = frag.coords[i]
-                s = frag.symbols[i]
-                
-                #print count, id(frag), s, frag._masked[i], c[0], c[1], c[2]
-                #if not frag._masked[i]:
-                coords.append("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( s, c[0], c[1], c[2]) )
-                count += 1
             
             fpath = os.path.abspath(f.name)
             f.write( "{}\n".format( len(coords) ) )
             f.write( "id={}\n".format( str( id(self)  ) ) )
-            f.writelines( coords )
-            
+            for i, c in enumerate(coords):
+                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( symbols[i], c[0], c[1], c[2]) )
         
-        print "Wrote file: {0}".format(fpath)
-        
-        return
-    def XwriteXyz(self,name=None):
-        
-        if not name:
-            name = str(id(self))+".xyz"
-        
-        with open(name,"w") as f:
-            fpath = os.path.abspath(f.name)
-            f.write( "{}\n".format( self.numAtoms() ) )
-            f.write( "id={}\n".format( str( id(self)  ) ) )
-            
-            for i, c in enumerate( self.iterCoord() ):
-                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( self._symbol( i ), c[0], c[1], c[2]))
-        
-        print "Wrote file: {0}".format(fpath)
+        print "Wrote file: {0}".format(os.path.abspath(name))
         
         return
         
@@ -1139,6 +1152,32 @@ class TestBlock(unittest.TestCase):
                          msg="End Group incorrectly positioned: {0} | {1}".format(newNorm, refNorm )  )
         return
 
+    def testAlignAtoms(self):
+        
+        block = Block( filePath=self.benzeneCar, fragmentType='A'  )
+        bcopy = block.copy()
+        
+        # Check atoms are not aligned along axis
+        c1Idx=2
+        c2Idx=5
+        c1 = block._coord( c1Idx )
+        c2 = block._coord( c2Idx )
+        
+        #self.assertTrue( numpy.allclose( c1-c2 , [ 3.0559,  -0.36295,  0.07825], atol=1E-7  ), "before" )
+        self.assertTrue( numpy.allclose( c1-c2 , [ 3.0559,  -0.36295,  0.07825] ), "before" )
+        
+        # Align along z-axis
+        block.alignAtoms( c1Idx, c2Idx, [ 0, 0, 1 ] )
+        
+        # check it worked
+        c1 = block._coord( c1Idx )
+        c2 = block._coord( c2Idx )
+        z = numpy.array([  0.0,  0.0, -3.07837304 ])
+        
+        self.assertTrue( numpy.allclose( c1-c2 , z ), "after" )
+
+        return
+
     def testCentroid(self):
         """
         Test calculation of Center of Geometry
@@ -1238,31 +1277,7 @@ class TestBlock(unittest.TestCase):
         self.assertTrue( numpy.allclose( p, c, rtol=1e-9, atol=1e-9 ), "simple move")
         return
     
-    def testAlignAtoms(self):
-        
-        block = Block( filePath=self.benzeneCar, fragmentType='A'  )
-        bcopy = block.copy()
-        
-        # Check atoms are not aligned along axis
-        c1Idx=2
-        c2Idx=5
-        c1 = block._coord( c1Idx )
-        c2 = block._coord( c2Idx )
-        
-        #self.assertTrue( numpy.allclose( c1-c2 , [ 3.0559,  -0.36295,  0.07825], atol=1E-7  ), "before" )
-        self.assertTrue( numpy.allclose( c1-c2 , [ 3.0559,  -0.36295,  0.07825] ), "before" )
-        
-        # Align along z-axis
-        block.alignAtoms( c1Idx, c2Idx, [ 0, 0, 1 ] )
-        
-        # check it worked
-        c1 = block._coord( c1Idx )
-        c2 = block._coord( c2Idx )
-        z = numpy.array([  0.0,  0.0, -3.07837304 ])
-        
-        self.assertTrue( numpy.allclose( c1-c2 , z ), "after" )
 
-        return
     
     def testPositionGrowBlock(self):
         
@@ -1411,6 +1426,49 @@ class TestBlock(unittest.TestCase):
         self.assertTrue( numpy.allclose( ch4._coord(4), array2, rtol=1e-9, atol=1e-8 ),
                          msg="testRotate arrays after rotation incorrect.")
         
+        return
+    
+    def testSplitFragment(self):
+        """
+        Test the rotation
+        """
+        
+        ch4_1 = Block( filePath=self.ch4Car, fragmentType='A'  )
+        ch4_2 = ch4_1.copy()
+        b1 = Block( filePath=self.benzeneCar, fragmentType='B' )
+        
+        #create a chain of ch4 - c6h6 - ch4
+        eg1 = b1.freeEndGroups()[0]
+        eg2 = ch4_1.freeEndGroups()[0]
+        b1.positionGrowBlock( eg1, eg2, dihedral=math.radians(180) )
+        bond = Bond(eg1,eg2)
+        b1.bondBlock( bond )
+        
+        eg1 = b1.freeEndGroups()[0]
+        eg2 = ch4_2.freeEndGroups()[0]
+        b1.positionGrowBlock( eg1, eg2, dihedral=math.radians(180) )
+        bond = Bond(eg1,eg2)
+        b1.bondBlock( bond )
+        
+        #b1.writeCml("foo.cml")
+        #b1.writeXyz("foo.xyz")
+        
+        coords, symbols, bonds = b1.dataByFragment('A')
+        cmlFilename = "foo.cml"
+        util.writeCml(cmlFilename,
+                      coords,
+                      symbols,
+                      bonds=bonds)
+        
+        with open(cmlFilename) as f:
+            test = f.readlines()
+        
+        with open(os.path.join( self.ambuildDir, "tests", "testSplitFragment.cml" )) as f:
+            ref = f.readlines()
+        
+        self.assertEqual(test,ref,"cml compare")
+        os.unlink(cmlFilename)
+
         return
     
     def testWriteCml(self):

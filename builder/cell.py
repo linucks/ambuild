@@ -860,9 +860,20 @@ class Cell():
 
         d = CellData()
         
+        if fragmentType is not None:
+            assert fragmentType in self.fragmentTypes(),"FragmentType {0} not in cell!".format(fragmentType)
+            atomCount=0
+            for b in self.blocks.values():
+                coords, symbols, bonds = b.dataByFragment(fragmentType)
+                d.coords += coords
+                d.symbols += symbols
+                d.bonds += [ (b1+atomCount, b2+atomCount) for (b1, b2) in bonds ]
+                atomCount += len(coords)
+                
+            return d
+        
         atomCount = 0
-        _atomCount = 0
-        allCount = 0
+        blockAtomCount = 0
         bodyCount = -1
         lastBody = 0
         for block in self.blocks.itervalues():
@@ -871,103 +882,85 @@ class Cell():
             bodyCount += 1
             lastBody = 0
 
-            renumber = {} # for remapping indices when doing fragmentTypes
-            j=0
             # First go through coordinates - if we are only pulling out a particular fragment type we
             # need to do some reordering so the bonding will be correct
             for i, coord in enumerate(block.iterCoord() ):
-                
-                if fragmentType is not None and block.fragmentType(i) != fragmentType:
-                    pass
+                if periodic:
+                    x, ix = util.wrapCoord( coord[0], self.A, center=center )
+                    y, iy = util.wrapCoord( coord[1], self.B, center=center )
+                    z, iz = util.wrapCoord( coord[2], self.C, center=center )
+                    d.coords.append( numpy.array([x,y,z]))
+                    d.images.append([ix,iy,iz])
                 else:
-                    if periodic:
-                        x, ix = util.wrapCoord( coord[0], self.A, center=center )
-                        y, iy = util.wrapCoord( coord[1], self.B, center=center )
-                        z, iz = util.wrapCoord( coord[2], self.C, center=center )
-                        d.coords.append( numpy.array([x,y,z]))
-                        d.images.append([ix,iy,iz])
-                    else:
-                        d.coords.append(coord)
-                        d.images.append([0,0,0])
-                    
-                    d.atomTypes.append(block.type(i))
-                    d.charges.append(block.charge(i))
-                    d.diameters.append(0.1)
-                    d.masses.append(block.mass(i))
-                    d.symbols.append(block.symbol(i))
-                    
-                    # Work out which body this is in
-                    b = block.body(i)
-                    if b != lastBody:
-                        bodyCount +=1
-                        lastBody = b
-                    d.bodies.append( bodyCount )
-                    
-                    # Horrible to get the correct fragment type
-                    if fragmentType is not None:
-                        renumber[i] = j
-                        j+=1
-                    _atomCount += 1
+                    d.coords.append(coord)
+                    d.images.append([0,0,0])
+                
+                d.atomTypes.append(block.type(i))
+                d.charges.append(block.charge(i))
+                d.diameters.append(0.1)
+                d.masses.append(block.mass(i))
+                d.symbols.append(block.symbol(i))
+                
+                # Work out which body this is in
+                b = block.body(i)
+                if b != lastBody:
+                    bodyCount +=1
+                    lastBody = b
+                d.bodies.append( bodyCount )
+                blockAtomCount += 1
             
-            if fragmentType is None:
+            # Add all bonds
+            d.bonds += [ (b1+atomCount, b2+atomCount) for (b1, b2) in block.bonds() ]
+            
+            # Add the bonds between blocks. Also add angles for all atoms connected to the bonds
+            # we do this so that we can exclude them from VdW interactions in MD codes
+            for b1, b2 in block.blockBonds():
                 
-                # Add all bonds
-                d.bonds += [ (b1+atomCount, b2+atomCount) for (b1, b2) in block.bonds() ]
+                # The bonds themselves
+                d.blockBonds.append( (b1+atomCount,b2+atomCount) )
+                d.blockBondLabels.append("{0}-{1}".format( block.type(b1),block.type(b2) ) )
                 
-                # Add the bonds between blocks. Also add angles for all atoms connected to the bonds
-                # we do this so that we can exclude them from VdW interactions in MD codes
-                for b1, b2 in block.blockBonds():
+                _angles=set()
+                # Atoms connected to the endGroup that we need to specify as connected so we add as angles
+                for batom in block.atomBonded1( b1 ):
+                    # The opposite endGroup is included in the list bonded to an endGroup so skip
+                    if batom == b2:
+                        continue
+                    _angles.add( ( batom, b1, b2 ) )
                     
-                    # The bonds themselves
-                    d.blockBonds.append( (b1+atomCount,b2+atomCount) )
-                    d.blockBondLabels.append("{0}-{1}".format( block.type(b1),block.type(b2) ) )
-                    
-                    _angles=set()
-                    # Atoms connected to the endGroup that we need to specify as connected so we add as angles
-                    for batom in block.atomBonded1( b1 ):
-                        # The opposite endGroup is included in the list bonded to an endGroup so skip
-                        if batom == b2:
-                            continue
-                        _angles.add( ( batom, b1, b2 ) )
-                        
-                    for batom in block.atomBonded1( b2 ):
-                        # The opposite endGroup is included in the list bonded to an endGroup so skip
-                        if batom == b1:
-                            continue
-                        _angles.add( ( b1, b2, batom ) )
-                    
-                    # Add to overall lists
-                    for a1, a2, a3 in _angles:
-                        d.blockBondAngles.append( (a1+atomCount, a2+atomCount, a3+atomCount) )
-                        l = "{0}-{1}-{2}".format( block.type( a1 ),
-                                                  block.type( a2 ),
-                                                  block.type( a3 ) )
-                        d.blockBondAngleLabels.append( l )
+                for batom in block.atomBonded1( b2 ):
+                    # The opposite endGroup is included in the list bonded to an endGroup so skip
+                    if batom == b1:
+                        continue
+                    _angles.add( ( b1, b2, batom ) )
+                
+                # Add to overall lists
+                for a1, a2, a3 in _angles:
+                    d.blockBondAngles.append( (a1+atomCount, a2+atomCount, a3+atomCount) )
+                    l = "{0}-{1}-{2}".format( block.type( a1 ),
+                                              block.type( a2 ),
+                                              block.type( a3 ) )
+                    d.blockBondAngleLabels.append( l )
 
-                    #
-                    # Dihedrals
-                    #
-                    for dindices in block.dihedrals( b1, b2 ):
-                        dihedral = ( dindices[0] + atomCount,
-                                     dindices[1] + atomCount,
-                                     dindices[2] + atomCount,
-                                     dindices[3] + atomCount )
-                        d.blockBondDihedrals.append( dihedral )
-                        dlabel = "{0}-{1}-{2}-{3}".format( block.type( dindices[0] ),
-                                                           block.type( dindices[1] ),
-                                                           block.type( dindices[2] ), 
-                                                           block.type( dindices[3] )
-                                                        )
-                        d.blockBondDihedralLabels.append( dlabel )
-            else:
-                # Only add bonds within fragments and renumber accordingly
-                d.bonds += [ (renumber[b1]+atomCount, renumber[b2]+atomCount) for (b1, b2) in block.bondsByType(fragmentType) ]
+                #
+                # Dihedrals
+                #
+                for dindices in block.dihedrals( b1, b2 ):
+                    dihedral = ( dindices[0] + atomCount,
+                                 dindices[1] + atomCount,
+                                 dindices[2] + atomCount,
+                                 dindices[3] + atomCount )
+                    d.blockBondDihedrals.append( dihedral )
+                    dlabel = "{0}-{1}-{2}-{3}".format( block.type( dindices[0] ),
+                                                       block.type( dindices[1] ),
+                                                       block.type( dindices[2] ), 
+                                                       block.type( dindices[3] )
+                                                    )
+                    d.blockBondDihedralLabels.append( dlabel )
             
             # Only set the count here
-            atomCount = _atomCount
-                
+            atomCount += blockAtomCount
             # End block loop
-            
         return d
         
     def delBlock(self,blockId):
@@ -2113,7 +2106,6 @@ class Cell():
         
         xyz = ""
         for i, coord in enumerate( d.coords ):
-                
             if periodic:
                 x, ix = util.wrapCoord( coord[0], self.A, center=False )
                 y, iy = util.wrapCoord( coord[1], self.B, center=False )

@@ -48,7 +48,7 @@ mycell.addBondType( 'A:a-B:a' )
 mycell.seed( 20, fragmentType='B', center=True )
 mycell.seed( 50, fragmentType='A', center=True )
 
-cProfile.run('mycell.zipBlocks( bondMargin=5, bondAngleMargin=20)', 'restats' )
+#cProfile.run('mycell.zipBlocks( bondMargin=5, bondAngleMargin=20)', 'restats' )
 mycell.dump()
 
 sys.exit()

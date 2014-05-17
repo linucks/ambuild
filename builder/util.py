@@ -1042,7 +1042,7 @@ def writeCml(cmlFilename,
         crystalBetaNode.text  = "90"
         crystalGammaNode.text = "90"
     
-    if atomTypes is not None:
+    if atomTypes:
         assert len(atomTypes) == len(coords)
         # Need to collate atomTypes
         for atype in set( atomTypes ):
@@ -1071,9 +1071,10 @@ def writeCml(cmlFilename,
         atomNode.attrib['y3'] = str( y )
         atomNode.attrib['z3'] = str( z )
         
-        # Now add atomType as child node referring to the atomType
-        atomTypeNode = ET.SubElement( atomNode, "atomType" )
-        atomTypeNode.attrib['ref'] = atomTypes[ i ]
+        if atomTypes:
+            # Now add atomType as child node referring to the atomType
+            atomTypeNode = ET.SubElement( atomNode, "atomType" )
+            atomTypeNode.attrib['ref'] = atomTypes[ i ]
     
     if bonds is not None:
         # Now do bonds
@@ -1101,6 +1102,45 @@ def writeCml(cmlFilename,
     
     return cmlFilename
 
+def hoomdCml( xmlFilename ):
+
+    tree = ET.parse( xmlFilename )
+    root = tree.getroot()
+
+    coords = []
+    x = root.findall(".//position")
+    ptext = x[0].text
+    for line in ptext.split( os.linesep ):
+        line = line.strip()
+        if line:
+            x,y,z = line.split()
+            coords.append(  numpy.array( [ float(x), float(y), float(z) ] ) )
+
+    symbols = []
+    atext = root.findall(".//type")[0].text
+    for line in atext.split( os.linesep ):
+        atomType = line.strip()
+        if atomType:
+            symbols.append( label2symbol( atomType ) )
+
+    bonds = []
+    x = root.findall(".//bond")
+    ptext = x[0].text
+    for line in ptext.split( os.linesep ):
+        line = line.strip()
+        if line:
+            label,b1,b2 = line.split()
+            bonds.append( (b1,b2) )
+
+    writeCml(xmlFilename+".cml",
+             coords,
+             symbols,
+             bonds=bonds,
+             atomTypes=None,
+             cell=None,
+             pruneBonds=False)
+
+    return
 
 def hoomdContacts( xmlFilename ):
     
