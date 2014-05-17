@@ -1222,9 +1222,9 @@ if __name__ == '__main__':
     """
     Run the unit tests
     """
-    #unittest.main()
-    #xyzContacts( sys.argv[1] )
-    #hoomdContacts( sys.argv[1] )
+    
+    #hoomdCml(sys.argv[1])
+    #sys.exit()
     assert len(sys.argv) >= 2,"To dump coordinates from pickle: {0} [split] <file.pkl>".format( sys.argv[0] )
     split=False
     if sys.argv[1] == "split":

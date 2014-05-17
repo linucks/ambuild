@@ -879,6 +879,7 @@ class Cell():
         for block in self.blocks.itervalues():
             
             # Always increment the bodyCount with a new block
+            blockAtomCount = 0
             bodyCount += 1
             lastBody = 0
 
@@ -961,6 +962,7 @@ class Cell():
             # Only set the count here
             atomCount += blockAtomCount
             # End block loop
+            
         return d
         
     def delBlock(self,blockId):
@@ -2135,7 +2137,7 @@ class Cell():
         """Write out a HOOMD Blue XML file.
         """
         if data is None:
-            d = self.dataDict(periodic=True, center=True, fragmentType=None)
+            d = self.dataDict(periodic=True, center=True)
         else:
             d = data
         # 
@@ -2996,9 +2998,9 @@ class TestCell(unittest.TestCase):
     def testOptimiseGeometry(self):
         """
         """
-        #self.testCell.dump()
-        self.testCell.optimiseGeometry( quiet=True )
-        os.unlink("hoomdOpt.xml")
+        self.testCell.writeCml("foo.cml")
+        #self.testCell.optimiseGeometry( quiet=True )
+        #os.unlink("hoomdOpt.xml")
         return
     
     def XtestOptimiseGeometryMinCell(self):
@@ -3347,30 +3349,78 @@ class TestCell(unittest.TestCase):
         write out cml
         """
         
-        CELLA = CELLB = CELLC = 20.0
+        CELLA = CELLB = CELLC = 100.0
         mycell = Cell()
         mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
         
         mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
+        mycell.addInitBlock(filename=self.ch4Car, fragmentType='B')
+        mycell.addBondType( 'B:a-B:a')
+        
+        mycell.addInitBlock(filename=self.ch4Car, fragmentType='C')
+        mycell.addBondType( 'C:a-C:a')
+        
         # Create block manually - this is so we have reproducible results
         b1 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
-        b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        b2 = b1.copy()
+        b3 = b1.copy()
+        b4 = b1.copy()
         
         # b1 in center of cell
         b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
         mycell.addBlock(b1)
-        endGroup1 = b1.freeEndGroups()[ 0 ]
-        endGroup2 = b2.freeEndGroups()[ 0 ]
         
-        # Add b2
-        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
-        mycell.addBlock(b2)
+        for b in [ b2, b3, b4]:
+            endGroup1 = b1.freeEndGroups()[ 0 ]
+            endGroup2 = b.freeEndGroups()[ 0 ]
+            
+            # Add b2
+            b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
+    
+            # bond them
+            bond = buildingBlock.Bond(endGroup1, endGroup2)
+            b1.bondBlock( bond )
+        
+        # Add another block that's not overlapping with the first
+        b1 = buildingBlock.Block( filePath=self.ch4Car, fragmentType='B' )
+        b2 = b1.copy()
+        b3 = b1.copy()
+        b4 = b1.copy()
+        b1.translateCentroid( [ 10, 10, 10] )
+        mycell.addBlock(b1)
 
-        # bond them
-        bond = buildingBlock.Bond(endGroup1, endGroup2)
-        b1.bondBlock( bond )
+        for b in [ b2, b3, b4]:
+            endGroup1 = b1.freeEndGroups()[ 0 ]
+            endGroup2 = b.freeEndGroups()[ 0 ]
+            
+            # Add b2
+            b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
+    
+            # bond them
+            bond = buildingBlock.Bond(endGroup1, endGroup2)
+            b1.bondBlock( bond )
+            
+        # Add another block that's not overlapping with the others
+        b1 = buildingBlock.Block( filePath=self.ch4Car, fragmentType='C' )
+        b2 = b1.copy()
+        b3 = b1.copy()
+        b4 = b1.copy()
+        b1.translateCentroid( [ 90, 90, 90] )
+        mycell.addBlock(b1)
+
+        for b in [ b2, b3, b4]:
+            endGroup1 = b1.freeEndGroups()[ 0 ]
+            endGroup2 = b.freeEndGroups()[ 0 ]
+            
+            # Add b2
+            b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
+    
+            # bond them
+            bond = buildingBlock.Bond(endGroup1, endGroup2)
+            b1.bondBlock( bond )
+    
         
         fname = "test.cml"
         mycell.writeCml(fname, periodic=False)
@@ -3418,20 +3468,21 @@ class TestCell(unittest.TestCase):
             for c in block.iterCoord():
                 initcoords.append( c )
         
-        filename = "testWriteHoomdblue.xml"
-        natoms = mycell.writeHoomdXml( xmlFilename=filename, doDihedral=True )
+        xmlFilename = "testWriteHoomdblue.xml"
+        doDihedral=True
+        natoms = mycell.writeHoomdXml( xmlFilename=xmlFilename, doDihedral=doDihedral )
 
         # Test what we've written out matches the reference file
-        with open(filename) as f:
+        with open(xmlFilename) as f:
             test = f.readlines()
-        with open(os.path.join( self.ambuildDir, "tests", filename )) as f:
+        with open(os.path.join( self.ambuildDir, "tests", xmlFilename )) as f:
             ref = f.readlines()
         self.assertEqual(test,ref,"xml compare")
 
         # Init the sytem from the file
         if hoomdblue.init.is_initialized():
             hoomdblue.init.reset()
-        system = hoomdblue.init.read_xml( filename=filename )
+        system = hoomdblue.init.read_xml( filename=xmlFilename )
         
         # Read it back in to make sure we get the same values
         mycell.fromHoomdblueSystem( system )
@@ -3442,8 +3493,10 @@ class TestCell(unittest.TestCase):
         
         self.assertTrue( all( map( lambda x : numpy.allclose( x[0], x[1] ),  zip( initcoords, finalcoords ) ) ),
                          "coords don't match")
+    
+        #ok = opt.HoomdOptimiser().optimiseGeometry( xmlFilename,doDihedral=doDihedral)
         
-        os.unlink( filename )
+        os.unlink( xmlFilename )
         
         return
 

@@ -310,7 +310,8 @@ class Block(object):
 
     def blockBonds(self):
         """External indices"""
-        return [ (self._int2ext[b.endGroup1.blockEndGroupIdx], self._int2ext[b.endGroup2.blockEndGroupIdx]) for b in self._blockBonds ]
+        return [ (self._int2ext[b.endGroup1.blockEndGroupIdx],
+                  self._int2ext[b.endGroup2.blockEndGroupIdx]) for b in self._blockBonds ]
     
     def bondBlock( self, bond ):
         """ Add newBlock to this one
