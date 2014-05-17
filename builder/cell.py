@@ -130,12 +130,18 @@ class CellData(object):
         self.symbols                 = []
         self.bonds                   = []
         self.bondLabels              = []
-        self.blockBonds              = []
-        self.blockBondLabels         = []
-        self.blockBondAngles         = []
-        self.blockBondAngleLabels    = []
-        self.blockBondDihedrals      = []
-        self.blockBondDihedralLabels = []
+        self.angles                  = []
+        self.angleLabels             = []
+        self.propers                 = []
+        self.properLabels            = []
+        self.impropers               = []
+        self.improperLabels          = []
+#         self.blockBonds              = []
+#         self.blockBondLabels         = []
+#         self.blockBondAngles         = []
+#         self.blockBondAngleLabels    = []
+#         self.blockBondDihedrals      = []
+#         self.blockBondDihedralLabels = []
         return
 
 class Cell():
@@ -856,7 +862,7 @@ class Cell():
         self.logger.debug("cellEndGroupPair returning: {0} {1}".format(endGroup1.type(),endGroup2.type()) )
         return endGroup1, endGroup2
 
-    def dataDict( self, periodic=True, center=False, fragmentType=None ):
+    def dataDict( self, rigidBody=True, periodic=True, center=False, fragmentType=None ):
 
         d = CellData()
         
@@ -883,8 +889,7 @@ class Cell():
             bodyCount += 1
             lastBody = 0
 
-            # First go through coordinates - if we are only pulling out a particular fragment type we
-            # need to do some reordering so the bonding will be correct
+            # First go through coordinates
             for i, coord in enumerate(block.iterCoord() ):
                 if periodic:
                     x, ix = util.wrapCoord( coord[0], self.A, center=center )
@@ -910,54 +915,77 @@ class Cell():
                 d.bodies.append( bodyCount )
                 blockAtomCount += 1
             
-            # Add all bonds
-            d.bonds += [ (b1+atomCount, b2+atomCount) for (b1, b2) in block.bonds() ]
+            if not rigidBody:
+                # Add all bonds
+                d.bonds += [ (a1+atomCount, a2+atomCount) for a1, a2 in block.bonds() ]
+                d.bondLabels += [ "{0}-{1}".format(block.type(a1),block.type(a2)) for a1, a2 in block.bonds() ]
+                angles, propers, impropers = block.anglesAndDihedrals()
+                # Add all angles
+                d.angles += [ (a1+atomCount, a2+atomCount, a3+atomCount) for a1, a2, a3 in angles ]
+                d.angleLabels += [ "{0}-{1}-{2}".format(block.type(a1),block.type(a2),block.type(a3)) for a1, a2, a3 in angles ]
+                # Add all propers
+                d.propers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
+                              for a1, a2, a3, a4 in propers ]
+                d.properLabels += [ "{0}-{1}-{2}-{3}".format(block.type(a1),
+                                                             block.type(a2),
+                                                             block.type(a3),
+                                                             block.type(a4)
+                                                             ) for a1, a2, a3, a4 in propers ]
+                # Add all impropers
+                d.impropers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
+                                for a1, a2, a3, a4 in impropers ]
+                d.improperLabels += [ "{0}-{1}-{2}-{3}".format(block.type(a1),
+                                                             block.type(a2),
+                                                             block.type(a3),
+                                                             block.type(a4)
+                                                             ) for a1, a2, a3, a4 in impropers ]
             
-            # Add the bonds between blocks. Also add angles for all atoms connected to the bonds
-            # we do this so that we can exclude them from VdW interactions in MD codes
-            for b1, b2 in block.blockBonds():
-                
-                # The bonds themselves
-                d.blockBonds.append( (b1+atomCount,b2+atomCount) )
-                d.blockBondLabels.append("{0}-{1}".format( block.type(b1),block.type(b2) ) )
-                
-                _angles=set()
-                # Atoms connected to the endGroup that we need to specify as connected so we add as angles
-                for batom in block.atomBonded1( b1 ):
-                    # The opposite endGroup is included in the list bonded to an endGroup so skip
-                    if batom == b2:
-                        continue
-                    _angles.add( ( batom, b1, b2 ) )
+            else:
+                # Add the bonds between blocks. Also add angles for all atoms connected to the bonds
+                # we do this so that we can exclude them from VdW interactions in MD codes
+                for b1, b2 in block.blockBonds():
                     
-                for batom in block.atomBonded1( b2 ):
-                    # The opposite endGroup is included in the list bonded to an endGroup so skip
-                    if batom == b1:
-                        continue
-                    _angles.add( ( b1, b2, batom ) )
-                
-                # Add to overall lists
-                for a1, a2, a3 in _angles:
-                    d.blockBondAngles.append( (a1+atomCount, a2+atomCount, a3+atomCount) )
-                    l = "{0}-{1}-{2}".format( block.type( a1 ),
-                                              block.type( a2 ),
-                                              block.type( a3 ) )
-                    d.blockBondAngleLabels.append( l )
-
-                #
-                # Dihedrals
-                #
-                for dindices in block.dihedrals( b1, b2 ):
-                    dihedral = ( dindices[0] + atomCount,
-                                 dindices[1] + atomCount,
-                                 dindices[2] + atomCount,
-                                 dindices[3] + atomCount )
-                    d.blockBondDihedrals.append( dihedral )
-                    dlabel = "{0}-{1}-{2}-{3}".format( block.type( dindices[0] ),
-                                                       block.type( dindices[1] ),
-                                                       block.type( dindices[2] ), 
-                                                       block.type( dindices[3] )
-                                                    )
-                    d.blockBondDihedralLabels.append( dlabel )
+                    # The bonds themselves
+                    d.bonds.append( (b1+atomCount,b2+atomCount) )
+                    d.bondLabels.append("{0}-{1}".format( block.type(b1),block.type(b2) ) )
+                    
+                    _angles=set()
+                    # Atoms connected to the endGroup that we need to specify as connected so we add as angles
+                    for batom in block.atomBonded1( b1 ):
+                        # The opposite endGroup is included in the list bonded to an endGroup so skip
+                        if batom == b2:
+                            continue
+                        _angles.add( ( batom, b1, b2 ) )
+                        
+                    for batom in block.atomBonded1( b2 ):
+                        # The opposite endGroup is included in the list bonded to an endGroup so skip
+                        if batom == b1:
+                            continue
+                        _angles.add( ( b1, b2, batom ) )
+                    
+                    # Add to overall lists
+                    for a1, a2, a3 in _angles:
+                        d.angles.append( (a1+atomCount, a2+atomCount, a3+atomCount) )
+                        l = "{0}-{1}-{2}".format( block.type( a1 ),
+                                                  block.type( a2 ),
+                                                  block.type( a3 ) )
+                        d.angleLabels.append( l )
+    
+                    #
+                    # Dihedrals
+                    #
+                    for dindices in block.dihedrals( b1, b2 ):
+                        dihedral = ( dindices[0] + atomCount,
+                                     dindices[1] + atomCount,
+                                     dindices[2] + atomCount,
+                                     dindices[3] + atomCount )
+                        d.propers.append( dihedral )
+                        dlabel = "{0}-{1}-{2}-{3}".format( block.type( dindices[0] ),
+                                                           block.type( dindices[1] ),
+                                                           block.type( dindices[2] ), 
+                                                           block.type( dindices[3] )
+                                                        )
+                        d.properLabels.append( dlabel )
             
             # Only set the count here
             atomCount += blockAtomCount
@@ -1378,6 +1406,7 @@ class Cell():
     
     def optimiseGeometry(self,
                          xmlFilename="hoomdOpt.xml",
+                         rigidBody=True,
                          doDihedral=False,
                          doImproper=False,
                          **kw ):
@@ -1398,16 +1427,17 @@ class Cell():
         
         # Write out HoomdBlue xml file & get parameters
         self.writeHoomdXml( xmlFilename=xmlFilename,
+                            rigidBody=rigidBody,
                             doDihedral=doDihedral,
                             doImproper=doImproper )
         
         self.logger.info( "Running optimisation" )
         d = {}
         ok = optimiser.optimiseGeometry( xmlFilename,
-                                             doDihedral=doDihedral,
-                                             doImproper=doImproper,
-                                             d=d,
-                                              **kw )
+                                         doDihedral=doDihedral,
+                                         doImproper=doImproper,
+                                         d=d,
+                                         **kw )
         self.analyse.stop('optimiseGeometry', d )
                 
         if ok:
@@ -2061,7 +2091,7 @@ class Cell():
         self.logger.info( "Wrote car file: {0}".format(fpath) )
         return
     
-    def writeCml(self, cmlFilename, data=None, periodic=True, pruneBonds=False):
+    def writeCml(self, cmlFilename, rigidBody=True, data=None, periodic=True, pruneBonds=False):
         
 #         atomTypes = []
 #         coords    = []
@@ -2077,7 +2107,7 @@ class Cell():
 #                 count += 1
 
         if data is None:
-            d = self.dataDict(periodic=periodic, fragmentType=None)
+            d = self.dataDict(periodic=periodic, rigidBody=rigidBody, fragmentType=None)
         else:
             d = data
         
@@ -2129,6 +2159,7 @@ class Cell():
 
     def writeHoomdXml(self,
                       xmlFilename="ambuildhoomd.xml",
+                      rigidBody=True,
                       doCharges=True,
                       doDihedral=False,
                       doImproper=False,
@@ -2137,7 +2168,7 @@ class Cell():
         """Write out a HOOMD Blue XML file.
         """
         if data is None:
-            d = self.dataDict(periodic=True, center=True)
+            d = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
         else:
             d = data
         # 
@@ -2161,22 +2192,22 @@ class Cell():
         
         # Now do all angles and bonds
         bond=False
-        if len(d.blockBonds):
+        if len(d.bonds):
             bond = "\n"
-            for i, b in enumerate(d.blockBonds):
-                bond += "{0} {1} {2}\n".format( d.blockBondLabels[i], b[0], b[1] )
+            for i, b in enumerate(d.bonds):
+                bond += "{0} {1} {2}\n".format( d.bondLabels[i], b[0], b[1] )
         
         angle=False
-        if len(d.blockBondAngles):
+        if len(d.angles):
             angle = "\n"
-            for i, a in enumerate(d.blockBondAngles):
-                angle += "{0} {1} {2} {3}\n".format(d.blockBondAngleLabels[i], a[0], a[1], a[2])
+            for i, a in enumerate(d.angles):
+                angle += "{0} {1} {2} {3}\n".format(d.angleLabels[i], a[0], a[1], a[2])
         
         dihedral=False
-        if len(d.blockBondDihedrals):
+        if len(d.propers):
             dihedral = "\n"
-            for i, dh in enumerate(d.blockBondDihedrals):
-                dihedral += "{0} {1} {2} {3} {4}\n".format(d.blockBondDihedralLabels[i], dh[0], dh[1], dh[2], dh[3])
+            for i, dh in enumerate(d.propers):
+                dihedral += "{0} {1} {2} {3} {4}\n".format(d.properLabels[i], dh[0], dh[1], dh[2], dh[3])
         
         root = ET.Element( 'hoomd_xml', version="1.4" )
         config = ET.SubElement( root, "configuration", timestep="0" )
@@ -3423,14 +3454,24 @@ class TestCell(unittest.TestCase):
     
         
         fname = "test.cml"
-        mycell.writeCml(fname, periodic=False)
+        mycell.writeCml(fname, periodic=False, rigidBody=True)
         # Test is same as reference
         with open(fname) as f:
             test = f.readlines()
-        with open(os.path.join( self.ambuildDir, "tests", "testCell.cml" )) as f:
+        with open(os.path.join( self.ambuildDir, "tests", "testCellRigid.cml" )) as f:
             ref = f.readlines()
         
-        self.assertEqual(test,ref,"cml compare")
+        self.assertEqual(test,ref,"cml compare rigid")
+        
+        fname = "test.cml"
+        mycell.writeCml(fname, periodic=False, rigidBody=False)
+        # Test is same as reference
+        with open(fname) as f:
+            test = f.readlines()
+        with open(os.path.join( self.ambuildDir, "tests", "testCellAll.cml" )) as f:
+            ref = f.readlines()
+        
+        self.assertEqual(test,ref,"cml compare all")
         os.unlink(fname)
         return
 

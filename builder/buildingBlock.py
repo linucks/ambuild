@@ -16,6 +16,7 @@ https://github.com/patvarilly/periodic_kdtree
 # Python imports
 import collections
 import copy
+import itertools
 import os
 import math
 import random
@@ -79,8 +80,8 @@ class Block(object):
         # list of tuples of ( idFrag, idxData )
         self._dataMap = []
         self._bodies  = [] # List of which body in the block each atom belongs too - frags can contain multiple bodies
-        self._int2ext = {} # Maps internal block index to external with masked atoms removed
-        self._ext2int = {} # reverse lookup
+        self._int2ext = collections.OrderedDict() # Maps internal block index to external with masked atoms removed
+        self._ext2int = collections.OrderedDict() # reverse lookup
         
         # The list of atoms that are endGroups and their corresponding angleAtoms
         self._freeEndGroups          = {}
@@ -169,25 +170,7 @@ class Block(object):
     def _atomBonded1(self, idxAtom):
         """Return the indices of all atoms directly bonded to idxAtom"""
         return self._bondedToAtom[ idxAtom ]
-#         # Get the atoms bonded to the atom in fragment space
-#         fragment, idxData = self._dataMap[ idxAtom ]
-#         fbonded = fragment.bonded( idxData )
-#         
-#         # Updated to block indices and fix and bonded cap atoms
-#         bonded = []
-#         for fatom in fbonded:
-#             atom = fatom + fragment._blockIdx # Convert index from fragment to block
-#             
-#             # See if the atom is a bonded Cap - if so we return the index of the corresponding
-#             # endGroup in the bond
-#             try:
-#                 atom = self.cap2EndGroup[ atom ]
-#             except KeyError:
-#                 pass
-#             
-#             bonded.append( atom )
-#         
-#         return bonded
+
 
     def atomBonded2(self, idxAtom):
         return [ self._int2ext[a] for a in self._atomBonded2(self._ext2int[idxAtom]) ]
@@ -286,6 +269,74 @@ class Block(object):
     def _type(self, idxAtom ):
         frag, idxData = self._dataMap[ idxAtom ]
         return  frag.types[idxData]
+
+    def anglesAndDihedrals(self):
+        """
+        
+        Borrowed from openMM
+        """
+
+        # Make a list of all unique angles
+
+        uniqueAngles = set()
+        for atom1, atom2 in self._bonds:
+            for atom in self._bondedToAtom[atom1]:
+                if atom != atom2:
+                    if atom < atom2:
+                        uniqueAngles.add((atom, atom1, atom2))
+                    else:
+                        uniqueAngles.add((atom2, atom1, atom))
+            for atom in self._bondedToAtom[atom2]:
+                if atom != atom1:
+                    if atom > atom1:
+                        uniqueAngles.add((atom1, atom2, atom))
+                    else:
+                        uniqueAngles.add((atom, atom2, atom1))
+        
+        # Sort and reindex
+        angles = sorted(list(uniqueAngles))
+
+        # Make a list of all unique proper torsions
+
+        uniquePropers = set()
+        for angle in angles:
+            for atom in self._bondedToAtom[angle[0]]:
+                if atom != angle[1]:
+                    if atom < angle[2]:
+                        uniquePropers.add((atom, angle[0], angle[1], angle[2]))
+                    else:
+                        uniquePropers.add((angle[2], angle[1], angle[0], atom))
+            for atom in self._bondedToAtom[angle[2]]:
+                if atom != angle[1]:
+                    if atom > angle[0]:
+                        uniquePropers.add((angle[0], angle[1], angle[2], atom))
+                    else:
+                        uniquePropers.add((atom, angle[2], angle[1], angle[0]))
+                        
+        #propers = sorted(list(uniquePropers))
+
+        # Make a list of all unique improper torsions
+         
+        impropers = []
+        #for atom in range(len(bondedToAtom)):
+        for atom in self._int2ext.keys():
+            bondedTo = self._bondedToAtom[atom]
+            if len(bondedTo) > 2:
+                for subset in itertools.combinations(bondedTo, 3):
+                    impropers.append((atom, subset[0], subset[1], subset[2]))
+
+        # Reindex
+        angles = [(self._int2ext[a1], self._int2ext[a2], self._int2ext[a3]) \
+                           for a1, a2, a3 in angles ]
+        
+        propers = sorted( [(self._int2ext[a1], self._int2ext[a2], self._int2ext[a3], self._int2ext[a4]) \
+                           for a1, a2, a3 , a4 in uniquePropers ] )
+        
+        impropers = sorted( [(self._int2ext[a1], self._int2ext[a2], self._int2ext[a3], self._int2ext[a4]) \
+                           for a1, a2, a3 , a4 in impropers ] )
+        
+        return angles, propers, impropers
+
 
     def atomEndGroups(self,idxAtom):
         """Return a list of the endGroup objects for this atom
@@ -524,8 +575,8 @@ class Block(object):
         # Then go through the data map and map these to the 'external' atom indices
         fbonds = []
         for fragment in self._fragments:
-            for b in fragment.bonds():
-                fbonds.append( b )
+            for b1, b2 in fragment.bonds():
+                fbonds.append( ( b1+fragment.blockIdx, b2+fragment.blockIdx) )
         return fbonds
     
     def fragmentTypeDict(self):
@@ -792,7 +843,7 @@ class Block(object):
             else:
                 self._fragmentTypeDict[ t ] += 1
                 
-            fragment._blockIdx = len(self._dataMap) # Mark where the data starts in the block
+            fragment.blockIdx = len(self._dataMap) # Mark where the data starts in the block
             for i in xrange( fragment.numAtoms() ):
                 self._dataMap.append( ( fragment, i ) )
                 
@@ -838,9 +889,12 @@ class Block(object):
         self._bondsByFragmentType = []
         # First all bonds within the fragments
         for fragment in self._fragments:
-            for b in fragment.bonds():
-                self._bonds.append( b )
-                self._bondsByFragmentType.append( (fragment.fragmentType, b) )
+            for b1, b2 in fragment.bonds():
+                # Convert to block indices
+                b1 = b1+fragment.blockIdx
+                b2 = b2+fragment.blockIdx
+                self._bonds.append( ( b1, b2) )
+                self._bondsByFragmentType.append( (fragment.fragmentType, (b1,b2)) )
         
         # Then all bonds between fragments
         cap2EndGroup = {}
@@ -1031,6 +1085,13 @@ class TestBlock(unittest.TestCase):
         ch4 = Block( filePath=self.ch4Car, fragmentType='A' )
         
         self.assertEqual( len( ch4._fragments[0]._bonds ), 4 )
+        return
+    
+    def testAnglesAndDihedrals(self):
+        ch4_1 = Block( filePath=self.benzeneCar, fragmentType='A' )
+        
+        print "GOT AD ",ch4_1.anglesAndDihedrals()
+        
         return
     
     def testBond1(self):

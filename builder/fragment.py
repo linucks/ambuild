@@ -84,7 +84,7 @@ class EndGroup(object):
             # opposite endGroup as this has now become our cap atom
             self.blockCapIdx = cap2endGroup[ (self.fragment,self.fragmentCapIdx) ]
         else:
-            self.blockCapIdx = self.fragmentCapIdx + self.fragment._blockIdx 
+            self.blockCapIdx = self.fragmentCapIdx + self.fragment.blockIdx 
         
         # -1 means no dihedral or uw atom set
         if self.fragmentDihedralIdx != -1:
@@ -92,17 +92,17 @@ class EndGroup(object):
                 # Now work out which atom this is bonded to
                 self.blockDihedralIdx = cap2endGroup[ (self.fragment,self.fragmentDihedralIdx) ]
             else:
-                self.blockDihedralIdx = self.fragmentDihedralIdx + self.fragment._blockIdx
+                self.blockDihedralIdx = self.fragmentDihedralIdx + self.fragment.blockIdx
                 
         if self.fragmentUwIdx != -1:
             #assert not self.fragment.isMasked( self.fragmentUwIdx )
-            self.blockUwIdx = self.fragmentUwIdx + self.fragment._blockIdx 
+            self.blockUwIdx = self.fragmentUwIdx + self.fragment.blockIdx 
         return
     
     def updateEndGroupIndex(self):
         """The block has been updated so we need to update our block indices based on where the
         fragment starts in the block"""
-        self.blockEndGroupIdx = self.fragmentEndGroupIdx + self.fragment._blockIdx
+        self.blockEndGroupIdx = self.fragmentEndGroupIdx + self.fragment.blockIdx
         return
     
     def __str__(self):
@@ -167,7 +167,7 @@ class Fragment(object):
             '_centerOfMass'   : None,
             '_maxAtomRadius'  : -1,
             '_changed'        : True, # Flag for when we've been moved and need to recalculate things
-            '_blockIdx'       : None, # The index in the list of block data where the data for this fragment starts
+            'blockIdx'       : None, # The index in the list of block data where the data for this fragment starts
             '_endGroups'      : [], # A list of the endGroup objects
             '_endGroupBonded' : [], # A list of the number of each endGroup that are used in bonds
             '_masked'         : [], # bool - whether the atoms is hidden (e.g. cap or uw atom)
@@ -196,14 +196,14 @@ class Fragment(object):
         return
     
     def bonds(self):
-        """Return a list of bonds in block indices
+        """Return a list of bonds
         We exclude masked atoms"""
         bonds = []
         for b1, b2 in self._bonds:
             if not ( self._masked[b1] or self._masked[b2] ):
-                # Map to internal and then add _blockIdx to get position in block
-                b1 = b1 + self._blockIdx
-                b2 = b2 + self._blockIdx
+                # Map to internal and then add blockIdx to get position in block
+                #b1 = b1 + self.blockIdx
+                #b2 = b2 + self.blockIdx
                 bonds.append( (b1, b2) )
         return bonds
 
