@@ -71,6 +71,16 @@ class EndGroup(object):
             self.fragment._masked[ self.fragmentUwIdx ] = True
         return
     
+    def unBond(self):
+        self._isBonded = False
+        self.fragment.delBond( self.type() )
+        # Unmask cap and set the coordinate to the coordinate of the last block atom
+        self.fragment._masked[ self.fragmentCapIdx ] = False
+        if self.fragmentUwIdx != -1:
+            raise RuntimeError,"Cannot unbond masked endGroups yet!"
+            self.fragment._masked[ self.fragmentUwIdx ] = True
+        return
+    
     def type(self):
         """The type of the endGroup"""
         return "{0}:{1}".format( self.fragment.fragmentType, self._endGroupType )
@@ -193,6 +203,10 @@ class Fragment(object):
     
     def addBond(self, endGroupType):
         self._endGroupBonded[ endGroupType ] += 1
+        return
+    
+    def delBond(self, endGroupType):
+        self._endGroupBonded[ endGroupType ] -= 1
         return
     
     def bonds(self):

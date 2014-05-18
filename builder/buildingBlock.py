@@ -485,6 +485,75 @@ class Block(object):
                  for ftype, (b1,b2) in self._bondsByFragmentType if ftype == fragmentType ]
         
         return coords, symbols, bonds
+    
+    #def deleteBond(self, idxAtom1, idxAtom2 ):
+    def deleteBond(self, bond):
+        
+        # Check there is a bond between the two atoms
+        
+        # See if breaking the bond separates the block into two separate blocks
+        
+        # First find the bond object and at the same time
+        # create list of which fragments are bonded to which fragments
+        bondedToFragment = {}
+        #for i in range(len(self._fragments)):
+        #    bondedToFragment.append(set())
+        print "CHECKING ",id(bond.endGroup1.fragment),id(bond.endGroup2.fragment)
+        for b in self._blockBonds:
+            if b.endGroup1.fragment not in bondedToFragment:
+                bondedToFragment[b.endGroup1.fragment] = set()
+            if b.endGroup2.fragment not in bondedToFragment:
+                bondedToFragment[b.endGroup2.fragment] = set()
+            if b != bond:
+#             if (b.endGroup1.blockEndGroupIdx==idxAtom1 and b.endGroup2.blockEndGroupIdx==idxAtom2) or \
+#                 (b.endGroup1.blockEndGroupIdx==idxAtom2 and b.endGroup2.blockEndGroupIdx==idxAtom1):
+#                 bond=b
+                print "BOND ",id(b.endGroup1.fragment),id(b.endGroup2.fragment)
+                bondedToFragment[b.endGroup1.fragment].add(b.endGroup2.fragment)
+                bondedToFragment[b.endGroup2.fragment].add(b.endGroup1.fragment)
+                
+        assert bond
+        
+        # Take the two fragments on either side of the bond
+        f1 = bond.endGroup1.fragment
+        f2 = bond.endGroup2.fragment
+        
+        # Sets of which fragments can be reached from each fragment
+        f1set = set()
+        f2set = set()
+        
+        # Trundle through the bond topology for f1 and set True for all fragments we reach
+        def addFragments(f, f1set):
+            for f_ in bondedToFragment[f]:
+                if f_ not in f1set:
+                    f1set.add(f_)
+                    addFragments(f_, f1set)
+            return f1set
+        
+        f1set = addFragments(f1, f1set)
+        f2set = addFragments(f2, f2set)
+        
+        print "GOT f1set ",[ id(f) for f in f1set ]
+        print "GOT f2set ",[ id(f) for f in f2set ]
+        
+        if bool(f1set.intersection(f2set)):
+            # Fragments in common with both, so just delete the bond
+            print "SPLITS"
+            # Need to unmask the fragment atoms
+            
+            bond.endGroup1.unBond()
+            bond.endGroup2.unBond()
+            
+            # Now delete the bond from the block
+            self._blockBonds.remove(bond)
+            self._update()
+            return None
+        
+        # Breaking the bond splits the block in two, so we separate the two fragments, keeep the largest
+        # for ourselves and return the new block 
+        
+        
+        return
 
     def dihedrals(self, idxAtom1,idxAtom2, bondOnly=False):
         """Return a list of all the dihedrals around these two bonded atoms
@@ -1143,13 +1212,27 @@ class TestBlock(unittest.TestCase):
         
         return
     
-    def testBondSelf2(self):
+    def testDeleteBond(self):
         """Bfoo"""
-        
+
+
+        def egFromF(block, f1):
+            # Need to find endGroups that match the fragments at either end
+            for eg in block.freeEndGroups():
+                if eg.fragment == f1:
+                    return eg
+            assert False
+
         ch4_1 = Block( filePath=self.ch4Car, fragmentType='A' )
+        f1 = ch4_1._fragments[0]
         ch4_2 = Block( filePath=self.ch4Car, fragmentType='A' )
+        f2 = ch4_2._fragments[0]
         ch4_3 = Block( filePath=self.ch4Car, fragmentType='A' )
+        f3 = ch4_3._fragments[0]
         ch4_4 = Block( filePath=self.ch4Car, fragmentType='A' )
+        f4 = ch4_4._fragments[0]
+        ch4_5 = Block( filePath=self.ch4Car, fragmentType='A' )
+        f5 = ch4_5._fragments[0]
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
@@ -1157,16 +1240,37 @@ class TestBlock(unittest.TestCase):
         bond = Bond(eg1,eg2)
         ch4_1.bondBlock( bond )
         
-        eg1 = ch4_1.freeEndGroups()[0]
+        eg1 = egFromF(ch4_1,f2)
         eg2 = ch4_3.freeEndGroups()[0]
         ch4_1.positionGrowBlock( eg1, eg2 )
-        bond = Bond(eg1,eg2)
+        bondM = Bond(eg1,eg2)
+        ch4_1.bondBlock( bondM )
         
+        eg1 = egFromF(ch4_1,f3)
+        eg2 = ch4_4.freeEndGroups()[0]
+        ch4_1.positionGrowBlock( eg1, eg2 )
+        bond = Bond(eg1,eg2)
         ch4_1.bondBlock( bond )
         
-        #print ch4_1.bonds()
-        #print ch4_1.blockBonds()
-        #print ch4_1._bondedToAtom
+        eg1 = egFromF(ch4_1,f4)
+        eg2 = ch4_5.freeEndGroups()[0]
+        ch4_1.positionGrowBlock( eg1, eg2 )
+        bond = Bond(eg1,eg2)
+        ch4_1.bondBlock( bond )
+        
+        ch4_1.writeCml("foo1.cml")
+        
+        # Now just bond into a loop
+        eg1 = egFromF(ch4_1,f1)
+        eg2 = egFromF(ch4_1,f5)
+        bond = Bond(eg1,eg2)
+        ch4_1.bondBlock( bond )
+         
+        ch4_1.writeCml("foo2.cml")
+        
+        ch4_1.deleteBond(bondM)
+        ch4_1.writeCml("foo3.cml")
+
         return
 
     def XtestAlignBlocks(self):
