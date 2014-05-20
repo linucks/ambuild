@@ -289,7 +289,7 @@ class Cell():
         
         bt = (b1EndGroupType, b2EndGroupType)
         if bt in self.bondTypes:
-            raise RuntimeError,"Adding an existing bond type: {0}".format( t )
+            raise RuntimeError,"Adding an existing bond type: {0}".format( bt )
         
         self.bondTypes.append( bt )
         
@@ -454,7 +454,7 @@ class Cell():
         #bond.block1.bondBlock( bond )
         bond.endGroup1.block().bondBlock( bond )
         #self.logger.debug("after bond: {0} - {1}".format( idxBlock1, block1._bondObjects) )
-        idxBlock = self.addBlock( bond.endGroup1.block() )
+        self.addBlock( bond.endGroup1.block() )
         return
 
     def canBond( self,
@@ -769,7 +769,7 @@ class Cell():
             surrounding = self.box3[key]
             
             #For each box loop through all its atoms chekcking for clashes
-            for i, sbox in enumerate(surrounding):
+            for sbox in surrounding:
                 
                 #print "KEY ",i,sbox
                 # For each box, get the list of the atoms as (block,coord1) tuples
@@ -870,6 +870,7 @@ class Cell():
         d = CellData()
         
         if fragmentType is not None:
+            # Only returning data for one type of fragment
             assert fragmentType in self.fragmentTypes(),"FragmentType {0} not in cell!".format(fragmentType)
             atomCount=0
             for b in self.blocks.values():
@@ -919,6 +920,7 @@ class Cell():
                 blockAtomCount += 1
             
             if not rigidBody:
+                # add all bonds, angles and dihederals throughout the whole block
                 # Add all bonds
                 d.bonds += [ (a1+atomCount, a2+atomCount) for a1, a2 in block.bonds() ]
                 d.bondLabels += [ "{0}-{1}".format(block.type(a1),block.type(a2)) for a1, a2 in block.bonds() ]
@@ -944,7 +946,7 @@ class Cell():
                                                              ) for a1, a2, a3, a4 in impropers ]
             
             else:
-                # Add the bonds between blocks. Also add angles for all atoms connected to the bonds
+                # Just add the bonds between blocks. Also add angles for all atoms connected to the bonds
                 # we do this so that we can exclude them from VdW interactions in MD codes
                 for b1, b2 in block.blockBonds():
                     
@@ -1078,7 +1080,7 @@ class Cell():
         We don't check if any are available just return an empty dictionary if not
         """
         endGroupTypes2Block = {}
-        for idxBlock, block in self.blocks.iteritems():
+        for block in self.blocks.itervalues():
             #numFreeEndGroups += block.numFreeEndGroups()
             # Get a list of the free endGroup types in the block
             for endGroupType in block.freeEndGroupTypes():
@@ -1480,115 +1482,6 @@ class Cell():
         
         return
 
-    def prepareHoomdData(self,data=None):
-        # Get the data on the blocks
-        if data is None:
-            data = self.dataDict()
-        
-        if self.minCell:
-        
-            # Find the extent of the block in all 3 dimensions
-            # remember max, min in all 3 dimemsions
-            d = { 
-                 'maxA'   : 0,
-                 'minA'   : 10000,
-                 'maxB'   : 0,
-                 'minB'   : 10000,
-                 'maxC'   : 0,
-                 'minC'   : 10000,
-                 'border' : self.rCut
-                 }
-            
-            for i in range( len( data['coord'] ) ):
-                coord = data['coord'][i]
-                d['minA'] = min( d['minA'], coord[0] )
-                d['maxA'] = max( d['maxA'], coord[0] )
-                d['minB'] = min( d['minB'], coord[1] )
-                d['maxB'] = max( d['maxB'], coord[1] )
-                d['minC'] = min( d['minC'], coord[2] )
-                d['maxC'] = max( d['maxC'], coord[2] )
-            
-            # Make sure everything is inside the current cell
-            # TODO - switch off Mincell when this isn't the case
-            if False:
-                tmp = d['border']
-                assert d['minA'] > 0 + tmp,"minA {0} border {1}".format( d['minA'], d['border'] )
-                assert d['maxA'] + tmp < self.A,"maxA {0} A {1} border {2}".format( d['maxA'], self.A, d['border'] )
-                assert d['minB'] > 0 + tmp,"minB {0} border {1}".format( d['minB'], d['border'] )
-                assert d['maxB'] + tmp < self.B,"maxB {0} B {1} border {2}".format( d['maxB'], self.B, d['border'] )
-                assert d['minC'] > 0 + tmp,"minC {0} border {1}".format( d['minC'], d['border'] )
-                assert d['maxC'] + tmp < self.C,"maxC {0} C {1} border {2}".format( d['maxC'], self.C, d['border'] )
-            
-            # Calculate cell dimensions ( to nearest integer )
-            d['A'] = ( math.ceil( d['maxA'] ) - math.floor( d['minA'] ) ) + d['border'] * 2
-            d['B'] = ( math.ceil( d['maxB'] ) - math.floor( d['minB'] ) ) + d['border'] * 2
-            d['C'] = ( math.ceil( d['maxC'] ) - math.floor( d['minC'] ) ) + d['border'] * 2
-            
-            # Need to make sure the old dimensions are <= the original
-            same = 0
-            if d['A'] >= self.A:
-                self.logger.debug("MINCELL DIMENSION A IS KEPT SAME")
-                d['A'] = self.A
-                d['minA'] = 0.0
-                d['maxA'] = self.A
-                same += 1
-
-            if d['B'] >= self.B:
-                self.logger.debug("MINCELL DIMENSION B IS KEPT SAME")
-                d['B'] = self.B
-                d['minB'] = 0.0
-                d['maxB'] = self.B
-                same += 1
-                
-            if d['C'] >= self.C:
-                self.logger.debug("MINCELL DIMENSION C IS KEPT SAME")
-                d['C'] = self.C
-                d['minC'] = 0.0
-                d['maxC'] = self.C
-                same += 1
-                
-            if same == 3:
-                self.logger.critical("optimiseGeometry minCell - ignoring directive and using full cell")
-                self.minCell = False
-        
-        
-        if self.minCell:
-            
-            # Now set the cell dimensions for hoomdblue
-            data['A'] = d['A']
-            data['B'] = d['B']
-            data['C'] = d['C']
-            
-            # Move the coordinates into the new cell and center them
-            data['position'] = []
-            data['image'] = []
-            for i in range( len( data['coord'] ) ):
-                coord = data['coord'][i]
-                
-                x =  coord[0] - ( d['minA'] + d['A']/2 )
-                y =  coord[1] - ( d['minB'] + d['B']/2 )
-                z =  coord[2] - ( d['minC'] + d['C']/2 )
-                
-                data['position'].append( (x, y, z ) )
-                data['image'].append( ( 0, 0, 0 ) ) # Always in the first image
-            
-            self.minCellData = d
-            
-        else:
-        
-            data['position'] = []
-            data['image'] = []
-            for i in range( len( data['coord'] ) ):
-                coord = data['coord'][ i ]
-                x, ix = util.wrapCoord( coord[0], self.A, center=True )
-                y, iy = util.wrapCoord( coord[1], self.B, center=True )
-                z, iz = util.wrapCoord( coord[2], self.C, center=True )
-                
-                data['position'].append( ( x, y, z ) )
-                data['image'].append( ( ix, iy, iz ) )
-            
-        return data
-
     def processBonds(self):
         """Make any bonds that were found during checkMove
         return Number of bonds made
@@ -1665,7 +1558,7 @@ class Cell():
         
         coord = numpy.array([x,y,z], dtype=numpy.float64 )
         
-         #print "Got random coord: {}".format(coord)
+        #print "Got random coord: {}".format(coord)
         
         # Move to origin, rotate there and then move to new coord
         # Use the cell axis definitions
@@ -2186,7 +2079,7 @@ class Cell():
         
         image = "\n"
         position = "\n"
-        for i, coord in enumerate(d.coords):
+        for i in range(len(d.coords)):
             image += "{0} {1} {2}\n".format( d.images[i][0],
                                              d.images[i][1],
                                              d.images[i][2] )
@@ -2294,7 +2187,7 @@ class Cell():
                     endGroups.append( ( block, endGroup.endGroupIdx() ) )
 
         if not len(endGroups) > 0:
-            sys.logger.warn("zipBlocks found no free endGroups!")
+            self.logger.warn("zipBlocks found no free endGroups!")
             return 0
         
         # Add all (block, idxEndGroup) tuples to the cells

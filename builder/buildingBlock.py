@@ -294,14 +294,6 @@ class Block(object):
         """All bonds in external indices"""
         return self._bonds
     
-    def bondsByType(self, fragmentType):
-        """Return all bonds within a fragment if the fragment is of a given type in external indices"""
-        # bonds are in internal indices _fbondRen is in external
-        bonds= [ ( self._fbondRen[b1],self._fbondRen[b2]) \
-                for ftype, (b1,b2) in self._bondsByFragmentType if ftype == fragmentType ]
-        del self._fbondRen
-        return bonds
-
     def blockBonds(self):
         """External indices"""
         return [ (b.endGroup1.blockEndGroupIdx,b.endGroup2.blockEndGroupIdx) for b in self._blockBonds ]
@@ -414,16 +406,15 @@ class Block(object):
         symbols = []
         
         atomCount=0
-        self._fbondRen = {}
+        fbondRen = {}
         for i in range( len(self._dataMap) ):
             if  self.fragmentType(i) == fragmentType:
-                self._fbondRen[i] = atomCount
+                fbondRen[i] = atomCount
                 coords.append( self.coord(i) )
                 symbols.append( self.symbol(i) )
                 atomCount+=1
         
-        bonds = []
-        bonds = [ (self._fbondRen[b1], self._fbondRen[b2]) \
+        bonds = [ (fbondRen[b1], fbondRen[b2]) \
                  for ftype, (b1,b2) in self._bondsByFragmentType if ftype == fragmentType ]
         
         return coords, symbols, bonds
@@ -822,8 +813,6 @@ class Block(object):
         self._bodies  = []
         self._blockMass = 0
         self._fragmentTypeDict = {}
-        icount=0
-        ecount=0
         bodyCount=-1
         lastBody=0
         for fragment in self._fragments:
@@ -921,7 +910,6 @@ class Block(object):
         atomTypes = []
         coords    = []
         symbols   = []
-        count     = 0
         for i, coord in enumerate(self.iterCoord()):
             coords.append(coord)
             symbols.append(self.symbol(i))
@@ -955,8 +943,6 @@ class Block(object):
                 symbols.append(self.symbol(i))
         
         with open(name,"w") as f:
-            
-            fpath = os.path.abspath(f.name)
             f.write( "{}\n".format( len(coords) ) )
             f.write( "id={}\n".format( str( id(self)  ) ) )
             for i, c in enumerate(coords):
