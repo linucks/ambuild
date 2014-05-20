@@ -366,6 +366,8 @@ class Cell():
         #self.dump()
         #sys.exit()
         
+        self.logger.debug("GOT {0} {1}".format(staticEndGroup, growEndGroup))
+        
         # Check it doesn't clash
         if self.checkMove( blockId ) and self.processBonds() > 0:
             self.logger.debug("attachBlock first checkMove returned True")
@@ -493,12 +495,12 @@ class Cell():
                 if self._endGroupsInPossibleBonds( [ staticEndGroup, addEndGroup ] ):
                     continue
             
-                # First check if endGroups of this type can bond - will apply to all so can bail on first fail
+                # First check if endGroups of this type can bond 
                 if not self.bondAllowed( staticEndGroup, addEndGroup ):
                     self.logger.debug( "Bond disallowed by bonding rules: {0} : {1}".format( staticEndGroup, 
                                                                                               addEndGroup
                                                                                              ) )
-                    return False
+                    continue
 
                 #print "Possible bond for {0} {1} {2} dist {3}".format( idxAddAtom,
                 #                                                       idxStaticBlock,
@@ -530,7 +532,7 @@ class Cell():
                 # Create bond object and set the parameters
                 bond = buildingBlock.Bond(staticEndGroup,addEndGroup)
                 self._possibleBonds.append( bond )
-                self.logger.debug( "canBond returning True with bonds: {0}".format( self._possibleBonds ) )
+                self.logger.debug( "canBond returning True with bonds: {0}".format( [str(b) for b in self._possibleBonds] ) )
                 return True
         
         self.logger.debug( "canBond returning False" )
@@ -681,6 +683,7 @@ class Cell():
         
         addBlock    = None
         staticBlock = None
+        
         for bond in self._possibleBonds:
             
             b1Block = bond.endGroup1.block()
@@ -1326,7 +1329,7 @@ class Cell():
             leg = self._bondTable[ ceg ].intersection( self._endGroup2LibraryFragment.keys() )
             if len(leg) > 0:
                 cell2Library[ ceg ] = leg
-        
+                
         # Check that there are some available
         if len(cell2Library.keys()) == 0:
             raise RuntimeError,"No library fragments available to bond under the given rules: {0}".format(endGroupTypes2Block.keys())
@@ -1912,6 +1915,7 @@ class Cell():
         except TypeError:
             cl = logging.StreamHandler( strm=sys.stdout )
         cl.setLevel( logging.INFO )
+        #cl.setLevel( logging.DEBUG )
 
         # create formatter for fl
         # Always add a blank line after every print
@@ -2481,6 +2485,7 @@ class TestCell(unittest.TestCase):
         
         cls.cx4Car = os.path.join( cls.ambuildDir, "blocks", "cx4.car" )
         cls.ch4Car = os.path.join( cls.ambuildDir, "blocks", "ch4.car" )
+        cls.ch4_1Car = os.path.join( cls.ambuildDir, "blocks", "ch4_1.car" )
         cls.capLinker = os.path.join( cls.ambuildDir, "blocks", "cap_linker.car" )
         cls.benzeneCar = os.path.join( cls.ambuildDir, "blocks", "benzene.car" )
         cls.benzene2Car = os.path.join( cls.ambuildDir, "blocks", "benzene2.car" )
@@ -2916,7 +2921,26 @@ class TestCell(unittest.TestCase):
         
         CELLA = CELLB = CELLC = 30
         
-        mycell = Cell(doLog=False)
+        mycell = Cell(doLog=True)
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        
+        mycell.addInitBlock(filename=self.ch4_1Car, fragmentType='A')
+        mycell.addBondType( 'A:a-A:b' )
+        mycell.setMaxBond( 'A:a', 1 )
+        
+        added = mycell.seed( 1 )
+        mycell.growBlocks(10, cellEndGroups=None, maxTries=10)
+        
+        #mycell.dump()
+        
+        return
+    
+    def testGrowLimited2(self):
+        """Test we can add blocks correctly"""
+        
+        CELLA = CELLB = CELLC = 30
+        
+        mycell = Cell(doLog=True)
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
         
         mycell.addInitBlock(filename=self.dcxCar, fragmentType='A')
@@ -2924,7 +2948,7 @@ class TestCell(unittest.TestCase):
         mycell.setMaxBond( 'A:CH', 1 )
         
         added = mycell.seed( 1 )
-        mycell.growBlocks(10, endGroupType='A:CH')
+        mycell.growBlocks(10, cellEndGroups=['A:CH'])
         
         #mycell.dump()
         

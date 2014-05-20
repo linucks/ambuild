@@ -639,7 +639,7 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
     surroundCells = {} # Dictionary keyed by cell with a list of the cells that surround a particular cell
     
     # Work out which box each atom is in and the surrounding boxes
-    for atomIdx1, coord in enumerate( coords ):
+    for idxAtom1, coord in enumerate( coords ):
         
         x, y, z = coord
         a=int( math.floor( x / boxSize ) )
@@ -649,10 +649,10 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
         key = (a,b,c)
         atomCells.append( key )
         if cells.has_key( key ):
-            cells[ key ].append( atomIdx1 )
+            cells[ key ].append( idxAtom1 )
         else:
             # Add to main list
-            cells[ key ] = [ ( atomIdx1 ) ]
+            cells[ key ] = [ ( idxAtom1 ) ]
             # Map surrounding boxes
             surroundCells[ key ] = getSurroundCells( key )
 
@@ -664,25 +664,28 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
           'i2' : None  }
     
     # Now calculate the bonding
-    for atomIdx1, coord1 in enumerate( coords ):
+    for idxAtom1, coord1 in enumerate( coords ):
         
-        symbol1 = symbols[ atomIdx1 ]
-        key = atomCells[ atomIdx1 ]
+        symbol1 = symbols[ idxAtom1 ]
+        key = atomCells[ idxAtom1 ]
         
         # Loop through all cells surrounding this one
         for cell in surroundCells[ key ]:
             
             # Check if we have a cell with anything in it
-            if not cells.has_key( cell ):
+            # Trigger exception so we don't have to search through the keys
+            try:
+                alist=cells[ cell ]
+            except KeyError:
                 continue
             
-            for atomIdx2 in cells[ cell ]:
+            for idxAtom2 in alist:
                 
                 # Skip atoms we've already processed
-                if atomIdx2 > atomIdx1:
+                if idxAtom2 > idxAtom1:
                 
-                    coord2 = coords[ atomIdx2 ]
-                    symbol2 = symbols[ atomIdx2 ]
+                    coord2 = coords[ idxAtom2 ]
+                    symbol2 = symbols[ idxAtom2 ]
                     
                     bond_length = bondLength( symbol1, symbol2 )
                     if bond_length < 0:
@@ -702,9 +705,9 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
                             if numpy.allclose( coord2, c ):
                                 md[ 'i2' ] = x
                     
-                    #print "Dist:length {0}:{1} {2}-{3} {4} {5}".format( atomIdx1, atomIdx2, symbol1, symbol2, bond_length, dist )
+                    #print "Dist:length {0}:{1} {2}-{3} {4} {5}".format( idxAtom1, idxAtom2, symbol1, symbol2, bond_length, dist )
                     if  bond_length - bondMargin < dist < bond_length + bondMargin:
-                        bonds.append( (atomIdx1, atomIdx2) )
+                        bonds.append( (idxAtom1, idxAtom2) )
     
     return bonds, md
 
@@ -909,6 +912,32 @@ def pickleObj( obj, fileName):
         cPickle.dump( obj ,pfile )
         
     return
+
+def readMol2(filename):
+    
+    coords=[]
+    symbols=[]
+    #bonds=[]
+    with open(filename) as f:
+        captureAtom=False
+        for line in f:
+            line=line.strip()
+            if line.startswith("@<TRIPOS>ATOM"):
+                captureAtom=True
+                continue
+            if line.startswith("@<TRIPOS>BOND"):
+                captureAtom=False
+                break
+                captureBond=False
+                continue
+            if captureAtom:
+                f=line.split()
+                symbols.append(label2symbol(f[1]))
+                coords.append( [float(f[2]),float(f[3]),float(f[4])])
+#             if captureBond:
+#                 f=line.split()
+    
+    return coords,symbols
 
 def rotation_matrix( axis, angle ):
     """

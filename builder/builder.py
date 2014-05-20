@@ -13,8 +13,21 @@ Created on Jan 15, 2013
 import cell
 import cPickle
 import sys
+import util
 
 import cProfile
+
+# import glob
+# flist = glob.glob("*.mol2")
+# with open("trajectory.xyz",'w') as o:
+#     for i, f in enumerate(flist):
+#         coords,symbols = util.readMol2(f)
+#         xyz = "{0}\ntrajectory {1}\n".format( len(coords), i )
+#         for j, c in enumerate(coords):
+#             xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( symbols[j], c[0], c[1], c[2] )
+#         o.writelines(xyz)
+# 
+# sys.exit()
 
 
 def cellFromPickle(pickleFile):
@@ -22,14 +35,12 @@ def cellFromPickle(pickleFile):
         myCell=cPickle.load(f)
     return myCell
 
-# mycell = cellFromPickle("step_1.pkl")
-# added = mycell.zipBlocks( bondMargin=5, bondAngleMargin=40 )
-# if added > 0:
-#     mycell.dump()
-# sys.exit()
+# mycell.runMD(mdCycles=5000,dump=True)
+##mycell = cellFromPickle("step_1.pkl")
+#sys.exit()
 
 #cell dimensions:
-CELLA = CELLB = CELLC = 50
+CELLA = CELLB = CELLC = 20
    
 # Create Cell and seed it with the blocks
 mycell = cell.Cell( atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False )
@@ -48,9 +59,11 @@ mycell.addBondType( 'A:a-B:a' )
 mycell.seed( 10, fragmentType='B', center=True )
 mycell.seed( 10, fragmentType='A', center=True )
 
-#cProfile.run('mycell.zipBlocks( bondMargin=5, bondAngleMargin=20)', 'restats' )
-cProfile.run('mycell.growBlocks( 1000)', 'restats' )
+mycell.growBlocks( 100)
 mycell.dump()
+
+#cProfile.run('mycell.zipBlocks( bondMargin=5, bondAngleMargin=20)', 'restats' )
+#cProfile.run('mycell.growBlocks( 1000)', 'restats' )
 
 sys.exit()
 

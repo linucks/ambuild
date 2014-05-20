@@ -24,6 +24,7 @@ class FfieldParameters( object ):
         self.bonds = { 
                       'cp-cp'   : { 'k' : 1550.0, 'r0' : 1.384 },
                       'c1-cp'   : { 'k' : 970.0,  'r0' : 1.501 },
+                      'cp-c1'   : { 'k' : 970.0,  'r0' : 1.501 },
                       'c2-cp'   : { 'k' : 2000.0,  'r0' : 1.524 },
                       #'cp-ct'   : { 'k' : 1200.0, 'r0' : 1.54 },
                       #'c3a-c3a' : { 'k' : 1200.0, 'r0' : 1.54 },
@@ -906,9 +907,11 @@ class HoomdOptimiser( object ):
             xmld = hoomdblue.dump.xml(filename="runmd.xml",
                                       vis=True )
             dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
-                                      period=10,
+                                      period=1,
                                       unwrap_full=True,
                                       overwrite=True )
+#             mol2 = hoomdblue.dump.mol2(filename="runmd",
+#                                       period=1)
 
         # run mdCycles time steps
         hoomdblue.run( mdCycles )
