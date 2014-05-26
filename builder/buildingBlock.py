@@ -778,7 +778,7 @@ class Block(object):
         
         return
         
-    def writeXyz(self,name=None):
+    def writeXyz(self,name=None,cell=None):
         
         if not name:
             name = str(id(self))+".xyz"
@@ -788,8 +788,16 @@ class Block(object):
             f.write( "{}\n".format( self.numAtoms() ) )
             f.write( "id={}\n".format( str( id(self)  ) ) )
                              
-            for i, c in enumerate( self.iterCoord() ):
-                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( self.atomSymbol( i ), c[0], c[1], c[2]))
+            for i, coord in enumerate( self.iterCoord() ):
+
+                if cell:
+                    x, ix = util.wrapCoord( coord[0], cell[0], center=False )
+                    y, iy = util.wrapCoord( coord[1], cell[1], center=False )
+                    z, iz = util.wrapCoord( coord[2], cell[2], center=False )
+                else:
+                    x, y, z = coord
+
+                f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( self.atomSymbol( i ), x, y, z))
         
         print "Wrote file: {0}".format(fpath)
         

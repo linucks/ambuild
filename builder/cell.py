@@ -1093,8 +1093,9 @@ class Cell():
         # This is too expensive at the moment
         #self.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
         
-        self.writePickle(prefix+".pkl")
-        return
+        pklFile=os.path.abspath(prefix+".pkl")
+        self.writePickle(pklFile)
+        return pklFile
 
     def _endGroupsInPossibleBonds(self, endGroups ):
         """Check if any of the endGroups are already in the list of possible bonds"""

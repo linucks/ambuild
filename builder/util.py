@@ -804,7 +804,7 @@ def XdistanceP(self, v1, v2 ):
     
     return math.sqrt( dx*dx + dy*dy + dz*dz )
 
-def dumpPkl(pickleFile,split=False):
+def dumpPkl(pickleFile,split=None):
     
     fpath = os.path.abspath( pickleFile )
     print "Dumping pkl file: {0}".format( fpath )
@@ -814,16 +814,23 @@ def dumpPkl(pickleFile,split=False):
     mycell = cellFromPickle(pickleFile)
     
     if split:
-        for t in mycell.fragmentTypes().keys():
-            data = mycell.dataDict( fragmentType=t)
-            mycell.writeXyz("{0}_{1}_P.xyz".format(prefix,t),
-                            data=data,
-                            periodic=True)
-            mycell.writeCml("{0}_{1}_PV.cml".format(prefix,t),
-                            data=data,
-                            allBonds=True,
-                            periodic=True,
-                            pruneBonds=True)
+        if split == "splitBlocks":
+            for i, b in enumerate(mycell.blocks.values()):
+                # Hack assume all have same type
+                ftype=b._fragments[0].type()
+                b.writeXyz(name="{0}_{1}_{2}.xyz".format(prefix,ftype,i),
+                           cell=[mycell.A,mycell.B,mycell.C])
+        else:
+            for t in mycell.fragmentTypes().keys():
+                data = mycell.dataDict( fragmentType=t)
+                mycell.writeXyz("{0}_{1}_P.xyz".format(prefix,t),
+                                data=data,
+                                periodic=True)
+                mycell.writeCml("{0}_{1}_PV.cml".format(prefix,t),
+                                data=data,
+                                allBonds=True,
+                                periodic=True,
+                                pruneBonds=True)
     else:
         data = mycell.dataDict()
         mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
@@ -1071,9 +1078,9 @@ if __name__ == '__main__':
     #xyzContacts( sys.argv[1] )
     #hoomdContacts( sys.argv[1] )
     assert len(sys.argv) >= 2,"To dump coordinates from pickle: {0} [split] <file.pkl>".format( sys.argv[0] )
-    split=False
-    if sys.argv[1] == "split":
-        split=True
+    split=None
+    if sys.argv[1] == "split" or sys.argv[1] == "splitBlocks":
+        split=sys.argv[1]
         pklFile=sys.argv[2]
     else:
         pklFile=sys.argv[1]
