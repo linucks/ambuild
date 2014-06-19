@@ -1,0 +1,4 @@
+# Set Dihedral or Delatoms to -1 to ignore
+#EndGroup  #CapAtom #Dihedral #DelAtom
+0          1       
+0          4       
