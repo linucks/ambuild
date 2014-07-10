@@ -36,6 +36,7 @@ class FfieldParameters( object ):
                       #Here c_0 is = c= and nb is = n= to maintain ff label. Bondlength fitted to DFT 
                       #at b3lyp with vdw3 disp 6-311G basis set
                       'c_0-nb'   : { 'k' : 1200.0, 'r0' : 1.320 },
+                      'nb-c_0'   : { 'k' : 1200.0, 'r0' : 1.320 }, 
                       }
 
         self.angles = { 
