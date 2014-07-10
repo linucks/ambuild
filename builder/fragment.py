@@ -108,7 +108,8 @@ class EndGroup(object):
             else:
                 self.blockDihedralIdx = self.fragment._int2ext[self.fragmentDihedralIdx] + self.fragment.blockIdx
                 
-        if self.fragmentUwIdx != -1:
+        # -1 means no uw atom and if it is masked then there will not be an external index
+        if self.fragmentUwIdx != -1 and not self.fragment.masked[self.fragmentUwIdx]:
             #assert not self.fragment.isMasked( self.fragmentUwIdx )
             self.blockUwIdx = self.fragment._int2ext[self.fragmentUwIdx] + self.fragment.blockIdx 
         return
