@@ -2385,6 +2385,8 @@ class TestCell(unittest.TestCase):
         cls.pafCar = os.path.join( cls.ambuildDir, "blocks", "PAF_bb_typed.car" )
         cls.dcxCar = os.path.join( cls.ambuildDir, "blocks", "DCX.car" )
         cls.ch4Ca2Car = os.path.join( cls.ambuildDir, "blocks", "ch4Ca2.car" )
+        cls.amineCar = os.path.join( cls.ambuildDir, "blocks", "amine_typed.car" )
+        cls.triquinCar = os.path.join( cls.ambuildDir, "blocks", "triquin_typed.car" )
         
         print "START TEST CELL"
         if True:
@@ -2894,7 +2896,7 @@ class TestCell(unittest.TestCase):
         
         nblocks=2
         dihedral=90
-        added = mycell.growBlocks( nblocks, endGroupType=None, dihedral=dihedral, maxTries=5 )
+        added = mycell.growBlocks( nblocks, cellEndGroups=None, libraryEndGroups=None, dihedral=dihedral, maxTries=5 )
         
         # Check angle between two specified dihedrals is correct
         block1 = mycell.blocks[ mycell.blocks.keys()[0] ]
@@ -2906,6 +2908,23 @@ class TestCell(unittest.TestCase):
         p4 = block1.coord( bond1.endGroup2.dihedralIdx() )
         
         self.assertAlmostEqual( math.degrees( util.dihedral( p1, p2, p3, p4) ), dihedral )
+        
+        return
+
+    def testGrowBlocksUw(self):
+        """Test we can add blocks correctly"""
+        
+        CELLA = CELLB = CELLC = 10
+        
+        mycell = Cell()
+        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        
+        mycell.addInitBlock(filename=self.amineCar, fragmentType='amine')
+        mycell.addInitBlock(filename=self.triquinCar, fragmentType='triquin')
+        mycell.addBondType('amine:a-triquin:b')
+
+        mycell.seed( 1, fragmentType='triquin', center=True )
+        mycell.growBlocks(toGrow=1, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
         
         return
 
