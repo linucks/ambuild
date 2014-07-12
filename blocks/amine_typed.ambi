@@ -1,6 +1,0 @@
-# Set Dihedral or Delatoms to -1 to ignore
-#Type #EndGroup  #CapAtom #Dihedral #DelAtom
-a   6          12        4        13
-a   7          15        3        14
-a   8          16        0        17
-a   9          19        1        18

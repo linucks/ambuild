@@ -1,5 +1,0 @@
-#Type #EndGroup  #CapAtom #Dihedral #DelAtom
-a     0          1        2
-a     0          2        3
-b     0          3        4
-b     0          4        1

@@ -6,6 +6,7 @@ Created on Jan 15, 2013
 
 import collections
 import copy
+import csv
 import os
 import types
 
@@ -544,26 +545,34 @@ class Fragment(object):
         capAtoms      = []
         uwAtoms       = []
         dihedralAtoms = []
-        egfile = os.path.join( dirname, basename+".ambi" )
-        if os.path.isfile( egfile ):
-            #raise RuntimeError,"Cannot find endgroup file {0} for car file {1}".format( egfile, filepath )
-            egs = [ ( line.strip().split() ) for line in open( egfile, 'r') if line.strip() and not line.startswith("#") ]
-            
-            for eg in egs:
+        egfile = os.path.join( dirname, basename+".csv" )
+        if not os.path.isfile( egfile ):
+            raise RuntimeError,"Cannot find endGroup definition file: {0}".format(egfile)
+        
+        with open(egfile) as fh:
+            csvreader = csv.reader(fh, delimiter=',', quotechar='"')
+            for i, row in enumerate(csvreader):
+                if i == 0: # Header
+                    if not row[0].lower() == "type" and \
+                    row[1].lower() == "endgroup" and \
+                    row[2].lower() == "capatom" and \
+                    row[3].lower() == "delatom":
+                        raise RuntimeError,"First line of csv file must contain header:type,endgroup,capatom,dihedral,delatom"
+                    continue
+                
                 # For now make sure first value is letter
-                assert eg[0][0].isalpha(),"First column of ambi file needs to be a letter!"
-                endGroupTypes.append( eg[0] )
-                endGroups.append( int( eg[1] ) )
-                capAtoms.append( int( eg[2] ) )
-                if len(eg) > 3:
-                    dihedralAtoms.append( int( eg[3] )  )
+                assert row[0][0].isalpha(),"First column of ambi file needs to be a letter!"
+                endGroupTypes.append( row[0] )
+                endGroups.append( int( row[1] ) )
+                capAtoms.append( int( row[2] ) )
+                if len(row) > 3:
+                    dihedralAtoms.append( int( row[3] )  )
                 else:
                     dihedralAtoms.append( -1 )
-                if len(eg) > 4:
-                    uwAtoms.append( int( eg[4] )  )
+                if len(row) > 4:
+                    uwAtoms.append( int( row[4] )  )
                 else:
                     uwAtoms.append( -1 )
-                    
                 
             if self.fragmentType == 'cap' and len( endGroups ) != 1:
                 raise RuntimeError, "Capfile had >1 endGroup specified!"
