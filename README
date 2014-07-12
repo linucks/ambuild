@@ -1,0 +1,41 @@
+Amorphous Builder (Ambi)
+
+Ambi is a python program for creating polymeric molecular structures.
+
+
+
+The first stage is to specify the molecular building blocks. This is done with two files:
+* a s.car file that contains the coordinates, atom-types etc.
+* a .csv file that defines which atoms are endGroups, capAtoms etc.
+
+The .car file is a standard Insight II file, which can be prepared with programs such as Avogadro or Materials Studio.
+More information can be found about the format here:
+http://chem5.nchc.org.tw/software/document2007/insightII/doc/formats980/File_Formats_1998.html#781840
+
+The .csv file should be named identically to the .car file, but with a .csv suffix instead of .car. The .csv
+file is a standard comma-separated file that can be created and edited with any spreadsheet program. The first
+line is a header that names the columns (case isn't important, but the field names must be correct):
+
+Type,EndGroup,CapAtom,Dihedral,DelAtom
+
+Each subsequent line defines an endgroup, with the columns separated by a comma. The first three columns are
+required, the other two are optional
+
+The meanings of the columns are:
+* Type: this is just a string (starting with a letter) that names the endgroup and is used to specify bonding rules
+  and to control which endgroups in which building blocks are bonded in Grow or Join steps (see later).
+* EndGroup: this is the index of the atom in the .car file that is to be the endgroup. The endgroups are the atoms
+  that are bonded together by ambi. The indexing starts from 0, so if the first atom in the car file is to be the
+  endgroup, the endgroup column should be zero. If it was the 6th atom, the column should have 5 in it. All other 
+  indexes also start from zero.
+* CapAtom: this is the atom that caps the endgroup and defines the vector that the bond will be be made along. The
+  captom is removed when the bond is formed and the corresponding endgroup in the other block will replace the capatom,
+  although the other endgroup will probably not be in the same position, as length of the bond will be dependent on 
+  the types of the two endgroups.
+* Dihedral: this is an optional column that specifies the atom that defines the dihedral angle around the bond between
+  two endgroups. This can be used to specify the orientation of molecules when they are attached with a Grow step.
+* DelAtom: this is an optional column that specifies an atom that will be removed when the endgroup forms a bond this
+  can be used to unsaturate an atom on bonding. So for example, if the endgroup is the N of an NH2, then one of the H
+  atoms could be the capatom and the other the delatom, so that the on bonding to another NH2 endgroup a N=N bond would
+  be formed.
+  
