@@ -1257,7 +1257,7 @@ if __name__ == '__main__':
     #sys.exit()
     assert len(sys.argv) >= 2,"To dump coordinates from pickle: {0} [split] <file.pkl>".format( sys.argv[0] )
     split=False
-    if sys.argv[1] == "split":
+    if sys.argv[1] == "--split" or sys.argv[1] == "-s":
         split=True
         pklFile=sys.argv[2]
     else:
