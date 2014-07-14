@@ -1,39 +1,17 @@
 #!/usr/bin/env python
+
+# Annotated example amorphous builder script
 import sys
-sys.path.append("/home/abbiet/ambuild.new/builder")
-'''
-Created on Jan 15, 2013
 
-@author: abbietrewin
+# If you run ambi from a directory other than the builder directory, you will need to put the 
+# path to the builder directory in builderHome variable below
+builderHome="/home/abbiet/ambuild.new/builder"
+sys.path.insert(0,builderHOme)
 
-
-
-'''
-
+# This imports the builder cell module - this is the only module that should be required
 import cell
-import cPickle
-import sys
-import util
-
-import cProfile
-
-# import glob
-# flist = glob.glob("*.mol2")
-# with open("trajectory.xyz",'w') as o:
-#     for i, f in enumerate(flist):
-#         coords,symbols = util.readMol2(f)
-#         xyz = "{0}\ntrajectory {1}\n".format( len(coords), i )
-#         for j, c in enumerate(coords):
-#             xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( symbols[j], c[0], c[1], c[2] )
-#         o.writelines(xyz)
-# 
-# sys.exit()
 
 
-def cellFromPickle(pickleFile):
-    with open(pickleFile) as f:
-        myCell=cPickle.load(f)
-    return myCell
 
 # mycell.runMD(mdCycles=5000,dump=True)
 ##mycell = cellFromPickle("step_1.pkl")
@@ -112,6 +90,13 @@ if False:
 if not mycell.optimiseGeometry(doDihedral=True):
     print "FINAL OPTIMISATION FAILED!"
 mycell.dump()
+
+
+def cellFromPickle(pickleFile):
+    with open(pickleFile) as f:
+        myCell=cPickle.load(f)
+    return myCell
+
 
 
 #if __name__ == "__main__":
