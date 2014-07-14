@@ -3,10 +3,24 @@ Amorphous Builder (Ambi)
 Ambi is a python program for creating polymeric molecular structures.
 
 
+Concepts
+========
+Ambi works with fragments, blocks, endGroups and cells. The cell is a cubic volume of space that will be filled
+with molecular blocks. The blocks themselves are containers for fragments. Fragments are molecules that can 
+contain one or more endGroups that may be used to form bonds. Fragments never exist by themselves in the cell,
+they are always contained within blocks. A block may contain one or more fragments of the same or different types.
+The fragments within a block are bonded to each other via their endGroups, and rules can be specified for which
+endGroups can bond to which, the dihedral angle around the bond that the fragment should adopt, and any atoms that
+may need to be removed on bonding.
 
-The first stage is to specify the molecular building blocks. This is done with two files:
-* a s.car file that contains the coordinates, atom-types etc.
-* a .csv file that defines which atoms are endGroups, capAtoms etc.
+
+Specifying fragments and endGroups
+========================================
+
+The first stage is to specify the molecular fragments. This is done with two files:
+
+* a ".car" file that contains the coordinates, atom-types etc.
+* a ".csv" file that defines which atoms are endGroups, capAtoms etc.
 
 The .car file is a standard Insight II file, which can be prepared with programs such as Avogadro or Materials Studio.
 More information can be found about the format here:
@@ -18,24 +32,171 @@ line is a header that names the columns (case isn't important, but the field nam
 
 Type,EndGroup,CapAtom,Dihedral,DelAtom
 
-Each subsequent line defines an endgroup, with the columns separated by a comma. The first three columns are
-required, the other two are optional
+Each subsequent line defines an endGroup, with the columns separated by a comma. The first three columns are
+required, the other two are optional.
+
+NB: all indexes in the file start from 0 - this means that the first atom has an index of 0, the second 1, the third
+2 etc.
 
 The meanings of the columns are:
-* Type: this is just a string (starting with a letter) that names the endgroup and is used to specify bonding rules
-  and to control which endgroups in which building blocks are bonded in Grow or Join steps (see later).
-* EndGroup: this is the index of the atom in the .car file that is to be the endgroup. The endgroups are the atoms
-  that are bonded together by ambi. The indexing starts from 0, so if the first atom in the car file is to be the
-  endgroup, the endgroup column should be zero. If it was the 6th atom, the column should have 5 in it. All other 
-  indexes also start from zero.
-* CapAtom: this is the atom that caps the endgroup and defines the vector that the bond will be be made along. The
-  captom is removed when the bond is formed and the corresponding endgroup in the other block will replace the capatom,
-  although the other endgroup will probably not be in the same position, as length of the bond will be dependent on 
-  the types of the two endgroups.
+
+* Type: this is just a string (starting with a letter) that names the endGroup and is used to specify bonding rules
+  and to control which endGroups in which building blocks are bonded in Grow or Join steps (see later).
+  
+* EndGroup: this is the index of the atom in the .car file that is to be the endGroup. The endGroups are the atoms
+  that bond the fragments together. The indexing starts from 0, so if the first atom in the car file is to be the
+  endGroup, the endGroup column should be zero. If it was the 6th atom, the column should have 5 in it.
+  
+* CapAtom: this is the atom that caps the endGroup and defines the vector that the bond will be be made along. The
+  capAtom is removed when the bond is formed and the corresponding endGroup in the other block will replace the capAtom,
+  although the other endGroup will probably not be in the same position, as length of the bond will be dependent on 
+  the types of the two endGroups.
+  
 * Dihedral: this is an optional column that specifies the atom that defines the dihedral angle around the bond between
-  two endgroups. This can be used to specify the orientation of molecules when they are attached with a Grow step.
-* DelAtom: this is an optional column that specifies an atom that will be removed when the endgroup forms a bond this
-  can be used to unsaturate an atom on bonding. So for example, if the endgroup is the N of an NH2, then one of the H
-  atoms could be the capatom and the other the delatom, so that the on bonding to another NH2 endgroup a N=N bond would
+  two endGroups. This can be used to specify the orientation of molecules when they are attached with a Grow step.
+* DelAtom: this is an optional column that specifies an atom that will be removed when the endGroup forms a bond this
+  can be used to unsaturate an atom on bonding. So for example, if the endGroup is the N of an NH2, then one of the H
+  atoms could be the capAtom and the other the delatom, so that the on bonding to another NH2 endGroup a N=N bond would
   be formed.
   
+Setting up the system
+=====================
+
+Ambi creates its structures in a cubic cell. The first step is to create an empty cell object. This is done with
+the line:
+
+mycell = cell.Cell(atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False )
+
+This creates an empty cell object called mycell (we call it mycell so it doesn't clash with cell, which is the name
+we import the Cell code module with).
+
+The arguments to cell are:
+
+atomMargin - the additional distance that will be added on to the VdW radii of two atoms
+             to determine if they are close enough to clash.
+bondMargin - two atoms are considered close enough to bond if they are within the bond length
+             defined for the two atoms +/- the bondMargin.
+bondAngleMargin - the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
+doLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
+        and slows the program.
+
+The next step is define the size of the cell, which is done with the cellAxis function
+
+mycell.cellAxis( 20, 20, 20 )
+
+With the cell defined, the next stage is to add the fragments to the cell library so that they will become available
+for use. This is done with the following command:
+
+mycell.addLibraryFragment( filename=fragA, fragmentType='A' )
+
+filename - the path to the .car file. There will need to be a corresponding .csv file that defines
+         - the endGroups, capAtoms etc.
+fragmentType - a name that will be used to identify the fragment - cannot contain the ":" character
+
+As many fragments can be added as desired, the only requirement is that they are named differently.
+
+With the fragments added, we specify how they may bond. This is done with the following command:
+
+mycell.addBondType( 'A:a-B:a' )
+
+endGroups are defined by the fragmentType they belong to (which is set by the fragmentType argument
+to addLibraryFragment), together with the identifier for that endGroup (which is specified by the first column
+in the .csv file). These are separated by a colon, so an endGroup identifier is of the form:
+
+FRAGMENT1:ENDGROUP1
+
+A bond is defined by two endGroups, separated by a hyphen, so a bond identifier has the form:
+
+FRAGMENT1:ENDGROUP1-FRAGMENT2:ENDGROUP2
+
+In the above example, the block was added with a fragmentType of 'A' and the first column of the endGroup would have
+been 'a'.
+
+Sometimes it is necessary to limit the number of bonds of a particular type to an individual fragment. For example if
+a fragment has three nitrogen endGroups, but once one is used, the others become unavailable. This is achieved with
+the setMaxBonds argument as shown below:
+
+mycell.addBondType( bondType='A:a-B:a', count=1 )
+
+The arguments are:
+
+bondType - the bondType (FRAGMENT1:ENDGROUP1-FRAGMENT2:ENDGROUP2) as was specified with the call
+           to addBondType
+count - the maximum number of permissible bonds for a single fragment.
+
+This defines the system. We can then go about filling it with blocks in the following section.
+
+Filling the cell with blocks
+============================
+
+The first stage is to seed the system with molecular building blocks. This is done with the seed command as shown
+below:
+
+seed(100, fragmentType='A', maxTries=500, center=False )
+
+The arguments to seed are:
+
+nblocks - the number of blocks to add.
+fragmentType - the type of fragments to add. If fragment is None, or omitted, then fragments will be randomly
+               chosen from the library.
+maxTries - the number of attempts to make when adding a block before the seed step is fails and returns.
+center - True/False - if True, place the first block in the center of the cell.
+
+Once the system is seeded, Grow or Join steps are used either add new blocks to the system, or join existing blocks
+together.
+
+Growing a block involves adding a fragment to an existing block in the cell. This is done with the command:
+
+mycell.growBlocks( 10, cellEndGroups=['A:a'], libraryEndGroups=['B:a'], dihedral=90, maxTries=500 )
+
+The arguments to growBlocks are:
+
+toGrow: number of blocks to add
+cellEndGroups: a list of the endGroup types in the cell that the new blocks will be bonded to.
+              If more than one endGroup type is supplied, the endGroup will be randomly chosen from
+              that list.
+libraryEndGroups: a list of the endGroup types from the library that will be used form the bonds.
+              If more than one endGroup type is supplied, the endGroup will be randomly chosen from
+              that list.
+dihedral: the dihedral angle about the bond (3rd column in csv file)
+maxTries: number of attempts to make before giving up
+
+
+Joining blocks in the cell together
+===================================
+
+joinBlocks
+----------
+
+To join existing blocks in the cell together use the joinBlocks command:
+
+mycell.joinBlocks( 10, cellEndGroups=['A:a','B:a'], dihedral=90, maxTries=500 )
+
+This will randomly select two blocks (with endGroups as specified in the list supplied to cellEndGroups, or just
+two random blocks if cellEndGroups is None) and attempt to bond them by removing the second block from the cell
+and attaching it to the first.
+
+If the bond fails (due to clashes etc), the second block will be returned to its original position.
+
+The arguments to joinBlocks are:
+
+toJoin - number of blocks to join
+cellEndGroups - a list of the different endGroupTypes that should be bonded. If this is None
+                randomly chosen endGroups will be used.
+dihedral: the dihedral angle about the bond (3rd column in csv file)
+maxTries - the maximum number of moves to try when joining
+
+zipBlocks
+--------
+zipBlocks joins existing blocks in the cell by changing (usually by extending) the bondMargin and bondAngleMargin 
+parameters that were specified when the cell was created, and then looping over all the free endGroups to see if 
+any can bond with the new parameters. The blocks are not moved in this step and no check is made as to whether there
+are any other atoms between the two endGroups when a bond is made.
+
+zipBlocks is called thus:
+
+zipBlocks(bondMargin=5, bondAngleMargin=30)
+
+Optimising the geometry of the blocks in the cell
+=================================================
+
