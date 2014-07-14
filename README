@@ -59,19 +59,25 @@ The meanings of the columns are:
   atoms could be the capAtom and the other the delatom, so that the on bonding to another NH2 endGroup a N=N bond would
   be formed.
   
+The following sections describe the various operations that can be performed by ambi. For an annotated example script,
+see the builder.py file in the builder directory.
+
+
 Setting up the system
 =====================
 
 Ambi creates its structures in a cubic cell. The first step is to create an empty cell object. This is done with
-the line:
+a line likethe following:
 
-mycell = cell.Cell(atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False )
+boxDim=[20,20,20]
+mycell = cell.Cell( boxDim, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False )
 
 This creates an empty cell object called mycell (we call it mycell so it doesn't clash with cell, which is the name
-we import the Cell code module with).
+we import the Cell code module with). The boxDim argument sets the size of the A,B and C cell axes.
 
 The arguments to cell are:
 
+boxDim - a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms)
 atomMargin - the additional distance that will be added on to the VdW radii of two atoms
              to determine if they are close enough to clash.
 bondMargin - two atoms are considered close enough to bond if they are within the bond length
@@ -79,10 +85,6 @@ bondMargin - two atoms are considered close enough to bond if they are within th
 bondAngleMargin - the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
 doLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
         and slows the program.
-
-The next step is define the size of the cell, which is done with the cellAxis function
-
-mycell.cellAxis( 20, 20, 20 )
 
 With the cell defined, the next stage is to add the fragments to the cell library so that they will become available
 for use. This is done with the following command:
@@ -197,6 +199,99 @@ zipBlocks is called thus:
 
 zipBlocks(bondMargin=5, bondAngleMargin=30)
 
-Optimising the geometry of the blocks in the cell
-=================================================
+Optimising the geometry of the blocks in the cell and running molecular dynamics simulations
+============================================================================================
+
+Once the cell has been filled with blocks, it is possible to either optimise the geometry or run a molecular dynamics 
+simulation.
+
+Geometry Optimisation
+---------------------
+Geometry optimisations and MD runs are carried out using HOOMD-blue:
+http://codeblue.umich.edu/hoomd-blue/
+
+Rigid body optimisation is carried out using the mode_minimize_rigid_fire optimiser. The optimiser is run with a command
+similar to the following:
+
+mycell.optimiseGeometry( rigidBody=True,
+                         doDihedral=True,
+                         quiet=True,
+                         rCut=5.0,
+                         optCycles = 1000000,
+                         dt=0.005,
+                         Etol=1e-5,
+                         )
+
+The arguments accepted by optimiseGeometry are:
+
+rigidBody - True/False - do rigid body or all-atom optimisation
+doDihderal - True/False - include dihedral terms
+doImproper - True/False - include improper terms
+rCut - the VdW cutoff to use [angstroms]
+optCycles - the number of hoomdblue optimisation cycles to run.
+quiet - True/False - don't print out the normal hoomdblue runtime output to the screen.
+
+All other arguments accepted by the mode_minimize_rigid_fire are passed through, so for example, you can set fdec, alpha_start
+etc. in the call to optimiseGeometry. The arguments accepted by mode_minimize_rigid_fire are listed in the hoomdblue documentation:
+
+http://codeblue.umich.edu/hoomd-blue/doc/classhoomd__script_1_1integrate_1_1mode__minimize__rigid__fire.html
+
+Molecular Dynamics
+------------------
+
+MD runs are run using the nvt_rigid integrator within hoomdblue. The documentation for the nvt_rigid integrator is here:
+
+http://codeblue.umich.edu/hoomd-blue/doc/classhoomd__script_1_1integrate_1_1nvt__rigid.html
+
+To run MD, a call like the following can be used:
+
+mycell.runMD( doDihedral=True,
+              quiet=True,
+              rCut=5.0,
+              mdCycles=100,
+              T=1.0,
+              tau=0.5,
+              dt=0.0005,
+            )
+
+MD and Geometry optimisation combined
+-------------------------------------
+
+In order to save copying data between ambi and hoomdblue, a combined MD and Optimisation command has been created. This runs
+a very short optimisation loop to stabilise the structure, then runs an MD simulation, before running a full geometry optimisation
+to convergence (if possible).
+
+An example command to do this is:
+
+mycell.runMDAndOptimise( doDihedral=True )
+
+All the arguments accepted by optimiseGeometry and runMD are accepted by runMDAndOptimise.
+
+Saving Results and extracting coordinates
+=========================================
+
+By default, ambi doesn't save any data or coordinates. The dump command is used to save the current state of the cell.
+
+This is done as follows:
+
+mycell.dump()
+
+This will create a python pickle file (a serialised representation of the entire cell object) that will be named step_X.pkl
+where X is a number that will increment each time that dump is called.
+
+In order to extract coordinates the util.py script in the builder directory can be used. The script should be called with
+the path to the pkl file as the first argument, so if the build was taking place in the same directory, the command would be:
+
+./util.py step_4.pkl
+
+The util script will then create an XYZ file of the coordinates and a CML file suitable for viewing with Avogadro. The CML
+file is periodic, but the bonds that extend across the periodic bounduary have been omitted so this file SHOULD NOT be used
+for extracting structural data - it is just for visualisation.
+
+The util script also accepts a "--split" or "-s" argument, which tells the script to write out files for each fragment separately. This
+is done as follows:
+
+./util.py -s step_4.pkl
+
+
 
