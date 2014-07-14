@@ -565,11 +565,11 @@ class Fragment(object):
                 endGroupTypes.append( row[0] )
                 endGroups.append( int( row[1] ) )
                 capAtoms.append( int( row[2] ) )
-                if len(row) > 3:
+                if row[3] and row[3] != -1:
                     dihedralAtoms.append( int( row[3] )  )
                 else:
                     dihedralAtoms.append( -1 )
-                if len(row) > 4:
+                if row[4] and row[4] != -1:
                     uwAtoms.append( int( row[4] )  )
                 else:
                     uwAtoms.append( -1 )
