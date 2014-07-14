@@ -759,6 +759,7 @@ class HoomdOptimiser( object ):
               xmlFilename,
               doDihedral=False,
               doImproper=False,
+              rigidBody=True,
               rCut=None,
               quiet=None,
               **kw ):
@@ -834,10 +835,9 @@ class HoomdOptimiser( object ):
         # blows up
         preOptCycles = 5000
         self._optimiseGeometry(optCycles = preOptCycles,
-                               dt=0.0001,
-                               maxOptIter=1 )
+                               dt=0.0001 )
         # Now run the MD steps
-        self._runMD(  **kw )
+        self._runMD( **kw )
         
         # Finally do a full optimisation
         optimised = self._optimiseGeometry( **kw )
@@ -853,6 +853,7 @@ class HoomdOptimiser( object ):
                           xmlFilename,
                           doDihedral=False,
                           doImproper=False,
+                          rigidBody=True,
                           rCut=None,
                           quiet=None,
                           **kw ):
@@ -932,22 +933,26 @@ class HoomdOptimiser( object ):
     def _optimiseGeometry(self,
                           carOut="hoomdOpt.car",
                           optCycles = 1000000,
-                          maxOptIter=1,
-                          dt=0.005,
                           dump=False,
+                          dt=0.005,
+                          Nmin=5,
+                          alpha_start=0.1,
+                          ftol=1e-2,
+                          Etol=1e-5,
+                          finc=1.1,
+                          fdec=0.5,
                           **kw ):
         """Optimise the geometry with hoomdblue"""
         
         # Create the integrator with the values specified
         fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(),
                                                              dt=dt,
-                                                             Nmin=5,
-                                                             alpha_start=0.1,
-                                                             ftol=1e-2,
-                                                             #Etol=1e-4,
-                                                             Etol=1e-5,
-                                                             finc=1.1,
-                                                             fdec=0.5
+                                                             Nmin=Nmin,
+                                                             alpha_start=alpha_start,
+                                                             ftol=ftol,
+                                                             Etol=Etol,
+                                                             finc=finc,
+                                                             fdec=fdec,
                                                             )
         
         if dump:
@@ -960,14 +965,11 @@ class HoomdOptimiser( object ):
                                        )
             
         optimised=False
-        for i in range(maxOptIter):
-            hoomdblue.run( optCycles,
-                           callback=lambda x: -1 if fire.has_converged() else 0,
-                           callback_period=1 )
-            #hoomdblue.run( optCycles )
-            if fire.has_converged():
-                optimised=True
-                break
+        hoomdblue.run( optCycles,
+                       callback=lambda x: -1 if fire.has_converged() else 0,
+                       callback_period=1 )
+        if fire.has_converged():
+            optimised=True
             
             #if float( self.hlog.query( 'potential_energy' ) ) < 1E-2:
             #    print "!!!!!!!!!!!HACK CONVERGENCE CRITERIA!!!!!!"

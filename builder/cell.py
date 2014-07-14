@@ -152,14 +152,30 @@ class Cell():
     BONDTYPESEP     = "-" # Character for separating bonds
     ENDGROUPSEP     = ":" # Character for separating endGroups in bonds
 
-    def __init__( self, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False ):
-        '''
-        Constructor
+    def __init__( self, boxDim, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False ):
+        '''Construct an empty cell:
+        
+        Args:
+        boxDim - a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms)
+        atomMargin - the additional distance that will be added on to the VdW radii of two atoms
+                     to determine if they are close enough to clash.
+        bondMargin - two atoms are considered close enough to bond if they are within the bond length
+                     defined for the two atoms +/- the bondMargin
+        bondAngleMargin - the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
+        doLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
+                and slows the program.
         '''
 
         # A, B and C are cell vectors - for the time being we assume they are orthogonal
         # so they are just floats
-        self.A = self.B = self.C = None
+        if not type(boxDim) is list and len(boxDim) == 3:
+            raise RuntimeError,"Cell constructor needs the first argument to be list of 3 numbers setting the cell dimensions!"
+        
+        self.A = float(boxDim[0])
+        self.B = float(boxDim[1])
+        self.C = float(boxDim[2])
+        
+        assert self.A >0 and self.B > 0 and self.C > 0
         
         # For time being origin always 0,0,0
         self.origin = numpy.array( [0,0,0], dtype=numpy.float64 )
@@ -264,7 +280,21 @@ class Cell():
         return idxBlock
     
     def addBondType( self, bondType ):
-        """what it says"""
+        """Allow bonds between the two endGroups specified in the bondType.
+        
+        endGroups are defined by the fragmentType they belong to (which is set by the fragmentType argument
+        to addLibraryFragment), together with the identifier for that endGroup (which is specified by the first column
+        in the .csv file). These are separated by a colon, so an endGroup identifier is of the form:
+        
+        FRAGMENT1:ENDGROUP1
+        
+        A bond is defined by two endGroups, separated by a hyphen, so a bond identifier has the form:
+        
+        FRAGMENT1:ENDGROUP1-FRAGMENT2:ENDGROUP2
+        
+        Args:
+        bondType - a string specifying the two endGroups separated by a "-"
+        """
         
         try:
             b1EndGroupType, b2EndGroupType = bondType.split(self.BONDTYPESEP)
@@ -311,8 +341,14 @@ class Cell():
             self._bondTable[ bondB ].add( bondA )
         return
     
-    def addInitBlock( self, filename, fragmentType='A' ):
-        """add a block of type ftype from the file filename"""
+    def addLibraryFragment( self, filename, fragmentType='A' ):
+        """Add a fragment of type fragmentType defined in the .car file filename
+        
+        Args:
+        filename - the path to the .car file. There will need to be a corresponding .csv file that defines
+                 - the endGroups, capAtoms etc.
+        fragmentType - a name that will be used to identify the fragment - cannot contain the ":" character
+        """
         
         if self._fragmentLibrary.has_key( fragmentType ):
             raise RuntimeError,"Adding existing ftype {0} again!".format( fragmentType )
@@ -577,18 +613,6 @@ class Cell():
         
         return
     
-    def cellAxis(self,A=None,B=None,C=None):
-        """
-        Set the cell axes
-        """
-        #self.A = numpy.array( [A,0.0,0.0], dtype=numpy.float64 )
-        #self.C = numpy.array( [0.0,0.0,C], dtype=numpy.float64 )
-        #self.B = numpy.array( [0.0,B,0.0], dtype=numpy.float64 )
-        self.A = float(A)
-        self.B = float(B)
-        self.C = float(C)
-        return
-
     def checkMove( self, idxAddBlock ):
         clashing = self._checkMove( idxAddBlock )
         if clashing > 0:
@@ -1194,13 +1218,18 @@ class Cell():
                    dihedral=None,
                    maxTries=50 ):
         """
-        Add toGrow new blocks to the cell based on the initBlock
+        Add toGrow new blocks to the cell.
         
         Args:
         toGrow: number of blocks to add
-        endGroupType: the type of block to add
-        dihedral: the dihedral angle about the bond (3rd column in ambi file)
-        maxTries: number of tries to add before we give up
+        cellEndGroups: a list of the endGroup types in the cell that the new blocks will be bonded to.
+                      If more than one endGroup type is supplied, the endGroup will be randomly chosen from
+                      that list.
+        libraryEndGroups: a list of the endGroup types from the library that will be used form the bonds.
+                      If more than one endGroup type is supplied, the endGroup will be randomly chosen from
+                      that list.
+        dihedral: the dihedral angle about the bond (3rd column in csv file)
+        maxTries: number of attempts to make before giving up
         """
 
         self.logger.info( "Growing {0} new blocks".format( toGrow ) )
@@ -1256,11 +1285,14 @@ class Cell():
 
     def joinBlocks(self, toJoin, cellEndGroups=None, dihedral=None, maxTries=100 ):
         """
-        Try joining number of blocks together
+        Bond toJoin blocks together using the endGroup types specified in cellEndGroups
         
         Args:
-        toJoin: number of blocks to join
-        maxTries: the maximum number of moves to try when joining
+        toJoin - number of blocks to join
+        cellEndGroups - a list of the different endGroupTypes that should be bonded. If this is None
+                        randomly chosen endGroups will be used.
+        dihedral: the dihedral angle about the bond (3rd column in csv file)
+        maxTries - the maximum number of moves to try when joining
         """
         
         self.logger.info( "Joining {0} new blocks".format( toJoin ) )
@@ -1411,11 +1443,22 @@ class Cell():
     
     def optimiseGeometry(self,
                          xmlFilename="hoomdOpt.xml",
-                         rigidBody=True,
                          doDihedral=False,
                          doImproper=False,
                          **kw ):
-        """Optimise the geometry with hoomdblue"""
+        """Optimise the geometry with hoomdblue
+        
+        Rigid-body optimisation is carried out with the hoomdblue integrator: mode_minimize_rigid_fire
+        
+        Args:
+        rigidBody - True/False - do rigid body or all-atom optimisation
+        doDihderal - True/False - include dihedral terms
+        doImproper - True/False - include improper terms
+        rCut - the VdW cutoff to use [angstroms]
+        optCycles - the number of hoomdblue optimisation cycles to run.
+        quiet - True/False - don't print out the normal hoomdblue runtime output to the screen.
+        ALL OTHER ARGUMENTS ACCEPTED BY mode_minimize_rigid_fire ARE PASSED TO IT
+        """
         
         # HACK
         minCell=False
@@ -1621,6 +1664,20 @@ class Cell():
               doImproper=False,
               **kw ):
         
+        """Run a rigidbody molecular dynamics run using the hoomd blue nvt_rigid integrator
+        
+        Arguments:
+        rigidBody - True/False - do rigid body or all-atom MD
+        doDihderal - True/False - include dihedral terms
+        doImproper - True/False - include improper terms
+        rCut - the VdW cutoff to use [angstroms]
+        mdCycles - the number of MD cycles to run.
+        quiet - True/False - don't print out the normal hoomdblue runtime output to the screen.
+        T - nvt_rigid temperature
+        tau - nvt_rigid tau
+        dt - nvt_rigid timestep
+        """
+        
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
         
@@ -1654,6 +1711,12 @@ class Cell():
                          doImproper=False,
                          **kw ):
         
+        """Run an MD simulation followed by a Geometry optimisation.
+        
+        Args:
+        See runMD and optimiseGeometry for acceptable arguments.
+        """
+        
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
 
@@ -1685,9 +1748,17 @@ class Cell():
         return ok
 
     def seed( self, nblocks, fragmentType=None, maxTries=500, center=False ):
-        """ Seed a cell with nblocks.
+        """ Seed a cell with nblocks of type fragmentType.
         
-        Return the number of blocks we added
+        Args:
+        nblocks - the number of blocks to add.
+        fragmentType - the type of blocks to add. If fragment is None, or omitted, then blocks of a randomly
+                       chosen type will be added.
+        maxTries - the number of attempts to make when adding a block before the seed step is fails and returns.
+        center - True/False - if True, place the first block in the center of the cell.
+        
+        Returns:
+        the number of blocks added
         """
         
         if self.A is None or self.B is None or self.C is None:
@@ -1754,6 +1825,14 @@ class Cell():
         return numBlocksAdded
     
     def setMaxBond(self, bondType, count ):
+        """Limit the number of bondType bonds to an individual fragment to count bonds.
+        
+        Args:
+        bondType - the bondType (FRAGMENT1:ENDGROUP1-FRAGMENT2:ENDGROUP2) as was specified with the call
+                   to addBondType
+        count - the maximum number of permissible bonds for a single fragment.
+        
+        """
         # Get fragmentType and endGroupType
         fragmentType, endGroupType = bondType.split(self.ENDGROUPSEP)
         
@@ -2158,6 +2237,14 @@ class Cell():
         return True
     
     def zipBlocks(self, bondMargin=None, bondAngleMargin=None):
+        """Join existing blocks in the cell by changing the bondMargin and bondAngleMargin parameters that were 
+        specified when the cell was created, and then looping over all the free endGroups to see if any can bond 
+        with the new parameters. The blocks are not moved in this step and no check is made as to whether there
+        are any other atoms between the two endGroups when a bond is made.
+        
+        Args:
+        bondMargin - the new bondMargin [degrees] (see __init__ for definition)
+        bondAngleMargin - the new bondAngleMargin [degrees] (see __init__ for definition)"""
         
         self.logger.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin )  )
         
@@ -2392,10 +2479,9 @@ class TestCell(unittest.TestCase):
         if True:
             # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
             # From code looks like default r_buff is 0.4 and our default r_cut is 5.0 
-            CELLA = CELLB = CELLC = 20.0
-            mycell = Cell()
-            mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
-            mycell.addInitBlock(filename=cls.benzene2Car, fragmentType='A')
+            boxDim=[20,20,20]
+            mycell = Cell(boxDim)
+            mycell.addLibraryFragment(filename=cls.benzene2Car, fragmentType='A')
             mycell.addBondType( 'A:a-A:a')
             mycell.seed( 5 )
             mycell.growBlocks( 8 )
@@ -2407,12 +2493,9 @@ class TestCell(unittest.TestCase):
     def testCX4(self):
         """First pass"""
 
-        CELLA = CELLB = CELLC = 30
-        
-        mycell = Cell( )
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock( fragmentType='A', filename=self.cx4Car )
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
+        mycell.addLibraryFragment( fragmentType='A', filename=self.cx4Car )
         mycell.addBondType( 'A:a-A:a' )
         mycell.seed( 1 )
         mycell.growBlocks( 1 )
@@ -2448,12 +2531,11 @@ class TestCell(unittest.TestCase):
 #         return
     
     def testAmbody(self):
-        CELLA = CELLB = CELLC = 30
+
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock(filename=self.ch4Ca2Car, fragmentType='A')
+        mycell.addLibraryFragment(filename=self.ch4Ca2Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         added = mycell.seed( 3 )
         self.assertEqual(added, 3)
@@ -2463,13 +2545,11 @@ class TestCell(unittest.TestCase):
     def testBond(self):
         """First pass"""
 
-        CELLA = CELLB = CELLC = 30
-        
-        mycell = Cell( )
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
         fragmentType='A'
-        mycell.addInitBlock( fragmentType=fragmentType, filename=self.benzeneCar )
+        mycell.addLibraryFragment( fragmentType=fragmentType, filename=self.benzeneCar )
         mycell.addBondType( 'A:a-A:a' )
         
         centralBlock = mycell.getInitBlock( fragmentType=fragmentType )
@@ -2494,16 +2574,15 @@ class TestCell(unittest.TestCase):
 
     def testBlockTypes(self):
         """Test we can add a block correctly"""
+    
+    
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        CELLA = CELLB = CELLC = 30
-        
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock( fragmentType='A', filename=self.ch4Car )
-        mycell.addInitBlock( fragmentType='B', filename=self.ch4Car)
-        mycell.addInitBlock( fragmentType='C', filename=self.ch4Car )
-        mycell.addInitBlock( fragmentType='D', filename=self.ch4Car )
+        mycell.addLibraryFragment( fragmentType='A', filename=self.ch4Car )
+        mycell.addLibraryFragment( fragmentType='B', filename=self.ch4Car)
+        mycell.addLibraryFragment( fragmentType='C', filename=self.ch4Car )
+        mycell.addLibraryFragment( fragmentType='D', filename=self.ch4Car )
         
         mycell.addBondType( 'A:a-B:a' )
         mycell.addBondType( 'A:a-C:a' )
@@ -2544,11 +2623,8 @@ class TestCell(unittest.TestCase):
 
     def testCloseAtoms1(self):
         
-        CELLA = CELLB = CELLC = 2.1
-        mycell = Cell( atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
-        
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
+        mycell = Cell( [2.1,2.1,2.1],atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
+        mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
@@ -2578,12 +2654,8 @@ class TestCell(unittest.TestCase):
 
     def testCloseAtoms(self):
         
-        CELLA = CELLB = CELLC = 30
-        
-        mycell = Cell( atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
-        
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
+        mycell = Cell([30,30,30], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
+        mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
@@ -2640,15 +2712,11 @@ class TestCell(unittest.TestCase):
         """
         Test distance and close together
         """
-        CELLA = 30
-        CELLB = 30
-        CELLC = 30
-        
-        mycell = Cell( )
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         #mycell.initCell("../ch4_typed.car",incell=False)
         #block1 = mycell.initBlock.copy()
-        mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
+        mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
@@ -2681,10 +2749,8 @@ class TestCell(unittest.TestCase):
     def testDistance(self):
         """Test the distance under periodic boundary conditions"""
         
-        CELLA = CELLB = CELLC = 10
-        
-        mycell = Cell( )
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        boxDim=[10,10,10]
+        mycell = Cell(boxDim)
         
         v1 = [ 2.46803012, 1.67131881, 1.96745421]
         v2 = [ 1.07988345, 0.10567109, 1.64897769]
@@ -2719,9 +2785,9 @@ class TestCell(unittest.TestCase):
     
     def testDihedral(self):
         
-        CELLA = CELLB = CELLC = 30
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        CELLDIM=30
+        boxDim=[CELLDIM,CELLDIM,CELLDIM]
+        mycell = Cell(boxDim)
         
         p1 = numpy.array([ 0.0, 0.0, 0.0 ])
         p2 = numpy.array([ 10.0, 0.0, 0.0 ])
@@ -2733,8 +2799,8 @@ class TestCell(unittest.TestCase):
         self.assertEqual( ref, mycell.dihedral( p1, p2, p3, p4) )
         
         # Move by a full cell along x-axis - result should be the same
-        p3 = numpy.array([ 10.0+CELLA, 10.0, 0.0 ])
-        p4 = numpy.array([ 20.0+CELLA, 10.0, 10.0 ])
+        p3 = numpy.array([ 10.0+CELLDIM, 10.0, 0.0 ])
+        p4 = numpy.array([ 20.0+CELLDIM, 10.0, 10.0 ])
         
         self.assertEqual( ref, mycell.dihedral( p1, p2, p3, p4) )
         
@@ -2743,14 +2809,13 @@ class TestCell(unittest.TestCase):
     def testEndGroupTypes(self):
         """Test we can add a block correctly"""
         
-        CELLA = CELLB = CELLC = 30
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        mycell.addInitBlock( fragmentType='A', filename=self.ch4Car )
-        mycell.addInitBlock( fragmentType='B', filename=self.ch4Car)
-        mycell.addInitBlock( fragmentType='C', filename=self.ch4Car )
-        mycell.addInitBlock( fragmentType='D', filename=self.ch4Car )
+        mycell.addLibraryFragment( fragmentType='A', filename=self.ch4Car )
+        mycell.addLibraryFragment( fragmentType='B', filename=self.ch4Car)
+        mycell.addLibraryFragment( fragmentType='C', filename=self.ch4Car )
+        mycell.addLibraryFragment( fragmentType='D', filename=self.ch4Car )
         
         # Everything can bond to A (apart from A itself), but nothing can bond to anything else 
         mycell.addBondType( 'A:a-B:a' )
@@ -2785,13 +2850,10 @@ class TestCell(unittest.TestCase):
     def testGrowBlocks(self):
         """Test we can add blocks correctly"""
         
-        CELLA = CELLB = CELLC = 30
-        
-        mycell = Cell(doLog=False)
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
-        #mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
+        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
+        #mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         added = mycell.seed( 1 )
@@ -2814,12 +2876,10 @@ class TestCell(unittest.TestCase):
     def testGrowLimited(self):
         """Test we can add blocks correctly"""
         
-        CELLA = CELLB = CELLC = 30
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        mycell = Cell(doLog=True)
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock(filename=self.ch4_1Car, fragmentType='A')
+        mycell.addLibraryFragment(filename=self.ch4_1Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:b' )
         mycell.setMaxBond( 'A:a', 1 )
         
@@ -2833,12 +2893,10 @@ class TestCell(unittest.TestCase):
     def testGrowLimited2(self):
         """Test we can add blocks correctly"""
         
-        CELLA = CELLB = CELLC = 30
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        mycell = Cell(doLog=True)
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock(filename=self.dcxCar, fragmentType='A')
+        mycell.addLibraryFragment(filename=self.dcxCar, fragmentType='A')
         mycell.addBondType( 'A:CH-A:CCl' )
         mycell.setMaxBond( 'A:CH', 1 )
         
@@ -2852,12 +2910,10 @@ class TestCell(unittest.TestCase):
     def testGrowBlocks2(self):
         """Test we can add blocks correctly"""
         
-        CELLA = CELLB = CELLC = 30
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
 
         block1 = mycell.getInitBlock('A')
@@ -2884,12 +2940,10 @@ class TestCell(unittest.TestCase):
     def testGrowBlocksDihedral(self):
         """Test we can add blocks correctly"""
         
-        CELLA = CELLB = CELLC = 10
+        boxDim=[10,10,10]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
 
         added = mycell.seed( 1, center=True )
@@ -2914,13 +2968,11 @@ class TestCell(unittest.TestCase):
     def testGrowBlocksUw(self):
         """Test we can add blocks correctly"""
         
-        CELLA = CELLB = CELLC = 10
+        boxDim=[10,10,10]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock(filename=self.amineCar, fragmentType='amine')
-        mycell.addInitBlock(filename=self.triquinCar, fragmentType='triquin')
+        mycell.addLibraryFragment(filename=self.amineCar, fragmentType='amine')
+        mycell.addLibraryFragment(filename=self.triquinCar, fragmentType='triquin')
         mycell.addBondType('amine:a-triquin:b')
 
         mycell.seed( 1, fragmentType='triquin', center=True )
@@ -2932,13 +2984,11 @@ class TestCell(unittest.TestCase):
     def testJoinBlocks(self):
         """Test we can add a block correctly"""
         
-        CELLA = CELLB = CELLC = 30
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        #mycell.addInitBlock(filename=self.pafCar, fragmentType='A')
-        mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
+        #mycell.addLibraryFragment(filename=self.pafCar, fragmentType='A')
+        mycell.addLibraryFragment(filename=self.benzene2Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         toAdd = 5
@@ -2966,7 +3016,14 @@ class TestCell(unittest.TestCase):
         """
         """
         #self.testCell.writeCml("foo.cml")
-        self.testCell.optimiseGeometry( rigidBody=True, doDihedral=True, quiet=True )
+        self.testCell.optimiseGeometry( rigidBody=True,
+                                        doDihedral=True,
+                                        quiet=True,
+                                        rCut=5.0,
+                                        optCycles = 1000000,
+                                        dt=0.005,
+                                        Etol=1e-5,
+                                         )
         os.unlink("hoomdOpt.xml")
         return
     
@@ -2986,7 +3043,7 @@ class TestCell(unittest.TestCase):
         CELLA = CELLB = CELLC = 100
         mycell = Cell( )
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
+        mycell.addLibraryFragment( filename=self.benzeneCar, fragmentType='A' )
         mycell.addBondType( 'A:a-A:a' )
 
         mycell.seed( 1 )
@@ -3018,7 +3075,21 @@ class TestCell(unittest.TestCase):
         self.testCell.optimiseGeometry( doDihedral=True, quiet=True )
         os.unlink("hoomdOpt.xml")
         return
-    
+
+    def testRunMD(self):
+        """
+        """
+        self.testCell.runMD( doDihedral=True,
+                             quiet=True,
+                             rCut=5.0,
+                             mdCycles=100,
+                             T=1.0,
+                             tau=0.5,
+                             dt=0.0005,
+                         )
+        os.unlink("hoomdMD.xml")
+        return
+
     def testRunMDAndOptimise(self):
         """
         """
@@ -3136,13 +3207,11 @@ class TestCell(unittest.TestCase):
         """Test we can seed correctly"""
         
         
-        CELLA = CELLB = CELLC = 50
+        boxDim=[50,50,50]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
-        #mycell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
+        mycell.addLibraryFragment( filename=self.benzeneCar, fragmentType='A' )
+        #mycell.addLibraryFragment( filename=self.ch4Car, fragmentType='A' )
         mycell.addBondType( 'A:a-A:a' )
         
         nblocks = 10
@@ -3174,8 +3243,8 @@ class TestCell(unittest.TestCase):
     def testSurroundBoxes(self):
         """
         """
-        mycell = Cell( )
-        mycell.cellAxis( A=5, B=5, C=5 )
+        boxDim=[5,5,5]
+        mycell = Cell(boxDim)
         # box size=1 - need to set manually as not reading in a block
         mycell.maxAtomRadius = 0.5
         mycell.atomMargin = 0.0
@@ -3200,13 +3269,12 @@ class TestCell(unittest.TestCase):
     
     def testZipBlocks(self):
 
-        CELLA = CELLB = CELLC = 12.0
-        mycell = Cell(doLog=False)
-        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        boxDim=[12.0,12.0,12.0]
+        mycell = Cell(boxDim)
         
         ch4Car=self.ch4Car
-        #mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
-        mycell.addInitBlock(filename=ch4Car, fragmentType='A')
+        #mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.addLibraryFragment(filename=ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually
@@ -3245,11 +3313,10 @@ class TestCell(unittest.TestCase):
 
     def testZipBlocks2(self):
 
-        CELLA = CELLB = CELLC = 12.0
-        mycell = Cell(doLog=False)
-        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        boxDim=[12.0,12.0,12.0]
+        mycell = Cell(boxDim)
         
-        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually
@@ -3282,12 +3349,11 @@ class TestCell(unittest.TestCase):
     def testZipBlocks3(self):
         """Bonding with margin"""
 
-        CELLA = CELLB = CELLC = 12.0
-        mycell = Cell(doLog=False)
-        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        boxDim=[12.0,12.0,12.0]
+        mycell = Cell(boxDim)
         
         ch4Car=self.ch4Car
-        mycell.addInitBlock(filename=ch4Car, fragmentType='A')
+        mycell.addLibraryFragment(filename=ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually
@@ -3324,17 +3390,16 @@ class TestCell(unittest.TestCase):
         write out cml
         """
         
-        CELLA = CELLB = CELLC = 100.0
-        mycell = Cell()
-        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        boxDim=[100,100,100]
+        mycell = Cell(boxDim)
         
-        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
-        mycell.addInitBlock(filename=self.ch4Car, fragmentType='B')
+        mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='B')
         mycell.addBondType( 'B:a-B:a')
         
-        mycell.addInitBlock(filename=self.ch4Car, fragmentType='C')
+        mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='C')
         mycell.addBondType( 'C:a-C:a')
         
         # Create block manually - this is so we have reproducible results
@@ -3426,11 +3491,10 @@ class TestCell(unittest.TestCase):
         """
         import hoomdblue
         
-        CELLA = CELLB = CELLC = 20.0
-        mycell = Cell()
-        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        boxDim=[20,20,20]
+        mycell = Cell(boxDim)
         
-        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually - this is so we have reproducible results
@@ -3496,7 +3560,7 @@ class TestCell(unittest.TestCase):
         CELLA = CELLB = CELLC = 100
         mycell = Cell( )
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
+        mycell.addLibraryFragment( filename=self.ch4Car, fragmentType='A' )
         mycell.addBondType( 'A:a-A:a' )
 
         mycell.seed( 1 )
