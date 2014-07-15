@@ -117,6 +117,32 @@ class Analyse():
         self._stepTime = None
         self.start()
         return
+    
+class CellData(object):
+    def __init__(self):
+        self.atomTypes               = []
+        self.bodies                  = []
+        self.coords                  = []
+        self.charges                 = []
+        self.diameters               = []
+        self.images                  = []
+        self.masses                  = []
+        self.symbols                 = []
+        self.bonds                   = []
+        self.bondLabels              = []
+        self.angles                  = []
+        self.angleLabels             = []
+        self.propers                 = []
+        self.properLabels            = []
+        self.impropers               = []
+        self.improperLabels          = []
+#         self.blockBonds              = []
+#         self.blockBondLabels         = []
+#         self.blockBondAngles         = []
+#         self.blockBondAngleLabels    = []
+#         self.blockBondDihedrals      = []
+#         self.blockBondDihedralLabels = []
+        return
 
 class Cell():
     '''
@@ -126,14 +152,30 @@ class Cell():
     BONDTYPESEP     = "-" # Character for separating bonds
     ENDGROUPSEP     = ":" # Character for separating endGroups in bonds
 
-    def __init__( self, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False ):
-        '''
-        Constructor
+    def __init__( self, boxDim, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False ):
+        '''Construct an empty cell:
+        
+        Args:
+        boxDim - a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms)
+        atomMargin - the additional distance that will be added on to the VdW radii of two atoms
+                     to determine if they are close enough to clash.
+        bondMargin - two atoms are considered close enough to bond if they are within the bond length
+                     defined for the two atoms +/- the bondMargin
+        bondAngleMargin - the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
+        doLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
+                and slows the program.
         '''
 
         # A, B and C are cell vectors - for the time being we assume they are orthogonal
         # so they are just floats
-        self.A = self.B = self.C = None
+        if not type(boxDim) is list and len(boxDim) == 3:
+            raise RuntimeError,"Cell constructor needs the first argument to be list of 3 numbers setting the cell dimensions!"
+        
+        self.A = float(boxDim[0])
+        self.B = float(boxDim[1])
+        self.C = float(boxDim[2])
+        
+        assert self.A >0 and self.B > 0 and self.C > 0
         
         # For time being origin always 0,0,0
         self.origin = numpy.array( [0,0,0], dtype=numpy.float64 )
@@ -202,22 +244,17 @@ class Cell():
         """
         
         # The id of the new block
-        if idxBlock == None:
+        if idxBlock is None:
             idxBlock = block.id
         
         # Add to the dict
         self.blocks[ idxBlock ] = block
         
         # Each atom has its own cell - X atoms remain as Nones
-        block.atomCell = [ None ] * block.numAllAtoms()
+        block.atomCell = [ None ] * block.numAtoms()
         
         #print "nbox ",self.numBoxA,self.numBoxB,self.numBoxC
         for idxCoord,coord in enumerate( block.iterCoord() ):
-            
-            # Skip adding dummy atoms
-            if block.invisibleAtom( idxCoord ):
-                #print "SKIPPING AS BONDED or x"
-                continue
             
             # Periodic Boundaries
             x = coord[0] % self.A
@@ -243,7 +280,21 @@ class Cell():
         return idxBlock
     
     def addBondType( self, bondType ):
-        """what it says"""
+        """Allow bonds between the two endGroups specified in the bondType.
+        
+        endGroups are defined by the fragmentType they belong to (which is set by the fragmentType argument
+        to libraryAddFragment), together with the identifier for that endGroup (which is specified by the first column
+        in the .csv file). These are separated by a colon, so an endGroup identifier is of the form:
+        
+        FRAGMENT1:ENDGROUP1
+        
+        A bond is defined by two endGroups, separated by a hyphen, so a bond identifier has the form:
+        
+        FRAGMENT1:ENDGROUP1-FRAGMENT2:ENDGROUP2
+        
+        Args:
+        bondType - a string specifying the two endGroups separated by a "-"
+        """
         
         try:
             b1EndGroupType, b2EndGroupType = bondType.split(self.BONDTYPESEP)
@@ -268,7 +319,7 @@ class Cell():
         
         bt = (b1EndGroupType, b2EndGroupType)
         if bt in self.bondTypes:
-            raise RuntimeError,"Adding an existing bond type: {0}".format( t )
+            raise RuntimeError,"Adding an existing bond type: {0}".format( bt )
         
         self.bondTypes.append( bt )
         
@@ -290,14 +341,24 @@ class Cell():
             self._bondTable[ bondB ].add( bondA )
         return
     
-    def addInitBlock( self, filename, fragmentType='A' ):
-        """add a block of type ftype from the file filename"""
+    def libraryAddFragment( self, filename, fragmentType='A' ):
+        """Add a fragment of type fragmentType defined in the .car file filename
+        
+        Args:
+        filename - the path to the .car file. There will need to be a corresponding .csv file that defines
+                 - the endGroups, capAtoms etc.
+        fragmentType - a name that will be used to identify the fragment - cannot contain the ":" character
+        """
         
         if self._fragmentLibrary.has_key( fragmentType ):
             raise RuntimeError,"Adding existing ftype {0} again!".format( fragmentType )
         
         # For now don't allow adding blocks when the cell has blocks in
         assert not len(self.blocks),"Cannot add library fragments with populated cell!"
+        
+        # Make sure the type is valid
+        if ":" in fragmentType or "-" in fragmentType:
+            raise RuntimeError,"fragmentType cannot contain - or : characters!"
         
         # Create fragment
         f = fragment.Fragment( filename, fragmentType )
@@ -320,7 +381,7 @@ class Cell():
     def angle(self, c1, c2, c3):
         """Return the angle in radians c1---c2---c3
         where c are the coordinates in a numpy array"""
-        return util.angle(c1, c2, c3, cell=[self.A,self.B,self.C])
+        return util.angle(c1, c2, c3, cell=numpy.array([self.A,self.B,self.C]))
     
     def attachBlock(self, growEndGroup, staticEndGroup, dihedral=None ):
         """
@@ -336,7 +397,7 @@ class Cell():
         staticBlock    = staticEndGroup.block()
         idxStaticBlock = staticBlock.id
         
-        staticBlock.positionGrowBlock( staticEndGroup, growBlock, growEndGroup, dihedral=dihedral )
+        staticBlock.positionGrowBlock( staticEndGroup, growEndGroup, dihedral=dihedral )
         
         # Now add growBlock to the cell so we can check for clashes
         blockId = self.addBlock( growBlock )
@@ -345,12 +406,17 @@ class Cell():
         #self.dump()
         #sys.exit()
         
+        self.logger.debug("GOT {0} {1}".format(staticEndGroup, growEndGroup))
+        
         # Check it doesn't clash
         if self.checkMove( blockId ) and self.processBonds() > 0:
             self.logger.debug("attachBlock first checkMove returned True")
             return True
         else:
             self.logger.debug("attachBlock first checkMove returned False")
+            #self.writeCml("foo.cml", periodic=True, pruneBonds=False)
+            #sys.exit()
+
         
         # Only attempt rotation if we're not worried about the dihedral
         # NOTE! - should only bother with the rotation if the cell is relatively crowded - otherwise
@@ -359,9 +425,9 @@ class Cell():
             # Didn't work so try rotating the growBlock about the bond to see if that lets it fit
             
             # Determine the axis and center to rotate about
-            blockEndGroup = growBlock.atomCoord( growEndGroup.blockEndGroupIdx )
+            blockEndGroup = growBlock.coord( growEndGroup.endGroupIdx() )
             blockS = self.blocks[ idxStaticBlock ]
-            blockSEndGroup = blockS.atomCoord( staticEndGroup.blockEndGroupIdx )
+            blockSEndGroup = blockS.coord( staticEndGroup.endGroupIdx() )
             axis = blockSEndGroup - blockEndGroup
             center = blockSEndGroup
             
@@ -428,7 +494,7 @@ class Cell():
         #bond.block1.bondBlock( bond )
         bond.endGroup1.block().bondBlock( bond )
         #self.logger.debug("after bond: {0} - {1}".format( idxBlock1, block1._bondObjects) )
-        idxBlock = self.addBlock( bond.endGroup1.block() )
+        self.addBlock( bond.endGroup1.block() )
         return
 
     def canBond( self,
@@ -444,10 +510,10 @@ class Cell():
         # The check should have been made before this is called on whether the two atoms are endGroup
         
         # Check length
-        bond_length = util.bondLength( addBlock.atomSymbol( idxAddAtom ), staticBlock.atomSymbol( idxStaticAtom ) )
+        bond_length = util.bondLength( addBlock.symbol( idxAddAtom ), staticBlock.symbol( idxStaticAtom ) )
         if bond_length < 0:
-            raise RuntimeError,"Missing bond distance for: {0}-{1}".format( addBlock.atomSymbol( idxAddAtom ),
-                                                                            staticBlock.atomSymbol( idxStaticAtom ) )
+            raise RuntimeError,"Missing bond distance for: {0}-{1}".format( addBlock.symbol( idxAddAtom ),
+                                                                            staticBlock.symbol( idxStaticAtom ) )
         
         # See if the distance between them is acceptable
         #print "CHECKING BOND ATOMS ",bond_length,self.distance( addCoord, staticCoord )
@@ -469,22 +535,22 @@ class Cell():
                 if self._endGroupsInPossibleBonds( [ staticEndGroup, addEndGroup ] ):
                     continue
             
-                # First check if endGroups of this type can bond - will apply to all so can bail on first fail
+                # First check if endGroups of this type can bond 
                 if not self.bondAllowed( staticEndGroup, addEndGroup ):
                     self.logger.debug( "Bond disallowed by bonding rules: {0} : {1}".format( staticEndGroup, 
                                                                                               addEndGroup
                                                                                              ) )
-                    return False
+                    continue
 
                 #print "Possible bond for {0} {1} {2} dist {3}".format( idxAddAtom,
                 #                                                       idxStaticBlock,
                 #                                                       idxStaticAtom, 
                 #                                                       self.distance( addCoord, staticCoord ) )
-                addCoord      = addBlock.atomCoord( idxAddAtom )
-                staticCoord   = staticBlock.atomCoord( idxStaticAtom )
-                addCapAtom    = addBlock.atomCoord( addEndGroup.blockCapIdx )
+                addCoord      = addBlock.coord( idxAddAtom )
+                staticCoord   = staticBlock.coord( idxStaticAtom )
+                addCapAtom    = addBlock.coord( addEndGroup.capIdx() )
                 angle1        = self.angle( addCapAtom, addCoord, staticCoord )
-                staticCapAtom = staticBlock.atomCoord( staticEndGroup.blockCapIdx )
+                staticCapAtom = staticBlock.coord( staticEndGroup.capIdx() )
                 angle2        = self.angle( staticCapAtom, staticCoord, addCoord )
                 
                 #print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( angleAtom, addCoord, staticCoord )
@@ -506,7 +572,7 @@ class Cell():
                 # Create bond object and set the parameters
                 bond = buildingBlock.Bond(staticEndGroup,addEndGroup)
                 self._possibleBonds.append( bond )
-                self.logger.debug( "canBond returning True with bonds: {0}".format( self._possibleBonds ) )
+                self.logger.debug( "canBond returning True with bonds: {0}".format( [str(b) for b in self._possibleBonds] ) )
                 return True
         
         self.logger.debug( "canBond returning False" )
@@ -537,7 +603,7 @@ class Cell():
                 
                 cblock = capBlock.copy()
                 #print "ADDING CAPBLOCK ",id(cblock)
-                block.positionGrowBlock( endGroup, cblock, capEndGroup )
+                block.positionGrowBlock( endGroup, capEndGroup )
                 
                 idxBlock = self.addBlock( cblock )
             
@@ -551,18 +617,6 @@ class Cell():
         
         return
     
-    def cellAxis(self,A=None,B=None,C=None):
-        """
-        Set the cell axes
-        """
-        #self.A = numpy.array( [A,0.0,0.0], dtype=numpy.float64 )
-        #self.C = numpy.array( [0.0,0.0,C], dtype=numpy.float64 )
-        #self.B = numpy.array( [0.0,B,0.0], dtype=numpy.float64 )
-        self.A = float(A)
-        self.B = float(B)
-        self.C = float(C)
-        return
-
     def checkMove( self, idxAddBlock ):
         clashing = self._checkMove( idxAddBlock )
         if clashing > 0:
@@ -634,7 +688,7 @@ class Cell():
                     ):
             
                 # No bond so just check if the two atoms are close enough for a clash
-                if distance <= addBlock.atomRadius( idxAddAtom ) + staticBlock.atomRadius( idxStaticAtom ) + self.atomMargin:
+                if distance <= addBlock.radius( idxAddAtom ) + staticBlock.radius( idxStaticAtom ) + self.atomMargin:
                     #print "CLASH {}->{} = {} < {}".format( addCoord,staticCoord, d, l  )
                     clashAtoms.append( ( staticBlock, idxStaticAtom, addBlock, idxAddAtom ) )
         
@@ -657,6 +711,7 @@ class Cell():
         
         addBlock    = None
         staticBlock = None
+        
         for bond in self._possibleBonds:
             
             b1Block = bond.endGroup1.block()
@@ -664,22 +719,17 @@ class Cell():
             
             # We need to remove any clashes with the cap atoms - the added block isn't bonded
             # so the cap atoms aren't excluded
-            b1Cap      = bond.endGroup1.blockCapIdx
-            b2Cap      = bond.endGroup2.blockCapIdx
-            b1EndGroup = bond.endGroup1.blockEndGroupIdx
-            b2EndGroup = bond.endGroup2.blockEndGroupIdx
+            b1Cap      = bond.endGroup1.capIdx()
+            b2Cap      = bond.endGroup2.capIdx()
+            b1EndGroup = bond.endGroup1.endGroupIdx()
+            b2EndGroup = bond.endGroup2.endGroupIdx()
             
             # Also need to remove any clashes of the endGroups with atoms directly bonded to the 
             # opposite endGroup
             b1BondAtoms = b1Block.atomBonded1( b1EndGroup )
-            # Only need to do this if the cap was added to the cell
-            if not b1Block.invisibleAtom( b1Cap ):
-                 b1BondAtoms.remove( b1Cap )
-                
+            b1BondAtoms.remove( b1Cap )
             b2BondAtoms    = b2Block.atomBonded1( b2EndGroup )
-            # Only need to do this if the cap was added to the cell
-            if not b2Block.invisibleAtom( b2Cap ):
-                b2BondAtoms.remove( b2Cap )
+            b2BondAtoms.remove( b2Cap )
 
             toGo = [] # Need to remember indices as we can't remove from a list while we cycle through it
             for i, ( cellBlock, idxCellAtom, addBlock, idxAddAtom) in enumerate(clashAtoms):
@@ -747,7 +797,7 @@ class Cell():
             surrounding = self.box3[key]
             
             #For each box loop through all its atoms chekcking for clashes
-            for i, sbox in enumerate(surrounding):
+            for sbox in surrounding:
                 
                 #print "KEY ",i,sbox
                 # For each box, get the list of the atoms as (block,coord1) tuples
@@ -766,7 +816,7 @@ class Cell():
                     block2 = self.blocks[idxBlock2]
                     
                     c1.append( coord1 )
-                    c2.append( block2.atomCoord( idxAtom2 ) )
+                    c2.append( block2.coord( idxAtom2 ) )
                     allContacts.append( ( idxAtom1, block2, idxAtom2 ) )
                     count += 1
         
@@ -843,187 +893,139 @@ class Cell():
         self.logger.debug("cellEndGroupPair returning: {0} {1}".format(endGroup1.type(),endGroup2.type()) )
         return endGroup1, endGroup2
 
-    def dataDict( self, fragmentType=None ):
-        """Get the data for the current cell
-        """
+    def dataDict( self, rigidBody=True, periodic=True, center=False, fragmentType=None ):
 
-        # For now use a dictionary to hold all the data
-        d = {
-        'angleLabel' : [], 
-        'angle' : [], 
-        'bondLabel' : [], 
-        'bond' : [], 
-        'body' : [], 
-        'charge' : [], 
-        'coord' : [], 
-        'diameter' : [], 
-        'dihedral' : [],  # Used for impropers too
-        'dihedralLabel' : [], 
-        'fragmentBond' : [], 
-        'fragmentBondLabel' : [], 
-        'label' : [], 
-        'mass' : [], 
-        'symbol' : [], 
-        'type' : [], 
-        }
+        d = CellData()
         
-        def b2g( atomIdx, atomMap, atomCount ):
-            """Map block atom index to global index in list of all atoms in the cell
-            Need to know how long this block is  - len( atomMap )
-            subtract this from the atomCount as this is where the data for this block starts
-            """
-            return atomCount - len( atomMap ) + atomMap[ atomIdx ]
+        if fragmentType is not None:
+            # Only returning data for one type of fragment
+            assert fragmentType in self.fragmentTypes(),"FragmentType {0} not in cell!".format(fragmentType)
+            atomCount=0
+            for b in self.blocks.values():
+                coords, symbols, bonds = b.dataByFragment(fragmentType)
+                d.coords += coords
+                d.symbols += symbols
+                d.bonds += [ (b1+atomCount, b2+atomCount) for (b1, b2) in bonds ]
+                atomCount += len(coords)
+                
+            return d
         
-        # Cell parameters
-        d['A'] = self.A
-        d['B'] = self.B
-        d['C'] = self.C
-        
-        atomCount=0 # Tracks overall number of atoms - across blocks
-        fragCount=-1 # Tracks fragments (bodies) count starts from 1
-        for idxBlock, block in self.blocks.iteritems():
+        atomCount = 0
+        blockAtomCount = 0
+        bodyCount = -1
+        lastBody = 0
+        for block in self.blocks.itervalues():
             
-            # Coordinates and bodies
-            j = 0 # Tracks the atoms within a block
-            atomMap = {} # For each block map the internal block index to the one without capAtoms
-            lastFrag = (-1, -1)
-            for i, ( fragment, atomIdx ) in enumerate( block._dataMap ):
-                
-                # We are only outputting one of the framgment types so ignore the others
-                if fragmentType is not None and fragment.type() != fragmentType:
-                    continue
-                
-                # Increment body count
-                if lastFrag != ( fragment, fragment.body( atomIdx ) ):
-                    lastFrag = ( fragment, fragment.body( atomIdx ) )
-                    fragCount += 1
-                    
-                # This is how we keep the cap atoms in the data structures but avoid outputting
-                # them to Hoomdblue
-                if block.ignoreAtom( i ):
-                    continue
+            # Always increment the bodyCount with a new block
+            blockAtomCount = 0
+            bodyCount += 1
+            lastBody = 0
+
+            # First go through coordinates
+            for i, coord in enumerate(block.iterCoord() ):
+                if periodic:
+                    x, ix = util.wrapCoord( coord[0], self.A, center=center )
+                    y, iy = util.wrapCoord( coord[1], self.B, center=center )
+                    z, iz = util.wrapCoord( coord[2], self.C, center=center )
+                    d.coords.append( numpy.array([x,y,z]))
+                    d.images.append([ix,iy,iz])
                 else:
-                    atomMap[ i ] = j
-
-                d['body'].append( fragCount ) 
-                d['coord'].append( copy.copy( block.atomCoord( i ) ) )
+                    d.coords.append(coord)
+                    d.images.append([0,0,0])
                 
-                # For time being use zero so just under LJ potential & bond
-                #diameter += "{0}\n".format( frag._atomRadii[ k ] )
-                d['charge'].append( block.atomCharge( i ) )
-                # HACK
-                if block.atomSymbol( i ) == 'j':
-                    d['diameter'].append( 0.1 )
-                else:
-                    d['diameter'].append( 0.1 )
-                d['label'].append( block.atomLabel( i ) )
-                d['mass'].append( block.atomMass( i ) )
-                d['symbol'].append( block.atomSymbol( i ) )
-                d['type'].append( block.atomType( i ) )
+                d.atomTypes.append(block.type(i))
+                d.charges.append(block.charge(i))
+                d.diameters.append(0.1)
+                d.masses.append(block.mass(i))
+                d.symbols.append(block.symbol(i))
                 
-                j += 1
-                atomCount += 1
+                # Work out which body this is in
+                b = block.body(i)
+                if b != lastBody:
+                    bodyCount +=1
+                    lastBody = b
+                d.bodies.append( bodyCount )
+                blockAtomCount += 1
             
-            # Now have overall atom count and map of atoms within block
+            if not rigidBody:
+                # add all bonds, angles and dihederals throughout the whole block
+                # Add all bonds
+                d.bonds += [ (a1+atomCount, a2+atomCount) for a1, a2 in block.bonds() ]
+                d.bondLabels += [ "{0}-{1}".format(block.type(a1),block.type(a2)) for a1, a2 in block.bonds() ]
+                angles, propers, impropers = block.anglesAndDihedrals()
+                # Add all angles
+                d.angles += [ (a1+atomCount, a2+atomCount, a3+atomCount) for a1, a2, a3 in angles ]
+                d.angleLabels += [ "{0}-{1}-{2}".format(block.type(a1),block.type(a2),block.type(a3)) for a1, a2, a3 in angles ]
+                # Add all propers
+                d.propers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
+                              for a1, a2, a3, a4 in propers ]
+                d.properLabels += [ "{0}-{1}-{2}-{3}".format(block.type(a1),
+                                                             block.type(a2),
+                                                             block.type(a3),
+                                                             block.type(a4)
+                                                             ) for a1, a2, a3, a4 in propers ]
+                # Add all impropers
+                d.impropers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
+                                for a1, a2, a3, a4 in impropers ]
+                d.improperLabels += [ "{0}-{1}-{2}-{3}".format(block.type(a1),
+                                                             block.type(a2),
+                                                             block.type(a3),
+                                                             block.type(a4)
+                                                             ) for a1, a2, a3, a4 in impropers ]
             
-            # Get all internal fragment bonds
-            fbonds = block.fragmentBonds()
-            for i1, i2 in fbonds:
-                try:
-                    d['fragmentBond'].append( ( b2g( i1, atomMap, atomCount ), b2g( i2, atomMap, atomCount ) ) )
+            else:
+                # Just add the bonds between blocks. Also add angles for all atoms connected to the bonds
+                # we do this so that we can exclude them from VdW interactions in MD codes
+                for b1, b2 in block.blockBonds():
                     
-                    atom1label = block.atomType( i1 )
-                    atom2label = block.atomType( i2 )
-                    # Sort so the order always the same
-                    l = sorted( ( atom1label, atom2label ) )
-                    d['fragmentBondLabel'].append( "{0}-{1}".format( l[ 0 ], l[ 1 ] ) )
-                except KeyError:
-                    # This is a bond that is to a bondedCapAtom so ignored
-                    pass
-            
-            # If we're only outputting one fragment type, bonding etc will be screwed up so skip this
-            if fragmentType is not None:
-                continue
-            
-            # Collect all bond information
-            for bond in block.bonds():
-                
-                endGroup1Idx = bond.endGroup1.blockEndGroupIdx
-                endGroup2Idx = bond.endGroup2.blockEndGroupIdx
-                endGroup1Label = block.atomType( endGroup1Idx )
-                endGroup2Label = block.atomType( endGroup2Idx )
-                
-                # Sort so the order always the same
-                l = sorted( ( endGroup1Label, endGroup2Label ) )
-                d['bondLabel'].append( "{0}-{1}".format( l[ 0 ], l[ 1 ] ) )
-                d['bond'].append( ( b2g( endGroup1Idx, atomMap, atomCount ),
-                                    b2g( endGroup2Idx, atomMap, atomCount ) ) )
-                
-                # Atoms connected to the endGroup that we need to specify as connected so we add as angles
-                for batom in block.atomBonded1( endGroup1Idx ):
-                    # The opposite endGroup is included in the list bonded to an endGroup so skip
-                    if batom == endGroup2Idx:
-                        continue
-                    a = ( b2g( batom, atomMap, atomCount ),
-                          b2g( endGroup1Idx, atomMap, atomCount ),
-                          b2g( endGroup2Idx, atomMap, atomCount ) )
-                    if a not in d['angle']:
-                        d['angleLabel'].append( "{0}-{1}-{2}".format( block.atomType( batom ),
-                                                                      endGroup1Label, 
-                                                                      endGroup2Label ) )
-                        d['angle'].append( a )
-                    else:
-                        self.logger.debug( "Skipping angle {0}".format( a ) )
+                    # The bonds themselves
+                    d.bonds.append( (b1+atomCount,b2+atomCount) )
+                    d.bondLabels.append("{0}-{1}".format( block.type(b1),block.type(b2) ) )
                     
-                for batom in block.atomBonded1( endGroup2Idx ):
-                    # The opposite endGroup is included in the list bonded to an endGroup so skip
-                    if batom == endGroup1Idx:
-                        continue
-                    a = ( b2g( endGroup1Idx, atomMap, atomCount ),
-                          b2g( endGroup2Idx, atomMap, atomCount ),
-                          b2g( batom, atomMap, atomCount ) )
-                    if a not in d['angle']:
-                        d['angleLabel'].append( "{0}-{1}-{2}".format( endGroup1Label,
-                                                                      endGroup2Label,
-                                                                      block.atomType( batom ) ) )
-                        d['angle'].append( a )
-                    else:
-                        self.logger.debug( "Skipping angle {0}".format( a ) )
-
-#                 useAngle=False
-#                 if useAngle:
-#                     # FIX!! IF NEEDED
-#                     if ( bond.endGroup1.blockCapIdx != endGroup1Idx and bond.endGroup2.blockCapIdx != endGroup2Idx ):
-#                         d['angleLabel'].append( "aatom" )
-#                         d['angle'].append( ( bond.endGroup1.blockCapIdx + atomCount, endGroup1Idx + atomCount, endGroup2Idx + atomCount ) )
-#                          
-#                         d['angleLabel'].append( "aatom" )
-#                         d['angle'].append( ( endGroup1Idx + atomCount, endGroup2Idx + atomCount, bond.endGroup2.blockCapIdx + atomCount ) )
-
-                #
-                # Dihedrals
-                #
-                for dindices in block.dihedrals( endGroup1Idx, endGroup2Idx ):
-                    dlabel = "{0}-{1}-{2}-{3}".format( block.atomType( dindices[0] ),
-                                                       block.atomType( dindices[1] ),
-                                                       block.atomType( dindices[2] ), 
-                                                       block.atomType( dindices[3] )
-                                                                                     )
-                     
-                     
-                    dihedral = ( b2g( dindices[0], atomMap, atomCount ), 
-                                 b2g( dindices[1], atomMap, atomCount ), 
-                                 b2g( dindices[2], atomMap, atomCount ),
-                                 b2g( dindices[3], atomMap, atomCount )
-                               )
-                     
-                    d['dihedralLabel'].append( dlabel )
-                    d['dihedral'].append( dihedral )
-
-        assert len(d['coord']) > 0,"Found no atoms for fragmentType {0}".format( fragmentType )
-
+                    _angles=set()
+                    # Atoms connected to the endGroup that we need to specify as connected so we add as angles
+                    for batom in block.atomBonded1( b1 ):
+                        # The opposite endGroup is included in the list bonded to an endGroup so skip
+                        if batom == b2:
+                            continue
+                        _angles.add( ( batom, b1, b2 ) )
+                        
+                    for batom in block.atomBonded1( b2 ):
+                        # The opposite endGroup is included in the list bonded to an endGroup so skip
+                        if batom == b1:
+                            continue
+                        _angles.add( ( b1, b2, batom ) )
+                    
+                    # Add to overall lists
+                    for a1, a2, a3 in _angles:
+                        d.angles.append( (a1+atomCount, a2+atomCount, a3+atomCount) )
+                        l = "{0}-{1}-{2}".format( block.type( a1 ),
+                                                  block.type( a2 ),
+                                                  block.type( a3 ) )
+                        d.angleLabels.append( l )
+    
+                    #
+                    # Dihedrals
+                    #
+                    for dindices in block.dihedrals( b1, b2 ):
+                        dihedral = ( dindices[0] + atomCount,
+                                     dindices[1] + atomCount,
+                                     dindices[2] + atomCount,
+                                     dindices[3] + atomCount )
+                        d.propers.append( dihedral )
+                        dlabel = "{0}-{1}-{2}-{3}".format( block.type( dindices[0] ),
+                                                           block.type( dindices[1] ),
+                                                           block.type( dindices[2] ), 
+                                                           block.type( dindices[3] )
+                                                        )
+                        d.properLabels.append( dlabel )
+            
+            # Only set the count here
+            atomCount += blockAtomCount
+            # End block loop
+            
         return d
-
+        
     def delBlock(self,blockId):
         """
         Remove the block with the given index from the cell
@@ -1060,7 +1062,7 @@ class Cell():
         
     def density(self):
         """The density of the cell"""
-        d = ( sum( [ b.mass() for b in self.blocks.itervalues() ] ) / ( self.A * self.B * self.C ) )
+        d = ( sum( [ b.blockMass() for b in self.blocks.itervalues() ] ) / ( self.A * self.B * self.C ) )
         return d * (10/6.022)
 
     def dihedral(self, p1, p2, p3, p4):
@@ -1072,7 +1074,7 @@ class Cell():
         Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
         Changed so that it can cope with distances across more than one cell
         """
-        return util.distance(v1, v2, cell=[self.A,self.B,self.C])
+        return util.distance(v1, v2, cell=numpy.array([self.A,self.B,self.C]))
 
     def dump(self, prefix="step", addCount=True ):
         """Write out our current state"""
@@ -1080,9 +1082,6 @@ class Cell():
         if addCount:
             self._fileCount+=1
             prefix=prefix+"_{0}".format(self._fileCount)
-            
-        
-        data = self.dataDict()
             
         #self.writeXyz(prefix+".xyz",data=data, periodic=False)
         #self.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
@@ -1110,7 +1109,7 @@ class Cell():
         We don't check if any are available just return an empty dictionary if not
         """
         endGroupTypes2Block = {}
-        for idxBlock, block in self.blocks.iteritems():
+        for block in self.blocks.itervalues():
             #numFreeEndGroups += block.numFreeEndGroups()
             # Get a list of the free endGroup types in the block
             for endGroupType in block.freeEndGroupTypes():
@@ -1134,11 +1133,7 @@ class Cell():
         return endGroupType.split( self.ENDGROUPSEP)[0]
 
     def fromHoomdblueSystem(self, system ):
-        """Reset the particle positions from hoomdblue system"""
-    
-        assert system,"No system!"
-        
-        # Should really check HOOMD version but...
+        """Reset the particle positions from hoomdblue system"""        # Should really check HOOMD version but...
         if hasattr(system.box,"Lx"):
             Lx = system.box.Lx
             Ly = system.box.Ly
@@ -1156,11 +1151,7 @@ class Cell():
         # Read back in the particle positions
         atomCount=0
         for block in self.blocks.itervalues():
-            for k in range( block.numAllAtoms() ):
-                
-                if block.ignoreAtom( k ):
-                    # We didn't write out these so don't read back in 
-                    continue
+            for k in range( block.numAtoms() ):
                 
                 p = system.particles[ atomCount ]
                 xt, yt, zt  = p.position
@@ -1168,6 +1159,7 @@ class Cell():
                 
                 if self.minCell:
                     
+                    assert False,"FIX MINCELL"
                     assert self.minCellData['A'] == Lx
                     assert self.minCellData['B'] == Ly
                     assert self.minCellData['C'] == Lz
@@ -1192,9 +1184,10 @@ class Cell():
                     y = util.unWrapCoord( yt, iy, Ly, centered=True )
                     z = util.unWrapCoord( zt, iz, Lz, centered=True )
                 
-                block.atomCoord( k )[0] = x
-                block.atomCoord( k )[1] = y
-                block.atomCoord( k )[2] = z
+                #block.atomCoord( k )[0] = x
+                #block.atomCoord( k )[1] = y
+                #block.atomCoord( k )[2] = z
+                block.coord(k, [x,y,z])
 
                 atomCount += 1
                
@@ -1205,157 +1198,6 @@ class Cell():
         self.repopulateCells()
         
         return
-        
-    def fromCar(self, carFile ):
-        """ Read in an xyz file containing a cell and recreate the cell object"""
-        reading = True
-        coords = []
-        atomTypes = []
-        symbols = []
-        #charges = []
-        with open( carFile, "r" ) as f:
-            
-            # skip first line
-            f.readline()
-            
-            # 2nd states whether PBC: PBC=OFF
-            pbc, state = f.readline().strip().split("=")
-            assert pbc.strip() == "PBC"
-            state=state.strip()
-            nskip=3
-            if state.upper() == "OFF":
-                nskip=2 
-            
-            for i in range(nskip):
-                f.readline()
-            
-            count=0
-            while reading:
-                line = f.readline()
-                
-                line = line.strip()
-                if not line:
-                    print "END OF CAR WITH NO END!!!"
-                    break
-                fields = line.split()
-                label = fields[0]
-                
-                # Check end of coordinates
-                if label.lower() == "end":
-                    reading=False
-                    break
-                
-                #labels.append( label )
-                coords.append( numpy.array(fields[1:4], dtype=numpy.float64 ) )
-                atomTypes.append( fields[6] )
-                symbols.append( fields[7] )
-                #charges.append( float( fields[8] ) )
-                
-                count+=1
-        # END READ
-        
-        count = 0
-        for i, (idxBlock, block) in enumerate( self.blocks.iteritems() ):
-            #for j, ( fragment, atomIdx ) in enumerate( block._dataMap ):
-            for j, coord in enumerate( block.iterCoord() ):
-                if block.atomSymbol( j ) != symbols[ count ] or block.atomType( j ) != atomTypes[ count ]:
-                    raise RuntimeError, "Error reading coords back in: {0} {1} {2} -> {3} {4} {5}".format( symbols[ count ],
-                                                                                            atomTypes[ count ],
-                                                                                            coords[ count ],
-                                                                                            block.atomSymbol( j ),
-                                                                                            block.atomType( j ),
-                                                                                            block.atomCoord( j )
-                                                                                            )
-                block.setCoord( j, coords[ count ] )
-                count += 1
-                
-        if count != len( coords ):
-            raise RuntimeError,"Did not read in correct number of coordinates: {0} -> {1}".format( i+ j, len(coords) )
-            
-        return
-            
-    def fromPickle(self, pickleFile ):
-        
-#         if self.A == None or self.B == None or self.C == None:
-#             raise RuntimeError,"Need to set cell A, B & C parameters before load!"
-        
-        with open( pickleFile, 'r' ) as f:
-            cell = cPickle.load( f )
-            
-        
-        print "cell is ",cell
-            
-        assert cell
-        
-        self = cell
-        
-        return
-    
-    def _readXyz(self, xyzFile ):
-        """"Read in an xyz file containing a cell - cell axes is title line and 
-        atoms are written out with their labels.
-        This routine sets the axes and returns a list of the labels and coordinates
-        """
-        
-        # Each block is a list of [label, _coords
-        blocks = []
-        labels=[]
-        coords=[]
-        
-        with open( xyzFile ) as f:
-            
-            # First line is number of atoms
-            line = f.readline()
-            natoms = int(line.strip())
-            
-            # Title line contains cell info
-            line = f.readline().strip()
-            fields = line.split(":")
-            
-            if fields[0] != "Axes":
-                raise RuntimeError, "TITLE LINE NEEDS TO CONTAIN THE AXES"
-            
-            A,B,C = None, None, None
-            # bit hacky but I'm lazy...
-            exec( "A = {}".format(fields[1]) )
-            exec( "B = {}".format(fields[2]) )
-            exec( "C = {}".format(fields[3]) )
-            
-            self.cellAxis(A=A, B=B, C=C)
-            
-            lastBlock=-1
-            for _ in range(natoms):
-                
-                line = f.readline().strip()
-                fields = line.split()
-                label = fields[0]
-                
-                # Determine block from last bit of label
-                labelf = label.split("_")
-                iblock = int( labelf[-1].split("#")[1] )
-                
-                if iblock != lastBlock:
-                    # Add new block
-                    if lastBlock != -1:
-                        blocks.append( (labels,coords) )
-                    lastBlock = iblock
-                    labels=[]
-                    coords=[]
-                
-                if len(labelf) == 2:
-                    label = labelf[0]
-                elif len(labelf) == 3:
-                    label = labelf[0]+"_"+labelf[1]
-                else:
-                    raise RuntimeError,"HELLLP"
-                
-                labels.append(label) 
-                coords.append( numpy.array(fields[1:4], dtype=numpy.float64) )
-        
-        # Add the last block
-        blocks.append( (labels,coords) )
-        
-        return blocks
 
     def getInitBlock( self, fragmentType=None ):
         """Return an initBlock"""
@@ -1381,13 +1223,18 @@ class Cell():
                    dihedral=None,
                    maxTries=50 ):
         """
-        Add toGrow new blocks to the cell based on the initBlock
+        Add toGrow new blocks to the cell.
         
         Args:
         toGrow: number of blocks to add
-        endGroupType: the type of block to add
-        dihedral: the dihedral angle about the bond (3rd column in ambi file)
-        maxTries: number of tries to add before we give up
+        cellEndGroups: a list of the endGroup types in the cell that the new blocks will be bonded to.
+                      If more than one endGroup type is supplied, the endGroup will be randomly chosen from
+                      that list.
+        libraryEndGroups: a list of the endGroup types from the library that will be used form the bonds.
+                      If more than one endGroup type is supplied, the endGroup will be randomly chosen from
+                      that list.
+        dihedral: the dihedral angle about the bond (3rd column in csv file)
+        maxTries: number of attempts to make before giving up
         """
 
         self.logger.info( "Growing {0} new blocks".format( toGrow ) )
@@ -1443,11 +1290,14 @@ class Cell():
 
     def joinBlocks(self, toJoin, cellEndGroups=None, dihedral=None, maxTries=100 ):
         """
-        Try joining number of blocks together
+        Bond toJoin blocks together using the endGroup types specified in cellEndGroups
         
         Args:
-        toJoin: number of blocks to join
-        maxTries: the maximum number of moves to try when joining
+        toJoin - number of blocks to join
+        cellEndGroups - a list of the different endGroupTypes that should be bonded. If this is None
+                        randomly chosen endGroups will be used.
+        dihedral: the dihedral angle about the bond (3rd column in csv file)
+        maxTries - the maximum number of moves to try when joining
         """
         
         self.logger.info( "Joining {0} new blocks".format( toJoin ) )
@@ -1518,7 +1368,7 @@ class Cell():
             leg = self._bondTable[ ceg ].intersection( self._endGroup2LibraryFragment.keys() )
             if len(leg) > 0:
                 cell2Library[ ceg ] = leg
-        
+                
         # Check that there are some available
         if len(cell2Library.keys()) == 0:
             raise RuntimeError,"No library fragments available to bond under the given rules: {0}".format(endGroupTypes2Block.keys())
@@ -1597,11 +1447,24 @@ class Cell():
         return sum( [ b.numAtoms() for b in self.blocks.itervalues() ] )
     
     def optimiseGeometry(self,
-                         xmlFilename="hoomdOpt.xml",
+                         rigidBody=True,
                          doDihedral=False,
                          doImproper=False,
+                         xmlFilename="hoomdOpt.xml",
                          **kw ):
-        """Optimise the geometry with hoomdblue"""
+        """Optimise the geometry with hoomdblue
+        
+        Rigid-body optimisation is carried out with the hoomdblue integrator: mode_minimize_rigid_fire
+        
+        Args:
+        rigidBody - True/False - do rigid body or all-atom optimisation
+        doDihderal - True/False - include dihedral terms
+        doImproper - True/False - include improper terms
+        rCut - the VdW cutoff to use [angstroms]
+        optCycles - the number of hoomdblue optimisation cycles to run.
+        quiet - True/False - don't print out the normal hoomdblue runtime output to the screen.
+        ALL OTHER ARGUMENTS ACCEPTED BY mode_minimize_rigid_fire ARE PASSED TO IT
+        """
         
         # HACK
         minCell=False
@@ -1618,16 +1481,17 @@ class Cell():
         
         # Write out HoomdBlue xml file & get parameters
         self.writeHoomdXml( xmlFilename=xmlFilename,
+                            rigidBody=rigidBody,
                             doDihedral=doDihedral,
                             doImproper=doImproper )
         
         self.logger.info( "Running optimisation" )
         d = {}
         ok = optimiser.optimiseGeometry( xmlFilename,
-                                             doDihedral=doDihedral,
-                                             doImproper=doImproper,
-                                             d=d,
-                                              **kw )
+                                         doDihedral=doDihedral,
+                                         doImproper=doImproper,
+                                         d=d,
+                                         **kw )
         self.analyse.stop('optimiseGeometry', d )
                 
         if ok:
@@ -1641,7 +1505,7 @@ class Cell():
     def positionInCell(self, block):
         """Make sure the given block is positioned within the cell"""
         
-        bradius = block.radius()
+        bradius = block.blockRadius()
         
         oradius = bradius + ( 2 * self.boxMargin )
         
@@ -1666,115 +1530,6 @@ class Cell():
         self.logger.debug( "positionInCell block moved to: {0}".format( block.centroid() ) )
         
         return
-
-    def prepareHoomdData(self,data=None):
-        # Get the data on the blocks
-        if data is None:
-            data = self.dataDict()
-        
-        if self.minCell:
-        
-            # Find the extent of the block in all 3 dimensions
-            # remember max, min in all 3 dimemsions
-            d = { 
-                 'maxA'   : 0,
-                 'minA'   : 10000,
-                 'maxB'   : 0,
-                 'minB'   : 10000,
-                 'maxC'   : 0,
-                 'minC'   : 10000,
-                 'border' : self.rCut
-                 }
-            
-            for i in range( len( data['coord'] ) ):
-                coord = data['coord'][i]
-                d['minA'] = min( d['minA'], coord[0] )
-                d['maxA'] = max( d['maxA'], coord[0] )
-                d['minB'] = min( d['minB'], coord[1] )
-                d['maxB'] = max( d['maxB'], coord[1] )
-                d['minC'] = min( d['minC'], coord[2] )
-                d['maxC'] = max( d['maxC'], coord[2] )
-            
-            # Make sure everything is inside the current cell
-            # TODO - switch off Mincell when this isn't the case
-            if False:
-                tmp = d['border']
-                assert d['minA'] > 0 + tmp,"minA {0} border {1}".format( d['minA'], d['border'] )
-                assert d['maxA'] + tmp < self.A,"maxA {0} A {1} border {2}".format( d['maxA'], self.A, d['border'] )
-                assert d['minB'] > 0 + tmp,"minB {0} border {1}".format( d['minB'], d['border'] )
-                assert d['maxB'] + tmp < self.B,"maxB {0} B {1} border {2}".format( d['maxB'], self.B, d['border'] )
-                assert d['minC'] > 0 + tmp,"minC {0} border {1}".format( d['minC'], d['border'] )
-                assert d['maxC'] + tmp < self.C,"maxC {0} C {1} border {2}".format( d['maxC'], self.C, d['border'] )
-            
-            # Calculate cell dimensions ( to nearest integer )
-            d['A'] = ( math.ceil( d['maxA'] ) - math.floor( d['minA'] ) ) + d['border'] * 2
-            d['B'] = ( math.ceil( d['maxB'] ) - math.floor( d['minB'] ) ) + d['border'] * 2
-            d['C'] = ( math.ceil( d['maxC'] ) - math.floor( d['minC'] ) ) + d['border'] * 2
-            
-            # Need to make sure the old dimensions are <= the original
-            same = 0
-            if d['A'] >= self.A:
-                self.logger.debug("MINCELL DIMENSION A IS KEPT SAME")
-                d['A'] = self.A
-                d['minA'] = 0.0
-                d['maxA'] = self.A
-                same += 1
-
-            if d['B'] >= self.B:
-                self.logger.debug("MINCELL DIMENSION B IS KEPT SAME")
-                d['B'] = self.B
-                d['minB'] = 0.0
-                d['maxB'] = self.B
-                same += 1
-                
-            if d['C'] >= self.C:
-                self.logger.debug("MINCELL DIMENSION C IS KEPT SAME")
-                d['C'] = self.C
-                d['minC'] = 0.0
-                d['maxC'] = self.C
-                same += 1
-                
-            if same == 3:
-                self.logger.critical("optimiseGeometry minCell - ignoring directive and using full cell")
-                self.minCell = False
-        
-        
-        if self.minCell:
-            
-            # Now set the cell dimensions for hoomdblue
-            data['A'] = d['A']
-            data['B'] = d['B']
-            data['C'] = d['C']
-            
-            # Move the coordinates into the new cell and center them
-            data['position'] = []
-            data['image'] = []
-            for i in range( len( data['coord'] ) ):
-                coord = data['coord'][i]
-                
-                x =  coord[0] - ( d['minA'] + d['A']/2 )
-                y =  coord[1] - ( d['minB'] + d['B']/2 )
-                z =  coord[2] - ( d['minC'] + d['C']/2 )
-                
-                data['position'].append( (x, y, z ) )
-                data['image'].append( ( 0, 0, 0 ) ) # Always in the first image
-            
-            self.minCellData = d
-            
-        else:
-        
-            data['position'] = []
-            data['image'] = []
-            for i in range( len( data['coord'] ) ):
-                coord = data['coord'][ i ]
-                x, ix = util.wrapCoord( coord[0], self.A, center=True )
-                y, iy = util.wrapCoord( coord[1], self.B, center=True )
-                z, iz = util.wrapCoord( coord[2], self.C, center=True )
-                
-                data['position'].append( ( x, y, z ) )
-                data['image'].append( ( ix, iy, iz ) )
-            
-        return data
 
     def processBonds(self):
         """Make any bonds that were found during checkMove
@@ -1852,7 +1607,7 @@ class Cell():
         
         coord = numpy.array([x,y,z], dtype=numpy.float64 )
         
-         #print "Got random coord: {}".format(coord)
+        #print "Got random coord: {}".format(coord)
         
         # Move to origin, rotate there and then move to new coord
         # Use the cell axis definitions
@@ -1915,6 +1670,20 @@ class Cell():
               doImproper=False,
               **kw ):
         
+        """Run a rigidbody molecular dynamics run using the hoomd blue nvt_rigid integrator
+        
+        Arguments:
+        rigidBody - True/False - do rigid body or all-atom MD
+        doDihderal - True/False - include dihedral terms
+        doImproper - True/False - include improper terms
+        rCut - the VdW cutoff to use [angstroms]
+        mdCycles - the number of MD cycles to run.
+        quiet - True/False - don't print out the normal hoomdblue runtime output to the screen.
+        T - nvt_rigid temperature
+        tau - nvt_rigid tau
+        dt - nvt_rigid timestep
+        """
+        
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
         
@@ -1948,6 +1717,12 @@ class Cell():
                          doImproper=False,
                          **kw ):
         
+        """Run an MD simulation followed by a Geometry optimisation.
+        
+        Args:
+        See runMD and optimiseGeometry for acceptable arguments.
+        """
+        
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
 
@@ -1979,9 +1754,17 @@ class Cell():
         return ok
 
     def seed( self, nblocks, fragmentType=None, maxTries=500, center=False ):
-        """ Seed a cell with nblocks.
+        """ Seed a cell with nblocks of type fragmentType.
         
-        Return the number of blocks we added
+        Args:
+        nblocks - the number of blocks to add.
+        fragmentType - the type of blocks to add. If fragment is None, or omitted, then blocks of a randomly
+                       chosen type will be added.
+        maxTries - the number of attempts to make when adding a block before the seed step is fails and returns.
+        center - True/False - if True, place the first block in the center of the cell.
+        
+        Returns:
+        the number of blocks added
         """
         
         if self.A is None or self.B is None or self.C is None:
@@ -2048,6 +1831,14 @@ class Cell():
         return numBlocksAdded
     
     def setMaxBond(self, bondType, count ):
+        """Limit the number of bondType bonds to an individual fragment to count bonds.
+        
+        Args:
+        bondType - the bondType (FRAGMENT1:ENDGROUP1-FRAGMENT2:ENDGROUP2) as was specified with the call
+                   to addBondType
+        count - the maximum number of permissible bonds for a single fragment.
+        
+        """
         # Get fragmentType and endGroupType
         fragmentType, endGroupType = bondType.split(self.ENDGROUPSEP)
         
@@ -2102,6 +1893,7 @@ class Cell():
         except TypeError:
             cl = logging.StreamHandler( strm=sys.stdout )
         cl.setLevel( logging.INFO )
+        #cl.setLevel( logging.DEBUG )
 
         # create formatter for fl
         # Always add a blank line after every print
@@ -2154,106 +1946,6 @@ class Cell():
                         l.append(skey)
                         
         return l
-    
-#     def shimmy(self, nsteps=100, nmoves=50, stype=None):
-#         """ Shuffle the molecules about making bonds where necessary for nsteps
-#         minimoves is number of sub-moves to attempt when the blocks are close
-#         """
-#         
-#         startBlocks=len(self.blocks)
-# 
-#         filename = "SHIMMY_0.xyz"
-#         self.writeXyz( filename )
-#         self.writeXyz( filename+".lab", label=True )
-#         
-#         for step in range( nsteps ):
-#             
-#             if len(self.blocks) == 1:
-#                 filename = util.newFilename(filename)
-#                 print "NO MORE BLOCKS!\nResult in file: {}".format(filename)
-#                 self.writeXyz( filename )
-#                 self.writeXyz( os.path.splitext(filename)[0]+"_incell.xyz", periodic=True )
-#                 self.writeXyz( filename+".lab", label=True )
-#                 break
-#             
-#             #if True:
-#             if not step % 100:
-#                 print "step {}".format(step)
-#                 filename = util.newFilename(filename)
-#                 self.writeXyz( filename )
-#                 self.writeXyz( filename+".lab", label=True )
-#                 self.writeXyz( os.path.splitext(filename)[0]+"_incell.xyz", periodic=True )
-#                 
-#             istatic_block = None
-#             if stype == "block" or stype == "bond":
-#                 imove_block, istatic_block = self.randomBlockId(numBlocks=2)
-#                 static_block = self.blocks[istatic_block]    
-#             else:
-#                 imove_block = self.randomBlockId()
-#                 
-#             move_block = self.blocks[imove_block]
-#             
-#             # Copy the original coordinates so we can reject the move
-#             orig_coords = copy.deepcopy( move_block._coords )
-#             
-#             center = None
-#             if stype == "block":
-#                 # Calculate how far to move
-#                 circ = move_block.radius() + static_block.radius()
-#                 radius = (circ/2) + self.atomMargin
-#                 center = static_block.centroid()
-#             elif stype == "bond":
-#                 staticEndGroupIndex = static_block.randomEndGroup()
-#                 moveEndGroupIndex = move_block.randomEndGroup()
-#                 center = static_block.newBondPosition( staticEndGroupIndex, move_block, moveEndGroupIndex)
-#                 # jmht - this is wrong!
-#                 radius = self.atomMargin
-#             else:
-#                 nmoves=1
-#             
-#             for move in range(nmoves):
-#                 
-#                 #print "move ",move
-#                 
-#                 # Remove the move_block from the cell so we don't check against itself
-#                 self.delBlock(imove_block)
-#                 
-#                 if stype == "block" or stype == "bond":
-#                     self.randomMoveAroundCenter( move_block, center, radius )
-#                 else:
-#                     self.randomMoveBlock( move_block )
-#                 
-#                 #Add the move_block back so we can check for clashes/bonds
-#                 icheck = self.addBlock(move_block)
-#                 if icheck != imove_block:
-#                     raise RuntimeError,"BAD ADD IN SHIMMY1"
-#                 
-#                 # Test for Clashes with other molecules
-#                 if self.checkMove( imove_block ):
-#                 # If the move failed, put the move_block back
-#                     if self.processBonds( addedBlockIdx=imove_block ):
-#                         # End the moves and go onto the next step
-#                         break
-#                     
-#                 # Put it back where we got it from
-#                 self.delBlock( imove_block )
-#                 move_block._coords = copy.deepcopy(orig_coords)
-#                 move_block.update()
-#                 icheck = self.addBlock(move_block)
-#                 if icheck != imove_block:
-#                     raise RuntimeError,"BAD ADD IN SHIMMY1"
-#         
-#         # End of shimmy loop
-#         
-#         endBlocks = len(self.blocks)
-#         made = startBlocks-endBlocks
-#         if made > 0:
-#             print "Shimmy bonded {} blocks".format(made)
-#         else:
-#             print "Shimmy made no bonds"
-#         
-#         return
-#         #End shimmy
 
     def updateFromBlock(self, block ):
         """Update cell parameters from the block"""
@@ -2381,126 +2073,39 @@ class Cell():
         self.logger.info( "Wrote car file: {0}".format(fpath) )
         return
     
-    def writeCml(self, cmlFilename, data=None, allBonds=True, periodic=False, pruneBonds=False):
+    def writeCml(self, cmlFilename, rigidBody=True, data=None, periodic=True, pruneBonds=False):
+        
+#         atomTypes = []
+#         coords    = []
+#         symbols   = []
+#         bonds     = []
+#         count     = 0
+#         for block in self.blocks.itervalues():
+#             bonds += [ (b1+count, b2+count) for (b1, b2 ) in block.bonds() ]
+#             for i, c in enumerate(block.iterCoord() ):
+#                 coords.append(c)
+#                 symbols.append(block.symbol(i))
+#                 atomTypes.append(block.type(i))
+#                 count += 1
 
-        # Get the data on the blocks
-        if not data:
-            data = self.dataDict()
+        if data is None:
+            d = self.dataDict(periodic=periodic, rigidBody=rigidBody, fragmentType=None)
+        else:
+            d = data
         
-        root = ET.Element( 'molecule')
-        root.attrib['xmlns']       = "http://www.xml-cml.org/schema"
-        root.attrib['xmlns:cml']   = "http://www.xml-cml.org/dict/cml"
-        root.attrib['xmlns:units'] = "http://www.xml-cml.org/units/units"
-        root.attrib['xmlns:xsd']   = "http://www.w3c.org/2001/XMLSchema"
-        root.attrib['xmlns:iupac'] = "http://www.iupac.org"
-        root.attrib['id']          = "mymolecule"
+        cell = None
+        if periodic:
+            cell = [self.A,self.B,self.C]
         
-        # First set up the cell
-        crystal = ET.SubElement( root, "crystal" )
-
-        crystalANode = ET.SubElement( crystal,"scalar")
-        crystalBNode = ET.SubElement( crystal,"scalar")
-        crystalCNode = ET.SubElement( crystal,"scalar")
-        crystalAlphaNode = ET.SubElement( crystal,"scalar")
-        crystalBetaNode  = ET.SubElement( crystal,"scalar")
-        crystalGammaNode = ET.SubElement( crystal,"scalar")
-
-        crystalANode.attrib["title"] = "a"
-        crystalBNode.attrib["title"] = "b"
-        crystalCNode.attrib["title"] = "c"
-        crystalAlphaNode.attrib["title"] = "alpha"
-        crystalBetaNode.attrib["title"] =  "beta"
-        crystalGammaNode.attrib["title"] = "gamma"
+        cmlFilename = util.writeCml(cmlFilename,
+                                    d.coords,
+                                    d.symbols,
+                                    bonds=d.bonds,
+                                    atomTypes=d.atomTypes,
+                                    cell=cell,
+                                    pruneBonds=pruneBonds)
         
-        crystalANode.attrib["units"] = "units:angstrom"
-        crystalBNode.attrib["units"] = "units:angstrom"
-        crystalCNode.attrib["units"] = "units:angstrom"
-        crystalAlphaNode.attrib["units"] = "units:degree"
-        crystalBetaNode.attrib["units"]  = "units:degree"
-        crystalGammaNode.attrib["units"] = "units:degree"
-        
-        crystalANode.text = str( data['A'] )
-        crystalBNode.text = str( data['B'] )
-        crystalCNode.text = str( data['C'] )
-        
-        # Only support orthorhombic? cells
-        crystalAlphaNode.text = "90"
-        crystalBetaNode.text  = "90"
-        crystalGammaNode.text = "90"
-        
-        # Hack to get vis working
-        if pruneBonds:
-            pcoords = []
-            
-        # Need to collate atomTypes
-        for atype in set( data['type'] ):
-            atomTypeNode = ET.SubElement( root, "atomType" )
-            atomTypeNode.attrib['name'] = atype
-            atomTypeNode.attrib['title'] = atype
-        
-        # Now atom data
-        atomArrayNode = ET.SubElement( root, "atomArray" )
-        for i, coord in enumerate( data['coord'] ):
-            atomNode = ET.SubElement( atomArrayNode, "atom")
-            atomNode.attrib['id'] = "a{0}".format( i )
-            atomNode.attrib['elementType'] = data['symbol'][i]
-            if periodic:
-                x, ix = util.wrapCoord( coord[0], data['A'], center=False )
-                y, iy = util.wrapCoord( coord[1], data['B'], center=False )
-                z, iz = util.wrapCoord( coord[2], data['C'], center=False )
-                if pruneBonds:
-                    pcoords.append( numpy.array( [x,y,z] ) )
-            else:
-                x = coord[0]
-                y = coord[1]
-                z = coord[2]
-            
-            atomNode.attrib['x3'] = str( x )
-            atomNode.attrib['y3'] = str( y )
-            atomNode.attrib['z3'] = str( z )
-            
-            # Now add atomType as child node referring to the atomType
-            atomTypeNode = ET.SubElement( atomNode, "atomType" )
-            atomTypeNode.attrib['ref'] = data['type'][ i ]
-        
-        # Now do bonds
-        bondArrayNode = None
-        if len(data['bond']):
-            bondArrayNode = ET.SubElement( root, "bondArray" )
-            for i, b in enumerate( data['bond'] ):
-                if pruneBonds:
-                    # Complete hack - just see if it's longer then 0.5 the cell A distance
-                    # - this assumes that the cell is cubic
-                    if util.distance( pcoords[ b[0] ], pcoords[ b[1] ] ) >= data['A'] * 0.5:
-                        continue
-                bondNode = ET.SubElement( bondArrayNode, "bond")
-                bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
-                bondNode.attrib['order'] = "1"
-        
-        # internal fragment bonds
-        if len(data['fragmentBond']) and allBonds:
-            if bondArrayNode is None:
-                bondArrayNode = ET.SubElement( root, "bondArray" )
-            for i, b in enumerate( data['fragmentBond'] ):
-                if pruneBonds:
-                    # Complete hack - just see if it's longer then 0.5 the cell A distance
-                    # - this assumes that the cell is cubic
-                    if util.distance( pcoords[ b[0] ], pcoords[ b[1] ]  ) >= data['A'] * 0.5:
-                        continue
-                bondNode = ET.SubElement( bondArrayNode, "bond")
-                bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
-                bondNode.attrib['order'] = "1"
-
-        tree = ET.ElementTree(root)
-        
-        #ET.dump(tree)
-        
-        cmlFilename = os.path.abspath( cmlFilename )
-        #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
-        tree.write( cmlFilename, encoding="utf-8", xml_declaration=True)
-        
-        self.logger.info( "Wrote cmlfile: {0}".format(cmlFilename) )
-        
+        self.logger.info( "Wrote cml file: {0}".format(cmlFilename) )
         return
     
     def writeXyz(self, ofile, data=None, periodic=False ):
@@ -2508,12 +2113,13 @@ class Cell():
         If label is true we write out the atom label and block, otherwise the symbol
         """
         
-        if not data:
-            data = self.dataDict()
+        if data is None:
+            d = self.dataDict(periodic=periodic, fragmentType=None)
+        else:
+            d = data
         
         xyz = ""
-        for i, coord in enumerate( data['coord'] ):
-                
+        for i, coord in enumerate( d.coords ):
             if periodic:
                 x, ix = util.wrapCoord( coord[0], self.A, center=False )
                 y, iy = util.wrapCoord( coord[1], self.B, center=False )
@@ -2521,10 +2127,10 @@ class Cell():
             else:
                 x, y, z = coord
                 
-            xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( data['symbol'][i], x, y, z )
+            xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( d.symbols[i], x, y, z )
         
         # Write out natoms and axes as title
-        xyz = "{}\nAxes:{}:{}:{}\n".format( i+1, data['A'], data['B'], data['C'] ) + xyz
+        xyz = "{}\nAxes:{}:{}:{}\n".format( i+1, self.A, self.B, self.C ) + xyz
         
         with open( ofile, 'w' ) as f:
             fpath = os.path.abspath(f.name)
@@ -2535,71 +2141,64 @@ class Cell():
 
     def writeHoomdXml(self,
                       xmlFilename="ambuildhoomd.xml",
+                      rigidBody=True,
                       doCharges=True,
                       doDihedral=False,
                       doImproper=False,
-                      data=None, 
+                      data=None
                       ):
         """Write out a HOOMD Blue XML file.
         """
-        
-        # For time being use zero so just under LJ potential & bond
-        #diameter += "{0}\n".format( frag._atomRadii[ k ] )
-        
-        data = self.prepareHoomdData(data=data)
-        
-        body     = "\n" + "\n".join( map( str, data['body'] ) ) + "\n"
-        charge   = "\n" + "\n".join( map( str, data['charge'] ) ) + "\n"
-        diameter = "\n" + "\n".join( map( str, data['diameter'] ) ) + "\n"
-        mass     = "\n" + "\n".join( map( str, data['mass'] ) ) + "\n"
-        ptype    = "\n" + "\n".join( map( str, data['type'] ) ) + "\n"
+        if data is None:
+            d = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+        else:
+            d = data
+        # 
+        # Got data so now put into xml
+        #
+        body     = "\n" + "\n".join( map( str, d.bodies ) ) + "\n"
+        charge   = "\n" + "\n".join( map( str, d.charges ) ) + "\n"
+        diameter = "\n" + "\n".join( map( str, d.diameters ) ) + "\n"
+        mass     = "\n" + "\n".join( map( str, d.masses ) ) + "\n"
+        ptype    = "\n" + "\n".join( map( str, d.atomTypes ) ) + "\n"
         
         image = "\n"
         position = "\n"
-        for i in range( len( data['position'] ) ):
-            image += "{0} {1} {2}\n".format( 
-                                          data['image'][i][0],
-                                          data['image'][i][1],
-                                          data['image'][i][2],
-                                          )
-            position += "{0} {1} {2}\n".format( 
-                                          data['position'][i][0],
-                                          data['position'][i][1],
-                                          data['position'][i][2],
-                                          )
+        for i in range(len(d.coords)):
+            image += "{0} {1} {2}\n".format( d.images[i][0],
+                                             d.images[i][1],
+                                             d.images[i][2] )
+            position += "{0} {1} {2}\n".format( d.coords[i][0],
+                                                d.coords[i][1],
+                                                d.coords[i][2] )
         
         # Now do all angles and bonds
         bond=False
-        if len( data['bond'] ):
+        if len(d.bonds):
             bond = "\n"
-            for i, b in enumerate( data['bond'] ):
-                bond += "{0} {1} {2}\n".format( data['bondLabel'][i], b[0], b[1] )
+            for i, b in enumerate(d.bonds):
+                bond += "{0} {1} {2}\n".format( d.bondLabels[i], b[0], b[1] )
         
         angle=False
-        if len( data['angle'] ):
+        if len(d.angles):
             angle = "\n"
-            for i, a in enumerate( data['angle'] ):
-                if data['angleLabel'][i] != "aatom":
-                    angle += "{0} {1} {2} {3}\n".format( data['angleLabel'][i], a[0], a[1], a[2] )
+            for i, a in enumerate(d.angles):
+                angle += "{0} {1} {2} {3}\n".format(d.angleLabels[i], a[0], a[1], a[2])
         
         dihedral=False
-        if len( data['dihedral'] ):
+        if len(d.propers):
             dihedral = "\n"
-            for i, dh in enumerate( data['dihedral'] ):
-                dihedral += "{0} {1} {2} {3} {4}\n".format( data['dihedralLabel'][i], dh[0], dh[1], dh[2], dh[3] )
+            for i, dh in enumerate(d.propers):
+                dihedral += "{0} {1} {2} {3} {4}\n".format(d.properLabels[i], dh[0], dh[1], dh[2], dh[3])
         
-#         for f in fragmentBonds:
-#             bond += "fbond {0} {1}\n".format( f[0], f[1] )
-
-
         root = ET.Element( 'hoomd_xml', version="1.4" )
         config = ET.SubElement( root, "configuration", timestep="0" )
         
         #e = ET.SubElement( config, "box", 
         ET.SubElement( config, "box", 
-                        Lx=str(data['A']), 
-                        Ly=str(data['B']), 
-                        Lz=str(data['C']) )
+                        Lx=str(self.A), 
+                        Ly=str(self.B), 
+                        Lz=str(self.C) )
 
         e = ET.SubElement(config, "position" )
         e.text = position
@@ -2631,7 +2230,6 @@ class Cell():
             elif doImproper:
                 e = ET.SubElement(config, "improper" )
                 e.text = dihedral
-                
         
         tree = ET.ElementTree(root)
         
@@ -2645,6 +2243,14 @@ class Cell():
         return True
     
     def zipBlocks(self, bondMargin=None, bondAngleMargin=None):
+        """Join existing blocks in the cell by changing the bondMargin and bondAngleMargin parameters that were 
+        specified when the cell was created, and then looping over all the free endGroups to see if any can bond 
+        with the new parameters. The blocks are not moved in this step and no check is made as to whether there
+        are any other atoms between the two endGroups when a bond is made.
+        
+        Args:
+        bondMargin - the new bondMargin [degrees] (see __init__ for definition)
+        bondAngleMargin - the new bondAngleMargin [degrees] (see __init__ for definition)"""
         
         self.logger.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin )  )
         
@@ -2671,16 +2277,16 @@ class Cell():
             if len(egs):
                 block.zipCell = {}
                 for endGroup in egs:
-                    endGroups.append( ( block, endGroup.blockEndGroupIdx ) )
+                    endGroups.append( ( block, endGroup.endGroupIdx() ) )
 
         if not len(endGroups) > 0:
-            sys.logger.warn("zipBlocks found no free endGroups!")
+            self.logger.warn("zipBlocks found no free endGroups!")
             return 0
         
         # Add all (block, idxEndGroup) tuples to the cells
         for (block, idxEndGroup) in endGroups:
             
-            coord = block.atomCoord( idxEndGroup )
+            coord = block.coord( idxEndGroup )
             
             # Periodic Boundaries
             x = coord[0] % self.A
@@ -2746,8 +2352,8 @@ class Cell():
                         # Need to check if it is already in there as we loop over all endGroups
                         # so we will have both sides twice
                         egPairs.append( p1 )
-                        c1.append( block1.atomCoord( idxEndGroup1 ) )
-                        c2.append( block2.atomCoord( idxEndGroup2 ) )
+                        c1.append( block1.coord( idxEndGroup1 ) )
+                        c2.append( block2.coord( idxEndGroup2 ) )
 
         if not len(egPairs) > 0:
             self.logger.info("zipBlocks: no endGroups close enough to bond" )
@@ -2865,21 +2471,23 @@ class TestCell(unittest.TestCase):
         
         cls.cx4Car = os.path.join( cls.ambuildDir, "blocks", "cx4.car" )
         cls.ch4Car = os.path.join( cls.ambuildDir, "blocks", "ch4.car" )
+        cls.ch4_1Car = os.path.join( cls.ambuildDir, "blocks", "ch4_1.car" )
         cls.capLinker = os.path.join( cls.ambuildDir, "blocks", "cap_linker.car" )
         cls.benzeneCar = os.path.join( cls.ambuildDir, "blocks", "benzene.car" )
         cls.benzene2Car = os.path.join( cls.ambuildDir, "blocks", "benzene2.car" )
         cls.pafCar = os.path.join( cls.ambuildDir, "blocks", "PAF_bb_typed.car" )
         cls.dcxCar = os.path.join( cls.ambuildDir, "blocks", "DCX.car" )
         cls.ch4Ca2Car = os.path.join( cls.ambuildDir, "blocks", "ch4Ca2.car" )
+        cls.amineCar = os.path.join( cls.ambuildDir, "blocks", "amine_typed.car" )
+        cls.triquinCar = os.path.join( cls.ambuildDir, "blocks", "triquin_typed.car" )
         
         print "START TEST CELL"
         if True:
             # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
             # From code looks like default r_buff is 0.4 and our default r_cut is 5.0 
-            CELLA = CELLB = CELLC = 20.0
-            mycell = Cell()
-            mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
-            mycell.addInitBlock(filename=cls.benzene2Car, fragmentType='A')
+            boxDim=[20,20,20]
+            mycell = Cell(boxDim)
+            mycell.libraryAddFragment(filename=cls.benzene2Car, fragmentType='A')
             mycell.addBondType( 'A:a-A:a')
             mycell.seed( 5 )
             mycell.growBlocks( 8 )
@@ -2891,57 +2499,51 @@ class TestCell(unittest.TestCase):
     def testCX4(self):
         """First pass"""
 
-        CELLA = CELLB = CELLC = 30
-        
-        mycell = Cell( )
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock( fragmentType='A', filename=self.cx4Car )
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment( fragmentType='A', filename=self.cx4Car )
         mycell.addBondType( 'A:a-A:a' )
         mycell.seed( 1 )
         mycell.growBlocks( 1 )
         
         return
 
-    def XXXtimeCheck(self):
-        """NOT A TEST JUST CODE TO TIME CHECKMOVE"""
-    
-        def cellFromPickle(pickleFile):
-            with open(pickleFile) as f:
-                myCell=cPickle.load(f)
-            return myCell
-        
-        mycell = cellFromPickle("step_1.pkl")
-        # Get the last block
-        idxb = mycell.blocks.keys()[-1]
-        b = mycell.blocks[ idxb ]
-        be = b.freeEndGroups()[0]
-         
-        i =  mycell.getInitBlock()
-        ie = i.freeEndGroups()[0]
-         
-        def run():
-            global b, be, i, ie
-            for _ in xrange( 1000):
-                b.positionGrowBlock( be, i, ie, dihedral=None )
-                blockId = mycell.addBlock( i )
-                mycell.checkMove( blockId )
-                mycell.delBlock(blockId)
-        
-        cProfile.run('run()','restats')
-        return
+#     def XXXtimeCheck(self):
+#         """NOT A TEST JUST CODE TO TIME CHECKMOVE"""
+#     
+#         def cellFromPickle(pickleFile):
+#             with open(pickleFile) as f:
+#                 myCell=cPickle.load(f)
+#             return myCell
+#         
+#         mycell = cellFromPickle("step_1.pkl")
+#         # Get the last block
+#         idxb = mycell.blocks.keys()[-1]
+#         b = mycell.blocks[ idxb ]
+#         be = b.freeEndGroups()[0]
+#          
+#         i =  mycell.getInitBlock()
+#         ie = i.freeEndGroups()[0]
+#          
+#         def run():
+#             global b, be, i, ie
+#             for _ in xrange( 1000):
+#                 b.positionGrowBlock( be, ie, dihedral=None )
+#                 blockId = mycell.addBlock( i )
+#                 mycell.checkMove( blockId )
+#                 mycell.delBlock(blockId)
+#         
+#         cProfile.run('run()','restats')
+#         return
     
     def testAmbody(self):
-        CELLA = CELLB = CELLC = 30
+
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock(filename=self.ch4Ca2Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4Ca2Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
-        
         added = mycell.seed( 3 )
-        
         self.assertEqual(added, 3)
         
         return
@@ -2949,13 +2551,11 @@ class TestCell(unittest.TestCase):
     def testBond(self):
         """First pass"""
 
-        CELLA = CELLB = CELLC = 30
-        
-        mycell = Cell( )
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
         fragmentType='A'
-        mycell.addInitBlock( fragmentType=fragmentType, filename=self.benzeneCar )
+        mycell.libraryAddFragment( fragmentType=fragmentType, filename=self.benzeneCar )
         mycell.addBondType( 'A:a-A:a' )
         
         centralBlock = mycell.getInitBlock( fragmentType=fragmentType )
@@ -2963,8 +2563,8 @@ class TestCell(unittest.TestCase):
         block1 = mycell.getInitBlock( fragmentType=fragmentType )
         block2 = mycell.getInitBlock( fragmentType=fragmentType )
         
-        centralBlock.positionGrowBlock( centralBlock.freeEndGroups()[ 0 ], block1, block1.freeEndGroups()[ 0 ] )
-        centralBlock.positionGrowBlock( centralBlock.freeEndGroups()[ 1 ], block2, block2.freeEndGroups()[ 0 ] )
+        centralBlock.positionGrowBlock( centralBlock.freeEndGroups()[ 0 ], block1.freeEndGroups()[ 0 ] )
+        centralBlock.positionGrowBlock( centralBlock.freeEndGroups()[ 1 ], block2.freeEndGroups()[ 0 ] )
         
         # Now add growBlock to the cell so we can check for clashes
         mycell.addBlock( block1 )
@@ -2980,16 +2580,15 @@ class TestCell(unittest.TestCase):
 
     def testBlockTypes(self):
         """Test we can add a block correctly"""
+    
+    
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        CELLA = CELLB = CELLC = 30
-        
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock( fragmentType='A', filename=self.ch4Car )
-        mycell.addInitBlock( fragmentType='B', filename=self.ch4Car)
-        mycell.addInitBlock( fragmentType='C', filename=self.ch4Car )
-        mycell.addInitBlock( fragmentType='D', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='A', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='B', filename=self.ch4Car)
+        mycell.libraryAddFragment( fragmentType='C', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='D', filename=self.ch4Car )
         
         mycell.addBondType( 'A:a-B:a' )
         mycell.addBondType( 'A:a-C:a' )
@@ -2998,7 +2597,6 @@ class TestCell(unittest.TestCase):
         mycell.seed( 1, fragmentType='A' )
         toGrow = 3
         grew = mycell.growBlocks( toGrow, endGroupType=None, maxTries=5)
-        
         self.assertEqual( toGrow, grew, "testBlockTypes not ok")
         return
 
@@ -3013,35 +2611,30 @@ class TestCell(unittest.TestCase):
         """
         
         # Remember a coordinate for checking
-        test_coord = self.testCell.blocks[ self.testCell.blocks.keys()[0] ].atomCoord(4)
+        test_coord = self.testCell.blocks[ self.testCell.blocks.keys()[0] ].coord(4)
         
         outfile = "./testCellIO.pkl"
         self.testCell.writePickle( outfile )
-        
         with open( outfile ) as f:
             newCell = cPickle.load( f )
-            
-        self.assertTrue( numpy.allclose( test_coord, self.testCell.blocks[ self.testCell.blocks.keys()[0] ].atomCoord(4), rtol=1e-9, atol=1e-9 ),
+        
+        self.assertTrue( numpy.allclose( test_coord, self.testCell.blocks[ self.testCell.blocks.keys()[0] ].coord(4),
+                                         rtol=1e-9, atol=1e-9 ),
                          msg="Incorrect testCoordinate of cell.")
         
         self.testCell.growBlocks( 5 )
-        
         os.unlink( outfile ) 
         
         return
 
     def testCloseAtoms1(self):
         
-        CELLA = CELLB = CELLC = 2.1
-        
-        mycell = Cell( atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
-        
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
+        mycell = Cell( [2.1,2.1,2.1],atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
-        natoms = block1.numAllAtoms()
+        natoms = block1.numAtoms()
         
         # block radius is 1.8
         block1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
@@ -3052,7 +2645,9 @@ class TestCell(unittest.TestCase):
         
         # Add second block overlapping first but in other image
         block2 = mycell.getInitBlock('A')
-        block2.translateCentroid( [ mycell.A/2 + mycell.A, mycell.B/2 + mycell.B, mycell.C/2 + mycell.C ] )
+        block2.translateCentroid( [ mycell.A/2 + mycell.A,
+                                   mycell.B/2 + mycell.B,
+                                   mycell.C/2 + mycell.C ] )
         block2Idx = mycell.addBlock(block2)
         
         # Make sure every atom overlaps with ever other
@@ -3065,12 +2660,8 @@ class TestCell(unittest.TestCase):
 
     def testCloseAtoms(self):
         
-        CELLA = CELLB = CELLC = 30
-        
-        mycell = Cell( atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
-        
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
+        mycell = Cell([30,30,30], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
@@ -3127,18 +2718,13 @@ class TestCell(unittest.TestCase):
         """
         Test distance and close together
         """
-        CELLA = 30
-        CELLB = 30
-        CELLC = 30
-        
-        mycell = Cell( )
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         #mycell.initCell("../ch4_typed.car",incell=False)
         #block1 = mycell.initBlock.copy()
-        mycell.addInitBlock(filename=self.ch4Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
-        
         
         b1 = numpy.array([2,2,2], dtype=numpy.float64 )
         block1.translateCentroid( b1 )
@@ -3161,7 +2747,7 @@ class TestCell(unittest.TestCase):
             
         # Distance measured with Avogadro so it MUST be right...
         refd = 0.673354948616
-        distance = mycell.distance( block1.atomCoord(1), mycell.blocks[ block2_id ].atomCoord(3) )
+        distance = mycell.distance( block1.coord(1), mycell.blocks[ block2_id ].coord(3) )
         self.assertAlmostEqual( refd, distance, 12, "Closest atoms: {}".format(distance) )
         
         return
@@ -3169,10 +2755,8 @@ class TestCell(unittest.TestCase):
     def testDistance(self):
         """Test the distance under periodic boundary conditions"""
         
-        CELLA = CELLB = CELLC = 10
-        
-        mycell = Cell( )
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        boxDim=[10,10,10]
+        mycell = Cell(boxDim)
         
         v1 = [ 2.46803012, 1.67131881, 1.96745421]
         v2 = [ 1.07988345, 0.10567109, 1.64897769]
@@ -3207,9 +2791,9 @@ class TestCell(unittest.TestCase):
     
     def testDihedral(self):
         
-        CELLA = CELLB = CELLC = 30
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        CELLDIM=30
+        boxDim=[CELLDIM,CELLDIM,CELLDIM]
+        mycell = Cell(boxDim)
         
         p1 = numpy.array([ 0.0, 0.0, 0.0 ])
         p2 = numpy.array([ 10.0, 0.0, 0.0 ])
@@ -3221,8 +2805,8 @@ class TestCell(unittest.TestCase):
         self.assertEqual( ref, mycell.dihedral( p1, p2, p3, p4) )
         
         # Move by a full cell along x-axis - result should be the same
-        p3 = numpy.array([ 10.0+CELLA, 10.0, 0.0 ])
-        p4 = numpy.array([ 20.0+CELLA, 10.0, 10.0 ])
+        p3 = numpy.array([ 10.0+CELLDIM, 10.0, 0.0 ])
+        p4 = numpy.array([ 20.0+CELLDIM, 10.0, 10.0 ])
         
         self.assertEqual( ref, mycell.dihedral( p1, p2, p3, p4) )
         
@@ -3231,15 +2815,13 @@ class TestCell(unittest.TestCase):
     def testEndGroupTypes(self):
         """Test we can add a block correctly"""
         
-        CELLA = CELLB = CELLC = 30
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock( fragmentType='A', filename=self.ch4Car )
-        mycell.addInitBlock( fragmentType='B', filename=self.ch4Car)
-        mycell.addInitBlock( fragmentType='C', filename=self.ch4Car )
-        mycell.addInitBlock( fragmentType='D', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='A', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='B', filename=self.ch4Car)
+        mycell.libraryAddFragment( fragmentType='C', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='D', filename=self.ch4Car )
         
         # Everything can bond to A (apart from A itself), but nothing can bond to anything else 
         mycell.addBondType( 'A:a-B:a' )
@@ -3274,44 +2856,58 @@ class TestCell(unittest.TestCase):
     def testGrowBlocks(self):
         """Test we can add blocks correctly"""
         
-        CELLA = CELLB = CELLC = 30
-        
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        #mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         added = mycell.seed( 1 )
         self.assertEqual( added, 1, 'seed')
-        
-        natoms = mycell.blocks.values()[0].numAllAtoms()
-        
-        nblocks=3
+        natoms = mycell.numAtoms()
+        nblocks=10
         added = mycell.growBlocks( nblocks, endGroupType=None, maxTries=1 )
         
+        #mycell.writeCml("foo.cml", periodic=True, pruneBonds=False)
         self.assertEqual( added, nblocks, "growBlocks did not return ok")
         self.assertEqual(1,len(mycell.blocks), "Growing blocks found {0} blocks".format( len(mycell.blocks) ) )
         
-        natoms2 = mycell.blocks.values()[0].numAllAtoms()
-        self.assertEqual( natoms2, natoms*(nblocks+1) )
+        natoms2 = mycell.numAtoms()
+        nblocks += 1
+        # Need to subtract cap atoms
+        self.assertEqual( natoms2, (natoms*nblocks)- (nblocks-1)*2 )
         
         return
     
     def testGrowLimited(self):
         """Test we can add blocks correctly"""
         
-        CELLA = CELLB = CELLC = 30
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        mycell = Cell(doLog=False)
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
+        mycell.libraryAddFragment(filename=self.ch4_1Car, fragmentType='A')
+        mycell.addBondType( 'A:a-A:b' )
+        mycell.setMaxBond( 'A:a', 1 )
         
-        mycell.addInitBlock(filename=self.dcxCar, fragmentType='A')
+        added = mycell.seed( 1 )
+        mycell.growBlocks(10, cellEndGroups=None, maxTries=10)
+        
+        #mycell.dump()
+        
+        return
+    
+    def testGrowLimited2(self):
+        """Test we can add blocks correctly"""
+        
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
+        
+        mycell.libraryAddFragment(filename=self.dcxCar, fragmentType='A')
         mycell.addBondType( 'A:CH-A:CCl' )
         mycell.setMaxBond( 'A:CH', 1 )
         
         added = mycell.seed( 1 )
-        mycell.growBlocks(10, endGroupType='A:CH')
+        mycell.growBlocks(10, cellEndGroups=['A:CH'])
         
         #mycell.dump()
         
@@ -3320,12 +2916,10 @@ class TestCell(unittest.TestCase):
     def testGrowBlocks2(self):
         """Test we can add blocks correctly"""
         
-        CELLA = CELLB = CELLC = 30
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
 
         block1 = mycell.getInitBlock('A')
@@ -3352,30 +2946,43 @@ class TestCell(unittest.TestCase):
     def testGrowBlocksDihedral(self):
         """Test we can add blocks correctly"""
         
-        CELLA = CELLB = CELLC = 10
+        boxDim=[10,10,10]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
 
         added = mycell.seed( 1, center=True )
         
         nblocks=2
         dihedral=90
-        added = mycell.growBlocks( nblocks, endGroupType=None, dihedral=dihedral, maxTries=5 )
+        added = mycell.growBlocks( nblocks, cellEndGroups=None, libraryEndGroups=None, dihedral=dihedral, maxTries=5 )
         
         # Check angle between two specified dihedrals is correct
         block1 = mycell.blocks[ mycell.blocks.keys()[0] ]
-        bond1 = block1.bonds()[0]
+        bond1 = block1._blockBonds[0]
         
-        p1 = block1.atomCoord( bond1.endGroup1.blockDihedralIdx )
-        p2 = block1.atomCoord( bond1.endGroup1.blockEndGroupIdx )
-        p3 = block1.atomCoord( bond1.endGroup2.blockEndGroupIdx )
-        p4 = block1.atomCoord( bond1.endGroup2.blockDihedralIdx )
+        p1 = block1.coord( bond1.endGroup1.dihedralIdx() )
+        p2 = block1.coord( bond1.endGroup1.endGroupIdx() )
+        p3 = block1.coord( bond1.endGroup2.endGroupIdx() )
+        p4 = block1.coord( bond1.endGroup2.dihedralIdx() )
         
         self.assertAlmostEqual( math.degrees( util.dihedral( p1, p2, p3, p4) ), dihedral )
+        
+        return
+
+    def testGrowBlocksUw(self):
+        """Test we can add blocks correctly"""
+        
+        boxDim=[10,10,10]
+        mycell = Cell(boxDim)
+        
+        mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
+        mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
+        mycell.addBondType('amine:a-triquin:b')
+
+        mycell.seed( 1, fragmentType='triquin', center=True )
+        mycell.growBlocks(toGrow=1, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
         
         return
 
@@ -3383,45 +2990,55 @@ class TestCell(unittest.TestCase):
     def testJoinBlocks(self):
         """Test we can add a block correctly"""
         
-        CELLA = CELLB = CELLC = 30
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        #mycell.addInitBlock(filename=self.pafCar, fragmentType='A')
-        mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
+        #mycell.libraryAddFragment(filename=self.pafCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         toAdd = 5
-        added = mycell.seed( toAdd )
+        added = mycell.seed( toAdd, center=True )
         self.assertEqual( added, toAdd, 'seed')
         nc = 0
         for block in mycell.blocks.itervalues():
-            nc += block.numAllAtoms()
+            nc += block.numAtoms()
         
         toJoin=4
         added = mycell.joinBlocks( toJoin, cellEndGroups=None, maxTries=1 )
-        
-        mycell.dump()
-        
         self.assertEqual( added, toJoin, "joinBlocks did join enough")
-        
         self.assertEqual( 1, len(mycell.blocks), "joinBlocks found {0} blocks".format( len( mycell.blocks ) ) )
         
         nc2 = 0
         for block in mycell.blocks.itervalues():
-            nc2 += block.numAllAtoms()
+            nc2 += block.numAtoms()
             
-        self.assertEqual(nc, nc2, "Growing blocks found {0} coords".format( nc2 ) )
+        # Need to subtract cap atoms
+        self.assertEqual(nc-(toJoin*2), nc2, "Growing blocks found {0} coords".format( nc2 ) )
         
         return
     
-    def testOptimiseGeometry(self):
+    def testOptimiseGeometryRigid(self):
         """
         """
-        
-        #self.testCell.dump()
-        self.testCell.optimiseGeometry( quiet=True )
+        #self.testCell.writeCml("foo.cml")
+        self.testCell.optimiseGeometry( rigidBody=True,
+                                        doDihedral=True,
+                                        quiet=True,
+                                        rCut=5.0,
+                                        optCycles = 1000000,
+                                        dt=0.005,
+                                        Etol=1e-5,
+                                         )
+        os.unlink("hoomdOpt.xml")
+        return
+    
+    def testOptimiseGeometryAll(self):
+        """
+        """
+        #self.testCell.writeCml("foo.cml")
+        self.testCell.optimiseGeometry( rigidBody=False, doDihedral=True, quiet=True )
+        os.unlink("hoomdOpt.xml")
         return
     
     def XtestOptimiseGeometryMinCell(self):
@@ -3432,7 +3049,7 @@ class TestCell(unittest.TestCase):
         CELLA = CELLB = CELLC = 100
         mycell = Cell( )
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
+        mycell.libraryAddFragment( filename=self.benzeneCar, fragmentType='A' )
         mycell.addBondType( 'A:a-A:a' )
 
         mycell.seed( 1 )
@@ -3462,30 +3079,28 @@ class TestCell(unittest.TestCase):
         """
         """
         self.testCell.optimiseGeometry( doDihedral=True, quiet=True )
+        os.unlink("hoomdOpt.xml")
         return
-    
+
+    def testRunMD(self):
+        """
+        """
+        self.testCell.runMD( doDihedral=True,
+                             quiet=True,
+                             rCut=5.0,
+                             mdCycles=100,
+                             T=1.0,
+                             tau=0.5,
+                             dt=0.0005,
+                         )
+        os.unlink("hoomdMD.xml")
+        return
+
     def testRunMDAndOptimise(self):
         """
         """
         self.testCell.runMDAndOptimise( doDihedral=True, quiet=True )
-        return
-    
-    def testRunMDandOpt(self):
-        """
-        """
-        
-        CELLA = CELLB = CELLC = 20.0
-        mycell = Cell()
-        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
-        
-        mycell.addInitBlock(filename=self.benzene2Car, fragmentType='A')
-        mycell.addBondType( 'A:a-A:a')
-        
-        mycell.seed( 5 )
-        mycell.growBlocks( 8 )
-        
-        mycell.runMDAndOptimise( mdCycles=100, optCycles=10000, quiet=True )
-        
+        os.unlink("hoomdMDOpt.xml")
         return
     
     def testPeriodic(self):
@@ -3498,8 +3113,6 @@ class TestCell(unittest.TestCase):
         coords = []
         for block in mycell.blocks.itervalues():
             for i, coord in enumerate( block.iterCoord() ):
-                if block.ignoreAtom( i ):
-                    continue
                 coords.append( coord )
                 
         # Wrap them
@@ -3600,12 +3213,11 @@ class TestCell(unittest.TestCase):
         """Test we can seed correctly"""
         
         
-        CELLA = CELLB = CELLC = 50
+        boxDim=[50,50,50]
+        mycell = Cell(boxDim)
         
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        
-        mycell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
+        mycell.libraryAddFragment( filename=self.benzeneCar, fragmentType='A' )
+        #mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
         mycell.addBondType( 'A:a-A:a' )
         
         nblocks = 10
@@ -3620,7 +3232,7 @@ class TestCell(unittest.TestCase):
         
         bad = []
         for i,b in mycell.blocks.iteritems():
-            radius = b.radius()
+            radius = b.blockRadius()
             for c in b.iterCoord():
                 if ( 0-radius > c[0] > CELLA[0]+ radius ) or \
                    ( 0-radius > c[1] > CELLB[1]+ radius ) or \
@@ -3637,8 +3249,8 @@ class TestCell(unittest.TestCase):
     def testSurroundBoxes(self):
         """
         """
-        mycell = Cell( )
-        mycell.cellAxis( A=5, B=5, C=5 )
+        boxDim=[5,5,5]
+        mycell = Cell(boxDim)
         # box size=1 - need to set manually as not reading in a block
         mycell.maxAtomRadius = 0.5
         mycell.atomMargin = 0.0
@@ -3663,13 +3275,12 @@ class TestCell(unittest.TestCase):
     
     def testZipBlocks(self):
 
-        CELLA = CELLB = CELLC = 12.0
-        mycell = Cell(doLog=True)
-        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        boxDim=[12.0,12.0,12.0]
+        mycell = Cell(boxDim)
         
         ch4Car=self.ch4Car
-        #mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
-        mycell.addInitBlock(filename=ch4Car, fragmentType='A')
+        #mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually
@@ -3685,19 +3296,19 @@ class TestCell(unittest.TestCase):
         endGroup2 = b2.freeEndGroups()[ 0 ]
         
         # Position b2 - all blocks will be positioned around this one
-        b1.positionGrowBlock( endGroup1, b2, endGroup2, dihedral=180 )
+        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
         mycell.addBlock(b2)
         
         # Position b3
         endGroup1 = b2.freeEndGroups()[ 1 ]
         endGroup2 = b3.freeEndGroups()[ 0 ]
-        b2.positionGrowBlock( endGroup1, b3, endGroup2, dihedral=180 )
+        b2.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
         mycell.addBlock(b3)
         
         # Position b4
         endGroup1 = b2.freeEndGroups()[ 2 ]
         endGroup2 = b4.freeEndGroups()[ 0 ]
-        b2.positionGrowBlock( endGroup1, b4, endGroup2, dihedral=180 )
+        b2.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
         mycell.addBlock(b4)
         
         made = mycell.zipBlocks( bondMargin=0.5, bondAngleMargin=0.5 )
@@ -3708,11 +3319,10 @@ class TestCell(unittest.TestCase):
 
     def testZipBlocks2(self):
 
-        CELLA = CELLB = CELLC = 12.0
-        mycell = Cell(doLog=True)
-        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        boxDim=[12.0,12.0,12.0]
+        mycell = Cell(boxDim)
         
-        mycell.addInitBlock(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually
@@ -3729,7 +3339,7 @@ class TestCell(unittest.TestCase):
         endGroup2 = b2.freeEndGroups()[ 0 ]
         
         # Position the block
-        b1.positionGrowBlock( endGroup1, b2, endGroup2 )
+        b1.positionGrowBlock( endGroup1, endGroup2 )
         
         # and bond
         bond = buildingBlock.Bond(endGroup1, endGroup2)
@@ -3745,12 +3355,11 @@ class TestCell(unittest.TestCase):
     def testZipBlocks3(self):
         """Bonding with margin"""
 
-        CELLA = CELLB = CELLC = 12.0
-        mycell = Cell(doLog=True)
-        mycell.cellAxis (A=CELLA, B=CELLB, C=CELLC )
+        boxDim=[12.0,12.0,12.0]
+        mycell = Cell(boxDim)
         
         ch4Car=self.ch4Car
-        mycell.addInitBlock(filename=ch4Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually
@@ -3768,7 +3377,7 @@ class TestCell(unittest.TestCase):
         endGroup2 = b2.freeEndGroups()[ 0 ]
         
         # Position b2
-        b1.positionGrowBlock( endGroup1, b2, endGroup2, dihedral=180 )
+        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
         mycell.addBlock(b2)
         
         # Rotate on y-axis so that it's slightly off
@@ -3781,41 +3390,157 @@ class TestCell(unittest.TestCase):
         self.assertEqual( made, 1 )
         
         return
+
+    def testWriteCml(self):
+        """
+        write out cml
+        """
+        
+        boxDim=[100,100,100]
+        mycell = Cell(boxDim)
+        
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+        
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
+        mycell.addBondType( 'B:a-B:a')
+        
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='C')
+        mycell.addBondType( 'C:a-C:a')
+        
+        # Create block manually - this is so we have reproducible results
+        b1 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        b2 = b1.copy()
+        b3 = b1.copy()
+        b4 = b1.copy()
+        
+        # b1 in center of cell
+        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        mycell.addBlock(b1)
+        
+        for b in [ b2, b3, b4]:
+            endGroup1 = b1.freeEndGroups()[ 0 ]
+            endGroup2 = b.freeEndGroups()[ 0 ]
+            
+            # Add b2
+            b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
+    
+            # bond them
+            bond = buildingBlock.Bond(endGroup1, endGroup2)
+            b1.bondBlock( bond )
+        
+        # Add another block that's not overlapping with the first
+        b1 = buildingBlock.Block( filePath=self.ch4Car, fragmentType='B' )
+        b2 = b1.copy()
+        b3 = b1.copy()
+        b4 = b1.copy()
+        b1.translateCentroid( [ 10, 10, 10] )
+        mycell.addBlock(b1)
+
+        for b in [ b2, b3, b4]:
+            endGroup1 = b1.freeEndGroups()[ 0 ]
+            endGroup2 = b.freeEndGroups()[ 0 ]
+            
+            # Add b2
+            b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
+    
+            # bond them
+            bond = buildingBlock.Bond(endGroup1, endGroup2)
+            b1.bondBlock( bond )
+            
+        # Add another block that's not overlapping with the others
+        b1 = buildingBlock.Block( filePath=self.ch4Car, fragmentType='C' )
+        b2 = b1.copy()
+        b3 = b1.copy()
+        b4 = b1.copy()
+        b1.translateCentroid( [ 90, 90, 90] )
+        mycell.addBlock(b1)
+
+        for b in [ b2, b3, b4]:
+            endGroup1 = b1.freeEndGroups()[ 0 ]
+            endGroup2 = b.freeEndGroups()[ 0 ]
+            
+            # Add b2
+            b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
+    
+            # bond them
+            bond = buildingBlock.Bond(endGroup1, endGroup2)
+            b1.bondBlock( bond )
+    
+        
+        fname = "test.cml"
+        mycell.writeCml(fname, periodic=False, rigidBody=True)
+        # Test is same as reference
+        with open(fname) as f:
+            test = f.readlines()
+        with open(os.path.join( self.ambuildDir, "tests", "testCellRigid.cml" )) as f:
+            ref = f.readlines()
+        
+        self.assertEqual(test,ref,"cml compare rigid")
+        
+        fname = "test.cml"
+        mycell.writeCml(fname, periodic=False, rigidBody=False)
+        # Test is same as reference
+        with open(fname) as f:
+            test = f.readlines()
+        with open(os.path.join( self.ambuildDir, "tests", "testCellAll.cml" )) as f:
+            ref = f.readlines()
+        
+        self.assertEqual(test,ref,"cml compare all")
+        os.unlink(fname)
+        return
+
     
     def testWriteHoomdblue(self):
         """
         write out hoomdblue xml
         """
-        
         import hoomdblue
         
-        CELLA = CELLB = CELLC = 30
+        boxDim=[20,20,20]
+        mycell = Cell(boxDim)
         
-        mycell = Cell( )
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        #mycell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
-        mycell.addInitBlock( filename=self.benzeneCar, fragmentType='A' )
-        mycell.addBondType( 'A:a-A:a' )
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
         
-        added = mycell.seed( 3 )
-        ok = mycell.growBlocks( 3, maxTries=5 )
+        # Create block manually - this is so we have reproducible results
+        b1 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        
+        # b1 in center of cell
+        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        endGroup1 = b1.freeEndGroups()[ 0 ]
+        endGroup2 = b2.freeEndGroups()[ 0 ]
+        
+        # Bond b2 to it
+        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
+        bond = buildingBlock.Bond(endGroup1, endGroup2)
+        b1.bondBlock( bond )
+        mycell.addBlock(b1)
         
         initcoords = []
         for block in mycell.blocks.itervalues():
             for c in block.iterCoord():
                 initcoords.append( c )
         
-        filename = "testWriteHoomdblue.xml"
-        natoms = mycell.writeHoomdXml( xmlFilename=filename )
+        xmlFilename = "testWriteHoomdblue.xml"
+        doDihedral=True
+        natoms = mycell.writeHoomdXml( xmlFilename=xmlFilename, doDihedral=doDihedral )
+
+        # Test what we've written out matches the reference file
+        with open(xmlFilename) as f:
+            test = f.readlines()
+        with open(os.path.join( self.ambuildDir, "tests", xmlFilename )) as f:
+            ref = f.readlines()
+        self.assertEqual(test,ref,"xml compare")
 
         # Init the sytem from the file
         if hoomdblue.init.is_initialized():
             hoomdblue.init.reset()
-        system = hoomdblue.init.read_xml( filename=filename )
+        system = hoomdblue.init.read_xml( filename=xmlFilename )
         
         # Read it back in to make sure we get the same values
         mycell.fromHoomdblueSystem( system )
-        
         finalcoords = []
         for block in mycell.blocks.itervalues():
             for c in block.iterCoord():
@@ -3823,8 +3548,10 @@ class TestCell(unittest.TestCase):
         
         self.assertTrue( all( map( lambda x : numpy.allclose( x[0], x[1] ),  zip( initcoords, finalcoords ) ) ),
                          "coords don't match")
+    
+        #ok = opt.HoomdOptimiser().optimiseGeometry( xmlFilename,doDihedral=doDihedral)
         
-        #os.unlink( filename )
+        os.unlink( xmlFilename )
         
         return
 
@@ -3839,7 +3566,7 @@ class TestCell(unittest.TestCase):
         CELLA = CELLB = CELLC = 100
         mycell = Cell( )
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.addInitBlock( filename=self.ch4Car, fragmentType='A' )
+        mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
         mycell.addBondType( 'A:a-A:a' )
 
         mycell.seed( 1 )

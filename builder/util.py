@@ -603,6 +603,8 @@ def calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.
 def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0 ):
     """Calculate the bonds for the fragments. This is done at the start when the only coordinates
     are those in the fragment.
+    
+    The slightly strange form of this is because I needed a routine to work out the closest atoms
     """
 
     def getSurroundCells( key ):
@@ -637,7 +639,7 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
     surroundCells = {} # Dictionary keyed by cell with a list of the cells that surround a particular cell
     
     # Work out which box each atom is in and the surrounding boxes
-    for atomIdx1, coord in enumerate( coords ):
+    for idxAtom1, coord in enumerate( coords ):
         
         x, y, z = coord
         a=int( math.floor( x / boxSize ) )
@@ -647,10 +649,10 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
         key = (a,b,c)
         atomCells.append( key )
         if cells.has_key( key ):
-            cells[ key ].append( atomIdx1 )
+            cells[ key ].append( idxAtom1 )
         else:
             # Add to main list
-            cells[ key ] = [ ( atomIdx1 ) ]
+            cells[ key ] = [ ( idxAtom1 ) ]
             # Map surrounding boxes
             surroundCells[ key ] = getSurroundCells( key )
 
@@ -662,25 +664,28 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
           'i2' : None  }
     
     # Now calculate the bonding
-    for atomIdx1, coord1 in enumerate( coords ):
+    for idxAtom1, coord1 in enumerate( coords ):
         
-        symbol1 = symbols[ atomIdx1 ]
-        key = atomCells[ atomIdx1 ]
+        symbol1 = symbols[ idxAtom1 ]
+        key = atomCells[ idxAtom1 ]
         
         # Loop through all cells surrounding this one
         for cell in surroundCells[ key ]:
             
             # Check if we have a cell with anything in it
-            if not cells.has_key( cell ):
+            # Trigger exception so we don't have to search through the keys
+            try:
+                alist=cells[ cell ]
+            except KeyError:
                 continue
             
-            for atomIdx2 in cells[ cell ]:
+            for idxAtom2 in alist:
                 
                 # Skip atoms we've already processed
-                if atomIdx2 > atomIdx1:
+                if idxAtom2 > idxAtom1:
                 
-                    coord2 = coords[ atomIdx2 ]
-                    symbol2 = symbols[ atomIdx2 ]
+                    coord2 = coords[ idxAtom2 ]
+                    symbol2 = symbols[ idxAtom2 ]
                     
                     bond_length = bondLength( symbol1, symbol2 )
                     if bond_length < 0:
@@ -700,9 +705,9 @@ def _calcBonds( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1
                             if numpy.allclose( coord2, c ):
                                 md[ 'i2' ] = x
                     
-                    #print "Dist:length {0}:{1} {2}-{3} {4} {5}".format( atomIdx1, atomIdx2, symbol1, symbol2, bond_length, dist )
+                    #print "Dist:length {0}:{1} {2}-{3} {4} {5}".format( idxAtom1, idxAtom2, symbol1, symbol2, bond_length, dist )
                     if  bond_length - bondMargin < dist < bond_length + bondMargin:
-                        bonds.append( (atomIdx1, atomIdx2) )
+                        bonds.append( (idxAtom1, idxAtom2) )
     
     return bonds, md
 
@@ -776,7 +781,8 @@ def distance(v1, v2, cell=None ):
     assert len(v1) > 0 and len(v2) > 0, "distance needs vectors!"
     delta = numpy.array(v1) - numpy.array(v2)
     if cell is not None:
-        dimensions = numpy.array( cell )
+        #dimensions = numpy.array( cell )
+        dimensions = cell
         # is basically modulus - returns what's left when divided by dim
         delta = numpy.remainder( delta, dimensions )
         # Set all where it's > half the cell to subtract the cell dimension
@@ -804,7 +810,7 @@ def XdistanceP(self, v1, v2 ):
     
     return math.sqrt( dx*dx + dy*dy + dz*dz )
 
-def dumpPkl(pickleFile,split=None):
+def dumpPkl(pickleFile,split=False):
     
     fpath = os.path.abspath( pickleFile )
     print "Dumping pkl file: {0}".format( fpath )
@@ -812,31 +818,23 @@ def dumpPkl(pickleFile,split=None):
     prefix = os.path.splitext(fname)[0]
     
     mycell = cellFromPickle(pickleFile)
-    
     if split:
-        if split == "splitBlocks":
-            for i, b in enumerate(mycell.blocks.values()):
-                # Hack assume all have same type
-                ftype=b._fragments[0].type()
-                b.writeXyz(name="{0}_{1}_{2}.xyz".format(prefix,ftype,i),
-                           cell=[mycell.A,mycell.B,mycell.C])
-        else:
-            for t in mycell.fragmentTypes().keys():
-                data = mycell.dataDict( fragmentType=t)
-                mycell.writeXyz("{0}_{1}_P.xyz".format(prefix,t),
-                                data=data,
-                                periodic=True)
-                mycell.writeCml("{0}_{1}_PV.cml".format(prefix,t),
-                                data=data,
-                                allBonds=True,
-                                periodic=True,
-                                pruneBonds=True)
+        for t in mycell.fragmentTypes().keys():
+            data = mycell.dataDict( fragmentType=t)
+            mycell.writeXyz("{0}_{1}_P.xyz".format(prefix,t),
+                            data=data,
+                            periodic=True)
+            mycell.writeCml("{0}_{1}_PV.cml".format(prefix,t),
+                            data=data,
+                            periodic=True,
+                            pruneBonds=True)
     else:
-        data = mycell.dataDict()
+        data = mycell.dataDict(rigidBody=False)
         mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
         #self.writeCar(prefix+"_P.car",data=data,periodic=True)
-        mycell.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
+        mycell.writeCml(prefix+"_PV.cml", data=data, periodic=True, pruneBonds=True)
         #mycell.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
+        data = mycell.dataDict(center=True)
         mycell.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
     
     return
@@ -914,6 +912,32 @@ def pickleObj( obj, fileName):
         cPickle.dump( obj ,pfile )
         
     return
+
+def readMol2(filename):
+    
+    coords=[]
+    symbols=[]
+    #bonds=[]
+    with open(filename) as f:
+        captureAtom=False
+        for line in f:
+            line=line.strip()
+            if line.startswith("@<TRIPOS>ATOM"):
+                captureAtom=True
+                continue
+            if line.startswith("@<TRIPOS>BOND"):
+                captureAtom=False
+                break
+                captureBond=False
+                continue
+            if captureAtom:
+                f=line.split()
+                symbols.append(label2symbol(f[1]))
+                coords.append( [float(f[2]),float(f[3]),float(f[4])])
+#             if captureBond:
+#                 f=line.split()
+    
+    return coords,symbols
 
 def rotation_matrix( axis, angle ):
     """
@@ -993,6 +1017,160 @@ def wrapCoord( coord, ldim, center=False ):
         
     return wcoord, image
 
+def writeCml(cmlFilename,
+             coords,
+             symbols,
+             bonds=None,
+             atomTypes=None,
+             cell=None,
+             pruneBonds=False):
+
+    assert len(coords) == len(symbols)
+    if pruneBonds:
+        assert cell
+        pcoords = [] # need to save periodic coordinates
+    
+    root = ET.Element( 'molecule')
+    root.attrib['xmlns']       = "http://www.xml-cml.org/schema"
+    root.attrib['xmlns:cml']   = "http://www.xml-cml.org/dict/cml"
+    root.attrib['xmlns:units'] = "http://www.xml-cml.org/units/units"
+    root.attrib['xmlns:xsd']   = "http://www.w3c.org/2001/XMLSchema"
+    root.attrib['xmlns:iupac'] = "http://www.iupac.org"
+    root.attrib['id']          = "mymolecule"
+    
+    if cell is not None:
+        # First set up the cell
+        crystal = ET.SubElement( root, "crystal" )
+    
+        crystalANode = ET.SubElement( crystal,"scalar")
+        crystalBNode = ET.SubElement( crystal,"scalar")
+        crystalCNode = ET.SubElement( crystal,"scalar")
+        crystalAlphaNode = ET.SubElement( crystal,"scalar")
+        crystalBetaNode  = ET.SubElement( crystal,"scalar")
+        crystalGammaNode = ET.SubElement( crystal,"scalar")
+    
+        crystalANode.attrib["title"] = "a"
+        crystalBNode.attrib["title"] = "b"
+        crystalCNode.attrib["title"] = "c"
+        crystalAlphaNode.attrib["title"] = "alpha"
+        crystalBetaNode.attrib["title"] =  "beta"
+        crystalGammaNode.attrib["title"] = "gamma"
+        
+        crystalANode.attrib["units"] = "units:angstrom"
+        crystalBNode.attrib["units"] = "units:angstrom"
+        crystalCNode.attrib["units"] = "units:angstrom"
+        crystalAlphaNode.attrib["units"] = "units:degree"
+        crystalBetaNode.attrib["units"]  = "units:degree"
+        crystalGammaNode.attrib["units"] = "units:degree"
+        
+        crystalANode.text = str( cell[0] )
+        crystalBNode.text = str( cell[1] )
+        crystalCNode.text = str( cell[2] )
+        
+        # Only support orthorhombic? cells
+        crystalAlphaNode.text = "90"
+        crystalBetaNode.text  = "90"
+        crystalGammaNode.text = "90"
+    
+    if atomTypes:
+        assert len(atomTypes) == len(coords)
+        # Need to collate atomTypes
+        for atype in set( atomTypes ):
+            atomTypeNode = ET.SubElement( root, "atomType" )
+            atomTypeNode.attrib['name'] = atype
+            atomTypeNode.attrib['title'] = atype
+    
+    # Now atom data
+    atomArrayNode = ET.SubElement( root, "atomArray" )
+    for i, coord in enumerate( coords ):
+        atomNode = ET.SubElement( atomArrayNode, "atom")
+        atomNode.attrib['id'] = "a{0}".format( i )
+        atomNode.attrib['elementType'] = symbols[i]
+        if cell:
+            x, ix = wrapCoord( coord[0], cell[0], center=False )
+            y, iy = wrapCoord( coord[1], cell[1], center=False )
+            z, iz = wrapCoord( coord[2], cell[2], center=False )
+            if pruneBonds:
+                pcoords.append( numpy.array([x,y,z]))
+        else:
+            x = coord[0]
+            y = coord[1]
+            z = coord[2]
+        
+        atomNode.attrib['x3'] = str( x )
+        atomNode.attrib['y3'] = str( y )
+        atomNode.attrib['z3'] = str( z )
+        
+        if atomTypes:
+            # Now add atomType as child node referring to the atomType
+            atomTypeNode = ET.SubElement( atomNode, "atomType" )
+            atomTypeNode.attrib['ref'] = atomTypes[ i ]
+    
+    if bonds is not None:
+        # Now do bonds
+        if pruneBonds:
+            # Hack to get vis working
+            # Calculate all bond distances
+            distances = distance( [ pcoords[b1] for b1, b2 in bonds],
+                                  [ pcoords[b2] for b1, b2 in bonds] )
+            
+            # Complete hack - just see if it's longer then 0.5 the cell A distance - assumes cubic cell
+            bonds = [ b for i, b in enumerate( bonds ) if distances[i] <= cell[0] * 0.5 ]
+            
+        bondArrayNode = ET.SubElement( root, "bondArray" )
+        for b in bonds:
+            bondNode = ET.SubElement( bondArrayNode, "bond")
+            bondNode.attrib['atomRefs2'] = "a{0} a{1}".format( b[0], b[1]  )
+            bondNode.attrib['order'] = "1"
+
+    tree = ET.ElementTree(root)
+    #ET.dump(tree)
+    
+    cmlFilename = os.path.abspath( cmlFilename )
+    #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
+    tree.write( cmlFilename, encoding="utf-8", xml_declaration=True)
+    
+    return cmlFilename
+
+def hoomdCml( xmlFilename ):
+
+    tree = ET.parse( xmlFilename )
+    root = tree.getroot()
+
+    coords = []
+    x = root.findall(".//position")
+    ptext = x[0].text
+    for line in ptext.split( os.linesep ):
+        line = line.strip()
+        if line:
+            x,y,z = line.split()
+            coords.append(  numpy.array( [ float(x), float(y), float(z) ] ) )
+
+    symbols = []
+    atext = root.findall(".//type")[0].text
+    for line in atext.split( os.linesep ):
+        atomType = line.strip()
+        if atomType:
+            symbols.append( label2symbol( atomType ) )
+
+    bonds = []
+    x = root.findall(".//bond")
+    ptext = x[0].text
+    for line in ptext.split( os.linesep ):
+        line = line.strip()
+        if line:
+            label,b1,b2 = line.split()
+            bonds.append( (b1,b2) )
+
+    writeCml(xmlFilename+".cml",
+             coords,
+             symbols,
+             bonds=bonds,
+             atomTypes=None,
+             cell=None,
+             pruneBonds=False)
+
+    return
 
 def hoomdContacts( xmlFilename ):
     
@@ -1074,13 +1252,13 @@ if __name__ == '__main__':
     """
     Run the unit tests
     """
-    #unittest.main()
-    #xyzContacts( sys.argv[1] )
-    #hoomdContacts( sys.argv[1] )
+    
+    #hoomdCml(sys.argv[1])
+    #sys.exit()
     assert len(sys.argv) >= 2,"To dump coordinates from pickle: {0} [split] <file.pkl>".format( sys.argv[0] )
-    split=None
-    if sys.argv[1] == "split" or sys.argv[1] == "splitBlocks":
-        split=sys.argv[1]
+    split=False
+    if sys.argv[1] == "--split" or sys.argv[1] == "-s":
+        split=True
         pklFile=sys.argv[2]
     else:
         pklFile=sys.argv[1]

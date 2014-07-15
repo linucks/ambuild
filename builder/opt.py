@@ -24,6 +24,7 @@ class FfieldParameters( object ):
         self.bonds = { 
                       'cp-cp'   : { 'k' : 1550.0, 'r0' : 1.384 },
                       'c1-cp'   : { 'k' : 970.0,  'r0' : 1.501 },
+                      'cp-c1'   : { 'k' : 970.0,  'r0' : 1.501 },
                       'c2-cp'   : { 'k' : 2000.0,  'r0' : 1.524 },
                       #'cp-ct'   : { 'k' : 1200.0, 'r0' : 1.54 },
                       #'c3a-c3a' : { 'k' : 1200.0, 'r0' : 1.54 },
@@ -35,6 +36,7 @@ class FfieldParameters( object ):
                       #Here c_0 is = c= and nb is = n= to maintain ff label. Bondlength fitted to DFT 
                       #at b3lyp with vdw3 disp 6-311G basis set
                       'c_0-nb'   : { 'k' : 1200.0, 'r0' : 1.320 },
+                      'nb-c_0'   : { 'k' : 1200.0, 'r0' : 1.320 }, 
                       }
 
         self.angles = { 
@@ -757,6 +759,7 @@ class HoomdOptimiser( object ):
               xmlFilename,
               doDihedral=False,
               doImproper=False,
+              rigidBody=True,
               rCut=None,
               quiet=None,
               **kw ):
@@ -832,10 +835,9 @@ class HoomdOptimiser( object ):
         # blows up
         preOptCycles = 5000
         self._optimiseGeometry(optCycles = preOptCycles,
-                               dt=0.0001,
-                               maxOptIter=1 )
+                               dt=0.0001 )
         # Now run the MD steps
-        self._runMD(  **kw )
+        self._runMD( **kw )
         
         # Finally do a full optimisation
         optimised = self._optimiseGeometry( **kw )
@@ -851,6 +853,7 @@ class HoomdOptimiser( object ):
                           xmlFilename,
                           doDihedral=False,
                           doImproper=False,
+                          rigidBody=True,
                           rCut=None,
                           quiet=None,
                           **kw ):
@@ -909,12 +912,14 @@ class HoomdOptimiser( object ):
                                       period=1,
                                       unwrap_full=True,
                                       overwrite=True )
+#             mol2 = hoomdblue.dump.mol2(filename="runmd",
+#                                       period=1)
 
         # run mdCycles time steps
         hoomdblue.run( mdCycles )
         
         nvt_rigid.disable()
-        if dump:
+        if dump and False:
             xmld.disable()
             dcdd.disable()
             del xmld
@@ -928,22 +933,26 @@ class HoomdOptimiser( object ):
     def _optimiseGeometry(self,
                           carOut="hoomdOpt.car",
                           optCycles = 1000000,
-                          maxOptIter=1,
-                          dt=0.005,
                           dump=False,
+                          dt=0.005,
+                          Nmin=5,
+                          alpha_start=0.1,
+                          ftol=1e-2,
+                          Etol=1e-5,
+                          finc=1.1,
+                          fdec=0.5,
                           **kw ):
         """Optimise the geometry with hoomdblue"""
         
         # Create the integrator with the values specified
         fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(),
                                                              dt=dt,
-                                                             Nmin=5,
-                                                             alpha_start=0.1,
-                                                             ftol=1e-2,
-                                                             #Etol=1e-4,
-                                                             Etol=1e-5,
-                                                             finc=1.1,
-                                                             fdec=0.5
+                                                             Nmin=Nmin,
+                                                             alpha_start=alpha_start,
+                                                             ftol=ftol,
+                                                             Etol=Etol,
+                                                             finc=finc,
+                                                             fdec=fdec,
                                                             )
         
         if dump:
@@ -956,14 +965,11 @@ class HoomdOptimiser( object ):
                                        )
             
         optimised=False
-        for i in range(maxOptIter):
-            hoomdblue.run( optCycles,
-                           callback=lambda x: -1 if fire.has_converged() else 0,
-                           callback_period=1 )
-            #hoomdblue.run( optCycles )
-            if fire.has_converged():
-                optimised=True
-                break
+        hoomdblue.run( optCycles,
+                       callback=lambda x: -1 if fire.has_converged() else 0,
+                       callback_period=1 )
+        if fire.has_converged():
+            optimised=True
             
             #if float( self.hlog.query( 'potential_energy' ) ) < 1E-2:
             #    print "!!!!!!!!!!!HACK CONVERGENCE CRITERIA!!!!!!"
