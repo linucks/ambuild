@@ -283,7 +283,7 @@ class Cell():
         """Allow bonds between the two endGroups specified in the bondType.
         
         endGroups are defined by the fragmentType they belong to (which is set by the fragmentType argument
-        to addLibraryFragment), together with the identifier for that endGroup (which is specified by the first column
+        to libraryAddFragment), together with the identifier for that endGroup (which is specified by the first column
         in the .csv file). These are separated by a colon, so an endGroup identifier is of the form:
         
         FRAGMENT1:ENDGROUP1
@@ -341,7 +341,7 @@ class Cell():
             self._bondTable[ bondB ].add( bondA )
         return
     
-    def addLibraryFragment( self, filename, fragmentType='A' ):
+    def libraryAddFragment( self, filename, fragmentType='A' ):
         """Add a fragment of type fragmentType defined in the .car file filename
         
         Args:
@@ -355,6 +355,10 @@ class Cell():
         
         # For now don't allow adding blocks when the cell has blocks in
         assert not len(self.blocks),"Cannot add library fragments with populated cell!"
+        
+        # Make sure the type is valid
+        if ":" in fragmentType or "-" in fragmentType:
+            raise RuntimeError,"fragmentType cannot contain - or : characters!"
         
         # Create fragment
         f = fragment.Fragment( filename, fragmentType )
@@ -1442,9 +1446,10 @@ class Cell():
         return sum( [ b.numAtoms() for b in self.blocks.itervalues() ] )
     
     def optimiseGeometry(self,
-                         xmlFilename="hoomdOpt.xml",
+                         rigidBody=True,
                          doDihedral=False,
                          doImproper=False,
+                         xmlFilename="hoomdOpt.xml",
                          **kw ):
         """Optimise the geometry with hoomdblue
         
@@ -2481,7 +2486,7 @@ class TestCell(unittest.TestCase):
             # From code looks like default r_buff is 0.4 and our default r_cut is 5.0 
             boxDim=[20,20,20]
             mycell = Cell(boxDim)
-            mycell.addLibraryFragment(filename=cls.benzene2Car, fragmentType='A')
+            mycell.libraryAddFragment(filename=cls.benzene2Car, fragmentType='A')
             mycell.addBondType( 'A:a-A:a')
             mycell.seed( 5 )
             mycell.growBlocks( 8 )
@@ -2495,7 +2500,7 @@ class TestCell(unittest.TestCase):
 
         boxDim=[30,30,30]
         mycell = Cell(boxDim)
-        mycell.addLibraryFragment( fragmentType='A', filename=self.cx4Car )
+        mycell.libraryAddFragment( fragmentType='A', filename=self.cx4Car )
         mycell.addBondType( 'A:a-A:a' )
         mycell.seed( 1 )
         mycell.growBlocks( 1 )
@@ -2535,7 +2540,7 @@ class TestCell(unittest.TestCase):
         boxDim=[30,30,30]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment(filename=self.ch4Ca2Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4Ca2Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         added = mycell.seed( 3 )
         self.assertEqual(added, 3)
@@ -2549,7 +2554,7 @@ class TestCell(unittest.TestCase):
         mycell = Cell(boxDim)
         
         fragmentType='A'
-        mycell.addLibraryFragment( fragmentType=fragmentType, filename=self.benzeneCar )
+        mycell.libraryAddFragment( fragmentType=fragmentType, filename=self.benzeneCar )
         mycell.addBondType( 'A:a-A:a' )
         
         centralBlock = mycell.getInitBlock( fragmentType=fragmentType )
@@ -2579,10 +2584,10 @@ class TestCell(unittest.TestCase):
         boxDim=[30,30,30]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment( fragmentType='A', filename=self.ch4Car )
-        mycell.addLibraryFragment( fragmentType='B', filename=self.ch4Car)
-        mycell.addLibraryFragment( fragmentType='C', filename=self.ch4Car )
-        mycell.addLibraryFragment( fragmentType='D', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='A', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='B', filename=self.ch4Car)
+        mycell.libraryAddFragment( fragmentType='C', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='D', filename=self.ch4Car )
         
         mycell.addBondType( 'A:a-B:a' )
         mycell.addBondType( 'A:a-C:a' )
@@ -2624,7 +2629,7 @@ class TestCell(unittest.TestCase):
     def testCloseAtoms1(self):
         
         mycell = Cell( [2.1,2.1,2.1],atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
-        mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
@@ -2655,7 +2660,7 @@ class TestCell(unittest.TestCase):
     def testCloseAtoms(self):
         
         mycell = Cell([30,30,30], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15 )
-        mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
@@ -2716,7 +2721,7 @@ class TestCell(unittest.TestCase):
         mycell = Cell(boxDim)
         #mycell.initCell("../ch4_typed.car",incell=False)
         #block1 = mycell.initBlock.copy()
-        mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         block1 = mycell.getInitBlock('A')
         
@@ -2812,10 +2817,10 @@ class TestCell(unittest.TestCase):
         boxDim=[30,30,30]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment( fragmentType='A', filename=self.ch4Car )
-        mycell.addLibraryFragment( fragmentType='B', filename=self.ch4Car)
-        mycell.addLibraryFragment( fragmentType='C', filename=self.ch4Car )
-        mycell.addLibraryFragment( fragmentType='D', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='A', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='B', filename=self.ch4Car)
+        mycell.libraryAddFragment( fragmentType='C', filename=self.ch4Car )
+        mycell.libraryAddFragment( fragmentType='D', filename=self.ch4Car )
         
         # Everything can bond to A (apart from A itself), but nothing can bond to anything else 
         mycell.addBondType( 'A:a-B:a' )
@@ -2852,8 +2857,8 @@ class TestCell(unittest.TestCase):
         
         boxDim=[30,30,30]
         mycell = Cell(boxDim)
-        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
-        #mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        #mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         added = mycell.seed( 1 )
@@ -2879,7 +2884,7 @@ class TestCell(unittest.TestCase):
         boxDim=[30,30,30]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment(filename=self.ch4_1Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4_1Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:b' )
         mycell.setMaxBond( 'A:a', 1 )
         
@@ -2896,7 +2901,7 @@ class TestCell(unittest.TestCase):
         boxDim=[30,30,30]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment(filename=self.dcxCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.dcxCar, fragmentType='A')
         mycell.addBondType( 'A:CH-A:CCl' )
         mycell.setMaxBond( 'A:CH', 1 )
         
@@ -2913,7 +2918,7 @@ class TestCell(unittest.TestCase):
         boxDim=[30,30,30]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
 
         block1 = mycell.getInitBlock('A')
@@ -2943,7 +2948,7 @@ class TestCell(unittest.TestCase):
         boxDim=[10,10,10]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
 
         added = mycell.seed( 1, center=True )
@@ -2971,8 +2976,8 @@ class TestCell(unittest.TestCase):
         boxDim=[10,10,10]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment(filename=self.amineCar, fragmentType='amine')
-        mycell.addLibraryFragment(filename=self.triquinCar, fragmentType='triquin')
+        mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
+        mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
         mycell.addBondType('amine:a-triquin:b')
 
         mycell.seed( 1, fragmentType='triquin', center=True )
@@ -2987,8 +2992,8 @@ class TestCell(unittest.TestCase):
         boxDim=[30,30,30]
         mycell = Cell(boxDim)
         
-        #mycell.addLibraryFragment(filename=self.pafCar, fragmentType='A')
-        mycell.addLibraryFragment(filename=self.benzene2Car, fragmentType='A')
+        #mycell.libraryAddFragment(filename=self.pafCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         toAdd = 5
@@ -3043,7 +3048,7 @@ class TestCell(unittest.TestCase):
         CELLA = CELLB = CELLC = 100
         mycell = Cell( )
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.addLibraryFragment( filename=self.benzeneCar, fragmentType='A' )
+        mycell.libraryAddFragment( filename=self.benzeneCar, fragmentType='A' )
         mycell.addBondType( 'A:a-A:a' )
 
         mycell.seed( 1 )
@@ -3210,8 +3215,8 @@ class TestCell(unittest.TestCase):
         boxDim=[50,50,50]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment( filename=self.benzeneCar, fragmentType='A' )
-        #mycell.addLibraryFragment( filename=self.ch4Car, fragmentType='A' )
+        mycell.libraryAddFragment( filename=self.benzeneCar, fragmentType='A' )
+        #mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
         mycell.addBondType( 'A:a-A:a' )
         
         nblocks = 10
@@ -3273,8 +3278,8 @@ class TestCell(unittest.TestCase):
         mycell = Cell(boxDim)
         
         ch4Car=self.ch4Car
-        #mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
-        mycell.addLibraryFragment(filename=ch4Car, fragmentType='A')
+        #mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually
@@ -3316,7 +3321,7 @@ class TestCell(unittest.TestCase):
         boxDim=[12.0,12.0,12.0]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually
@@ -3353,7 +3358,7 @@ class TestCell(unittest.TestCase):
         mycell = Cell(boxDim)
         
         ch4Car=self.ch4Car
-        mycell.addLibraryFragment(filename=ch4Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=ch4Car, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually
@@ -3393,13 +3398,13 @@ class TestCell(unittest.TestCase):
         boxDim=[100,100,100]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
-        mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='B')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
         mycell.addBondType( 'B:a-B:a')
         
-        mycell.addLibraryFragment(filename=self.ch4Car, fragmentType='C')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='C')
         mycell.addBondType( 'C:a-C:a')
         
         # Create block manually - this is so we have reproducible results
@@ -3494,7 +3499,7 @@ class TestCell(unittest.TestCase):
         boxDim=[20,20,20]
         mycell = Cell(boxDim)
         
-        mycell.addLibraryFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
         
         # Create block manually - this is so we have reproducible results
@@ -3560,7 +3565,7 @@ class TestCell(unittest.TestCase):
         CELLA = CELLB = CELLC = 100
         mycell = Cell( )
         mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.addLibraryFragment( filename=self.ch4Car, fragmentType='A' )
+        mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
         mycell.addBondType( 'A:a-A:a' )
 
         mycell.seed( 1 )

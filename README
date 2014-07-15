@@ -89,11 +89,11 @@ doLog - True/False - specifies if a log will be created - not recommended as it 
 With the cell defined, the next stage is to add the fragments to the cell library so that they will become available
 for use. This is done with the following command:
 
-mycell.addLibraryFragment( filename=fragA, fragmentType='A' )
+mycell.libraryAddFragment( filename=fragA, fragmentType='A' )
 
 filename - the path to the .car file. There will need to be a corresponding .csv file that defines
          - the endGroups, capAtoms etc.
-fragmentType - a name that will be used to identify the fragment - cannot contain the ":" character
+fragmentType - a name that will be used to identify the fragment - cannot contain the ":" or "-" characters
 
 As many fragments can be added as desired, the only requirement is that they are named differently.
 
@@ -102,7 +102,7 @@ With the fragments added, we specify how they may bond. This is done with the fo
 mycell.addBondType( 'A:a-B:a' )
 
 endGroups are defined by the fragmentType they belong to (which is set by the fragmentType argument
-to addLibraryFragment), together with the identifier for that endGroup (which is specified by the first column
+to libraryAddFragment), together with the identifier for that endGroup (which is specified by the first column
 in the .csv file). These are separated by a colon, so an endGroup identifier is of the form:
 
 FRAGMENT1:ENDGROUP1
@@ -285,11 +285,11 @@ the path to the pkl file as the first argument, so if the build was taking place
 ./util.py step_4.pkl
 
 The util script will then create an XYZ file of the coordinates and a CML file suitable for viewing with Avogadro. The CML
-file is periodic, but the bonds that extend across the periodic bounduary have been omitted so this file SHOULD NOT be used
+file is periodic, but the bonds that extend across the periodic boundary have been omitted so this file SHOULD NOT be used
 for extracting structural data - it is just for visualisation.
 
-The util script also accepts a "--split" or "-s" argument, which tells the script to write out files for each fragment separately. This
-is done as follows:
+The util script also accepts a "--split" or "-s" argument, which tells the script to write out files for each fragment separately.
+This is done as follows:
 
 ./util.py -s step_4.pkl
 
