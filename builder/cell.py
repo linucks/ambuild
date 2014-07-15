@@ -1488,6 +1488,7 @@ class Cell():
         self.logger.info( "Running optimisation" )
         d = {}
         ok = optimiser.optimiseGeometry( xmlFilename,
+                                         rigidBody=rigidBody,
                                          doDihedral=doDihedral,
                                          doImproper=doImproper,
                                          d=d,
@@ -1666,6 +1667,7 @@ class Cell():
 
     def runMD(self,
               xmlFilename="hoomdMD.xml",
+              rigidBody=True,
               doDihedral=False,
               doImproper=False,
               **kw ):
@@ -1683,6 +1685,8 @@ class Cell():
         tau - nvt_rigid tau
         dt - nvt_rigid timestep
         """
+        
+        assert rigidBody,"FIX runMD FOR ALL ATOM!!"
         
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
@@ -1713,6 +1717,7 @@ class Cell():
     
     def runMDAndOptimise(self,
                          xmlFilename="hoomdMDOpt.xml",
+                         rigidBody=True,
                          doDihedral=False,
                          doImproper=False,
                          **kw ):
@@ -1722,6 +1727,8 @@ class Cell():
         Args:
         See runMD and optimiseGeometry for acceptable arguments.
         """
+        
+        assert rigidBody,"FIX runMD FOR ALL ATOM!!"
         
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"

@@ -883,7 +883,8 @@ class HoomdOptimiser( object ):
                                      overwrite=True
                                      )
 
-        optimised = self._optimiseGeometry( **kw )
+        optimised = self._optimiseGeometry( rigidBody=rigidBody,
+                                            **kw )
 
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
@@ -932,6 +933,7 @@ class HoomdOptimiser( object ):
     
     def _optimiseGeometry(self,
                           carOut="hoomdOpt.car",
+                          rigidBody=True,
                           optCycles = 1000000,
                           dump=False,
                           dt=0.005,
@@ -945,15 +947,26 @@ class HoomdOptimiser( object ):
         """Optimise the geometry with hoomdblue"""
         
         # Create the integrator with the values specified
-        fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(),
-                                                             dt=dt,
-                                                             Nmin=Nmin,
-                                                             alpha_start=alpha_start,
-                                                             ftol=ftol,
-                                                             Etol=Etol,
-                                                             finc=finc,
-                                                             fdec=fdec,
-                                                            )
+        if rigidBody:
+            fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(),
+                                                                 dt=dt,
+                                                                 Nmin=Nmin,
+                                                                 alpha_start=alpha_start,
+                                                                 ftol=ftol,
+                                                                 Etol=Etol,
+                                                                 finc=finc,
+                                                                 fdec=fdec,
+                                                                )
+        else:
+            fire=integrate.mode_minimize_fire(group=hoomdblue.group.all(),
+                                              dt=dt,
+                                              Nmin=Nmin,
+                                              alpha_start=alpha_start,
+                                              ftol=ftol,
+                                              Etol=Etol,
+                                              finc=finc,
+                                              fdec=fdec
+                                              )
         
         if dump:
             # For tracking the optimsation        
