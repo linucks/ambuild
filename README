@@ -6,7 +6,7 @@ Ambi is a python program for creating polymeric molecular structures.
 Concepts
 ========
 Ambi works with fragments, blocks, endGroups and cells. The cell is a cubic volume of space that will be filled
-with molecular blocks. The blocks themselves are containers for fragments. Fragments are molecules that can 
+with molecular blocks. The blocks themselves are containers for fragments. Fragments are molecules that can
 contain one or more endGroups that may be used to form bonds. Fragments never exist by themselves in the cell,
 they are always contained within blocks. A block may contain one or more fragments of the same or different types.
 The fragments within a block are bonded to each other via their endGroups, and rules can be specified for which
@@ -42,23 +42,23 @@ The meanings of the columns are:
 
 * Type: this is just a string (starting with a letter) that names the endGroup and is used to specify bonding rules
   and to control which endGroups in which building blocks are bonded in Grow or Join steps (see later).
-  
+
 * EndGroup: this is the index of the atom in the .car file that is to be the endGroup. The endGroups are the atoms
   that bond the fragments together. The indexing starts from 0, so if the first atom in the car file is to be the
   endGroup, the endGroup column should be zero. If it was the 6th atom, the column should have 5 in it.
-  
+
 * CapAtom: this is the atom that caps the endGroup and defines the vector that the bond will be be made along. The
   capAtom is removed when the bond is formed and the corresponding endGroup in the other block will replace the capAtom,
-  although the other endGroup will probably not be in the same position, as length of the bond will be dependent on 
+  although the other endGroup will probably not be in the same position, as length of the bond will be dependent on
   the types of the two endGroups.
-  
+
 * Dihedral: this is an optional column that specifies the atom that defines the dihedral angle around the bond between
   two endGroups. This can be used to specify the orientation of molecules when they are attached with a Grow step.
 * DelAtom: this is an optional column that specifies an atom that will be removed when the endGroup forms a bond this
   can be used to unsaturate an atom on bonding. So for example, if the endGroup is the N of an NH2, then one of the H
   atoms could be the capAtom and the other the delatom, so that the on bonding to another NH2 endGroup a N=N bond would
   be formed.
-  
+
 The following sections describe the various operations that can be performed by ambi. For an annotated example script,
 see the builder.py file in the builder directory.
 
@@ -190,8 +190,8 @@ maxTries - the maximum number of moves to try when joining
 
 zipBlocks
 --------
-zipBlocks joins existing blocks in the cell by changing (usually by extending) the bondMargin and bondAngleMargin 
-parameters that were specified when the cell was created, and then looping over all the free endGroups to see if 
+zipBlocks joins existing blocks in the cell by changing (usually by extending) the bondMargin and bondAngleMargin
+parameters that were specified when the cell was created, and then looping over all the free endGroups to see if
 any can bond with the new parameters. The blocks are not moved in this step and no check is made as to whether there
 are any other atoms between the two endGroups when a bond is made.
 
@@ -202,7 +202,7 @@ zipBlocks(bondMargin=5, bondAngleMargin=30)
 Optimising the geometry of the blocks in the cell and running molecular dynamics simulations
 ============================================================================================
 
-Once the cell has been filled with blocks, it is possible to either optimise the geometry or run a molecular dynamics 
+Once the cell has been filled with blocks, it is possible to either optimise the geometry or run a molecular dynamics
 simulation.
 
 Geometry Optimisation
@@ -288,10 +288,15 @@ The util script will then create an XYZ file of the coordinates and a CML file s
 file is periodic, but the bonds that extend across the periodic boundary have been omitted so this file SHOULD NOT be used
 for extracting structural data - it is just for visualisation.
 
-The util script also accepts a "--split" or "-s" argument, which tells the script to write out files for each fragment separately.
+The util script also accepts a "--fragments" or "-f" argument, which tells the script to write out files for each fragment separately.
 This is done as follows:
 
-./util.py -s step_4.pkl
+./util.py -f step_4.pkl
+
+The util script also accepts a "--blocks" or "-b" argument, which tells the script to write out separate files for each block in
+the cell. This is done as follows:
+
+./util.py -b step_4.pkl
 
 
 
