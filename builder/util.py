@@ -1300,13 +1300,16 @@ if __name__ == '__main__':
     #sys.exit()
     assert len(sys.argv) >= 2,"To dump coordinates from pickle: {0} [-b|-f] <file.pkl>".format( sys.argv[0] )
     split=None
-    if sys.argv[1] == "--fragments" or sys.argv[1] == "-f":
+    if sys.argv[1]=="--fragments" or sys.argv[1]=="-f":
         split="fragments"
         pklFile=sys.argv[2]
-    elif sys.argv[1] == "--blocks" or sys.argv[1] == "-b":
+    elif sys.argv[1]=="--blocks" or sys.argv[1]=="-b":
         split="blocks"
         pklFile=sys.argv[2]
     else:
         pklFile=sys.argv[1]
+
+    # Need to reset sys.argv as otherwise hoomdblue eats it and complains
+    sys.argv=[sys.argv[0]]
     dumpPkl(pklFile,split=split)
 
