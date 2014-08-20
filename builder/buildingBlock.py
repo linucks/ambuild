@@ -198,6 +198,10 @@ class Block(object):
         else:
             return frag.coord(idxData)
 
+    def fragment(self,idxAtom):
+        frag, idxData = self._dataMap[idxAtom]
+        return frag
+
     def fragmentType(self, idxAtom ):
         """The type of the fragment that this atom belongs to."""
         frag, idxData = self._dataMap[idxAtom]
