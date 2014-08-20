@@ -820,7 +820,7 @@ def dumpPkl(pickleFile,split=None):
     mycell = cellFromPickle(pickleFile)
     if split=="fragments":
         for t in mycell.fragmentTypes().keys():
-            data = mycell.dataDict( fragmentType=t)
+            data = mycell.dataDict(fragmentType=t)
             mycell.writeXyz("{0}_{1}_P.xyz".format(prefix,t),
                             data=data,
                             periodic=True)
