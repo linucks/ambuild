@@ -136,6 +136,9 @@ class CellData(object):
         self.properLabels            = []
         self.impropers               = []
         self.improperLabels          = []
+
+        # for computing block/fragment enegies
+        self.tagIndices              = []
 #         self.blockBonds              = []
 #         self.blockBondLabels         = []
 #         self.blockBondAngles         = []
@@ -895,6 +898,7 @@ class Cell():
 
     def dataDict( self, rigidBody=True, periodic=True, center=False, fragmentType=None ):
 
+        # Object to hold the cell data
         d = CellData()
 
         if fragmentType is not None:
@@ -910,43 +914,13 @@ class Cell():
 
             return d
 
-        atomCount = 0
-        blockAtomCount = 0
+        atomCount = 0 # Global count in cell
         bodyCount = -1
-        lastBody = 0
-        for block in self.blocks.itervalues():
 
-            # Always increment the bodyCount with a new block
-            blockAtomCount = 0
-            bodyCount += 1
-            lastBody = 0
+        #for idxBlock, block in enumerate(self.blocks.itervalues()):
+        for idxBlock, block in self.blocks.iteritems():
 
-            # First go through coordinates
-            for i, coord in enumerate(block.iterCoord() ):
-                if periodic:
-                    x, ix = util.wrapCoord( coord[0], self.A, center=center )
-                    y, iy = util.wrapCoord( coord[1], self.B, center=center )
-                    z, iz = util.wrapCoord( coord[2], self.C, center=center )
-                    d.coords.append( numpy.array([x,y,z]))
-                    d.images.append([ix,iy,iz])
-                else:
-                    d.coords.append(coord)
-                    d.images.append([0,0,0])
-
-                d.atomTypes.append(block.type(i))
-                d.charges.append(block.charge(i))
-                d.diameters.append(0.1)
-                d.masses.append(block.mass(i))
-                d.symbols.append(block.symbol(i))
-
-                # Work out which body this is in
-                b = block.body(i)
-                if b != lastBody:
-                    bodyCount +=1
-                    lastBody = b
-                d.bodies.append( bodyCount )
-                blockAtomCount += 1
-
+            # Do bonds first as counting starts from atomCount and goes up through the blocks
             if not rigidBody:
                 # add all bonds, angles and dihederals throughout the whole block
                 # Add all bonds
@@ -1020,8 +994,49 @@ class Cell():
                                                         )
                         d.properLabels.append( dlabel )
 
+            # Now loop through fragments and coordinates
+            #for i, coord in enumerate(block.iterCoord() ):
+            for idxFrag,frag in enumerate(block._fragments): # need index of fragment in block
+
+                # Body count always increments with fragment although it may go up within a fragment too
+                bodyCount += 1
+
+                lastBody=0 # bodies within a fragment always start with 0
+                for i,coord in enumerate(frag.iterCoord()):
+                    if periodic:
+                        x, ix = util.wrapCoord( coord[0], self.A, center=center )
+                        y, iy = util.wrapCoord( coord[1], self.B, center=center )
+                        z, iz = util.wrapCoord( coord[2], self.C, center=center )
+                        d.coords.append( numpy.array([x,y,z]))
+                        d.images.append([ix,iy,iz])
+                    else:
+                        d.coords.append(coord)
+                        d.images.append([0,0,0])
+
+                    d.atomTypes.append(frag.type(i))
+                    d.charges.append(frag.charge(i))
+                    d.diameters.append(0.1)
+                    d.masses.append(frag.mass(i))
+                    d.symbols.append(frag.symbol(i))
+
+                    # Work out which body this is in
+                    b = frag.body(i)
+                    if b != lastBody:
+                        bodyCount +=1
+                        lastBody = b
+                    d.bodies.append( bodyCount )
+
+                    # Increment global atom count
+                    atomCount += 1
+
+                # Work out which fragment this is in
+                # REM blockCount is NOT idxBlock in the dict - need to rationalise this.
+                d.tagIndices.append((idxBlock,idxFrag,atomCount-i,atomCount))
+
+            #END loop through fragments
             # Only set the count here
-            atomCount += blockAtomCount
+            #atomCount += blockAtomCount
+
             # End block loop
 
         return d
@@ -1117,6 +1132,49 @@ class Cell():
                     endGroupTypes2Block[ endGroupType ] = set()
                 endGroupTypes2Block[ endGroupType ].add( block )
         return endGroupTypes2Block
+
+    def fragMaxEnergy(self,
+                  rigidBody=True,
+                  doDihedral=False,
+                  doImproper=False,
+                  xmlFilename="hoomdCalc.xml",
+                  **kw
+                  ):
+
+        # Loop through all blocks, fragments and atoms creating the labels
+        # do this in dataDict - create list of labels and start:stop indices
+        d = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+
+        print "GOT TAGS ",d.tagIndices
+
+        # in hoomdblue. loopt through list of labels and create groups and computes for each one
+        # opt must hold the list of groups and computes
+        o = opt.HoomdOptimiser()
+        if 'rCut' in kw:
+            self.rCut = kw['rCut']
+        else:
+            self.rCut = o.rCut
+
+        # Write out HoomdBlue xml file & get parameters
+        self.writeHoomdXml( xmlFilename=xmlFilename,
+                            rigidBody=rigidBody,
+                            doDihedral=doDihedral,
+                            doImproper=doImproper,
+                            data=d
+                             )
+
+        self.logger.info( "Running fragMaxEnergy" )
+
+        maxe,idxBlock,idxFragment = o.fragMaxEnergy(xmlFilename,
+                                                 rigidBody=rigidBody,
+                                                 doDihedral=doDihedral,
+                                                 doImproper=doImproper,
+                                                 data=d,
+                                                 **kw )
+
+        print "GOT ",maxe,idxBlock,idxFragment
+
+        return
 
     def fragmentTypes(self):
         ft = {}
@@ -2749,7 +2807,8 @@ class TestCell(unittest.TestCase):
     def testDistance(self):
         """Test the distance under periodic boundary conditions"""
 
-        boxDim=[10,10,10]
+        CELLA=CELLB=CELLC=10
+        boxDim=[CELLA,CELLB,CELLC]
         mycell = Cell(boxDim)
 
         v1 = [ 2.46803012, 1.67131881, 1.96745421]
@@ -2844,6 +2903,75 @@ class TestCell(unittest.TestCase):
         # Check it works if we give it a list of libraryBlocks
         cellEndGroup, libraryEndGroup = mycell.libraryEndGroupPair(libraryEndGroups='B:a')
         self.assertEqual(  libraryEndGroup.type(),'B:a' )
+
+        return
+
+    def testFragMaxEnergy(self):
+        """
+
+        run calc
+        find highest energy fragment => need to link from a compute/tag to a block/fragment
+
+        - need list of block computes
+        - need list of fragment computes
+
+        each groupname is of the form X:Y where X is block index in cell and Y is fragment in index in the block
+
+        The list of groups isn't needed, just the labels
+
+        have a list of labels as long as there are groups - same as number of computes
+
+        find highest energy compute - the index links back to the list of labels, and from the label we get the block/framgent
+
+        block compute could be the first in the list
+
+        each block has tags
+        each fragment has tags
+
+        tags = [
+                 [
+                   [s,e],[s,e],[s,e]
+                   ]
+
+        createGroups
+
+
+
+        """
+
+        boxDim=[100.0,100.0,100.0]
+        mycell = Cell(boxDim)
+
+        ch4Car=self.ch4Car
+        #mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=ch4Car, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+
+        # Create block manually
+        b1 = buildingBlock.Block( filePath=ch4Car, fragmentType='A'  )
+        b2 = buildingBlock.Block( filePath=ch4Car, fragmentType='A'  )
+        b3 = buildingBlock.Block( filePath=ch4Car, fragmentType='A'  )
+
+
+        # b1 in center
+        b1.translateCentroid( [ 25, 25, 25 ] )
+        endGroup1=b1.freeEndGroups()[ 0 ]
+        endGroup2=b2.freeEndGroups()[ 0 ]
+        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
+
+        bond = buildingBlock.Bond(endGroup1, endGroup2)
+        b1.bondBlock( bond )
+        mycell.addBlock(b1)
+
+        b3.translateCentroid( [ 25, 25, 20 ] )
+        mycell.addBlock(b3)
+
+        mycell.writeXyz("foo.xyz")
+
+        d = mycell.dataDict(periodic=True, center=True, rigidBody=True)
+
+        #Calculate the energy
+        mycell.fragMaxEnergy()
 
         return
 
