@@ -120,6 +120,7 @@ class Analyse():
 
 class CellData(object):
     def __init__(self):
+        self.cell                    = []
         self.atomTypes               = []
         self.bodies                  = []
         self.coords                  = []
@@ -901,6 +902,8 @@ class Cell():
         # Object to hold the cell data
         d = CellData()
 
+        d.cell = [self.A,self.B,self.C]
+
         if fragmentType is not None:
             # Only returning data for one type of fragment
             assert fragmentType in self.fragmentTypes(),"FragmentType {0} not in cell!".format(fragmentType)
@@ -1001,7 +1004,7 @@ class Cell():
                 # Body count always increments with fragment although it may go up within a fragment too
                 bodyCount += 1
 
-                lastBody=0 # bodies within a fragment always start with 0
+                lastBody=frag.body(0)
                 for i,coord in enumerate(frag.iterCoord()):
                     if periodic:
                         x, ix = util.wrapCoord( coord[0], self.A, center=center )
@@ -1104,9 +1107,6 @@ class Cell():
         #self.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
         #self.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
 
-        # This is too expensive at the moment
-        #self.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
-
         pklFile=os.path.abspath(prefix+".pkl")
         self.writePickle(pklFile)
         return pklFile
@@ -1143,34 +1143,26 @@ class Cell():
 
         # Loop through all blocks, fragments and atoms creating the labels
         # do this in dataDict - create list of labels and start:stop indices
-        d = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+        data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
 
-        print "GOT TAGS ",d.tagIndices
+        print "GOT TAGS ",data.tagIndices
 
         # in hoomdblue. loopt through list of labels and create groups and computes for each one
         # opt must hold the list of groups and computes
-        o = opt.HoomdOptimiser()
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
             self.rCut = o.rCut
 
-        # Write out HoomdBlue xml file & get parameters
-        self.writeHoomdXml( xmlFilename=xmlFilename,
-                            rigidBody=rigidBody,
-                            doDihedral=doDihedral,
-                            doImproper=doImproper,
-                            data=d
-                             )
-
         self.logger.info( "Running fragMaxEnergy" )
 
-        maxe,idxBlock,idxFragment = o.fragMaxEnergy(xmlFilename,
-                                                 rigidBody=rigidBody,
-                                                 doDihedral=doDihedral,
-                                                 doImproper=doImproper,
-                                                 data=d,
-                                                 **kw )
+        o = opt.HoomdOptimiser()
+        maxe,idxBlock,idxFragment = o.fragMaxEnergy(data,
+                                                    xmlFilename,
+                                                    rigidBody=rigidBody,
+                                                    doDihedral=doDihedral,
+                                                    doImproper=doImproper,
+                                                    **kw )
 
         print "GOT ",maxe,idxBlock,idxFragment
 
@@ -1508,6 +1500,7 @@ class Cell():
                          rigidBody=True,
                          doDihedral=False,
                          doImproper=False,
+                         doCharges=True,
                          xmlFilename="hoomdOpt.xml",
                          **kw ):
         """Optimise the geometry with hoomdblue
@@ -1524,6 +1517,8 @@ class Cell():
         ALL OTHER ARGUMENTS ACCEPTED BY mode_minimize_rigid_fire ARE PASSED TO IT
         """
 
+        self.logger.info( "Running optimisation" )
+
         # HACK
         minCell=False
         self.minCell = minCell
@@ -1537,18 +1532,14 @@ class Cell():
         else:
             self.rCut = optimiser.rCut
 
-        # Write out HoomdBlue xml file & get parameters
-        self.writeHoomdXml( xmlFilename=xmlFilename,
-                            rigidBody=rigidBody,
-                            doDihedral=doDihedral,
-                            doImproper=doImproper )
-
-        self.logger.info( "Running optimisation" )
-        d = {}
-        ok = optimiser.optimiseGeometry( xmlFilename,
+        data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+        d = {} # for printing results
+        ok = optimiser.optimiseGeometry( data,
+                                         xmlFilename=xmlFilename,
                                          rigidBody=rigidBody,
                                          doDihedral=doDihedral,
                                          doImproper=doImproper,
+                                         doCharges=doCharges,
                                          d=d,
                                          **kw )
         self.analyse.stop('optimiseGeometry', d )
@@ -1728,6 +1719,7 @@ class Cell():
               rigidBody=True,
               doDihedral=False,
               doImproper=False,
+              doCharges=True,
               **kw ):
 
         """Run a rigidbody molecular dynamics run using the hoomd blue nvt_rigid integrator
@@ -1755,17 +1747,16 @@ class Cell():
         else:
             self.rCut = optimiser.rCut
 
-        # Write out HoomdBlue xml file & get parameters
-        self.writeHoomdXml( xmlFilename=xmlFilename,
-                            doDihedral=doDihedral,
-                            doImproper=doImproper )
-
         d = {}
-        ok = optimiser.runMD( xmlFilename,
-                                  doDihedral=doDihedral,
-                                  doImproper=doImproper,
-                                  d=d,
-                                  **kw )
+        data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+        ok = optimiser.runMD(data,
+                             xmlFilename=xmlFilename,
+                             rigidBody=rigidBody,
+                             doDihedral=doDihedral,
+                             doImproper=doImproper,
+                             doCharges=doCharges,
+                             d=d,
+                             **kw )
 
         self.analyse.stop('runMD', d )
 
@@ -1778,6 +1769,7 @@ class Cell():
                          rigidBody=True,
                          doDihedral=False,
                          doImproper=False,
+                         doCharges=True,
                          **kw ):
 
         """Run an MD simulation followed by a Geometry optimisation.
@@ -1797,16 +1789,16 @@ class Cell():
         else:
             self.rCut = optimiser.rCut
 
-        # Write out HoomdBlue xml file & get parameters
-        self.writeHoomdXml( xmlFilename=xmlFilename,
-                            doDihedral=doDihedral,
-                            doImproper=doImproper )
         d = {}
-        ok = optimiser.runMDAndOptimise( xmlFilename,
-                                             doDihedral=doDihedral,
-                                             doImproper=doImproper,
-                                             d=d,
-                                             **kw )
+        data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+        ok = optimiser.runMDAndOptimise(data,
+                                        xmlFilename=xmlFilename,
+                                        rigidBody=rigidBody,
+                                        doDihedral=doDihedral,
+                                        doImproper=doImproper,
+                                        doCharges=doCharges,
+                                        d=d,
+                                        **kw )
 
         if ok:
             self.logger.info( "runMDAndOptimise succeeded" )
@@ -2190,109 +2182,6 @@ class Cell():
 
         self.logger.info( "Wrote cell file: {0}".format(fpath) )
         return
-
-    def writeHoomdXml(self,
-                      xmlFilename="ambuildhoomd.xml",
-                      rigidBody=True,
-                      doCharges=True,
-                      doDihedral=False,
-                      doImproper=False,
-                      data=None
-                      ):
-        """Write out a HOOMD Blue XML file.
-        """
-        if data is None:
-            d = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
-        else:
-            d = data
-        #
-        # Got data so now put into xml
-        #
-        body     = "\n" + "\n".join( map( str, d.bodies ) ) + "\n"
-        charge   = "\n" + "\n".join( map( str, d.charges ) ) + "\n"
-        diameter = "\n" + "\n".join( map( str, d.diameters ) ) + "\n"
-        mass     = "\n" + "\n".join( map( str, d.masses ) ) + "\n"
-        ptype    = "\n" + "\n".join( map( str, d.atomTypes ) ) + "\n"
-
-        image = "\n"
-        position = "\n"
-        for i in range(len(d.coords)):
-            image += "{0} {1} {2}\n".format( d.images[i][0],
-                                             d.images[i][1],
-                                             d.images[i][2] )
-            position += "{0} {1} {2}\n".format( d.coords[i][0],
-                                                d.coords[i][1],
-                                                d.coords[i][2] )
-
-        # Now do all angles and bonds
-        bond=False
-        if len(d.bonds):
-            bond = "\n"
-            for i, b in enumerate(d.bonds):
-                bond += "{0} {1} {2}\n".format( d.bondLabels[i], b[0], b[1] )
-
-        angle=False
-        if len(d.angles):
-            angle = "\n"
-            for i, a in enumerate(d.angles):
-                angle += "{0} {1} {2} {3}\n".format(d.angleLabels[i], a[0], a[1], a[2])
-
-        dihedral=False
-        if len(d.propers):
-            dihedral = "\n"
-            for i, dh in enumerate(d.propers):
-                dihedral += "{0} {1} {2} {3} {4}\n".format(d.properLabels[i], dh[0], dh[1], dh[2], dh[3])
-
-        root = ET.Element( 'hoomd_xml', version="1.4" )
-        config = ET.SubElement( root, "configuration", timestep="0" )
-
-        #e = ET.SubElement( config, "box",
-        ET.SubElement( config, "box",
-                        Lx=str(self.A),
-                        Ly=str(self.B),
-                        Lz=str(self.C) )
-
-        e = ET.SubElement(config, "position" )
-        e.text = position
-        e = ET.SubElement(config, "image" )
-        e.text = image
-
-        e = ET.SubElement(config, "body" )
-        e.text = body
-        if doCharges:
-            e = ET.SubElement(config, "charge" )
-            e.text = charge
-        e = ET.SubElement(config, "diameter" )
-        e.text = diameter
-        e = ET.SubElement(config, "type" )
-        e.text = ptype
-        e = ET.SubElement(config, "mass" )
-        e.text = mass
-
-        if bond:
-            e = ET.SubElement(config, "bond" )
-            e.text = bond
-        if angle:
-            e = ET.SubElement(config, "angle" )
-            e.text = angle
-        if dihedral:
-            if doDihedral:
-                e = ET.SubElement(config, "dihedral" )
-                e.text = dihedral
-            elif doImproper:
-                e = ET.SubElement(config, "improper" )
-                e.text = dihedral
-
-        tree = ET.ElementTree(root)
-
-        #ET.dump(tree)
-
-        #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
-        tree.write( xmlFilename )
-
-        self.logger.info( "Wrote HOOMD-blue xmlfile: {0}".format(xmlFilename) )
-
-        return True
 
     def zipBlocks(self, bondMargin=None, bondAngleMargin=None):
         """Join existing blocks in the cell by changing the bondMargin and bondAngleMargin parameters that were
@@ -2966,9 +2855,7 @@ class TestCell(unittest.TestCase):
         b3.translateCentroid( [ 25, 25, 20 ] )
         mycell.addBlock(b3)
 
-        mycell.writeXyz("foo.xyz")
-
-        d = mycell.dataDict(periodic=True, center=True, rigidBody=True)
+        #mycell.writeXyz("foo.xyz")
 
         #Calculate the energy
         mycell.fragMaxEnergy()
@@ -3298,7 +3185,16 @@ class TestCell(unittest.TestCase):
 
         # Now test with HOOMD-Blue
         filename = "periodicTest.xml"
-        mycell.writeHoomdXml( xmlFilename=filename )
+        data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
+        o = opt.HoomdOptimiser()
+        o.writeXml(data,
+                   xmlFilename=filename,
+                   rigidBody=True,
+                   doDihedral=True,
+                   doImproper=False,
+                   doCharges=True,
+                   )
+
         if hoomdblue.init.is_initialized():
             hoomdblue.init.reset()
         system = hoomdblue.init.read_xml( filename=filename )
@@ -3646,8 +3542,15 @@ class TestCell(unittest.TestCase):
                 initcoords.append( c )
 
         xmlFilename = "testWriteHoomdblue.xml"
-        doDihedral=True
-        natoms = mycell.writeHoomdXml( xmlFilename=xmlFilename, doDihedral=doDihedral )
+        data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
+        o = opt.HoomdOptimiser()
+        o.writeXml(data,
+                   xmlFilename=xmlFilename,
+                   rigidBody=True,
+                   doDihedral=True,
+                   doImproper=False,
+                   doCharges=True,
+                   )
 
         # Test what we've written out matches the reference file
         with open(xmlFilename) as f:

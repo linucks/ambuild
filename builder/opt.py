@@ -585,6 +585,104 @@ class HoomdOptimiser( object ):
 
         return
 
+    def writeXml(self,
+                 data,
+                 xmlFilename="hoomd.xml",
+                 rigidBody=True,
+                 doCharges=True,
+                 doDihedral=False,
+                 doImproper=False
+                 ):
+        """Write out a HOOMD Blue XML file.
+        """
+        d = data
+        #
+        # Got data so now put into xml
+        #
+        body     = "\n" + "\n".join( map( str, d.bodies ) ) + "\n"
+        charge   = "\n" + "\n".join( map( str, d.charges ) ) + "\n"
+        diameter = "\n" + "\n".join( map( str, d.diameters ) ) + "\n"
+        mass     = "\n" + "\n".join( map( str, d.masses ) ) + "\n"
+        ptype    = "\n" + "\n".join( map( str, d.atomTypes ) ) + "\n"
+
+        image = "\n"
+        position = "\n"
+        for i in range(len(d.coords)):
+            image += "{0} {1} {2}\n".format( d.images[i][0],
+                                             d.images[i][1],
+                                             d.images[i][2] )
+            position += "{0} {1} {2}\n".format( d.coords[i][0],
+                                                d.coords[i][1],
+                                                d.coords[i][2] )
+
+        # Now do all angles and bonds
+        bond=False
+        if len(d.bonds):
+            bond = "\n"
+            for i, b in enumerate(d.bonds):
+                bond += "{0} {1} {2}\n".format( d.bondLabels[i], b[0], b[1] )
+
+        angle=False
+        if len(d.angles):
+            angle = "\n"
+            for i, a in enumerate(d.angles):
+                angle += "{0} {1} {2} {3}\n".format(d.angleLabels[i], a[0], a[1], a[2])
+
+        dihedral=False
+        if len(d.propers):
+            dihedral = "\n"
+            for i, dh in enumerate(d.propers):
+                dihedral += "{0} {1} {2} {3} {4}\n".format(d.properLabels[i], dh[0], dh[1], dh[2], dh[3])
+
+        root = ET.Element( 'hoomd_xml', version="1.4" )
+        config = ET.SubElement( root, "configuration", timestep="0" )
+
+        #e = ET.SubElement( config, "box",
+        ET.SubElement( config, "box",
+                        Lx=str(d.cell[0]),
+                        Ly=str(d.cell[1]),
+                        Lz=str(d.cell[2]) )
+
+        e = ET.SubElement(config, "position" )
+        e.text = position
+        e = ET.SubElement(config, "image" )
+        e.text = image
+
+        e = ET.SubElement(config, "body" )
+        e.text = body
+        if doCharges:
+            e = ET.SubElement(config, "charge" )
+            e.text = charge
+        e = ET.SubElement(config, "diameter" )
+        e.text = diameter
+        e = ET.SubElement(config, "type" )
+        e.text = ptype
+        e = ET.SubElement(config, "mass" )
+        e.text = mass
+
+        if bond:
+            e = ET.SubElement(config, "bond" )
+            e.text = bond
+        if angle:
+            e = ET.SubElement(config, "angle" )
+            e.text = angle
+        if dihedral:
+            if doDihedral:
+                e = ET.SubElement(config, "dihedral" )
+                e.text = dihedral
+            elif doImproper:
+                e = ET.SubElement(config, "improper" )
+                e.text = dihedral
+
+        tree = ET.ElementTree(root)
+
+        #ET.dump(tree)
+
+        #tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
+        tree.write( xmlFilename )
+
+        return True
+
     def writeXyz( self, system, filename=None, unwrap=True ):
         """Car File
         """
@@ -733,12 +831,23 @@ class HoomdOptimiser( object ):
         return
 
     def setupSystem(self,
+                    data,
                     xmlFilename,
-                    data=None,
                     doDihedral=False,
                     doImproper=False,
+                    doCharges=True,
+                    rigidBody=True,
                     rCut=None,
-                    quiet=False ):
+                    quiet=False,
+                    maxE=False,
+                     ):
+
+        self.writeXml(data,
+                      xmlFilename=xmlFilename,
+                      rigidBody=rigidBody,
+                      doCharges=doCharges,
+                      doDihedral=doDihedral,
+                      doImproper=doImproper)
 
         # Read parameters from file, check them and set the attributes
         self.checkParameters( xmlFilename=xmlFilename )
@@ -780,7 +889,7 @@ class HoomdOptimiser( object ):
 
         # For calculating groups
         #self.labels=[]
-        if data:
+        if maxE:
             for idxBlock,idxFragment,start,end in data.tagIndices:
                 # create the group
                 l="{0}:{1}".format(start,end)
@@ -815,27 +924,28 @@ class HoomdOptimiser( object ):
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
 
-        self.system = self.setupSystem( xmlFilename,
-                                        doDihedral=doDihedral,
-                                        doImproper=doImproper,
-                                        rCut=self.rCut,
-                                        quiet=quiet,
-                                        data=data,
-                                        )
-
+        self.system = self.setupSystem(data,
+                                       xmlFilename=xmlFilename,
+                                       doDihedral=doDihedral,
+                                       doImproper=doImproper,
+                                       rCut=self.rCut,
+                                       quiet=quiet,
+                                       data=data,
+                                       maxE=True,
+                                    )
 
         quantities= ['potential_energy','kinetic_energy']
 
+        # see setupSystem for where the groups are created
         for idxBlock,idxFragment,start,end in data.tagIndices:
             quantities.append("potential_energy_{0}:{1}".format(start,end))
 
-        self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
+        self.hlog = hoomdblue.analyze.log(filename='mylog1.csv',
                                      quantities=quantities,
                                      period=1,
                                      header_prefix='#',
                                      overwrite=True
                                      )
-
 
         optimised = self._optimiseGeometry( rigidBody=rigidBody,
                                             optCycles=10,
@@ -857,9 +967,11 @@ class HoomdOptimiser( object ):
         return maxe,idxBlock,idxFragment
 
     def runMD(self,
-              xmlFilename,
+              data,
+              xmlFilename="hoomdMD.xml",
               doDihedral=False,
               doImproper=False,
+              doCharges=True,
               rigidBody=True,
               rCut=None,
               quiet=None,
@@ -871,11 +983,13 @@ class HoomdOptimiser( object ):
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
 
-        self.system = self.setupSystem( xmlFilename,
-                                        doDihedral=doDihedral,
-                                        doImproper=doImproper,
-                                        rCut=self.rCut,
-                                        quiet=quiet )
+        self.system = self.setupSystem(data,
+                                       xmlFilename=xmlFilename,
+                                       rigidBody=rigidBody,
+                                       doDihedral=doDihedral,
+                                       doImproper=doImproper,
+                                       rCut=self.rCut,
+                                       quiet=quiet )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
         hlog = hoomdblue.analyze.log(filename='mylog.log',
@@ -900,9 +1014,12 @@ class HoomdOptimiser( object ):
         return True
 
     def runMDAndOptimise(self,
-                         xmlFilename,
+                         data,
+                         xmlFilename="hoomdMdOpt.xml",
+                         rigidBody=True,
                          doDihedral=False,
                          doImproper=False,
+                         doCharges=True,
                          rCut=None,
                          quiet=None,
                          **kw ):
@@ -913,11 +1030,13 @@ class HoomdOptimiser( object ):
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
 
-        self.system = self.setupSystem( xmlFilename,
-                                        doDihedral=doDihedral,
-                                        doImproper=doImproper,
-                                        rCut=self.rCut,
-                                        quiet=quiet )
+        self.system = self.setupSystem(data,
+                                       xmlFilename=xmlFilename,
+                                       rigidBody=rigidBody,
+                                       doDihedral=doDihedral,
+                                       doImproper=doImproper,
+                                       rCut=self.rCut,
+                                       quiet=quiet )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
         self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
@@ -951,9 +1070,11 @@ class HoomdOptimiser( object ):
         return optimised
 
     def optimiseGeometry( self,
-                          xmlFilename,
+                          data,
+                          xmlFilename="hoomdOpt.xml",
                           doDihedral=False,
                           doImproper=False,
+                          doCharges=True,
                           rigidBody=True,
                           rCut=None,
                           quiet=None,
@@ -965,12 +1086,13 @@ class HoomdOptimiser( object ):
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
 
-        self.system = self.setupSystem( xmlFilename,
-                                        doDihedral=doDihedral,
-                                        doImproper=doImproper,
-                                        rCut=self.rCut,
-                                        quiet=quiet,
-                                        )
+        self.system = self.setupSystem(data,
+                                       xmlFilename=xmlFilename,
+                                       rigidBody=rigidBody,
+                                       doDihedral=doDihedral,
+                                       doImproper=doImproper,
+                                       rCut=self.rCut,
+                                       quiet=quiet )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
         self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
