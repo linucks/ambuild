@@ -3,13 +3,15 @@
 #
 # Annotated example amorphous builder script
 #
+import os
 # Import sys module so that we can add the path the builder directory that contains the ambuild modules
 import sys
 
-# If you run ambuild from a directory other than the builder directory, you will need to put the 
+# If you run ambuild from a directory other than the builder directory, you will need to put the
 # path to the builder directory in builderHome variable below
-builderHome="/home/abbiet/ambuild.new/builder"
-sys.path.insert(0,builderHome)
+builderHome="/home/abbiet/ambuild.new"
+#builderHome="/opt/ambuild"
+sys.path.insert(0,os.path.join(builderHome,"builder"))
 
 # This imports the builder cell module - this is the only module that should be required
 import cell
@@ -27,8 +29,8 @@ mycell = cell.Cell(boxDim, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15)
 # Create two variables that hold the path to the .car files with the coordinates. A corresponding .csv file with
 # the endGroup information will need to be found in the same location, so for the amine, there will need to be a
 # file called: /Users/jmht/Documents/abbie/AMBI/ambuild/blocks/amine_typed.csv"
-fragA="/Users/jmht/Documents/abbie/AMBI/ambuild/blocks/amine_typed.car"
-fragB="/Users/jmht/Documents/abbie/AMBI/ambuild/blocks/triquin_typed.car"
+fragA=os.path.join(builderHome,"blocks/amine_typed.car")
+fragB=os.path.join(builderHome,"blocks/triquin_typed.car")
 
 # Add the two fragments to the cell and name the fragment type - can be anything you want that doesn't contain a "-"
 # or ":" character
@@ -37,7 +39,7 @@ mycell.libraryAddFragment(filename=fragB, fragmentType='triquin')
 
 # We now specify which endGroups in which fragments can bond to which. The amine csv file only contains one endGroup
 # type (the first column in the csv file) and this is 'a', the triquin csv file also only contains one endGroup type
-# the the first column specifies this as a 'b', so we say that amine a can bond to triquin b. 
+# the the first column specifies this as a 'b', so we say that amine a can bond to triquin b.
 mycell.addBondType( 'amine:a-triquin:b' )
 
 # Even though the amine fragments have 4 endGroups, we will only allow two bonds to each fragment
@@ -57,7 +59,7 @@ if added != toAdd:
     sys.exit() # Exit the script
 
 # We would like to save the state at this point, so we write out a pickle file
-# The pickle file will be called step_1.pkl (as this is the first time we have saved the state). To extract the 
+# The pickle file will be called step_1.pkl (as this is the first time we have saved the state). To extract the
 # coordinates, we use the util.py script in the builder directory and call it with the path to the pkl file as
 # the first argument. As everything in this run is in the builder directory, we can run the command:
 # ./util.py step_1.pkl
@@ -100,7 +102,7 @@ if not ok:
 # and optimise the result if we make any bonds
 for i in range(3):
     print "Running zip loop: {0}".format(i)
-    
+
     # Run a few cycles of MD
     mycell.runMD( doDihedral=True,
                   quiet=True,
@@ -130,7 +132,7 @@ for i in range(3):
         if not ok:
             print "Failed to optimise!"
             sys.exit() # Exit the script
-        
+
         # End of loop, so go around again
 
 # The loop has finished so dump out the last state
