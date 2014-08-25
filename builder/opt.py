@@ -106,6 +106,8 @@ class FfieldParameters( object ):
                       }
 
         self.dihedrals = {
+                        # jens hack
+                       'h-c-c-h'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
                        #'cp-cp-cp-cp'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
                        #'cp-cp-cp-hc'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
                        #'ct-cp-cp-cp'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
@@ -448,6 +450,536 @@ class FfieldParameters( object ):
         if self.pairs.has_key( (p1, p2) ) or self.pairs.has_key( (p2, p1) ):
             return True
         return False
+
+
+class DLPOLY(object):
+    """
+    write out CONFIG file
+
+    write out FIELD file
+
+
+    """
+
+    def __init__(self):
+
+        self.ffield = FfieldParameters()
+
+        return
+
+
+    def writeCONFIG(self,
+                    cell,
+                    fileName="CONFIG",
+                    ):
+        """Write out DLPOLY CONFIG file
+
+        DLPOLY assumes a centered cell.
+        """
+
+        with open(fileName,'w') as f:
+
+            # header
+            f.write("Ambuild CONFIG file\n")
+
+            # levcfg (0=just coordinates) imcon (1=cubic bounduary conditions)
+            f.write("0    1\n")
+
+            # Now cell
+            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(cell.A,0.0,0.0))
+            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,cell.B,0.0))
+            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,0.0,cell.C))
+
+            count=1 # FORTRAN COUNTING
+            for block in cell.blocks.itervalues():
+                for frag in block._fragments:
+                    for i,coord in enumerate(frag.iterCoord()):
+                        f.write("{0}    {1}\n".format(frag.type(i),count))
+                        f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(coord[0],coord[1],coord[2]))
+                        count+=1
+
+        return
+
+    def writeFIELD(self,
+                   cell,
+                   rigidBody=True,
+                   periodic=True,
+                   center=True,
+                   ):
+        """
+        For each block
+        count atoms & keep atomType list
+        create list of bonds
+        create list of angles
+        create list of dihedrals
+        create list of rigid body indices
+        count
+
+        """
+
+        bonds = []
+        bondTypes = []
+        angles = []
+        angleTypes = []
+        propers = []
+        properTypes = []
+        impropers = []
+        improperTypes = []
+
+        types = []
+        coords = []
+        images = []
+        charges = []
+        diameters = []
+        masses = []
+        symbols = []
+        bodies = []
+        bodies2 = []
+
+        atomCount = 0 # Global count in cell
+        bodyCount = -1
+        for idxBlock, block in cell.blocks.iteritems():
+
+            blockBonds = []
+            blockBondTypes = []
+            blockAngles = []
+            blockAngleTypes = []
+            blockPropers = []
+            blockProperTypes = []
+            blockImpropers = []
+            blockImproperTypes = []
+
+            # Do bonds first as counting starts from atomCount and goes up through the blocks
+            if not rigidBody:
+                # add all bonds, angles and dihederals throughout the whole block
+                # Add all bonds
+                blockBonds += [ (a1+atomCount, a2+atomCount) for a1, a2 in block.bonds() ]
+                blockBondTypes += [ (block.type(a1),block.type(a2)) for a1, a2 in block.bonds() ]
+                angles, propers, impropers = block.anglesAndDihedrals()
+                # Add all angles
+                blockAngles += [ (a1+atomCount, a2+atomCount, a3+atomCount) for a1, a2, a3 in angles ]
+                blockAngleTypes += [ (block.type(a1),block.type(a2),block.type(a3)) for a1, a2, a3 in angles ]
+                # Add all propers
+                blockPropers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
+                                 for a1, a2, a3, a4 in propers ]
+                blockProperTypes += [ (block.type(a1),
+                                       block.type(a2),
+                                       block.type(a3),
+                                       block.type(a4)
+                                       ) for a1, a2, a3, a4 in propers ]
+                # Add all impropers
+                blockImpropers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
+                                   for a1, a2, a3, a4 in impropers ]
+                blockImproperTypes += [ (block.type(a1),
+                                         block.type(a2),
+                                         block.type(a3),
+                                         block.type(a4)
+                                         ) for a1, a2, a3, a4 in impropers ]
+
+            else:
+                # Just add the bonds between blocks. Also add angles for all atoms connected to the bonds
+                # we do this so that we can exclude them from VdW interactions in MD codes
+                for b1, b2 in block.blockBonds():
+
+                    # The bonds themselves
+                    blockBonds.append( (b1+atomCount,b2+atomCount) )
+                    blockBondTypes.append(( block.type(b1),block.type(b2) ))
+
+                    _angles=set()
+                    # Atoms connected to the endGroup that we need to specify as connected so we add as angles
+                    for batom in block.atomBonded1( b1 ):
+                        # The opposite endGroup is included in the list bonded to an endGroup so skip
+                        if batom == b2:
+                            continue
+                        _angles.add( ( batom, b1, b2 ) )
+
+                    for batom in block.atomBonded1( b2 ):
+                        # The opposite endGroup is included in the list bonded to an endGroup so skip
+                        if batom == b1:
+                            continue
+                        _angles.add( ( b1, b2, batom ) )
+
+                    # Add to overall lists
+                    for a1, a2, a3 in _angles:
+                        blockAngles.append( (a1+atomCount, a2+atomCount, a3+atomCount))
+                        blockAngleTypes.append( ( block.type( a1 ),
+                                                  block.type( a2 ),
+                                                  block.type( a3 ) ) )
+
+                    #
+                    # Dihedrals
+                    #
+                    for dindices in block.dihedrals( b1, b2 ):
+                        dihedral = ( dindices[0] + atomCount,
+                                     dindices[1] + atomCount,
+                                     dindices[2] + atomCount,
+                                     dindices[3] + atomCount )
+                        blockPropers.append( dihedral )
+                        blockProperTypes.append( ( block.type( dindices[0] ),
+                                                   block.type( dindices[1] ),
+                                                   block.type( dindices[2] ),
+                                                   block.type( dindices[3] )
+                                                ) )
+
+            blockTypes = []
+            blockCoords = []
+            blockImages = []
+            blockCharges = []
+            blockDiameters = []
+            blockMasses = []
+            blockSymbols = []
+            blockBodies = []
+            blockBodies2 = []
+
+            # Now loop through fragments and coordinates
+            #for i, coord in enumerate(block.iterCoord() ):
+            for idxFrag,frag in enumerate(block._fragments): # need index of fragment in block
+
+                # Body count always increments with fragment although it may go up within a fragment too
+                bodyCount += 1
+
+                lastBody=frag.body(0)
+                bstart=atomCount
+                for i,coord in enumerate(frag.iterCoord()):
+                    if periodic:
+                        x, ix = util.wrapCoord( coord[0], cell.A, center=center )
+                        y, iy = util.wrapCoord( coord[1], cell.B, center=center )
+                        z, iz = util.wrapCoord( coord[2], cell.C, center=center )
+                        blockCoords.append( [x,y,z] )
+                        blockImages.append([ix,iy,iz])
+                    else:
+                        blockCoords.append(coord)
+                        blockImages.append([0,0,0])
+
+                    blockTypes.append(frag.type(i))
+                    blockCharges.append(frag.charge(i))
+                    blockDiameters.append(0.1)
+                    blockMasses.append(frag.mass(i))
+                    blockSymbols.append(frag.symbol(i))
+
+                    # Work out which body this is in
+                    b = frag.body(i)
+                    if b != lastBody:
+                        bodyCount +=1
+                        lastBody = b
+                        blockBodies2.append((bstart,atomCount))
+                        bstart=atomCount+1
+                    blockBodies.append( bodyCount )
+
+                    # Increment global atom count
+                    atomCount += 1
+
+                # Work out which fragment this is in
+                # REM blockCount is NOT idxBlock in the dict - need to rationalise this.
+                #d.tagIndices.append((idxBlock,idxFrag,atomCount-i,atomCount))
+                blockBodies2.append((bstart,atomCount))
+
+            #END loop through fragments
+
+            # Now have all data pertaining to a particular block
+            bonds.append(blockBonds)
+            bondTypes.append(blockBondTypes)
+            angles.append(blockAngles)
+            angleTypes.append(blockAngleTypes)
+            propers.append(blockPropers)
+            properTypes.append(blockProperTypes)
+            impropers.append(blockImpropers)
+            improperTypes.append(blockImproperTypes)
+
+            types.append(blockTypes)
+            coords.append(blockCoords)
+            images.append(blockImages)
+            charges.append(blockCharges)
+            diameters.append(blockDiameters)
+            masses.append(blockMasses)
+            symbols.append(blockSymbols)
+            bodies.append(blockBodies)
+            bodies2.append(blockBodies2)
+
+        # End block loop
+
+        print "GOT TYPES ",types
+
+        # Now write out FIELD file
+        # REM DLPOLY does FORTRAN counting so add 1 to everything
+
+        # Each are organised in lists by molecule
+        numMolecules = len(coords)
+        with open('FIELD','w') as f:
+
+            # Header
+            f.write("Ambuild FIELD file with {0} molecules\n".format(numMolecules))
+            f.write("UNITS kcal\n")
+            f.write("\n")
+            f.write("MOLECULES {0}\n".format(numMolecules))
+
+            _types = set()
+            for i in range(numMolecules):
+                f.write("Ambuild molecule {0}\n".format(i))
+                f.write("NUMMOLS 1\n")
+                f.write("ATOMS {0}\n".format(len(coords[i])))
+
+                x=set()
+                # Loop over each atom and add to set and write out at end - clumsy
+                for j in range(len(coords[i])):
+                    t = types[i][j]
+                    d = (t, masses[i][j], charges[i][j])
+                    x.add(d)
+                    #f.write("{0}    {1}    {2}\n".format( t, masses[i][j], charges[i][j] ))
+                    _types.add(t)
+                for t,m,c in x:
+                    f.write("{0}    {1}    {2}\n".format( t, m, c ))
+
+                # Rigid bodies
+                if rigidBody:
+                    nb=len(bodies2[i])
+                    f.write("RIGID {0}\n".format(nb))
+                    for bstart,bend in bodies2[i]:
+                        nsites=bend-bstart
+                        s = "{0}    ".format(nsites)
+
+                        # First line is length and up to 15 entries
+                        for b in range( min(15,nsites)  ):
+                            s += "{0}    ".format(bstart+b+1)
+                        s+= "\n"
+
+                        # Remaining lines can take 16 per line
+                        if nsites > 15:
+                            for b in range(nsites-15):
+                                if b%16 == 0 and b > 0:
+                                    s += "\n{0}    ".format(bstart+b+15+1)
+                                else:
+                                    s += "{0}    ".format(bstart+b+15+1)
+                            s += "\n"
+                        f.write(s)
+
+                # Bonds
+                if (len(bonds[i])):
+                    f.write("BONDS {0}\n".format(len(bonds[i])))
+                    for j in range(len(bonds[i])):
+                        b1,b2 = sorted( bondTypes[i][j] )
+                        b = "{0}-{1}".format(b1,b2)
+                        param = self.ffield.bondParameter( b )
+                        f.write("harm    {0}    {1}    {2}    {3}\n".format( bonds[i][j][0]+1, bonds[i][j][1]+1, param['k'], param['r0'] ))
+
+                # Angles
+                if (len(angles[i])):
+                    f.write("ANGLES {0}\n".format(len(angles[i])))
+                    for j in range(len(angles[i])):
+                        #a1,a2,a3 = sorted( angleTypes[i][j] )
+                        a1,a2,a3 = angleTypes[i][j]
+                        a = "{0}-{1}-{2}".format(a1,a2,a3)
+                        param = self.ffield.angleParameter( a )
+                        f.write("harm    {0}    {1}    {2}    {3}    {4}\n".format(angles[i][j][0]+1,
+                                                                                   angles[i][j][1]+1,
+                                                                                   angles[i][j][2]+1,
+                                                                                   param['k'],
+                                                                                   param['t0'] ))
+
+                # Dihedrals
+                if (len(propers[i])):
+                    f.write("DIHEDRALS {0}\n".format(len(propers[i])))
+                    for j in range(len(propers[i])):
+                        #d1,d2,d3,d4 = sorted(properTypes[i][j] )
+                        d1,d2,d3,d4 = properTypes[i][j]
+                        d = "{0}-{1}-{2}-{3}".format(d1,d2,d3,d4)
+                        param = self.ffield.dihedralParameter( d )
+                        f.write("cos    {0}    {1}    {2}    {3}    {4}    {5}    {6}\n".format(propers[i][j][0]+1,
+                                                                                         propers[i][j][1]+1,
+                                                                                         propers[i][j][2]+1,
+                                                                                         propers[i][j][3]+1,
+                                                                                         param['k'],
+                                                                                         param['d'],
+                                                                                         param['n'] ))
+
+                # End of Molecule
+                f.write("FINISH\n")
+
+            # End of MOLECULE loop so write out non-bonded parameters
+            _types=sorted(_types)
+            p=[]
+            for i, atype in enumerate(_types):
+                for j, btype in enumerate(_types):
+                    if j >= i:
+                        param = self.ffield.pairParameter( atype, btype )
+                        p.append( (atype, btype, param['epsilon'], param['sigma']) )
+
+            f.write("VDW    {0}\n".format(len(p)))
+            for a,b,e,s in p:
+                f.write("{0}    {1}    lj    {2}    {3}\n".format(a,b,e,s))
+
+        return
+
+
+#     def writeFIELD(self,
+#                    cell,
+#                    ):
+#         """
+#         Assumes block/frag indices have been set
+#         """
+#
+#         bonds = []
+#         bondTypes = []
+#         angles = []
+#         angleTypes = []
+#         propers = []
+#         properTypes = []
+#         impropers = []
+#         improperTypes = []
+#
+#         types = []
+#         coords = []
+#         images = []
+#         charges = []
+#         diameters = []
+#         masses = []
+#         symbols = []
+#         bodies = []
+#
+#
+#         atomCount = 0 # Global count in cell
+#         bodyCount = -1
+#         for idxBlock, block in cell.blocks.iteritems():
+#
+#             # Do bonds first as counting starts from atomCount and goes up through the blocks
+#             if not rigidBody:
+#                 # add all bonds, angles and dihederals throughout the whole block
+#                 # Add all bonds
+#                 bonds += [ (a1+block.cellIdx, a2+block.cellIdx) for a1, a2 in block.bonds() ]
+#                 blockBondTypes += [ (block.type(a1),block.type(a2)) for a1, a2 in block.bonds() ]
+#                 angles, propers, impropers = block.anglesAndDihedrals()
+#                 # Add all angles
+#                 blockAngles += [ (a1+block.cellIdx, a2+block.cellIdx, a3+block.cellIdx) for a1, a2, a3 in angles ]
+#                 blockAngleTypes += [ (block.type(a1),block.type(a2),block.type(a3)) for a1, a2, a3 in angles ]
+#                 # Add all propers
+#                 blockPropers += [ (a1+block.cellIdx, a2+block.cellIdx, a3+block.cellIdx, a4+block.cellIdx) \
+#                                  for a1, a2, a3, a4 in propers ]
+#                 blockProperTypes += [ (block.type(a1),
+#                                        block.type(a2),
+#                                        block.type(a3),
+#                                        block.type(a4)
+#                                        ) for a1, a2, a3, a4 in propers ]
+#                 # Add all impropers
+#                 blockImpropers += [ (a1+block.cellIdx, a2+block.cellIdx, a3+block.cellIdx, a4+block.cellIdx) \
+#                                    for a1, a2, a3, a4 in impropers ]
+#                 blockImproperTypes += [ (block.type(a1),
+#                                          block.type(a2),
+#                                          block.type(a3),
+#                                          block.type(a4)
+#                                          ) for a1, a2, a3, a4 in impropers ]
+#
+#             else:
+#                 # Just add the bonds between blocks. Also add angles for all atoms connected to the bonds
+#                 # we do this so that we can exclude them from VdW interactions in MD codes
+#                 for b1, b2 in block.blockBonds():
+#
+#                     # The bonds themselves
+#                     blockBonds.append( (b1+block.cellIdx,b2+block.cellIdx) )
+#                     blockBondTypes.append(( block.type(b1),block.type(b2) ))
+#
+#                     _angles=set()
+#                     # Atoms connected to the endGroup that we need to specify as connected so we add as angles
+#                     for batom in block.atomBonded1( b1 ):
+#                         # The opposite endGroup is included in the list bonded to an endGroup so skip
+#                         if batom == b2:
+#                             continue
+#                         _angles.add( ( batom, b1, b2 ) )
+#
+#                     for batom in block.atomBonded1( b2 ):
+#                         # The opposite endGroup is included in the list bonded to an endGroup so skip
+#                         if batom == b1:
+#                             continue
+#                         _angles.add( ( b1, b2, batom ) )
+#
+#                     # Add to overall lists
+#                     for a1, a2, a3 in _angles:
+#                         blockAngles.append( (a1+block.cellIdx, a2+block.cellIdx, a3+block.cellIdx))
+#                         blockAngleTypes.append( ( block.type( a1 ),
+#                                                   block.type( a2 ),
+#                                                   block.type( a3 ) ) )
+#
+#                     #
+#                     # Dihedrals
+#                     #
+#                     for dindices in block.dihedrals( b1, b2 ):
+#                         dihedral = ( dindices[0] + block.cellIdx,
+#                                      dindices[1] + block.cellIdx,
+#                                      dindices[2] + block.cellIdx,
+#                                      dindices[3] + block.cellIdx )
+#                         blockPropers.append( dihedral )
+#                         blockProperTypes.append( ( block.type( dindices[0] ),
+#                                                    block.type( dindices[1] ),
+#                                                    block.type( dindices[2] ),
+#                                                    block.type( dindices[3] )
+#                                                 ) )
+#
+#             # Now loop through fragments and coordinates
+#             #for i, coord in enumerate(block.iterCoord() ):
+#             for idxFrag,frag in enumerate(block._fragments): # need index of fragment in block
+#
+#                 # Body count always increments with fragment although it may go up within a fragment too
+#                 bodyCount += 1
+#
+#                 lastBody=frag.body(0)
+#                 for i,coord in enumerate(frag.iterCoord()):
+#                     if periodic:
+#                         x, ix = util.wrapCoord( coord[0], self.A, center=center )
+#                         y, iy = util.wrapCoord( coord[1], self.B, center=center )
+#                         z, iz = util.wrapCoord( coord[2], self.C, center=center )
+#                         blockCoords.append( numpy.array([x,y,z]))
+#                         blockImages.append([ix,iy,iz])
+#                     else:
+#                         blockCoords.append(coord)
+#                         blockImages.append([0,0,0])
+#
+#                     blockTypes.append(frag.type(i))
+#                     blockCharges.append(frag.charge(i))
+#                     blockDiameters.append(0.1)
+#                     blockMasses.append(frag.mass(i))
+#                     blockSymbols.append(frag.symbol(i))
+#
+#                     # Work out which body this is in
+#                     b = frag.body(i)
+#                     if b != lastBody:
+#                         bodyCount +=1
+#                         lastBody = b
+#                     blockBodies.append( bodyCount )
+#
+#                     # Increment global atom count
+#                     atomCount += 1
+#
+#                 # Work out which fragment this is in
+#                 # REM blockCount is NOT idxBlock in the dict - need to rationalise this.
+#                 d.tagIndices.append((idxBlock,idxFrag,atomCount-i,atomCount))
+#
+#             #END loop through fragments
+#
+#             # Now have all data pertaining to a particular block
+#             bonds.append(blockBonds)
+#             bondTypes.append(blockBondTypes)
+#             angles.append(blockAngles)
+#             angleTypes.append(blockAngleTypes)
+#             propers.append(blockPropers)
+#             properTypes.append(blockProperTypes)
+#             impropers.append(blockImpropers)
+#             improperTypes.append(blockImproperTypes)
+#
+#             types.append(blockTypes)
+#             coords.apend(blockCoords)
+#             images.append(blockImages)
+#             charges.append(blockCharges)
+#             diameters.append(blockDiameters)
+#             masses.append(blockMasses)
+#             symbols.append(blockSymbols)
+#             bodies.append(blockBodies)
+#
+#
+#
+#         # End block loop
+#
+#
+#         return
+
 
 class HoomdOptimiser( object ):
 

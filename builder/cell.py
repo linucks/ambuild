@@ -120,7 +120,9 @@ class Analyse():
 
 class CellData(object):
     def __init__(self):
+
         self.cell                    = []
+
         self.atomTypes               = []
         self.bodies                  = []
         self.coords                  = []
@@ -129,6 +131,7 @@ class CellData(object):
         self.images                  = []
         self.masses                  = []
         self.symbols                 = []
+
         self.bonds                   = []
         self.bondLabels              = []
         self.angles                  = []
@@ -1526,7 +1529,6 @@ class Cell():
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
 
-        optimiser = opt.HoomdOptimiser()
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
@@ -1534,6 +1536,7 @@ class Cell():
 
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
         d = {} # for printing results
+        optimiser = opt.HoomdOptimiser()
         ok = optimiser.optimiseGeometry( data,
                                          xmlFilename=xmlFilename,
                                          rigidBody=rigidBody,
@@ -2052,6 +2055,17 @@ class Cell():
 
         return
 
+    def XupdateIndices(self):
+        """Update the index where the data for each block starts in the overall cell list"""
+
+        atomCount = 0 # Global count in cell
+        bodyCount = -1
+        for idxBlock, block in cell.blocks.iteritems():
+            for idxFrag,frag in enumerate(block._fragments): # need index of fragment in block
+                bodyCount += frag.numBodies()
+                atomCount += frag.lenData()
+        return
+
     def writePickle( self, fileName="cell.pkl" ):
         """Pickle ourselves"""
 
@@ -2423,7 +2437,7 @@ class TestCell(unittest.TestCase):
         cls.triquinCar = os.path.join( cls.ambuildDir, "blocks", "triquin_typed.car" )
 
         print "START TEST CELL"
-        if True:
+        if False:
             # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
             # From code looks like default r_buff is 0.4 and our default r_cut is 5.0
             boxDim=[20,20,20]
@@ -2690,6 +2704,47 @@ class TestCell(unittest.TestCase):
         refd = 0.673354948616
         distance = mycell.distance( block1.coord(1), mycell.blocks[ block2_id ].coord(3) )
         self.assertAlmostEqual( refd, distance, 12, "Closest atoms: {}".format(distance) )
+
+        return
+
+    def testDLPOLY(self):
+        """
+
+
+        """
+
+        boxDim=[100.0,100.0,100.0]
+        mycell = Cell(boxDim)
+
+        ch4Car=self.ch4Car
+        #mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.libraryAddFragment(filename=ch4Car, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+
+        # Create block manually
+        b1 = buildingBlock.Block( filePath=ch4Car, fragmentType='A'  )
+        b2 = buildingBlock.Block( filePath=ch4Car, fragmentType='A'  )
+        b3 = buildingBlock.Block( filePath=ch4Car, fragmentType='A'  )
+
+
+        # b1 in center
+        b1.translateCentroid( [ 25, 25, 25 ] )
+        endGroup1=b1.freeEndGroups()[ 0 ]
+        endGroup2=b2.freeEndGroups()[ 0 ]
+        b1.positionGrowBlock( endGroup1, endGroup2, dihedral=math.pi )
+
+        bond = buildingBlock.Bond(endGroup1, endGroup2)
+        b1.bondBlock( bond )
+        mycell.addBlock(b1)
+
+        b3.translateCentroid( [ 25, 25, 20 ] )
+        mycell.addBlock(b3)
+
+        d = opt.DLPOLY()
+
+        #data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
+        d.writeCONFIG(mycell)
+        d.writeFIELD(mycell)
 
         return
 

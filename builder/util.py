@@ -852,6 +852,19 @@ def dumpPkl(pickleFile,split=None):
 
     return
 
+def dumpDLPOLY(pickleFile):
+    fpath = os.path.abspath( pickleFile )
+    print "Dumping DLPOLY files from pkl file: {0}".format( fpath )
+    mycell = cellFromPickle(pickleFile)
+
+    # Need to do this here or else hoomdblue gets the command line arguments on import of the module
+    import opt
+
+    d = opt.DLPOLY()
+    d.writeCONFIG(mycell)
+    d.writeFIELD(mycell)
+    return
+
 def frange(start, stop, step):
     """
     Range function that works with floating points
@@ -1300,16 +1313,24 @@ if __name__ == '__main__':
     #sys.exit()
     assert len(sys.argv) >= 2,"To dump coordinates from pickle: {0} [-b|-f] <file.pkl>".format( sys.argv[0] )
     split=None
+    dlpoly=False
     if sys.argv[1]=="--fragments" or sys.argv[1]=="-f":
         split="fragments"
         pklFile=sys.argv[2]
     elif sys.argv[1]=="--blocks" or sys.argv[1]=="-b":
         split="blocks"
         pklFile=sys.argv[2]
+    elif sys.argv[1]=="--dlpoly" or sys.argv[1]=="-d":
+        dlpoly=True
+        pklFile=sys.argv[2]
     else:
         pklFile=sys.argv[1]
 
     # Need to reset sys.argv as otherwise hoomdblue eats it and complains
     sys.argv=[sys.argv[0]]
-    dumpPkl(pklFile,split=split)
+
+    if dlpoly:
+        dumpDLPOLY(pklFile)
+    else:
+        dumpPkl(pklFile,split=split)
 
