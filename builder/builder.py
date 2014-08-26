@@ -66,11 +66,16 @@ if added != toAdd:
 mycell.dump()
 
 # We now grow 5 new triquin fragments onto the amine blocks in the cell. We specify that the dihedral angle of the
-# dihedral atoms (as specified in the two csv files) around the bond will be 90 degrees.
+# dihedral atoms (as specified in the two csv files) around the bond will be 0 degrees.
 # if we had just called:
 # mycell.growBlocks(5)
 # then 5 fragments of random types would be added to random blocks in the cell at random angles
-mycell.growBlocks(5, cellEndGroups=['amine:a'], libraryEndGroups=['triquin:b'], dihedral=90)
+toAdd=5
+added = mycell.growBlocks(toAdd, cellEndGroups=['amine:a'], libraryEndGroups=['triquin:b'], dihedral=0)
+if added != toAdd:
+    print "Failed to grow enough blocks!"
+    mycell.dump() # Save the pickle file
+    sys.exit() # Exit the script
 
 # Save the state after growing the blocks - this will be called step_2.pkl
 mycell.dump()
