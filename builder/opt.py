@@ -781,7 +781,7 @@ class DLPOLY(object):
                         d1,d2,d3,d4 = properTypes[i][j]
                         d = "{0}-{1}-{2}-{3}".format(d1,d2,d3,d4)
                         param = self.ffield.dihedralParameter( d )
-                        f.write("cos    {0}    {1}    {2}    {3}    {4}    {5}    {6}\n".format(propers[i][j][0]+1,
+                        f.write("cos  {0:6}  {1:6}  {2:6}  {3:6}  {4:6}  {5:6} {6:6}\n".format(propers[i][j][0]+1,
                                                                                          propers[i][j][1]+1,
                                                                                          propers[i][j][2]+1,
                                                                                          propers[i][j][3]+1,
@@ -803,7 +803,7 @@ class DLPOLY(object):
 
             f.write("VDW    {0}\n".format(len(p)))
             for a,b,e,s in p:
-                f.write("{0}    {1}    lj    {2}    {3}\n".format(a,b,e,s))
+                f.write("{0:8} {1:6}  lj  {2:6}  {3:6}\n".format(a,b,e,s))
 
         return
 
