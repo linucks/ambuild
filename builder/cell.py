@@ -1152,6 +1152,7 @@ class Cell():
 
         # in hoomdblue. loopt through list of labels and create groups and computes for each one
         # opt must hold the list of groups and computes
+        o = opt.HoomdOptimiser()
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
@@ -1159,7 +1160,6 @@ class Cell():
 
         self.logger.info( "Running fragMaxEnergy" )
 
-        o = opt.HoomdOptimiser()
         maxe,idxBlock,idxFragment = o.fragMaxEnergy(data,
                                                     xmlFilename,
                                                     rigidBody=rigidBody,
@@ -1529,6 +1529,7 @@ class Cell():
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
 
+        optimiser = opt.HoomdOptimiser()
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
@@ -1536,7 +1537,6 @@ class Cell():
 
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
         d = {} # for printing results
-        optimiser = opt.HoomdOptimiser()
         ok = optimiser.optimiseGeometry( data,
                                          xmlFilename=xmlFilename,
                                          rigidBody=rigidBody,
@@ -2437,7 +2437,7 @@ class TestCell(unittest.TestCase):
         cls.triquinCar = os.path.join( cls.ambuildDir, "blocks", "triquin_typed.car" )
 
         print "START TEST CELL"
-        if False:
+        if True:
             # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
             # From code looks like default r_buff is 0.4 and our default r_cut is 5.0
             boxDim=[20,20,20]

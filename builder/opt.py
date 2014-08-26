@@ -632,7 +632,6 @@ class DLPOLY(object):
             blockBodies2 = []
 
             # Now loop through fragments and coordinates
-            #for i, coord in enumerate(block.iterCoord() ):
             for idxFrag,frag in enumerate(block._fragments): # need index of fragment in block
 
                 # Body count always increments with fragment although it may go up within a fragment too
@@ -697,8 +696,6 @@ class DLPOLY(object):
             bodies2.append(blockBodies2)
 
         # End block loop
-
-        print "GOT TYPES ",types
 
         # Now write out FIELD file
         # REM DLPOLY does FORTRAN counting so add 1 to everything
@@ -1462,7 +1459,6 @@ class HoomdOptimiser( object ):
                                        doImproper=doImproper,
                                        rCut=self.rCut,
                                        quiet=quiet,
-                                       data=data,
                                        maxE=True,
                                     )
 
