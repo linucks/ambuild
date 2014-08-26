@@ -848,7 +848,7 @@ def dumpPkl(pickleFile,split=None):
         mycell.writeCml(prefix+"_PV.cml", data=data, periodic=True, pruneBonds=True)
         #mycell.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
         data = mycell.dataDict(center=True)
-        mycell.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
+        #mycell.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
 
     return
 
