@@ -143,12 +143,6 @@ class CellData(object):
 
         # for computing block/fragment enegies
         self.tagIndices              = []
-#         self.blockBonds              = []
-#         self.blockBondLabels         = []
-#         self.blockBondAngles         = []
-#         self.blockBondAngleLabels    = []
-#         self.blockBondDihedrals      = []
-#         self.blockBondDihedralLabels = []
         return
 
 class Cell():
