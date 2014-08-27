@@ -1030,12 +1030,9 @@ class Cell():
                     atomCount += 1
 
                 # Work out which fragment this is in
-                # REM blockCount is NOT idxBlock in the dict - need to rationalise this.
-                d.tagIndices.append((idxBlock,idxFrag,atomCount-i,atomCount))
+                d.tagIndices.append((idxBlock,idxFrag,atomCount-i-1,atomCount))
 
             #END loop through fragments
-            # Only set the count here
-            #atomCount += blockAtomCount
 
             # End block loop
 
