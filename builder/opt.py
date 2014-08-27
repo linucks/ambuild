@@ -452,7 +452,71 @@ class FfieldParameters( object ):
         return False
 
 
-class DLPOLY(object):
+class FFIELD(object):
+
+    def __init__(self):
+        self.ffield = FfieldParameters()
+        self.bonds = None
+        self.angles = None
+        self.dihedrals = None
+        self.impropers = None
+        self.atomTypes = None
+        return
+
+    def checkParameters(self):
+
+        assert self.ffield
+        assert self.atomTypes
+
+        ok = True
+        missingBonds = []
+        for bond in self.bonds:
+            if not self.ffield.hasBond( bond ):
+                ok = False
+                missingBonds.append( bond )
+        missingAngles = []
+        for angle in self.angles:
+            if not self.ffield.hasAngle( angle ):
+                ok = False
+                missingAngles.append( angle )
+        missingDihedrals = []
+        for dihedral in self.dihedrals:
+            if not self.ffield.hasDihedral( dihedral ):
+                ok = False
+                missingDihedrals.append( dihedral )
+        missingImpropers = []
+        for improper in self.impropers:
+            if not self.ffield.hasImproper( improper ):
+                ok = False
+                missingImpropers.append( improper )
+        missingPairs = []
+        for i, atype in enumerate( self.atomTypes ):
+            for j, btype in enumerate( self.atomTypes ):
+                if j >= i:
+                    if not self.ffield.hasPair( atype, btype ):
+                        ok = False
+                        missingPairs.append( ( atype, btype ) )
+
+        if not ok:
+            msg = "The following parameters could not be found:\n"
+            if missingBonds:
+                msg += "Bonds: {0}\n".format( missingBonds )
+            if missingAngles:
+                msg += "Angles: {0}\n".format( missingAngles )
+            if missingDihedrals:
+                msg += "Dihedrals: {0}\n".format( missingDihedrals )
+            if missingImpropers:
+                msg += "Impropers: {0}\n".format( missingImpropers )
+            if missingPairs:
+                msg += "Pairs: {0}\n".format( missingPairs )
+
+            msg += "Please add these to the opt.py file\n"
+
+            raise RuntimeError,msg
+
+        return
+
+class DLPOLY(FFIELD):
     """
     write out CONFIG file
 
@@ -460,13 +524,6 @@ class DLPOLY(object):
 
 
     """
-
-    def __init__(self):
-
-        self.ffield = FfieldParameters()
-
-        return
-
 
     def writeCONFIG(self,
                     cell,
@@ -696,6 +753,14 @@ class DLPOLY(object):
             bodies2.append(blockBodies2)
 
         # End block loop
+
+        # Quick hack hijacking hoomdblue machinary
+        # Check we have all the parameters we need
+        self.bonds = set([ j for i in bonds for j in i ])
+        self.angles = set([ j for i in angles for j in i ])
+        self.propers = set([ j for i in propers for j in i ])
+        self.impropers = set([ j for i in impropers for j in i ])
+        self.atomTypes = set([ j for i in types for j in i ])
 
         # Now write out FIELD file
         # REM DLPOLY does FORTRAN counting so add 1 to everything
@@ -978,7 +1043,7 @@ class DLPOLY(object):
 #         return
 
 
-class HoomdOptimiser( object ):
+class HoomdOptimiser(FFIELD):
 
     def __init__(self):
 
@@ -998,69 +1063,530 @@ class HoomdOptimiser( object ):
         self.CONVERSIONFACTOR = 8.310E-23
         return
 
+    def fragMaxEnergy(self,
+                      data,
+                      xmlFilename,
+                      doDihedral=False,
+                      doImproper=False,
+                      rigidBody=True,
+                      rCut=None,
+                      quiet=None,
+                       **kw ):
+
+        if rCut is not None:
+            self.rCut = rCut
+
+        if doDihedral and doImproper:
+            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
+
+        self.system = self.setupSystem(data,
+                                       xmlFilename=xmlFilename,
+                                       doDihedral=doDihedral,
+                                       doImproper=doImproper,
+                                       rCut=self.rCut,
+                                       quiet=quiet,
+                                       maxE=True,
+                                    )
+
+        quantities= ['potential_energy','kinetic_energy']
+
+        # see setupSystem for where the groups are created
+        for idxBlock,idxFragment,start,end in data.tagIndices:
+            quantities.append("potential_energy_{0}:{1}".format(start,end))
+
+        self.hlog = hoomdblue.analyze.log(filename='mylog1.csv',
+                                     quantities=quantities,
+                                     period=1,
+                                     header_prefix='#',
+                                     overwrite=True
+                                     )
+
+        optimised = self._optimiseGeometry( rigidBody=rigidBody,
+                                            optCycles=10,
+                                            **kw )
+
+        maxe=-10000
+        maxi=-1
+        for i,(idxBlock,idxFragment,start,end) in enumerate(data.tagIndices):
+            label="potential_energy_{0}:{1}".format(start,end)
+            print "LABEL ",label
+            e = self.toStandardUnits( self.hlog.query( label ) )
+            print "GOT E ",e
+            if e > maxe:
+                maxe=e
+                maxi=i
+
+        assert not i==-1
+        idxBlock,idxFragment,start,end=data.tagIndices[maxi]
+        return maxe,idxBlock,idxFragment
+
     def fromStandardUnits(self, value):
         #return float(value) * self.CONVERSIONFACTOR
         return float(value)
 
-    def toStandardUnits(self, value):
-        #return float(value) / self.CONVERSIONFACTOR
-        return float(value)
+    def optimiseGeometry( self,
+                          data,
+                          xmlFilename="hoomdOpt.xml",
+                          doDihedral=False,
+                          doImproper=False,
+                          doCharges=True,
+                          rigidBody=True,
+                          rCut=None,
+                          quiet=None,
+                          **kw ):
 
-    def checkParameters(self, xmlFilename=None):
+        if rCut is not None:
+            self.rCut = rCut
 
-        assert self.ffield
-        self.setAttributesFromFile( xmlFilename )
-        #assert self.bonds
-        #assert self.angles
-        assert self.atomTypes
+        if doDihedral and doImproper:
+            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
 
-        ok = True
-        missingBonds = []
-        for bond in self.bonds:
-            if not self.ffield.hasBond( bond ):
-                ok = False
-                missingBonds.append( bond )
-        missingAngles = []
+        self.system = self.setupSystem(data,
+                                       xmlFilename=xmlFilename,
+                                       rigidBody=rigidBody,
+                                       doDihedral=doDihedral,
+                                       doImproper=doImproper,
+                                       rCut=self.rCut,
+                                       quiet=quiet )
+
+        # Logger - we don't write anything but query the final value - hence period 0 and overwrite
+        self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
+                                     quantities=[
+                                                 'num_particles',
+                                                 'pair_lj_energy',
+                                                 'potential_energy',
+                                                 'kinetic_energy',
+                                                 ],
+                                     period=100,
+                                     header_prefix='#',
+                                     overwrite=True
+                                     )
+
+        optimised = self._optimiseGeometry( rigidBody=rigidBody,
+                                            **kw )
+
+        # Extract the energy
+        if 'd' in kw and kw['d'] is not None:
+            for i in ['potential_energy' ]:
+                kw['d'][ i ] = self.toStandardUnits( self.hlog.query( i ) )
+
+        return optimised
+
+    def _optimiseGeometry(self,
+                          carOut="hoomdOpt.car",
+                          rigidBody=True,
+                          optCycles = 1000000,
+                          dump=False,
+                          dt=0.005,
+                          Nmin=5,
+                          alpha_start=0.1,
+                          ftol=1e-2,
+                          Etol=1e-5,
+                          finc=1.1,
+                          fdec=0.5,
+                          **kw ):
+        """Optimise the geometry with hoomdblue"""
+
+        # Create the integrator with the values specified
+        if rigidBody:
+            fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(),
+                                                                 dt=dt,
+                                                                 Nmin=Nmin,
+                                                                 alpha_start=alpha_start,
+                                                                 ftol=ftol,
+                                                                 Etol=Etol,
+                                                                 finc=finc,
+                                                                 fdec=fdec,
+                                                                )
+        else:
+            fire=integrate.mode_minimize_fire(group=hoomdblue.group.all(),
+                                              dt=dt,
+                                              Nmin=Nmin,
+                                              alpha_start=alpha_start,
+                                              ftol=ftol,
+                                              Etol=Etol,
+                                              finc=finc,
+                                              fdec=fdec
+                                              )
+
+        if dump:
+            # For tracking the optimsation
+            xmld = hoomdblue.dump.xml(filename="runopt.xml", vis=True)
+            dcdd = hoomdblue.dump.dcd(filename="runopt.dcd",
+                                      period=1,
+                                      unwrap_full=True,
+                                      overwrite=True,
+                                       )
+
+        optimised=False
+        hoomdblue.run( optCycles,
+                       callback=lambda x: -1 if fire.has_converged() else 0,
+                       callback_period=1 )
+        if fire.has_converged():
+            optimised=True
+
+            #if float( self.hlog.query( 'potential_energy' ) ) < 1E-2:
+            #    print "!!!!!!!!!!!HACK CONVERGENCE CRITERIA!!!!!!"
+            #    optimised=True
+            #    break
+
+        # Delete variables before we return to stop memory leaks
+        #del fire
+
+        if dump and False:
+            xmld.disable()
+            dcdd.disable()
+            del xmld
+            del dcdd
+#         del harmonic
+#         del aharmonic
+#         del improper
+#         del lj
+
+        # Write out a car file so we can see what happened
+        #self.writeCar( system=self.system, filename=carOut, unwrap=True )
+
+        return optimised
+
+    def runMD(self,
+              data,
+              xmlFilename="hoomdMD.xml",
+              doDihedral=False,
+              doImproper=False,
+              doCharges=True,
+              rigidBody=True,
+              rCut=None,
+              quiet=None,
+              **kw ):
+
+        if rCut is not None:
+            self.rCut = rCut
+
+        if doDihedral and doImproper:
+            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
+
+        self.system = self.setupSystem(data,
+                                       xmlFilename=xmlFilename,
+                                       rigidBody=rigidBody,
+                                       doDihedral=doDihedral,
+                                       doImproper=doImproper,
+                                       rCut=self.rCut,
+                                       quiet=quiet )
+
+        # Logger - we don't write anything but query the final value - hence period 0 and overwrite
+        hlog = hoomdblue.analyze.log(filename='mylog.log',
+                                     quantities=[
+                                                 'num_particles',
+                                                 'pair_lj_energy',
+                                                 'potential_energy',
+                                                 'kinetic_energy',
+                                                 ],
+                                     period=0,
+                                     header_prefix='#',
+                                     overwrite=True
+                                     )
+
+        self._runMD( **kw )
+
+        # Extract the energy
+        if 'd' in kw and kw['d'] is not None:
+            for i in ['potential_energy' ]:
+                kw['d'][ i ] = self.toStandardUnits( hlog.query( i ) )
+
+        return True
+
+    def runMDAndOptimise(self,
+                         data,
+                         xmlFilename="hoomdMdOpt.xml",
+                         rigidBody=True,
+                         doDihedral=False,
+                         doImproper=False,
+                         doCharges=True,
+                         rCut=None,
+                         quiet=None,
+                         **kw ):
+
+        if rCut is not None:
+            self.rCut = rCut
+
+        if doDihedral and doImproper:
+            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
+
+        self.system = self.setupSystem(data,
+                                       xmlFilename=xmlFilename,
+                                       rigidBody=rigidBody,
+                                       doDihedral=doDihedral,
+                                       doImproper=doImproper,
+                                       rCut=self.rCut,
+                                       quiet=quiet )
+
+        # Logger - we don't write anything but query the final value - hence period 0 and overwrite
+        self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
+                                     quantities=[
+                                                 'num_particles',
+                                                 'pair_lj_energy',
+                                                 'potential_energy',
+                                                 'kinetic_energy',
+                                                 ],
+                                     period=0,
+                                     header_prefix='#',
+                                     overwrite=True
+                                     )
+
+        # pre-optimise for preopt steps to make sure the sytem is sane - otherwise the MD
+        # blows up
+        preOptCycles = 5000
+        self._optimiseGeometry(optCycles = preOptCycles,
+                               dt=0.0001 )
+        # Now run the MD steps
+        self._runMD( **kw )
+
+        # Finally do a full optimisation
+        optimised = self._optimiseGeometry( **kw )
+
+        # Extract the energy
+        if 'd' in kw and kw['d'] is not None:
+            for i in ['potential_energy' ]:
+                kw['d'][ i ] = self.toStandardUnits( self.hlog.query( i ) )
+
+        return optimised
+
+
+
+    def _runMD(self, mdCycles=100000, T=1.0, tau=0.5, dt=0.0005, dump=False, **kw ):
+
+        # Added **kw arguments so that we don't get confused by arguments intended for the optimise
+        # when MD and optimiser run together
+        # T= 0.1
+
+        # Convert T
+        # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
+        # Incoming T is in Kelvin so we multiply by kB
+        T = self.fromStandardUnits(T)
+        integrator_mode = hoomdblue.integrate.mode_standard( dt=dt )
+        nvt_rigid = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
+
+        if dump:
+            xmld = hoomdblue.dump.xml(filename="runmd.xml",
+                                      vis=True )
+            dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
+                                      period=1,
+                                      unwrap_full=True,
+                                      overwrite=True )
+#             mol2 = hoomdblue.dump.mol2(filename="runmd",
+#                                       period=1)
+
+        # run mdCycles time steps
+        hoomdblue.run( mdCycles )
+
+        nvt_rigid.disable()
+        if dump and False:
+            xmld.disable()
+            dcdd.disable()
+            del xmld
+            del dcdd
+
+        del nvt_rigid
+        del integrator_mode
+
+        return
+
+    def setAngle( self, anglePotential ):
         for angle in self.angles:
-            if not self.ffield.hasAngle( angle ):
-                ok = False
-                missingAngles.append( angle )
-        missingDihedrals = []
+            param = self.ffield.angleParameter( angle )
+            if self.debug:
+                print "DEBUG: angle set_coeff( '{0}',  k={1}, t0={2} )".format( angle, param['k'],param['t0']  )
+            anglePotential.set_coeff( angle, k=param['k'], t0=param['t0'] )
+        return
+
+    def setBond( self, bondPotential ):
+        for bond in self.bonds:
+            param = self.ffield.bondParameter( bond )
+            if self.debug:
+                print "DEBUG: bond_coeff.set( '{0}',  k={1}, r0={2} )".format( bond, param['k'],param['r0']  )
+            bondPotential.bond_coeff.set( bond, k=param['k'], r0=param['r0'] )
+        return
+
+    def setDihedral( self, dihedralPotential ):
         for dihedral in self.dihedrals:
-            if not self.ffield.hasDihedral( dihedral ):
-                ok = False
-                missingDihedrals.append( dihedral )
-        missingImpropers = []
+            param = self.ffield.dihedralParameter( dihedral )
+            dihedralPotential.set_coeff( dihedral, k=param['k'], d=param['d'], n=param['n']  )
+        return
+
+    def setImproper( self, improperPotential ):
         for improper in self.impropers:
-            if not self.ffield.hasImproper( improper ):
-                ok = False
-                missingImpropers.append( improper )
-        missingPairs = []
+            param = self.ffield.improperParameter( improper )
+            improperPotential.set_coeff( improper, k=param['k'], chi=param['chi']  )
+        return
+
+    def setPair( self, pairPotential ):
         for i, atype in enumerate( self.atomTypes ):
             for j, btype in enumerate( self.atomTypes ):
                 if j >= i:
-                    if not self.ffield.hasPair( atype, btype ):
-                        ok = False
-                        missingPairs.append( ( atype, btype ) )
+                    # dummy atoms treated specially
+                    if atype.lower() == 'x' or btype.lower() == 'x':
+                        pairPotential.pair_coeff.set( atype,
+                                                      btype,
+                                                      epsilon = 0.0,
+                                                      sigma   = 0.0,
+                                                      rcut    = 0.0  )
+                        if self.debug:
+                            print "DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3}, rcut={4} )".format(atype,btype,0.0,0.0,0.0  )
 
-        if not ok:
-            msg = "The following parameters could not be found:\n"
-            if missingBonds:
-                msg += "Bonds: {0}\n".format( missingBonds )
-            if missingAngles:
-                msg += "Angles: {0}\n".format( missingAngles )
-            if missingDihedrals:
-                msg += "Dihedrals: {0}\n".format( missingDihedrals )
-            if missingImpropers:
-                msg += "Impropers: {0}\n".format( missingImpropers )
-            if missingPairs:
-                msg += "Pairs: {0}\n".format( missingPairs )
+                    else:
+                        param = self.ffield.pairParameter( atype, btype )
+                        if self.debug:
+                            print "DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype,btype,param['epsilon'],param['sigma']  )
+                        pairPotential.pair_coeff.set( atype, btype, epsilon = param['epsilon'], sigma=param['sigma'] )
+        return
 
-            msg += "Please add these to the opt.py file\n"
+    def setAttributesFromFile(self, xmlFilename ):
+        """Parse the xml file to extract the bonds, angles etc."""
 
-            raise RuntimeError,msg
+        tree = ET.parse( xmlFilename )
+        root = tree.getroot()
+
+        bonds = []
+        x = root.findall(".//bond")
+        if len(x):
+            btext = x[0].text
+            for line in btext.split( os.linesep ):
+                line = line.strip()
+                if line:
+                    bond = line.split()[0]
+                    if bond not in bonds:
+                        bonds.append( bond )
+        self.bonds = bonds
+
+        angles = []
+        x = root.findall(".//angle")
+        if len(x):
+            atext = x[0].text
+            for line in atext.split( os.linesep ):
+                line = line.strip()
+                if line:
+                    angle = line.split()[0]
+                    if angle not in angles:
+                        angles.append( angle )
+        self.angles = angles
+
+        dihedrals = []
+        dn = root.findall(".//dihedral")
+        if len(dn):
+            dtext = dn[0].text
+            for line in dtext.split( os.linesep ):
+                line = line.strip()
+                if line:
+                    dihedral = line.split()[0]
+                    if dihedral not in dihedrals:
+                        dihedrals.append( dihedral )
+        self.dihedrals = dihedrals
+
+        impropers = []
+        dn = root.findall(".//improper")
+        if len(dn):
+            dtext = dn[0].text
+            for line in dtext.split( os.linesep ):
+                line = line.strip()
+                if line:
+                    improper = line.split()[0]
+                    if improper not in impropers:
+                        impropers.append( improper )
+        self.impropers = impropers
+
+        atomTypes = []
+        atext = root.findall(".//type")[0].text
+        for line in atext.split( os.linesep ):
+            atomType = line.strip()
+            if atomType and atomType not in atomTypes:
+                atomTypes.append( atomType )
+
+        self.atomTypes = atomTypes
 
         return
+
+    def setupSystem(self,
+                    data,
+                    xmlFilename,
+                    doDihedral=False,
+                    doImproper=False,
+                    doCharges=True,
+                    rigidBody=True,
+                    rCut=None,
+                    quiet=False,
+                    maxE=False,
+                     ):
+
+        self.writeXml(data,
+                      xmlFilename=xmlFilename,
+                      rigidBody=rigidBody,
+                      doCharges=doCharges,
+                      doDihedral=doDihedral,
+                      doImproper=doImproper)
+
+        # Read parameters from file, set them as  attributes & check them
+        self.setAttributesFromFile(xmlFilename)
+        self.checkParameters()
+
+        if hoomdblue.init.is_initialized():
+            hoomdblue.init.reset()
+
+        # Init the sytem from the file
+        system = hoomdblue.init.read_xml( filename=xmlFilename )
+
+        # Below disables pretty much all output
+        if quiet:
+            print "Disabling HOOMD-Blue output!"
+            hoomdblue.globals.msg.setNoticeLevel(0)
+
+        # Set the parameters
+        harmonic=None
+        if len( self.bonds ):
+            harmonic = hoomdblue.bond.harmonic()
+            self.setBond( harmonic )
+
+        aharmonic=None
+        if len( self.angles ):
+            aharmonic = hoomdblue.angle.harmonic()
+            self.setAngle( aharmonic )
+
+        dharmonic = improper = None
+        if doDihedral and len( self.dihedrals ):
+                dharmonic = hoomdblue.dihedral.harmonic()
+                self.setDihedral( dharmonic )
+        elif doImproper and len( self.dihedrals ):
+            improper = hoomdblue.improper.harmonic()
+            self.setImproper( improper )
+
+        lj = hoomdblue.pair.lj( r_cut=rCut)
+        self.setPair( lj )
+
+        hoomdblue.globals.neighbor_list.reset_exclusions(exclusions = ['1-2', '1-3', '1-4', 'angle', 'body'] )
+
+        # For calculating groups
+        #self.labels=[]
+        if maxE:
+            for idxBlock,idxFragment,start,end in data.tagIndices:
+                # create the group
+                l="{0}:{1}".format(start,end)
+                g = hoomdblue.group.tag_list(name=l, tags = range(start,end))
+                print "SET GROUP ",start,end
+                # create the compute for this group
+                c = hoomdblue.compute.thermo(group=g)
+                #self.labels.append(l)
+
+
+# Do we need to think about saving the references and deleting them?
+#         del harmonic
+#         del aharmonic
+#         del improper
+#         del lj
+
+        return system
+
+    def toStandardUnits(self, value):
+        #return float(value) / self.CONVERSIONFACTOR
+        return float(value)
 
     def writeCar( self, system, filename, unwrap=True, pbc=True ):
         """Car File
@@ -1244,520 +1770,6 @@ class HoomdOptimiser( object ):
             f.writelines( xyz )
 
         return
-
-    def setAngle( self, anglePotential ):
-        for angle in self.angles:
-            param = self.ffield.angleParameter( angle )
-            if self.debug:
-                print "DEBUG: angle set_coeff( '{0}',  k={1}, t0={2} )".format( angle, param['k'],param['t0']  )
-            anglePotential.set_coeff( angle, k=param['k'], t0=param['t0'] )
-        return
-
-    def setBond( self, bondPotential ):
-        for bond in self.bonds:
-            param = self.ffield.bondParameter( bond )
-            if self.debug:
-                print "DEBUG: bond_coeff.set( '{0}',  k={1}, r0={2} )".format( bond, param['k'],param['r0']  )
-            bondPotential.bond_coeff.set( bond, k=param['k'], r0=param['r0'] )
-        return
-
-    def setDihedral( self, dihedralPotential ):
-        for dihedral in self.dihedrals:
-            param = self.ffield.dihedralParameter( dihedral )
-            dihedralPotential.set_coeff( dihedral, k=param['k'], d=param['d'], n=param['n']  )
-        return
-
-    def setImproper( self, improperPotential ):
-        for improper in self.impropers:
-            param = self.ffield.improperParameter( improper )
-            improperPotential.set_coeff( improper, k=param['k'], chi=param['chi']  )
-        return
-
-    def setPair( self, pairPotential ):
-        for i, atype in enumerate( self.atomTypes ):
-            for j, btype in enumerate( self.atomTypes ):
-                if j >= i:
-                    # dummy atoms treated specially
-                    if atype.lower() == 'x' or btype.lower() == 'x':
-                        pairPotential.pair_coeff.set( atype,
-                                                      btype,
-                                                      epsilon = 0.0,
-                                                      sigma   = 0.0,
-                                                      rcut    = 0.0  )
-                        if self.debug:
-                            print "DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3}, rcut={4} )".format(atype,btype,0.0,0.0,0.0  )
-
-                    else:
-                        param = self.ffield.pairParameter( atype, btype )
-                        if self.debug:
-                            print "DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype,btype,param['epsilon'],param['sigma']  )
-                        pairPotential.pair_coeff.set( atype, btype, epsilon = param['epsilon'], sigma=param['sigma'] )
-        return
-
-    def setAttributesFromFile(self, xmlFilename ):
-        """Parse the xml file to extract the bonds, angles etc."""
-
-        tree = ET.parse( xmlFilename )
-        root = tree.getroot()
-
-        bonds = []
-        x = root.findall(".//bond")
-        if len(x):
-            btext = x[0].text
-            for line in btext.split( os.linesep ):
-                line = line.strip()
-                if line:
-                    bond = line.split()[0]
-                    if bond not in bonds:
-                        bonds.append( bond )
-        self.bonds = bonds
-
-        angles = []
-        x = root.findall(".//angle")
-        if len(x):
-            atext = x[0].text
-            for line in atext.split( os.linesep ):
-                line = line.strip()
-                if line:
-                    angle = line.split()[0]
-                    if angle not in angles:
-                        angles.append( angle )
-        self.angles = angles
-
-        dihedrals = []
-        dn = root.findall(".//dihedral")
-        if len(dn):
-            dtext = dn[0].text
-            for line in dtext.split( os.linesep ):
-                line = line.strip()
-                if line:
-                    dihedral = line.split()[0]
-                    if dihedral not in dihedrals:
-                        dihedrals.append( dihedral )
-        self.dihedrals = dihedrals
-
-        impropers = []
-        dn = root.findall(".//improper")
-        if len(dn):
-            dtext = dn[0].text
-            for line in dtext.split( os.linesep ):
-                line = line.strip()
-                if line:
-                    improper = line.split()[0]
-                    if improper not in impropers:
-                        impropers.append( improper )
-        self.impropers = impropers
-
-        atomTypes = []
-        atext = root.findall(".//type")[0].text
-        for line in atext.split( os.linesep ):
-            atomType = line.strip()
-            if atomType and atomType not in atomTypes:
-                atomTypes.append( atomType )
-
-        self.atomTypes = atomTypes
-
-        return
-
-    def setupSystem(self,
-                    data,
-                    xmlFilename,
-                    doDihedral=False,
-                    doImproper=False,
-                    doCharges=True,
-                    rigidBody=True,
-                    rCut=None,
-                    quiet=False,
-                    maxE=False,
-                     ):
-
-        self.writeXml(data,
-                      xmlFilename=xmlFilename,
-                      rigidBody=rigidBody,
-                      doCharges=doCharges,
-                      doDihedral=doDihedral,
-                      doImproper=doImproper)
-
-        # Read parameters from file, check them and set the attributes
-        self.checkParameters( xmlFilename=xmlFilename )
-
-        if hoomdblue.init.is_initialized():
-            hoomdblue.init.reset()
-
-        # Init the sytem from the file
-        system = hoomdblue.init.read_xml( filename=xmlFilename )
-
-        # Below disables pretty much all output
-        if quiet:
-            print "Disabling HOOMD-Blue output!"
-            hoomdblue.globals.msg.setNoticeLevel(0)
-
-        # Set the parameters
-        harmonic=None
-        if len( self.bonds ):
-            harmonic = hoomdblue.bond.harmonic()
-            self.setBond( harmonic )
-
-        aharmonic=None
-        if len( self.angles ):
-            aharmonic = hoomdblue.angle.harmonic()
-            self.setAngle( aharmonic )
-
-        dharmonic = improper = None
-        if doDihedral and len( self.dihedrals ):
-                dharmonic = hoomdblue.dihedral.harmonic()
-                self.setDihedral( dharmonic )
-        elif doImproper and len( self.dihedrals ):
-            improper = hoomdblue.improper.harmonic()
-            self.setImproper( improper )
-
-        lj = hoomdblue.pair.lj( r_cut=rCut)
-        self.setPair( lj )
-
-        hoomdblue.globals.neighbor_list.reset_exclusions(exclusions = ['1-2', '1-3', '1-4', 'angle', 'body'] )
-
-        # For calculating groups
-        #self.labels=[]
-        if maxE:
-            for idxBlock,idxFragment,start,end in data.tagIndices:
-                # create the group
-                l="{0}:{1}".format(start,end)
-                g = hoomdblue.group.tag_list(name=l, tags = range(start,end))
-                print "SET GROUP ",start,end
-                # create the compute for this group
-                c = hoomdblue.compute.thermo(group=g)
-                #self.labels.append(l)
-
-
-# Do we need to think about saving the references and deleting them?
-#         del harmonic
-#         del aharmonic
-#         del improper
-#         del lj
-
-        return system
-
-    def fragMaxEnergy(self,
-                      xmlFilename,
-                      data,
-                      doDihedral=False,
-                      doImproper=False,
-                      rigidBody=True,
-                      rCut=None,
-                      quiet=None,
-                       **kw ):
-
-        if rCut is not None:
-            self.rCut = rCut
-
-        if doDihedral and doImproper:
-            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
-
-        self.system = self.setupSystem(data,
-                                       xmlFilename=xmlFilename,
-                                       doDihedral=doDihedral,
-                                       doImproper=doImproper,
-                                       rCut=self.rCut,
-                                       quiet=quiet,
-                                       maxE=True,
-                                    )
-
-        quantities= ['potential_energy','kinetic_energy']
-
-        # see setupSystem for where the groups are created
-        for idxBlock,idxFragment,start,end in data.tagIndices:
-            quantities.append("potential_energy_{0}:{1}".format(start,end))
-
-        self.hlog = hoomdblue.analyze.log(filename='mylog1.csv',
-                                     quantities=quantities,
-                                     period=1,
-                                     header_prefix='#',
-                                     overwrite=True
-                                     )
-
-        optimised = self._optimiseGeometry( rigidBody=rigidBody,
-                                            optCycles=10,
-                                            **kw )
-
-        maxe=-10000
-        maxi=-1
-        for i,(idxBlock,idxFragment,start,end) in enumerate(data.tagIndices):
-            label="potential_energy_{0}:{1}".format(start,end)
-            print "LABEL ",label
-            e = self.toStandardUnits( self.hlog.query( label ) )
-            print "GOT E ",e
-            if e > maxe:
-                maxe=e
-                maxi=i
-
-        assert not i==-1
-        idxBlock,idxFragment,start,end=data.tagIndices[maxi]
-        return maxe,idxBlock,idxFragment
-
-    def runMD(self,
-              data,
-              xmlFilename="hoomdMD.xml",
-              doDihedral=False,
-              doImproper=False,
-              doCharges=True,
-              rigidBody=True,
-              rCut=None,
-              quiet=None,
-              **kw ):
-
-        if rCut is not None:
-            self.rCut = rCut
-
-        if doDihedral and doImproper:
-            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
-
-        self.system = self.setupSystem(data,
-                                       xmlFilename=xmlFilename,
-                                       rigidBody=rigidBody,
-                                       doDihedral=doDihedral,
-                                       doImproper=doImproper,
-                                       rCut=self.rCut,
-                                       quiet=quiet )
-
-        # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        hlog = hoomdblue.analyze.log(filename='mylog.log',
-                                     quantities=[
-                                                 'num_particles',
-                                                 'pair_lj_energy',
-                                                 'potential_energy',
-                                                 'kinetic_energy',
-                                                 ],
-                                     period=0,
-                                     header_prefix='#',
-                                     overwrite=True
-                                     )
-
-        self._runMD( **kw )
-
-        # Extract the energy
-        if 'd' in kw and kw['d'] is not None:
-            for i in ['potential_energy' ]:
-                kw['d'][ i ] = self.toStandardUnits( hlog.query( i ) )
-
-        return True
-
-    def runMDAndOptimise(self,
-                         data,
-                         xmlFilename="hoomdMdOpt.xml",
-                         rigidBody=True,
-                         doDihedral=False,
-                         doImproper=False,
-                         doCharges=True,
-                         rCut=None,
-                         quiet=None,
-                         **kw ):
-
-        if rCut is not None:
-            self.rCut = rCut
-
-        if doDihedral and doImproper:
-            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
-
-        self.system = self.setupSystem(data,
-                                       xmlFilename=xmlFilename,
-                                       rigidBody=rigidBody,
-                                       doDihedral=doDihedral,
-                                       doImproper=doImproper,
-                                       rCut=self.rCut,
-                                       quiet=quiet )
-
-        # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
-                                     quantities=[
-                                                 'num_particles',
-                                                 'pair_lj_energy',
-                                                 'potential_energy',
-                                                 'kinetic_energy',
-                                                 ],
-                                     period=0,
-                                     header_prefix='#',
-                                     overwrite=True
-                                     )
-
-        # pre-optimise for preopt steps to make sure the sytem is sane - otherwise the MD
-        # blows up
-        preOptCycles = 5000
-        self._optimiseGeometry(optCycles = preOptCycles,
-                               dt=0.0001 )
-        # Now run the MD steps
-        self._runMD( **kw )
-
-        # Finally do a full optimisation
-        optimised = self._optimiseGeometry( **kw )
-
-        # Extract the energy
-        if 'd' in kw and kw['d'] is not None:
-            for i in ['potential_energy' ]:
-                kw['d'][ i ] = self.toStandardUnits( self.hlog.query( i ) )
-
-        return optimised
-
-    def optimiseGeometry( self,
-                          data,
-                          xmlFilename="hoomdOpt.xml",
-                          doDihedral=False,
-                          doImproper=False,
-                          doCharges=True,
-                          rigidBody=True,
-                          rCut=None,
-                          quiet=None,
-                          **kw ):
-
-        if rCut is not None:
-            self.rCut = rCut
-
-        if doDihedral and doImproper:
-            raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
-
-        self.system = self.setupSystem(data,
-                                       xmlFilename=xmlFilename,
-                                       rigidBody=rigidBody,
-                                       doDihedral=doDihedral,
-                                       doImproper=doImproper,
-                                       rCut=self.rCut,
-                                       quiet=quiet )
-
-        # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
-                                     quantities=[
-                                                 'num_particles',
-                                                 'pair_lj_energy',
-                                                 'potential_energy',
-                                                 'kinetic_energy',
-                                                 ],
-                                     period=100,
-                                     header_prefix='#',
-                                     overwrite=True
-                                     )
-
-        optimised = self._optimiseGeometry( rigidBody=rigidBody,
-                                            **kw )
-
-        # Extract the energy
-        if 'd' in kw and kw['d'] is not None:
-            for i in ['potential_energy' ]:
-                kw['d'][ i ] = self.toStandardUnits( self.hlog.query( i ) )
-
-        return optimised
-
-    def _runMD(self, mdCycles=100000, T=1.0, tau=0.5, dt=0.0005, dump=False, **kw ):
-
-        # Added **kw arguments so that we don't get confused by arguments intended for the optimise
-        # when MD and optimiser run together
-        # T= 0.1
-
-        # Convert T
-        # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
-        # Incoming T is in Kelvin so we multiply by kB
-        T = self.fromStandardUnits(T)
-        integrator_mode = hoomdblue.integrate.mode_standard( dt=dt )
-        nvt_rigid = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
-
-        if dump:
-            xmld = hoomdblue.dump.xml(filename="runmd.xml",
-                                      vis=True )
-            dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
-                                      period=1,
-                                      unwrap_full=True,
-                                      overwrite=True )
-#             mol2 = hoomdblue.dump.mol2(filename="runmd",
-#                                       period=1)
-
-        # run mdCycles time steps
-        hoomdblue.run( mdCycles )
-
-        nvt_rigid.disable()
-        if dump and False:
-            xmld.disable()
-            dcdd.disable()
-            del xmld
-            del dcdd
-
-        del nvt_rigid
-        del integrator_mode
-
-        return
-
-    def _optimiseGeometry(self,
-                          carOut="hoomdOpt.car",
-                          rigidBody=True,
-                          optCycles = 1000000,
-                          dump=False,
-                          dt=0.005,
-                          Nmin=5,
-                          alpha_start=0.1,
-                          ftol=1e-2,
-                          Etol=1e-5,
-                          finc=1.1,
-                          fdec=0.5,
-                          **kw ):
-        """Optimise the geometry with hoomdblue"""
-
-        # Create the integrator with the values specified
-        if rigidBody:
-            fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(),
-                                                                 dt=dt,
-                                                                 Nmin=Nmin,
-                                                                 alpha_start=alpha_start,
-                                                                 ftol=ftol,
-                                                                 Etol=Etol,
-                                                                 finc=finc,
-                                                                 fdec=fdec,
-                                                                )
-        else:
-            fire=integrate.mode_minimize_fire(group=hoomdblue.group.all(),
-                                              dt=dt,
-                                              Nmin=Nmin,
-                                              alpha_start=alpha_start,
-                                              ftol=ftol,
-                                              Etol=Etol,
-                                              finc=finc,
-                                              fdec=fdec
-                                              )
-
-        if dump:
-            # For tracking the optimsation
-            xmld = hoomdblue.dump.xml(filename="runopt.xml", vis=True)
-            dcdd = hoomdblue.dump.dcd(filename="runopt.dcd",
-                                      period=1,
-                                      unwrap_full=True,
-                                      overwrite=True,
-                                       )
-
-        optimised=False
-        hoomdblue.run( optCycles,
-                       callback=lambda x: -1 if fire.has_converged() else 0,
-                       callback_period=1 )
-        if fire.has_converged():
-            optimised=True
-
-            #if float( self.hlog.query( 'potential_energy' ) ) < 1E-2:
-            #    print "!!!!!!!!!!!HACK CONVERGENCE CRITERIA!!!!!!"
-            #    optimised=True
-            #    break
-
-        # Delete variables before we return to stop memory leaks
-        #del fire
-
-        if dump and False:
-            xmld.disable()
-            dcdd.disable()
-            del xmld
-            del dcdd
-#         del harmonic
-#         del aharmonic
-#         del improper
-#         del lj
-
-        # Write out a car file so we can see what happened
-        #self.writeCar( system=self.system, filename=carOut, unwrap=True )
-
-        return optimised
 
 def xml2xyz( xmlFilename, xyzFilename ):
     """Convert a hoomdblue xml file to xyz"""
