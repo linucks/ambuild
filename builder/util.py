@@ -852,7 +852,7 @@ def dumpPkl(pickleFile,split=None):
 
     return
 
-def dumpDLPOLY(pickleFile):
+def dumpDLPOLY(pickleFile,rigidBody=False):
     fpath = os.path.abspath( pickleFile )
     print "Dumping DLPOLY files from pkl file: {0}".format( fpath )
     mycell = cellFromPickle(pickleFile)
@@ -862,7 +862,7 @@ def dumpDLPOLY(pickleFile):
 
     d = opt.DLPOLY()
     d.writeCONFIG(mycell)
-    d.writeFIELD(mycell)
+    d.writeFIELD(mycell,rigidBody=rigidBody)
     return
 
 def frange(start, stop, step):
@@ -1311,18 +1311,24 @@ if __name__ == '__main__':
 
     #hoomdCml(sys.argv[1])
     #sys.exit()
-    assert len(sys.argv) >= 2,"To dump coordinates from pickle: {0} [-b|-f] <file.pkl>".format( sys.argv[0] )
+    assert len(sys.argv)==2 or len(sys.argv)==3,"To dump coordinates from pickle: {0} [ -b | -f | -da | -dr]  <file.pkl>".format( sys.argv[0] )
     split=None
     dlpoly=False
-    if sys.argv[1]=="--fragments" or sys.argv[1]=="-f":
-        split="fragments"
+    rigid=True
+    if len(sys.argv)==3:
         pklFile=sys.argv[2]
-    elif sys.argv[1]=="--blocks" or sys.argv[1]=="-b":
-        split="blocks"
-        pklFile=sys.argv[2]
-    elif sys.argv[1]=="--dlpoly" or sys.argv[1]=="-d":
-        dlpoly=True
-        pklFile=sys.argv[2]
+        if sys.argv[1]=="--fragments" or sys.argv[1]=="-f":
+            split="fragments"
+        elif sys.argv[1]=="--blocks" or sys.argv[1]=="-b":
+            split="blocks"
+        elif sys.argv[1]=="-da":
+            dlpoly=True
+            rigid=False
+        elif sys.argv[1]=="-dr":
+            dlpoly=True
+            rigid=True
+        else:
+            print "Unrecognised option: {0}".format(sys.argv[2])
     else:
         pklFile=sys.argv[1]
 
@@ -1330,7 +1336,7 @@ if __name__ == '__main__':
     sys.argv=[sys.argv[0]]
 
     if dlpoly:
-        dumpDLPOLY(pklFile)
+        dumpDLPOLY(pklFile,rigidBody=rigid)
     else:
         dumpPkl(pklFile,split=split)
 
