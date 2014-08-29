@@ -756,11 +756,12 @@ class DLPOLY(FFIELD):
 
         # Quick hack hijacking hoomdblue machinary
         # Check we have all the parameters we need
-        self.bonds = set([ j for i in bonds for j in i ])
-        self.angles = set([ j for i in angles for j in i ])
-        self.propers = set([ j for i in propers for j in i ])
-        self.impropers = set([ j for i in impropers for j in i ])
+        self.bonds = set([ "{0}-{1}".format(j[0],j[1]) for i in bondTypes for j in i ])
+        self.angles = set([ "{0}-{1}-{2}".format(j[0],j[1],j[2]) for i in angleTypes for j in i ])
+        self.dihedrals = set([ "{0}-{1}-{2}-{3}".format(j[0],j[1],j[2],j[3]) for i in properTypes for j in i ])
+        self.impropers = set([ "{0}-{1}-{2}-{3}".format(j[0],j[1],j[2],j[3]) for i in improperTypes for j in i ])
         self.atomTypes = set([ j for i in types for j in i ])
+        self.checkParameters()
 
         # Now write out FIELD file
         # REM DLPOLY does FORTRAN counting so add 1 to everything
@@ -772,25 +773,23 @@ class DLPOLY(FFIELD):
             # Header
             f.write("Ambuild FIELD file with {0} molecules\n".format(numMolecules))
             f.write("UNITS kcal\n")
-            f.write("\n")
             f.write("MOLECULES {0}\n".format(numMolecules))
 
             _types = set()
             for i in range(numMolecules):
-                f.write("Ambuild molecule {0}\n".format(i))
+                f.write("Molecule #{0}\n".format(i))
                 f.write("NUMMOLS 1\n")
                 f.write("ATOMS {0}\n".format(len(coords[i])))
-
-                x=set()
+                #x=set()
                 # Loop over each atom and add to set and write out at end - clumsy
                 for j in range(len(coords[i])):
                     t = types[i][j]
-                    d = (t, masses[i][j], charges[i][j])
-                    x.add(d)
-                    #f.write("{0}    {1}    {2}\n".format( t, masses[i][j], charges[i][j] ))
                     _types.add(t)
-                for t,m,c in x:
-                    f.write("{0:6} {1:10} {2:10}\n".format( t, m, c ))
+                    f.write("{0:6}  {1:6}  {2:6}    1\n".format( t, masses[i][j], charges[i][j] ))
+                    #d = (t, masses[i][j], charges[i][j])
+                    #x.add(d)
+                #for t,m,c in x:
+                #    f.write("{0:6} {1:10} {2:10}\n".format( t, m, c ))
 
                 # Rigid bodies
                 if rigidBody:
@@ -869,6 +868,9 @@ class DLPOLY(FFIELD):
             f.write("VDW    {0}\n".format(len(p)))
             for a,b,e,s in p:
                 f.write("{0:8} {1:6}  lj  {2:6}  {3:6}\n".format(a,b,e,s))
+
+            # EOF
+            f.write("CLOSE\n")
 
         return
 
