@@ -1076,10 +1076,27 @@ class Cell():
         """Remove numBlocks of fragmentType from the cell. Only supports removing blocks containing single fragments.
         """
 
+        assert numBlocks>0,"delete cannot remove zero blocks!"
+
         # First get a list of all the blocks that contain single fragments that match the fragment type
+        blist=[]
+        for idxBlock, block in self.blocks.iteritems():
+            if len(block.fragments)==1 and block.fragments[0].fragmentType==fragmentType:
+                blist.append(idxBlock)
 
+        if not len(blist):
+            self.logger.critical("Delete could not find any single-fragment blocks of type: {0}".format(fragmentType))
+            return 0
 
-        return removed
+        # We have a list of valid block ids
+        toRemove=min(numBlocks,len(blist))
+        for i in range(toRemove):
+            idxBlock=random.choice(blist)
+            self.delBlock(idxBlock)
+
+        self.logger.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(i+1,len(self.blocks)))
+
+        return i+1
 
     def density(self):
         """The density of the cell"""
@@ -2443,12 +2460,13 @@ class TestCell(unittest.TestCase):
             boxDim=[20,20,20]
             mycell = Cell(boxDim)
             mycell.libraryAddFragment(filename=cls.benzene2Car, fragmentType='A')
+            mycell.libraryAddFragment(filename=cls.ch4Car, fragmentType='B')
             mycell.addBondType( 'A:a-A:a')
-            mycell.seed( 5 )
+            mycell.seed( 5, fragmentType='A' )
             mycell.growBlocks( 8 )
+            mycell.seed(5, fragmentType='B')
             print "FINISHED TEST CELL"
             cls.testCell = mycell
-
         return
 
     def testCX4(self):
@@ -2707,9 +2725,14 @@ class TestCell(unittest.TestCase):
 
         return
 
+    def testDelete(self):
+        toDelete=3
+        deleted = self.testCell.delete(toDelete, fragmentType='B')
+        self.assertEqual(deleted,toDelete)
+        return
+
     def testDLPOLY(self):
         """
-
 
         """
 
