@@ -63,7 +63,7 @@ class Block(object):
             initFragment = fragment.Fragment( filePath, fragmentType )
 
         # List of the fragments contained in this one
-        self._fragments = [ initFragment ]
+        self.fragments = [ initFragment ]
 
         # List of bond objects between blocks
         self._blockBonds = []
@@ -324,7 +324,7 @@ class Block(object):
         # update and add the data for the new block here
         # Append fragments and bonds of other block to this one
         if bond.endGroup1.block() != bond.endGroup2.block():
-            self._fragments += bond.endGroup2.block()._fragments
+            self.fragments += bond.endGroup2.block().fragments
             self._blockBonds += bond.endGroup2.block()._blockBonds
 
         # add the new bond
@@ -338,14 +338,14 @@ class Block(object):
         sumM = numpy.zeros( 3 )
 
         totalMass = 0.0
-        for f in self._fragments:
+        for f in self.fragments:
 
             mass = f.totalMass()
             totalMass += mass
             sumG += f.centroid()
             sumM += mass * f.centroid()
 
-        self._centroid = sumG / len( self._fragments )
+        self._centroid = sumG / len( self.fragments )
         self._centerOfMass = sumM / totalMass
 
         return
@@ -359,7 +359,7 @@ class Block(object):
 
         distances = []
         self._maxAtomRadius = 0.0
-        for f in self._fragments:
+        for f in self.fragments:
             for coord in f.iterCoord():
                 distances.append( util.distance( self._centroid, coord ) )
                 self._maxAtomRadius = max( f.maxAtomRadius(), self._maxAtomRadius )
@@ -426,14 +426,12 @@ class Block(object):
     #def deleteBond(self, idxAtom1, idxAtom2 ):
     def deleteBond(self, bond):
 
-        # Check there is a bond between the two atoms
-
         # See if breaking the bond separates the block into two separate blocks
 
         # First find the bond object and at the same time
         # create list of which fragments are bonded to which fragments
         bondedToFragment = {}
-        #for i in range(len(self._fragments)):
+        #for i in range(len(self.fragments)):
         #    bondedToFragment.append(set())
         #print "CHECKING ",id(bond.endGroup1.fragment),id(bond.endGroup2.fragment)
         for b in self._blockBonds:
@@ -572,7 +570,7 @@ class Block(object):
         # loop through all fragments and get a list of which atoms are internally bonded
         # Then go through the data map and map these to the 'external' atom indices
         fbonds = []
-        for fragment in self._fragments:
+        for fragment in self.fragments:
             for b1, b2 in fragment.bonds():
                 fbonds.append( ( b1+fragment.blockIdx, b2+fragment.blockIdx) )
         return fbonds
@@ -768,7 +766,7 @@ class Block(object):
 
         rotationMatrix = util.rotation_matrix( axis, angle )
 
-        for f in self._fragments:
+        for f in self.fragments:
             f.rotate( rotationMatrix, center )
         return
 
@@ -780,7 +778,7 @@ class Block(object):
         self.translateCentroid( origin )
 
         rotationMatrix = util.rotation_matrix( axis, angle )
-        for f in self._fragments:
+        for f in self.fragments:
             f.rotate( rotationMatrix, origin )
 
         self.translateCentroid( position )
@@ -794,7 +792,7 @@ class Block(object):
             tvector = numpy.array( tvector )
 
         # Loop through each fragment and translate each in turn
-        for f in self._fragments:
+        for f in self.fragments:
             f.translate( tvector )
 
         self._changed = True
@@ -819,7 +817,7 @@ class Block(object):
         self._fragmentTypeDict = {}
         bodyCount=-1
         lastBody=0
-        for fragment in self._fragments:
+        for fragment in self.fragments:
 
             # Set the block
             fragment.block = self
@@ -850,7 +848,7 @@ class Block(object):
         self._numFreeEndGroups       = 0
         self._freeEndGroups          = {}
         self._endGroupType2EndGroups = {}
-        for fragment in self._fragments:
+        for fragment in self.fragments:
             for i, endGroup in enumerate( fragment.endGroups() ):
                 assert endGroup.fragment == fragment
                 #assert id(endGroup) == id( fragment._endGroups[ i ] ) # no longer valid as we only return free ones
@@ -872,7 +870,7 @@ class Block(object):
         self._bonds = []
         self._bondsByFragmentType = []
         # First all bonds within the fragments
-        for fragment in self._fragments:
+        for fragment in self.fragments:
             for b1, b2 in fragment.bonds():
                 # Convert to block indices
                 b1 = b1+fragment.blockIdx
@@ -900,7 +898,7 @@ class Block(object):
 
         # Finally update the ancillary blockIndices for the endGroups - we need the bonding to have been done
         # as some of the atoms will now be defined by atoms in other fragments
-        for fragment in self._fragments:
+        for fragment in self.fragments:
             for endGroup in fragment.endGroups():
                 endGroup.updateAncillaryIndices(cap2EndGroup)
 
@@ -946,7 +944,7 @@ class Block(object):
 
         mystr = "Block: {0}\n".format(self.id)
 
-        mystr += "Num fragments: {0}\n".format( len( self._fragments) )
+        mystr += "Num fragments: {0}\n".format( len( self.fragments) )
         mystr += "endGroups: {0}\n".format( [ str(e) for e in self.freeEndGroups() ]  )
         #mystr += "_bondedCapAtoms: {0}\n".format( self._bondedCapIdxs )
         mystr += "Block bonds: {0}\n".format( self._blockBonds )
@@ -1051,7 +1049,7 @@ class TestBlock(unittest.TestCase):
 
         ch4 = Block( filePath=self.ch4Car, fragmentType='A' )
 
-        self.assertEqual( len( ch4._fragments[0]._bonds ), 4 )
+        self.assertEqual( len( ch4.fragments[0]._bonds ), 4 )
         return
 
     def testAnglesAndDihedrals(self):
@@ -1090,7 +1088,7 @@ class TestBlock(unittest.TestCase):
         self.assertEqual( [(0, 1), (0, 3), (0, 2), (4, 5), (4, 7), (4, 6), (0, 4)], ch4_1.bonds() )
 
 #         # print
-#         for fragment in ch4_1._fragments:
+#         for fragment in ch4_1.fragments:
 #             for i, eg in enumerate( fragment.endGroups() ):
 #                 print eg
 
@@ -1128,15 +1126,15 @@ class TestBlock(unittest.TestCase):
             assert False
 
         ch4_1 = Block( filePath=self.ch4Car, fragmentType='A' )
-        f1 = ch4_1._fragments[0]
+        f1 = ch4_1.fragments[0]
         ch4_2 = Block( filePath=self.ch4Car, fragmentType='A' )
-        f2 = ch4_2._fragments[0]
+        f2 = ch4_2.fragments[0]
         ch4_3 = Block( filePath=self.ch4Car, fragmentType='A' )
-        f3 = ch4_3._fragments[0]
+        f3 = ch4_3.fragments[0]
         ch4_4 = Block( filePath=self.ch4Car, fragmentType='A' )
-        f4 = ch4_4._fragments[0]
+        f4 = ch4_4.fragments[0]
         ch4_5 = Block( filePath=self.ch4Car, fragmentType='A' )
-        f5 = ch4_5._fragments[0]
+        f5 = ch4_5.fragments[0]
 
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]

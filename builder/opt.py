@@ -549,7 +549,7 @@ class DLPOLY(FFIELD):
 
             count=1 # FORTRAN COUNTING
             for block in cell.blocks.itervalues():
-                for frag in block._fragments:
+                for frag in block.fragments:
                     for i,coord in enumerate(frag.iterCoord()):
                         f.write("{0}    {1}\n".format(frag.type(i),count))
                         f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(coord[0],coord[1],coord[2]))
@@ -689,7 +689,7 @@ class DLPOLY(FFIELD):
             blockBodies2 = []
 
             # Now loop through fragments and coordinates
-            for idxFrag,frag in enumerate(block._fragments): # need index of fragment in block
+            for idxFrag,frag in enumerate(block.fragments): # need index of fragment in block
 
                 # Body count always increments with fragment although it may go up within a fragment too
                 bodyCount += 1
@@ -835,7 +835,7 @@ class DLPOLY(FFIELD):
                                                                                    angles[i][j][1]+1,
                                                                                    angles[i][j][2]+1,
                                                                                    param['k'],
-                                                                                   param['t0'] ))
+                                                                                   math.degrees(param['t0']) ))
 
                 # Dihedrals
                 if (len(propers[i])):
@@ -845,11 +845,13 @@ class DLPOLY(FFIELD):
                         d1,d2,d3,d4 = properTypes[i][j]
                         d = "{0}-{1}-{2}-{3}".format(d1,d2,d3,d4)
                         param = self.ffield.dihedralParameter( d )
+                        # A delta m - DLPOLY
+                        # k d  n - hoomd
                         f.write("cos  {0:6}  {1:6}  {2:6}  {3:6}  {4:6}  {5:6} {6:6}\n".format(propers[i][j][0]+1,
                                                                                          propers[i][j][1]+1,
                                                                                          propers[i][j][2]+1,
                                                                                          propers[i][j][3]+1,
-                                                                                         param['k'],
+                                                                                         param['k']/2,
                                                                                          param['d'],
                                                                                          param['n'] ))
 
@@ -979,7 +981,7 @@ class DLPOLY(FFIELD):
 #
 #             # Now loop through fragments and coordinates
 #             #for i, coord in enumerate(block.iterCoord() ):
-#             for idxFrag,frag in enumerate(block._fragments): # need index of fragment in block
+#             for idxFrag,frag in enumerate(block.fragments): # need index of fragment in block
 #
 #                 # Body count always increments with fragment although it may go up within a fragment too
 #                 bodyCount += 1

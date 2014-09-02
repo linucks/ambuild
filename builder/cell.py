@@ -996,7 +996,7 @@ class Cell():
 
             # Now loop through fragments and coordinates
             #for i, coord in enumerate(block.iterCoord() ):
-            for idxFrag,frag in enumerate(block._fragments): # need index of fragment in block
+            for idxFrag,frag in enumerate(block.fragments): # need index of fragment in block
 
                 # Body count always increments with fragment although it may go up within a fragment too
                 bodyCount += 1
@@ -1071,6 +1071,15 @@ class Cell():
         del block
 
         return
+
+    def delete(self,numBlocks,fragmentType):
+        """Remove numBlocks of fragmentType from the cell. Only supports removing blocks containing single fragments.
+        """
+
+        # First get a list of all the blocks that contain single fragments that match the fragment type
+
+
+        return removed
 
     def density(self):
         """The density of the cell"""
@@ -1482,7 +1491,7 @@ class Cell():
         return len( self.blocks)
 
     def numFragments(self):
-        return sum( [ len(b._fragments) for b in self.blocks.itervalues() ] )
+        return sum( [ len(b.fragments) for b in self.blocks.itervalues() ] )
 
     def numFreeEndGroups(self):
         return sum( [ b.numFreeEndGroups() for b in self.blocks.itervalues() ] )
@@ -2052,7 +2061,7 @@ class Cell():
         atomCount = 0 # Global count in cell
         bodyCount = -1
         for idxBlock, block in cell.blocks.iteritems():
-            for idxFrag,frag in enumerate(block._fragments): # need index of fragment in block
+            for idxFrag,frag in enumerate(block.fragments): # need index of fragment in block
                 bodyCount += frag.numBodies()
                 atomCount += frag.lenData()
         return
