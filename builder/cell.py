@@ -1093,6 +1093,7 @@ class Cell():
         for i in range(toRemove):
             idxBlock=random.choice(blist)
             self.delBlock(idxBlock)
+            blist.remove(idxBlock)
 
         self.logger.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(i+1,len(self.blocks)))
 
