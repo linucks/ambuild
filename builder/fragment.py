@@ -553,11 +553,11 @@ class Fragment(object):
             csvreader = csv.reader(fh, delimiter=',', quotechar='"')
             for i, row in enumerate(csvreader):
                 if i == 0: # Header
-                    if not row[0].lower() == "type" and \
+                    if not len(row) >= 4 and row[0].lower() == "type" and \
                     row[1].lower() == "endgroup" and \
                     row[2].lower() == "capatom" and \
                     row[3].lower() == "delatom":
-                        raise RuntimeError,"First line of csv file must contain header:type,endgroup,capatom,dihedral,delatom"
+                        raise RuntimeError,"First line of csv file must contain header line:\ntype,endgroup,capatom,dihedral,delatom"
                     continue
 
                 # For now make sure first value is letter
