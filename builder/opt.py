@@ -64,11 +64,8 @@ class FfieldParameters( object ):
                        #2*math.pi/3 = 120
                        #math.pi = 180
 
-                       # jens
                        'h-c-c'    : { 'k' : 330.0, 't0' : math.radians(109) },
                        'c-c-h'    : { 'k' : 330.0, 't0' : math.radians(109) },
-
-
                        'cp-cp-cp'     : { 'k' : 300.0, 't0' : math.radians(120) },
                        'c3a-c3a-c3a'  : { 'k' : 700.0, 't0' : math.radians(120) },
                        'cp-cp-ct'     : { 'k' : 700.0, 't0' : math.radians(120) },
@@ -163,11 +160,10 @@ class FfieldParameters( object ):
 
               # Ones with x in are cap atoms and are ignored - see setPair
 
-              # jens
+              #PCFF typed pair potentials
               ('c',  'h' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('h', 'h' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
 
-              #PCFF typed pair potentials
               ('c',  'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
 
               ('c2', 'c2' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
@@ -277,7 +273,7 @@ class FfieldParameters( object ):
               ('cp', 'hn' )      : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
               ('cpa', 'hn' )     : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
               ('cp', 'n3m' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
-
+              ('cp', 'h' )       : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('ct', 'ct' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('ct', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('ct', 'nb' )      : { 'epsilon' : 0.0644,   'sigma' : 4.0406  },
@@ -327,10 +323,11 @@ class FfieldParameters( object ):
               ('h1', 'c' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h1', 'n3m' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
               ('h1', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-
+              ('h1', 'c' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               #hc-hc for DCX
-              ('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
+             #('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
               #else('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              ('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('hc', 'nb' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
               ('h1', 'np' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
               ('hc', 'nt' )      : { 'epsilon' : 0.0316,   'sigma' : 3.3431  },
@@ -549,7 +546,11 @@ class DLPOLY(FFIELD):
 
             count=1 # FORTRAN COUNTING
             for block in cell.blocks.itervalues():
-                for frag in block.fragments:
+		if hasattr(block,'_fragments'):
+                    fragments=block._fragments
+                else:
+                    fragments=block.fragments
+                for frag in fragments:
                     for i,coord in enumerate(frag.iterCoord()):
                         f.write("{0}    {1}\n".format(frag.type(i),count))
                         f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(coord[0],coord[1],coord[2]))
@@ -689,7 +690,12 @@ class DLPOLY(FFIELD):
             blockBodies2 = []
 
             # Now loop through fragments and coordinates
-            for idxFrag,frag in enumerate(block.fragments): # need index of fragment in block
+            if hasattr(block,'_fragments'):
+                fragments=block._fragments
+            else:
+                fragments=block.fragments
+            #for idxFrag,frag in enumerate(block.fragments): # need index of fragment in block
+            for idxFrag,frag in enumerate(fragments): # need index of fragment in block
 
                 # Body count always increments with fragment although it may go up within a fragment too
                 bodyCount += 1
