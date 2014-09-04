@@ -320,6 +320,7 @@ class FfieldParameters( object ):
               ('h1', 'c1' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h1', 'cp' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h1', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
+              ('h', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h1', 'c' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h1', 'n3m' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
               ('h1', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },

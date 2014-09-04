@@ -2461,11 +2461,9 @@ class TestCell(unittest.TestCase):
             boxDim=[20,20,20]
             mycell = Cell(boxDim)
             mycell.libraryAddFragment(filename=cls.benzene2Car, fragmentType='A')
-            mycell.libraryAddFragment(filename=cls.ch4Car, fragmentType='B')
             mycell.addBondType( 'A:a-A:a')
             mycell.seed( 5, fragmentType='A' )
             mycell.growBlocks( 8 )
-            mycell.seed(5, fragmentType='B')
             print "FINISHED TEST CELL"
             cls.testCell = mycell
         return
@@ -2727,8 +2725,19 @@ class TestCell(unittest.TestCase):
         return
 
     def testDelete(self):
+        # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
+        # From code looks like default r_buff is 0.4 and our default r_cut is 5.0
+        boxDim=[20,20,20]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=cls.benzene2Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=cls.ch4Car, fragmentType='B')
+        mycell.addBondType( 'A:a-A:a')
+        mycell.seed( 5, fragmentType='A' )
+        mycell.growBlocks( 8 )
+        mycell.seed(5, fragmentType='B')
+
         toDelete=3
-        deleted = self.testCell.delete(toDelete, fragmentType='B')
+        deleted = self.mycell.delete(toDelete, fragmentType='B')
         self.assertEqual(deleted,toDelete)
         return
 
