@@ -535,7 +535,7 @@ class Fragment(object):
     def numAtoms(self):
         return len(self._ext2int)
 
-    def parseEndgroupFile(self, filePath ):
+    def parseEndgroupFile(self, filePath):
 
         dirname, filename = os.path.split( filePath )
         basename, suffix = os.path.splitext( filename )
@@ -545,10 +545,12 @@ class Fragment(object):
         capAtoms      = []
         uwAtoms       = []
         dihedralAtoms = []
+        
         egfile = os.path.join( dirname, basename+".csv" )
         if not os.path.isfile( egfile ):
-            raise RuntimeError,"Cannot find endGroup definition file: {0}".format(egfile)
-
+            print "No endGroup definition file supplied for file: {0}".format(filePath)
+            return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
+            
         with open(egfile) as fh:
             csvreader = csv.reader(fh, delimiter=',', quotechar='"')
             for i, row in enumerate(csvreader):
@@ -576,7 +578,7 @@ class Fragment(object):
 
             if self.fragmentType == 'cap' and len( endGroups ) != 1:
                 raise RuntimeError, "Capfile had >1 endGroup specified!"
-
+            
         return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
 
     def processBodies(self, filepath ):
