@@ -562,6 +562,10 @@ class Fragment(object):
                         raise RuntimeError,"First line of csv file must contain header line:\ntype,endgroup,capatom,dihedral,delatom"
                     continue
 
+                # skip blank lines
+                if not len(row):
+                    continue
+
                 # For now make sure first value is letter
                 assert row[0][0].isalpha(),"First column of ambi file needs to be a letter!"
                 endGroupTypes.append( row[0] )
