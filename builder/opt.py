@@ -58,6 +58,17 @@ class FfieldParameters( object ):
                       #at b3lyp with vdw3 disp 6-311G basis set
                       'c_0-nb'   : { 'k' : 1200.0, 'r0' : 1.320 },
                       'nb-c_0'   : { 'k' : 1200.0, 'r0' : 1.320 },
+                      #for aza dlpoly all atom
+                      'c_0-c_0'   : { 'k' : 970.0, 'r0' : 1.560 },
+                      'c_0-o_1'   : { 'k' : 970.0, 'r0' : 1.196 },
+                      'cpa-cpa'   : { 'k' : 1550.0, 'r0' : 1.384 }, 
+                      'cpa-hc'   : { 'k' : 1400.0, 'r0' : 1.079 },
+                      'cpa-nb'   : { 'k' : 1200.0, 'r0' : 1.416 },
+                      'nb-hn'   : { 'k' : 1200.0, 'r0' : 1.015 },
+                      'cpa-cp'   : { 'k' : 1550.0, 'r0' : 1.384 },
+                      'cp-hc'   : { 'k' : 1400.0, 'r0' : 1.079 },
+                      'cp-cpa'   : { 'k' : 1550.0, 'r0' : 1.384 },
+                      'hn-nb'   : { 'k' : 1200.0, 'r0' : 1.015 },
                       }
 
         self.angles = {
@@ -96,10 +107,24 @@ class FfieldParameters( object ):
                        'nb-c_0-c_0'  : { 'k' : 1000.0, 't0' : math.radians(118) },
                        'c_0-nb-cpa'  : { 'k' : 800.0, 't0' : math.radians(138) },
                        'cpa-nb-c_0'  : { 'k' : 800.0, 't0' : math.radians(138) },
+                       #aza for dlpoly all atom
+                       'c_0-c_0-c_0'  : { 'k' : 1000.0, 't0' : math.radians(120) },
+                       'c_0-c_0-o_1'  : { 'k' : 1000.0, 't0' : math.radians(120) },
+                       'cpa-cpa-cpa'  : { 'k' : 800.0, 't0' : math.radians(120) },
+                       'cpa-cpa-hc'   : { 'k' : 800.0, 't0' : math.radians(119) },
+                       'cpa-cpa-nb'   : { 'k' : 800.0, 't0' : math.radians(120) },
+                       'cpa-nb-hc'    : { 'k' : 800.0, 't0' : math.radians(112) },
+                       'hn-nb-hn'     : { 'k' : 800.0, 't0' : math.radians(109.6) },
+                       'cp-cpa-cpa'  : { 'k' : 800.0, 't0' : math.radians(120) },
+                       'cpa-nb-hn'    : { 'k' : 800.0, 't0' : math.radians(112) },
+                       'cpa-nb-hc'    : { 'k' : 800.0, 't0' : math.radians(112) },
+                       'cpa-cp-cpa'  : { 'k' : 800.0, 't0' : math.radians(120) },
+                       'cp-cpa-nb'  : { 'k' : 800.0, 't0' : math.radians(120) },
+                       'cpa-cpa-cp'  : { 'k' : 800.0, 't0' : math.radians(120) },
+                       'cpa-cp-hc'  : { 'k' : 800.0, 't0' : math.radians(120) },
                        #for PAF topology
                        'cp-cp-c'      : { 'k' : 200.0, 't0' : math.radians(180) },
                        'c-cp-cp'      : { 'k' : 200.0, 't0' : math.radians(0) },
-
                       }
 
         self.dihedrals = {
@@ -132,7 +157,25 @@ class FfieldParameters( object ):
                        'c_0-c_0-nb-cpa'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'cpa-nb-c_0-c_0'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'nb-c_0-c_0-nb'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
-
+                       #for dlpoly all atom
+                       'c_0-c_0-c_0-c_0'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'o_1-c_0-c_0-o_1'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'hc-cpa-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'nb-cpa-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'o_1-c_0-c_0-nb'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpa-cpa-cp-hc'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpa-cp-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cp-cpa-nb-c_0'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'nb-cpa-cp-hc'        : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpa-cp-cpa-cpa'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cp-cpa-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cp-cpa-cpa-cp'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpa-cpa-nb-hn'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'c_0-c_0-c_0-nb'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpa-cpa-cp-cpa'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'c_0-c_0-c_0-o_1'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cp-cpa-nb-hn'        : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpa-cpa-nb-c_0'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        #CTF
                        'c1-cp-np-cp'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
                        'c1-cp-np-cp'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
@@ -154,6 +197,27 @@ class FfieldParameters( object ):
                        'np-cp-cp-cp'       : { 'k' : 200, 'chi' : 0.0 },
                        'cp-cp-ct-nt'       : { 'k' : 200, 'chi' : 0.0 },
                        'nt-ct-cp-cp'       : { 'k' : 200, 'chi' : 0.0 },
+                       #for dlpoly all atom for aza
+                       'cpa-nb-cp-cpa'       : { 'k' : 200, 'chi' : 0.0 },
+                       'c_0-c_0-o_1-c_0'       : { 'k' : 200, 'chi' : 0.0 },
+                       'c_0-c_0-nb-c_0'       : { 'k' : 200, 'chi' : 0.0 },
+                       'nb-hn-cpa-hn'       : { 'k' : 200, 'chi' : 0.0 },
+                       'cpa-cpa-cp-nb'       : { 'k' : 200, 'chi' : 0.0 },
+                       'cpa-cpa-cp-hc'       : { 'k' : 200, 'chi' : 0.0 },
+                       'cpa-nb-cpa-cp'       : { 'k' : 200, 'chi' : 0.0 },
+                       'cp-hc-cpa-cpa'       : { 'k' : 200, 'chi' : 0.0 },
+                       'c_0-c_0-c_0-o_1'       : { 'k' : 200, 'chi' : 0.0 },
+                       'c_0-c_0-c_0-nb'       : { 'k' : 200, 'chi' : 0.0 },
+                       'cpa-cpa-hc-cpa'       : { 'k' : 200, 'chi' : 0.0 },
+                       'cpa-cpa-nb-cp'       : { 'k' : 200, 'chi' : 0.0 },
+                       'nb-hn-hn-cpa'       : { 'k' : 200, 'chi' : 0.0 },
+                       'c_0-o_1-c_0-c_0'       : { 'k' : 200, 'chi' : 0.0 },
+                       'nb-cpa-hn-hn'       : { 'k' : 200, 'chi' : 0.0 },
+                       'cpa-cp-nb-cpa'       : { 'k' : 200, 'chi' : 0.0 },
+                       'cpa-cp-cpa-nb'       : { 'k' : 200, 'chi' : 0.0 },
+                       'c_0-nb-c_0-c_0'       : { 'k' : 200, 'chi' : 0.0 },
+                       'cp-cpa-cpa-hc'       : { 'k' : 200, 'chi' : 0.0 },
+                       'cp-cpa-hc-cpa'       : { 'k' : 200, 'chi' : 0.0 },
                          }
 
         self.pairs = {
@@ -576,16 +640,18 @@ class DLPOLY(FFIELD):
 
         """
 
-        bonds = []
-        bondTypes = []
         angles = []
         angleTypes = []
+        bonds = []
+        bondTypes = []
         propers = []
         properTypes = []
         impropers = []
         improperTypes = []
 
         types = []
+        bonds = []
+        bondTypes = []
         coords = []
         images = []
         charges = []
@@ -614,26 +680,26 @@ class DLPOLY(FFIELD):
                 # Add all bonds
                 blockBonds += [ (a1+atomCount, a2+atomCount) for a1, a2 in block.bonds() ]
                 blockBondTypes += [ (block.type(a1),block.type(a2)) for a1, a2 in block.bonds() ]
-                angles, propers, impropers = block.anglesAndDihedrals()
+                _angles, _propers, _impropers = block.anglesAndDihedrals()
                 # Add all angles
-                blockAngles += [ (a1+atomCount, a2+atomCount, a3+atomCount) for a1, a2, a3 in angles ]
-                blockAngleTypes += [ (block.type(a1),block.type(a2),block.type(a3)) for a1, a2, a3 in angles ]
+                blockAngles += [ (a1+atomCount, a2+atomCount, a3+atomCount) for a1, a2, a3 in _angles ]
+                blockAngleTypes += [ (block.type(a1),block.type(a2),block.type(a3)) for a1, a2, a3 in _angles ]
                 # Add all propers
                 blockPropers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
-                                 for a1, a2, a3, a4 in propers ]
+                                 for a1, a2, a3, a4 in _propers ]
                 blockProperTypes += [ (block.type(a1),
                                        block.type(a2),
                                        block.type(a3),
                                        block.type(a4)
-                                       ) for a1, a2, a3, a4 in propers ]
+                                       ) for a1, a2, a3, a4 in _propers ]
                 # Add all impropers
                 blockImpropers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
-                                   for a1, a2, a3, a4 in impropers ]
+                                   for a1, a2, a3, a4 in _impropers ]
                 blockImproperTypes += [ (block.type(a1),
                                          block.type(a2),
                                          block.type(a3),
                                          block.type(a4)
-                                         ) for a1, a2, a3, a4 in impropers ]
+                                         ) for a1, a2, a3, a4 in _impropers ]
 
             else:
                 # Just add the bonds between blocks. Also add angles for all atoms connected to the bonds
@@ -837,12 +903,12 @@ class DLPOLY(FFIELD):
                         #a1,a2,a3 = sorted( angleTypes[i][j] )
                         a1,a2,a3 = angleTypes[i][j]
                         a = "{0}-{1}-{2}".format(a1,a2,a3)
-                        param = self.ffield.angleParameter( a )
+                        param = self.ffield.angleParameter(a)
                         f.write("harm    {0}    {1}    {2}    {3}    {4}\n".format(angles[i][j][0]+1,
                                                                                    angles[i][j][1]+1,
                                                                                    angles[i][j][2]+1,
                                                                                    param['k'],
-                                                                                   math.degrees(param['t0']) ))
+                                                                                   math.degrees(param['t0'])))
 
                 # Dihedrals
                 if (len(propers[i])):
