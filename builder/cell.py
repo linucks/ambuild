@@ -996,7 +996,11 @@ class Cell():
 
             # Now loop through fragments and coordinates
             #for i, coord in enumerate(block.iterCoord() ):
-            for idxFrag,frag in enumerate(block.fragments): # need index of fragment in block
+            if hasattr(block,'_fragments'):
+                fragments=block._fragments
+            else:
+                fragments=block.fragments
+            for idxFrag,frag in enumerate(fragments): # need index of fragment in block
 
                 # Body count always increments with fragment although it may go up within a fragment too
                 bodyCount += 1
