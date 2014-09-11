@@ -587,9 +587,54 @@ class DLPOLY(FFIELD):
 
     """
 
-    def writeCONFIG(self,
+#     def writeCONFIG(self,
+#                     cell,
+#                     fileName="CONFIG",
+#                     periodic=True,
+#                     center=True,
+#                     ):
+#         """Write out DLPOLY CONFIG file
+# 
+#         DLPOLY assumes a centered cell.
+#         """
+# 
+#         with open(fileName,'w') as f:
+# 
+#             # header
+#             f.write("Ambuild CONFIG file\n")
+# 
+#             # levcfg (0=just coordinates) imcon (1=cubic bounduary conditions)
+#             f.write("0    1\n")
+# 
+#             # Now cell
+#             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(cell.A,0.0,0.0))
+#             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,cell.B,0.0))
+#             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,0.0,cell.C))
+# 
+#             count=1 # FORTRAN COUNTING
+#             for block in cell.blocks.itervalues():
+#                 if hasattr(block,'_fragments'):
+#                     fragments=block._fragments
+#                 else:
+#                     fragments=block.fragments
+#                 for frag in fragments:
+#                     for i,coord in enumerate(frag.iterCoord()):
+#                         f.write("{0}    {1}\n".format(frag.type(i),count))
+#                         if periodic:
+#                             x, ix = util.wrapCoord( coord[0], cell.A, center=center )
+#                             y, iy = util.wrapCoord( coord[1], cell.B, center=center )
+#                             z, iz = util.wrapCoord( coord[2], cell.C, center=center )
+#                         else:
+#                             x,y,z=coord
+#                         f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(x,y,z))
+#                         count+=1
+#         return
+    
+    
+    def _writeCONFIG(self,
                     cell,
-                    fileName="CONFIG",
+                    types,
+                    coords
                     ):
         """Write out DLPOLY CONFIG file
 
@@ -605,31 +650,28 @@ class DLPOLY(FFIELD):
             f.write("0    1\n")
 
             # Now cell
-            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(cell.A,0.0,0.0))
-            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,cell.B,0.0))
-            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,0.0,cell.C))
-
+            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(cell[0],0.0,0.0))
+            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,cell[1],0.0))
+            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,0.0,cell[2]))
+            
+            # Loop through coordinates
             count=1 # FORTRAN COUNTING
-            for block in cell.blocks.itervalues():
-		if hasattr(block,'_fragments'):
-                    fragments=block._fragments
-                else:
-                    fragments=block.fragments
-                for frag in fragments:
-                    for i,coord in enumerate(frag.iterCoord()):
-                        f.write("{0}    {1}\n".format(frag.type(i),count))
-                        f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(coord[0],coord[1],coord[2]))
-                        count+=1
-
+            for i,coord in enumerate(coords):
+                f.write("{0}    {1}\n".format(types[i],count))
+                x,y,z=coord
+                f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(x,y,z))
+                count+=1
         return
 
-    def writeFIELD(self,
+    def writeFIELDandCONFIG(self,
                    cell,
                    rigidBody=True,
                    periodic=True,
                    center=True,
                    ):
         """
+        ALSO WRITES OUT CONFIG
+        
         For each block
         count atoms & keep atomType list
         create list of bonds
@@ -826,6 +868,9 @@ class DLPOLY(FFIELD):
             bodies2.append(blockBodies2)
 
         # End block loop
+        
+        # First write out the CONFIG file
+        self._writeCONFIG([cell.A,cell.B,cell.C], types, coords)
 
         # Quick hack hijacking hoomdblue machinary
         # Check we have all the parameters we need
