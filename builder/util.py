@@ -1132,7 +1132,7 @@ def writeCml(cmlFilename,
             atomTypeNode = ET.SubElement( atomNode, "atomType" )
             atomTypeNode.attrib['ref'] = atomTypes[ i ]
 
-    if bonds is not None:
+    if len(bonds):
         # Now do bonds
         if pruneBonds:
             # Hack to get vis working
