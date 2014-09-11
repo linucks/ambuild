@@ -163,18 +163,18 @@ class FfieldParameters( object ):
                        'hc-cpa-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'nb-cpa-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'o_1-c_0-c_0-nb'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cpa-cpa-cp-hc'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpa-cpa-cp-hc'       : { 'k' : 3, 'd' : -1, 'n' : 2 },
                        'cpa-cp-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'cp-cpa-nb-c_0'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'nb-cpa-cp-hc'        : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'nb-cpa-cp-hc'        : { 'k' : 3, 'd' : -1, 'n' : 2 },
                        'cpa-cp-cpa-cpa'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'cp-cpa-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'cp-cpa-cpa-cp'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cpa-cpa-nb-hn'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpa-cpa-nb-hn'       : { 'k' : 3, 'd' : -1, 'n' : 2 },
                        'c_0-c_0-c_0-nb'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'cpa-cpa-cp-cpa'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'c_0-c_0-c_0-o_1'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cp-cpa-nb-hn'        : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cp-cpa-nb-hn'        : { 'k' : 3, 'd' : -1, 'n' : 2 },
                        'cpa-cpa-nb-c_0'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        #CTF
                        'c1-cp-np-cp'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
@@ -634,7 +634,8 @@ class DLPOLY(FFIELD):
     def _writeCONFIG(self,
                     cell,
                     types,
-                    coords
+                    coords,
+                    fileName="CONFIG",
                     ):
         """Write out DLPOLY CONFIG file
 
@@ -870,7 +871,8 @@ class DLPOLY(FFIELD):
         # End block loop
         
         # First write out the CONFIG file
-        self._writeCONFIG([cell.A,cell.B,cell.C], types, coords)
+        # Unpack the coordinates and types from the blocks
+        self._writeCONFIG([cell.A,cell.B,cell.C], [j for i in types for j in i], [j for i in coords for j in i])
 
         # Quick hack hijacking hoomdblue machinary
         # Check we have all the parameters we need
