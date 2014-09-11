@@ -861,8 +861,8 @@ def dumpDLPOLY(pickleFile,rigidBody=False):
     import opt
 
     d = opt.DLPOLY()
-    d.writeCONFIG(mycell)
-    d.writeFIELD(mycell,rigidBody=rigidBody)
+    #d.writeCONFIG(mycell)
+    d.writeFIELDandCONFIG(mycell,rigidBody=rigidBody)
     return
 
 def frange(start, stop, step):

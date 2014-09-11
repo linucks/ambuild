@@ -2776,8 +2776,8 @@ class TestCell(unittest.TestCase):
         d = opt.DLPOLY()
 
         #data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
-        d.writeCONFIG(mycell)
-        d.writeFIELD(mycell)
+        #d.writeCONFIG(mycell)
+        d.writeFIELDandCONFIG(mycell)
 
         return
 
