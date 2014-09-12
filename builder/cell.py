@@ -1761,8 +1761,6 @@ class Cell():
         dt - nvt_rigid timestep
         """
 
-        assert rigidBody,"FIX runMD FOR ALL ATOM!!"
-
         if doDihedral and doImproper:
             raise RuntimeError,"Cannot have impropers and dihedrals at the same time"
 
@@ -3137,9 +3135,50 @@ class TestCell(unittest.TestCase):
     def testOptimiseGeometryAll(self):
         """
         """
+
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
+        mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
+        mycell.addBondType('amine:a-triquin:b')
+
+        mycell.seed( 1, fragmentType='triquin', center=True )
+        mycell.growBlocks(toGrow=1, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
         #self.testCell.writeCml("foo.cml")
-        self.testCell.optimiseGeometry( rigidBody=False, doDihedral=True, quiet=True )
-        os.unlink("hoomdOpt.xml")
+        mycell.optimiseGeometry(rigidBody=False,
+                                doDihedral=True,
+                                optCycles=20,
+                                dump=True,
+                                quiet=False,
+                                dt=0.05,
+                                ftol=1e-2,
+                                Etol=1e-7
+                                 )
+        #os.unlink("hoomdOpt.xml")
+        return
+    
+    
+    def testRunMDAll(self):
+        """
+        """
+
+        boxDim=[30,30,30]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
+        mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
+        mycell.addBondType('amine:a-triquin:b')
+
+        mycell.seed( 1, fragmentType='triquin', center=True )
+        mycell.growBlocks(toGrow=1, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
+        #self.testCell.writeCml("foo.cml")
+        mycell.runMD(rigidBody=False,
+                     doDihedral=True,
+                     rCut=5.0,
+                     mdCycles=100,
+                     T=1.0,
+                     tau=0.5,
+                     dt=0.0005 )
+        #os.unlink("hoomdOpt.xml")
         return
 
     def XtestOptimiseGeometryMinCell(self):

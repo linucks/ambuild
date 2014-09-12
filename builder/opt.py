@@ -1323,15 +1323,15 @@ class HoomdOptimiser(FFIELD):
                                                                  fdec=fdec,
                                                                 )
         else:
-            fire=integrate.mode_minimize_fire(group=hoomdblue.group.all(),
-                                              dt=dt,
-                                              Nmin=Nmin,
-                                              alpha_start=alpha_start,
-                                              ftol=ftol,
-                                              Etol=Etol,
-                                              finc=finc,
-                                              fdec=fdec
-                                              )
+            fire=hoomdblue.integrate.mode_minimize_fire(group=hoomdblue.group.all(),
+                                                        dt=dt,
+                                                        Nmin=Nmin,
+                                                        alpha_start=alpha_start,
+                                                        ftol=ftol,
+                                                        Etol=Etol,
+                                                        finc=finc,
+                                                        fdec=fdec
+                                                        )
 
         if dump:
             # For tracking the optimsation
@@ -1410,7 +1410,8 @@ class HoomdOptimiser(FFIELD):
                                      overwrite=True
                                      )
 
-        self._runMD( **kw )
+        self._runMD(rigidBody=rigidBody, 
+                    **kw )
 
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
@@ -1475,9 +1476,7 @@ class HoomdOptimiser(FFIELD):
 
         return optimised
 
-
-
-    def _runMD(self, mdCycles=100000, T=1.0, tau=0.5, dt=0.0005, dump=False, **kw ):
+    def _runMD(self, mdCycles=100000, rigidBody=True, T=1.0, tau=0.5, dt=0.0005, dump=False, **kw ):
 
         # Added **kw arguments so that we don't get confused by arguments intended for the optimise
         # when MD and optimiser run together
@@ -1488,7 +1487,11 @@ class HoomdOptimiser(FFIELD):
         # Incoming T is in Kelvin so we multiply by kB
         T = self.fromStandardUnits(T)
         integrator_mode = hoomdblue.integrate.mode_standard( dt=dt )
-        nvt_rigid = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
+        
+        if rigidBody:
+            nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
+        else:
+            nvt = hoomdblue.integrate.nvt(group=hoomdblue.group.all(), T=T, tau=tau )
 
         if dump:
             xmld = hoomdblue.dump.xml(filename="runmd.xml",
@@ -1654,7 +1657,7 @@ class HoomdOptimiser(FFIELD):
 
         if hoomdblue.init.is_initialized():
             hoomdblue.init.reset()
-
+        
         # Init the sytem from the file
         system = hoomdblue.init.read_xml( filename=xmlFilename )
 
@@ -1685,7 +1688,10 @@ class HoomdOptimiser(FFIELD):
         lj = hoomdblue.pair.lj( r_cut=rCut)
         self.setPair( lj )
 
-        hoomdblue.globals.neighbor_list.reset_exclusions(exclusions = ['1-2', '1-3', '1-4', 'angle', 'body'] )
+        if rigidBody:
+            hoomdblue.globals.neighbor_list.reset_exclusions(exclusions = ['1-2', '1-3', '1-4', 'angle', 'body'] )
+        else:
+            hoomdblue.globals.neighbor_list.reset_exclusions(exclusions = ['1-2', '1-3', '1-4', 'angle'] )
 
         # For calculating groups
         #self.labels=[]
@@ -1920,17 +1926,18 @@ def xml2xyz( xmlFilename, xyzFilename ):
             symbols.append( util.label2symbol( at ) )
 
     # Now write out xyz
-    with open( xyzFilename, 'w') as o:
-        o.write("{0}\n".format( len( positions ) ) )
-        o.write("XYZ file created from: {0}\n".format( xmlFilename ) )
-        for i, symbol in enumerate( symbols ):
-            o.write( "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( symbol,
-                                                                           float( positions[i][0] ),
-                                                                           float( positions[i][1] ),
-                                                                           float( positions[i][2] )
-                                                                           ) )
-
-        o.write("\n")
+    util.writeXyz(xyzFilename, positions, symbols)
+#     with open( xyzFilename, 'w') as o:
+#         o.write("{0}\n".format( len( positions ) ) )
+#         o.write("XYZ file created from: {0}\n".format( xmlFilename ) )
+#         for i, symbol in enumerate( symbols ):
+#             o.write( "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format( symbol,
+#                                                                            float( positions[i][0] ),
+#                                                                            float( positions[i][1] ),
+#                                                                            float( positions[i][2] )
+#                                                                            ) )
+# 
+#         o.write("\n")
 
     print "Wrote file: {0}".format( xyzFilename )
 
@@ -1939,11 +1946,21 @@ def xml2xyz( xmlFilename, xyzFilename ):
 
 if __name__ == "__main__":
 
-    optimiser = HoomdOptimiser()
-    xmlFilename = sys.argv[1]
-    xyzFilename = xmlFilename +".xyz"
-    xml2xyz( xmlFilename, xyzFilename )
-    #optimiser.runMDAndOptimise( xmlFilename=xmlFilename, doDihedral=True )
+    #xmlFilename = sys.argv[1]
+    #xyzFilename = xmlFilename +".xyz"
+    #xml2xyz( xmlFilename, xyzFilename )
+    
+    opt = HoomdOptimiser()
+    mycell=util.cellFromPickle(sys.argv[1])
+    rigidBody=False
+    data=mycell.dataDict(periodic=True,center=True,rigidBody=rigidBody)
+    ok=opt.optimiseGeometry(data,
+                            xmlFilename="opt.xml",
+                            rigidBody=rigidBody,
+                            doDihedral=True,
+                            doImproper=False,
+                            doCharges=True
+                            )
+    
     #optimiser.optimiseGeometry( xmlFilename=xmlFilename, doDihedral=False )
-    #optimiser.writeXyz(optimiser.system, "opted.xyz", unwrap=False)
 
