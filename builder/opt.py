@@ -1506,14 +1506,14 @@ class HoomdOptimiser(FFIELD):
         # run mdCycles time steps
         hoomdblue.run( mdCycles )
 
-        nvt_rigid.disable()
+        nvt.disable()
         if dump and False:
             xmld.disable()
             dcdd.disable()
             del xmld
             del dcdd
 
-        del nvt_rigid
+        del nvt
         del integrator_mode
 
         return
