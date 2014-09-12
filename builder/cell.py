@@ -1147,7 +1147,7 @@ class Cell():
                     s=c
                 else:
                     s+="|"+c
-        return[self._fileCount,s]
+        return[str(self._fileCount),s]
 
     def _endGroupsInPossibleBonds(self, endGroups ):
         """Check if any of the endGroups are already in the list of possible bonds"""
