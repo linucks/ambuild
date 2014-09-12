@@ -1135,7 +1135,7 @@ class Cell():
         pklFile=os.path.abspath(prefix+".pkl")
         self.writePickle(pklFile)
         return pklFile
-    
+
     def endGroupConfig(self,fragmentType):
         """Return the name of the last pkl file and the endGroupConfig (number of bonded endGroups) for
         blocks containing the fragmentType"""
@@ -2367,6 +2367,14 @@ class Cell():
 
         # Process any bonds
         todo = len( self._possibleBonds )
+        if todo==0:
+            self.logger.info("zipBlocks: no acceptable bonds found")
+            return 0
+
+        # Check the bonds don't clash with anything
+        #if self.zipBlocksClash():
+        #    self.logger.info("zipBlocks: no acceptable bonds found")
+        #    return 0
 
         self.logger.info("zipBlocks: found {0} additional bonds".format( todo ) )
 #         for b in self._possibleBonds:
@@ -2378,17 +2386,37 @@ class Cell():
 #                                                                    b.block2.atomCoord( b.endGroup2.blockEndGroupIdx),
 #                                                                 )
 #
-        bondsMade = 0
-        if todo > 0:
-            bondsMade = self.processBonds()
-            if bondsMade != todo:
-                self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(
-                                                                                                todo,
-                                                                                                bondsMade ) )
+        bondsMade = self.processBonds()
+        if bondsMade != todo:
+            self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(
+                                                                                            todo,
+                                                                                            bondsMade ) )
 
         self.analyse.stop('zip')
 
         return bondsMade
+
+    def zipBlocksClash(self):
+        """Check if any of the bonds in zipBlocks clash with atoms in the cell
+
+
+        for each bond:
+
+        get endPoints of bond
+        use endPoints as the vector of a ray intersecting the simulation cell
+        get a list of all the cells intersected by the ray (only return populated cells)
+
+        for each cell:
+          get the list of blocks/atoms in that cell
+          calculate distances of the atoms from the ray vector
+          if any distances < threshold:
+             return False
+
+
+
+        """
+
+        return False
 
     def __str__(self):
         """
@@ -2469,19 +2497,18 @@ class TestCell(unittest.TestCase):
         cls.amineCar = os.path.join( cls.ambuildDir, "blocks", "amine_typed.car" )
         cls.triquinCar = os.path.join( cls.ambuildDir, "blocks", "triquin_typed.car" )
 
-        print "START TEST CELL"
-        if True:
-            # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
-            # From code looks like default r_buff is 0.4 and our default r_cut is 5.0
-            boxDim=[20,20,20]
-            mycell = Cell(boxDim)
-            mycell.libraryAddFragment(filename=cls.benzene2Car, fragmentType='A')
-            mycell.addBondType( 'A:a-A:a')
-            mycell.seed( 5, fragmentType='A' )
-            mycell.growBlocks( 8 )
-            print "FINISHED TEST CELL"
-            cls.testCell = mycell
         return
+
+    def createTestCell(self):
+        # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
+        # From code looks like default r_buff is 0.4 and our default r_cut is 5.0
+        boxDim=[20,20,20]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+        mycell.seed( 5, fragmentType='A' )
+        mycell.growBlocks( 8 )
+        return mycell
 
     def testCX4(self):
         """First pass"""
@@ -2588,9 +2615,10 @@ class TestCell(unittest.TestCase):
         return
 
     def XtestCapBlocks(self):
-        self.testCell.capBlocks(fragmentType='A', filename=self.capLinker )
+        mycell=self.createTestCell()
+        mycell.capBlocks(fragmentType='A', filename=self.capLinker )
         #mycell.dump()
-        block = self.testCell.blocks[ self.testCell.blocks.keys()[0] ]
+        block = mycell.blocks[ mycell.blocks.keys()[0] ]
         return
 
     def testCellIO(self):
@@ -2598,18 +2626,19 @@ class TestCell(unittest.TestCase):
         """
 
         # Remember a coordinate for checking
-        test_coord = self.testCell.blocks[ self.testCell.blocks.keys()[0] ].coord(4)
+        mycell=self.createTestCell()
+        test_coord = mycell.blocks[ mycell.blocks.keys()[0] ].coord(4)
 
         outfile = "./testCellIO.pkl"
-        self.testCell.writePickle( outfile )
+        mycell.writePickle( outfile )
         with open( outfile ) as f:
             newCell = cPickle.load( f )
 
-        self.assertTrue( numpy.allclose( test_coord, self.testCell.blocks[ self.testCell.blocks.keys()[0] ].coord(4),
+        self.assertTrue( numpy.allclose( test_coord, mycell.blocks[ mycell.blocks.keys()[0] ].coord(4),
                                          rtol=1e-9, atol=1e-9 ),
                          msg="Incorrect testCoordinate of cell.")
 
-        self.testCell.growBlocks( 5 )
+        #mycell.growBlocks( 5 )
         os.unlink( outfile )
 
         return
@@ -2744,15 +2773,15 @@ class TestCell(unittest.TestCase):
         # From code looks like default r_buff is 0.4 and our default r_cut is 5.0
         boxDim=[20,20,20]
         mycell = Cell(boxDim)
-        mycell.libraryAddFragment(filename=cls.benzene2Car, fragmentType='A')
-        mycell.libraryAddFragment(filename=cls.ch4Car, fragmentType='B')
+        mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
         mycell.addBondType( 'A:a-A:a')
         mycell.seed( 5, fragmentType='A' )
         mycell.growBlocks( 8 )
         mycell.seed(5, fragmentType='B')
 
         toDelete=3
-        deleted = self.mycell.delete(toDelete, fragmentType='B')
+        deleted = mycell.delete(toDelete, fragmentType='B')
         self.assertEqual(deleted,toDelete)
         return
 
@@ -2793,6 +2822,9 @@ class TestCell(unittest.TestCase):
         #data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
         #d.writeCONFIG(mycell)
         d.writeFIELDandCONFIG(mycell)
+
+        os.unlink('CONFIG')
+        os.unlink('FIELD')
 
         return
 
@@ -2979,7 +3011,7 @@ class TestCell(unittest.TestCase):
         natoms = mycell.numAtoms()
         nblocks=10
         added = mycell.growBlocks( nblocks, endGroupType=None, maxTries=1 )
-        
+
         #mycell.writeCml("foo.cml", periodic=True, pruneBonds=False)
         self.assertEqual( added, nblocks, "growBlocks did not return ok")
         self.assertEqual(1,len(mycell.blocks), "Growing blocks found {0} blocks".format( len(mycell.blocks) ) )
@@ -3134,7 +3166,8 @@ class TestCell(unittest.TestCase):
         """
         """
         #self.testCell.writeCml("foo.cml")
-        self.testCell.optimiseGeometry( rigidBody=True,
+        mycell=self.createTestCell()
+        mycell.optimiseGeometry( rigidBody=True,
                                         doDihedral=True,
                                         quiet=True,
                                         rCut=5.0,
@@ -3169,8 +3202,8 @@ class TestCell(unittest.TestCase):
                                  )
         #os.unlink("hoomdOpt.xml")
         return
-    
-    
+
+
     def testRunMDAll(self):
         """
         """
@@ -3231,14 +3264,16 @@ class TestCell(unittest.TestCase):
     def testOptimiseGeometryDihedral(self):
         """
         """
-        self.testCell.optimiseGeometry( doDihedral=True, quiet=True )
+        mycell=self.createTestCell()
+        mycell.optimiseGeometry( doDihedral=True, quiet=True )
         os.unlink("hoomdOpt.xml")
         return
 
     def testRunMD(self):
         """
         """
-        self.testCell.runMD( doDihedral=True,
+        mycell=self.createTestCell()
+        mycell.runMD( doDihedral=True,
                              quiet=True,
                              rCut=5.0,
                              mdCycles=100,
@@ -3252,7 +3287,8 @@ class TestCell(unittest.TestCase):
     def testRunMDAndOptimise(self):
         """
         """
-        self.testCell.runMDAndOptimise( doDihedral=True, quiet=True )
+        mycell=self.createTestCell()
+        mycell.runMDAndOptimise( doDihedral=True, quiet=True )
         os.unlink("hoomdMDOpt.xml")
         return
 
@@ -3260,7 +3296,7 @@ class TestCell(unittest.TestCase):
 
         import hoomdblue
 
-        mycell = self.testCell
+        mycell=self.createTestCell()
 
         # Grab coords
         coords = []
@@ -3550,6 +3586,50 @@ class TestCell(unittest.TestCase):
 
         made = mycell.zipBlocks( bondMargin=0.5, bondAngleMargin=16 )
         self.assertEqual( made, 1 )
+
+        return
+
+
+    def testZipClash(self):
+
+        boxDim=[100,100,100]
+        mycell = Cell(boxDim)
+
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+
+        # Create blocks manually
+        b1 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        #b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        #b3 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+
+        # Align bond along x-axis
+        b1.alignAtoms( 0, 1, [ 0, 0, 1 ] )
+        b1.alignAtoms( 0, 1, [ 0, 1, 0 ] )
+        b1.alignAtoms( 0, 1, [ 1, 0, 0 ] )
+
+        b2 = b1.copy()
+        b3 = b1.copy()
+
+        # b1 in center of cell -5 on x-axis
+        b1.translateCentroid( [ mycell.A/2-5, mycell.B/2, mycell.C/2 ] )
+
+        # b2 in center
+        b2.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+
+        # rotate so ring facing bond axis
+        print "CENTROID ",b2.centroid()
+        b2.rotate([0,1,0],math.pi/2,center=[0,0,0])
+
+        # b3 + 5 on x
+        b3.translateCentroid( [ mycell.A/2+5, mycell.B/2, mycell.C/2 ] )
+
+        # Add to cell
+        mycell.addBlock(b1)
+        mycell.addBlock(b2)
+        mycell.addBlock(b3)
+
+        mycell.dump()
 
         return
 
