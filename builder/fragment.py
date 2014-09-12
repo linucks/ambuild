@@ -343,7 +343,9 @@ class Fragment(object):
         return f
 
     def endGroups(self):
-        return [ eg for eg in self._endGroups ]
+        # Not sure why this construct - why not just return self._endGroups?
+        #return [ eg for eg in self._endGroups ]
+        return self._endGroups
 
     def endGroupSaturated(self, endGroupType):
         if self._maxBonds[ endGroupType ] is not None and \
