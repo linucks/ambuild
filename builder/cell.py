@@ -1076,8 +1076,9 @@ class Cell():
 
         return
 
-    def delete(self,numBlocks,fragmentType):
-        """Remove numBlocks of fragmentType from the cell. Only supports removing blocks containing single fragments.
+    def delete(self,numBlocks,fragmentType,multiple=False):
+        """Remove numBlocks of fragmentType from the cell.
+        If multiple remove blocks that contain multiple fragments of the given type
         """
 
         assert numBlocks>0,"delete cannot remove zero blocks!"
@@ -1085,7 +1086,13 @@ class Cell():
         # First get a list of all the blocks that contain single fragments that match the fragment type
         blist=[]
         for idxBlock, block in self.blocks.iteritems():
-            if len(block.fragments)==1 and block.fragments[0].fragmentType==fragmentType:
+
+            # Check if is multiple or not
+            if not multiple and len(block.fragments)!=1:
+                continue
+
+            # Check if all fragments in this block are of the given type
+            if not any([True for f in block.fragments if f.fragmentType!=fragmentType]):
                 blist.append(idxBlock)
 
         if not len(blist):
@@ -2771,18 +2778,30 @@ class TestCell(unittest.TestCase):
     def testDelete(self):
         # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
         # From code looks like default r_buff is 0.4 and our default r_cut is 5.0
-        boxDim=[20,20,20]
+        boxDim=[50,50,50]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
         mycell.addBondType( 'A:a-A:a')
-        mycell.seed( 5, fragmentType='A' )
-        mycell.growBlocks( 8 )
-        mycell.seed(5, fragmentType='B')
+        mycell.addBondType( 'A:a-B:a')
 
-        toDelete=3
-        deleted = mycell.delete(toDelete, fragmentType='B')
+        # See if we can delete single blocks
+        toSeed=10
+        mycell.seed( toSeed, fragmentType='A' )
+        toDelete=toSeed-1
+        deleted = mycell.delete(toDelete, fragmentType='A')
         self.assertEqual(deleted,toDelete)
+        self.assertEqual(mycell.numBlocks(),toSeed-deleted)
+
+        # Now try deleting multiple blocks of a single type
+        mycell.growBlocks( 8, cellEndGroups=['A:a'],libraryEndGroups=['A:a'] )
+        deleted = mycell.delete(1, fragmentType='A')
+        self.assertEqual(deleted,0)
+        deleted = mycell.delete(1, fragmentType='A',multiple=True)
+        self.assertEqual(deleted,1)
+        #mycell.growBlocks( 8, cellEndGroups=[],libraryEndGroups=[] )
+        #mycell.seed(5, fragmentType='B')
+
         return
 
     def testDLPOLY(self):
