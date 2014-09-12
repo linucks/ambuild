@@ -846,9 +846,9 @@ def dumpPkl(pickleFile,split=None):
         mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
         #self.writeCar(prefix+"_P.car",data=data,periodic=True)
         mycell.writeCml(prefix+"_PV.cml", data=data, periodic=True, pruneBonds=True)
-        #mycell.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
-        data = mycell.dataDict(center=True)
         #mycell.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
+        # For non-periodic stuff
+        # mycell.writeCml(prefix+".cml", data=mycell.dataDict(rigidBody=False,periodic=False), periodic=False, pruneBonds=False)
 
     return
 
