@@ -562,6 +562,18 @@ class Block(object):
         self.rotate( rotAxis, numpy.pi )
 
         return
+    
+    def endGroupConfig(self,fragmentType):
+        """See endGroupConfig in cell"""
+        c=[]
+        for f in self.fragments:
+            if f.fragmentType==fragmentType:
+                # calculate number of bonded endGroups
+                c.append(len(f.endGroups())-len(f.freeEndGroups()))
+        if len(c):
+            return ":".join([str(n) for n in c])
+        else:
+            return None
 
     def fragmentBonds(self):
         """Return a list of all the internal fragment bonds for this block

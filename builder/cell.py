@@ -1135,6 +1135,19 @@ class Cell():
         pklFile=os.path.abspath(prefix+".pkl")
         self.writePickle(pklFile)
         return pklFile
+    
+    def endGroupConfig(self,fragmentType):
+        """Return the name of the last pkl file and the endGroupConfig (number of bonded endGroups) for
+        blocks containing the fragmentType"""
+        s=""
+        for i,b in enumerate(self.blocks.itervalues()):
+            c=b.endGroupConfig(fragmentType)
+            if c is not None:
+                if len(s)==0:
+                    s=c
+                else:
+                    s+="|"+c
+        return[self._fileCount,s]
 
     def _endGroupsInPossibleBonds(self, endGroups ):
         """Check if any of the endGroups are already in the list of possible bonds"""
@@ -2966,7 +2979,7 @@ class TestCell(unittest.TestCase):
         natoms = mycell.numAtoms()
         nblocks=10
         added = mycell.growBlocks( nblocks, endGroupType=None, maxTries=1 )
-
+        
         #mycell.writeCml("foo.cml", periodic=True, pruneBonds=False)
         self.assertEqual( added, nblocks, "growBlocks did not return ok")
         self.assertEqual(1,len(mycell.blocks), "Growing blocks found {0} blocks".format( len(mycell.blocks) ) )
