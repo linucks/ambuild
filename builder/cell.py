@@ -1533,7 +1533,12 @@ class Cell():
         return len( self.blocks)
 
     def numFragments(self):
-        return sum( [ len(b.fragments) for b in self.blocks.itervalues() ] )
+        #return sum([len(b.fragments) for b in self.blocks.itervalues()])
+        # Hack for old interface
+        try:
+            n=sum([len(b.fragments) for b in self.blocks.itervalues()])
+        except AttributeError:
+            n=sum([len(b._fragments) for b in self.blocks.itervalues()])
 
     def numFreeEndGroups(self):
         return sum( [ b.numFreeEndGroups() for b in self.blocks.itervalues() ] )
