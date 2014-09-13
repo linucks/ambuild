@@ -61,7 +61,7 @@ class FfieldParameters( object ):
                       #for aza dlpoly all atom
                       'c_0-c_0'   : { 'k' : 970.0, 'r0' : 1.560 },
                       'c_0-o_1'   : { 'k' : 970.0, 'r0' : 1.196 },
-                      'cpa-cpa'   : { 'k' : 1550.0, 'r0' : 1.384 }, 
+                      'cpa-cpa'   : { 'k' : 1550.0, 'r0' : 1.384 },
                       'cpa-hc'   : { 'k' : 1400.0, 'r0' : 1.079 },
                       'cpa-nb'   : { 'k' : 1200.0, 'r0' : 1.416 },
                       'nb-hn'   : { 'k' : 1200.0, 'r0' : 1.015 },
@@ -594,23 +594,23 @@ class DLPOLY(FFIELD):
 #                     center=True,
 #                     ):
 #         """Write out DLPOLY CONFIG file
-# 
+#
 #         DLPOLY assumes a centered cell.
 #         """
-# 
+#
 #         with open(fileName,'w') as f:
-# 
+#
 #             # header
 #             f.write("Ambuild CONFIG file\n")
-# 
+#
 #             # levcfg (0=just coordinates) imcon (1=cubic bounduary conditions)
 #             f.write("0    1\n")
-# 
+#
 #             # Now cell
 #             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(cell.A,0.0,0.0))
 #             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,cell.B,0.0))
 #             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,0.0,cell.C))
-# 
+#
 #             count=1 # FORTRAN COUNTING
 #             for block in cell.blocks.itervalues():
 #                 if hasattr(block,'_fragments'):
@@ -629,8 +629,8 @@ class DLPOLY(FFIELD):
 #                         f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(x,y,z))
 #                         count+=1
 #         return
-    
-    
+
+
     def _writeCONFIG(self,
                     cell,
                     types,
@@ -654,7 +654,7 @@ class DLPOLY(FFIELD):
             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(cell[0],0.0,0.0))
             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,cell[1],0.0))
             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,0.0,cell[2]))
-            
+
             # Loop through coordinates
             count=1 # FORTRAN COUNTING
             for i,coord in enumerate(coords):
@@ -672,7 +672,7 @@ class DLPOLY(FFIELD):
                    ):
         """
         ALSO WRITES OUT CONFIG
-        
+
         For each block
         count atoms & keep atomType list
         create list of bonds
@@ -869,7 +869,7 @@ class DLPOLY(FFIELD):
             bodies2.append(blockBodies2)
 
         # End block loop
-        
+
         # First write out the CONFIG file
         # Unpack the coordinates and types from the blocks
         self._writeCONFIG([cell.A,cell.B,cell.C], [j for i in types for j in i], [j for i in coords for j in i])
@@ -1251,10 +1251,10 @@ class HoomdOptimiser(FFIELD):
     def optimiseGeometry( self,
                           data,
                           xmlFilename="hoomdOpt.xml",
+                          rigidBody=True,
                           doDihedral=False,
                           doImproper=False,
                           doCharges=True,
-                          rigidBody=True,
                           rCut=None,
                           quiet=None,
                           **kw ):
@@ -1410,7 +1410,7 @@ class HoomdOptimiser(FFIELD):
                                      overwrite=True
                                      )
 
-        self._runMD(rigidBody=rigidBody, 
+        self._runMD(rigidBody=rigidBody,
                     **kw )
 
         # Extract the energy
@@ -1487,7 +1487,7 @@ class HoomdOptimiser(FFIELD):
         # Incoming T is in Kelvin so we multiply by kB
         T = self.fromStandardUnits(T)
         integrator_mode = hoomdblue.integrate.mode_standard( dt=dt )
-        
+
         if rigidBody:
             nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
         else:
@@ -1537,6 +1537,8 @@ class HoomdOptimiser(FFIELD):
     def setDihedral( self, dihedralPotential ):
         for dihedral in self.dihedrals:
             param = self.ffield.dihedralParameter( dihedral )
+            if self.debug:
+                print "DEBUG: dihedral set_coeff.('{0}',  k={1}, d={2}, n={3})".format(dihedral,param['k'],param['d'],param['n'])
             dihedralPotential.set_coeff( dihedral, k=param['k'], d=param['d'], n=param['n']  )
         return
 
@@ -1657,7 +1659,7 @@ class HoomdOptimiser(FFIELD):
 
         if hoomdblue.init.is_initialized():
             hoomdblue.init.reset()
-        
+
         # Init the sytem from the file
         system = hoomdblue.init.read_xml( filename=xmlFilename )
 
@@ -1833,8 +1835,9 @@ class HoomdOptimiser(FFIELD):
         e = ET.SubElement(config, "image" )
         e.text = image
 
-        e = ET.SubElement(config, "body" )
-        e.text = body
+        if rigidBody:
+            e = ET.SubElement(config, "body" )
+            e.text = body
         if doCharges:
             e = ET.SubElement(config, "charge" )
             e.text = charge
@@ -1936,7 +1939,7 @@ def xml2xyz( xmlFilename, xyzFilename ):
 #                                                                            float( positions[i][1] ),
 #                                                                            float( positions[i][2] )
 #                                                                            ) )
-# 
+#
 #         o.write("\n")
 
     print "Wrote file: {0}".format( xyzFilename )
@@ -1949,7 +1952,7 @@ if __name__ == "__main__":
     #xmlFilename = sys.argv[1]
     #xyzFilename = xmlFilename +".xyz"
     #xml2xyz( xmlFilename, xyzFilename )
-    
+
     opt = HoomdOptimiser()
     mycell=util.cellFromPickle(sys.argv[1])
     rigidBody=False
@@ -1961,6 +1964,6 @@ if __name__ == "__main__":
                             doImproper=False,
                             doCharges=True
                             )
-    
+
     #optimiser.optimiseGeometry( xmlFilename=xmlFilename, doDihedral=False )
 
