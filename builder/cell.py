@@ -3200,7 +3200,6 @@ class TestCell(unittest.TestCase):
     def testOptimiseGeometryAll(self):
         """
         """
-
         boxDim=[30,30,30]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
@@ -3208,17 +3207,28 @@ class TestCell(unittest.TestCase):
         mycell.addBondType('amine:a-triquin:b')
 
         mycell.seed( 1, fragmentType='triquin', center=True )
-        mycell.growBlocks(toGrow=1, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
-        #self.testCell.writeCml("foo.cml")
-        mycell.optimiseGeometry(rigidBody=False,
+        mycell.growBlocks(toGrow=2, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
+#         ok=mycell.optimiseGeometry(rigidBody=False,
+#                                 doDihedral=True,
+#                                 optCycles=10000,
+#                                 dump=True,
+#                                 quiet=False,
+#                                 dt=0.005,
+#                                 Nmin=5,
+#                                 alpha_start=0.1,
+#                                 ftol=1e-2,
+#                                 Etol=1e-4,
+#                                 finc=1.1,
+#                                 fdec=0.5,
+#                                  )
+        ok=mycell.optimiseGeometry(rigidBody=False,
                                 doDihedral=True,
-                                optCycles=20,
-                                dump=True,
-                                quiet=False,
-                                dt=0.05,
-                                ftol=1e-2,
-                                Etol=1e-7
+                                optCycles=10000,
+                                dump=False,
+                                quiet=False
                                  )
+
+        self.assertTrue(ok,"All Optimisation failed!")
         #os.unlink("hoomdOpt.xml")
         return
 
