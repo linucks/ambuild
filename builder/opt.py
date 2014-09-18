@@ -44,6 +44,7 @@ class FfieldParameters( object ):
         # bonds adapted from quartic PCFF
         self.bonds = {
                       'cp-cp'   : { 'k' : 1550.0, 'r0' : 1.384 },
+                      'cpp-cpp'   : { 'k' : 3000.0, 'r0' : 1.384 },
                       'c1-cp'   : { 'k' : 970.0,  'r0' : 1.501 },
                       'cp-c1'   : { 'k' : 970.0,  'r0' : 1.501 },
                       'c2-cp'   : { 'k' : 2000.0,  'r0' : 1.524 },
@@ -78,6 +79,8 @@ class FfieldParameters( object ):
                        'h-c-c'    : { 'k' : 330.0, 't0' : math.radians(109) },
                        'c-c-h'    : { 'k' : 330.0, 't0' : math.radians(109) },
                        'cp-cp-cp'     : { 'k' : 300.0, 't0' : math.radians(120) },
+                       'cpp-cpp-cp'     : { 'k' : 300.0, 't0' : math.radians(120) },           
+                       'cp-cpp-cpp'     : { 'k' : 300.0, 't0' : math.radians(120) },
                        'c3a-c3a-c3a'  : { 'k' : 700.0, 't0' : math.radians(120) },
                        'cp-cp-ct'     : { 'k' : 700.0, 't0' : math.radians(120) },
                        'ct-cp-cp'     : { 'k' : 700.0, 't0' : math.radians(120) },
@@ -187,6 +190,10 @@ class FfieldParameters( object ):
                        #PAF
                        'cp-cp-cp-cp'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
                        'cp-cp-cp-hc'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cp-cpp-cpp-cp'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpp-cpp-cp-hc'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpp-cpp-cp-cp'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
+                       'cpp-cpp-cp-cpp'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
 
                        #PAF topology
                        'c-cp-cp-c'     : { 'k' : 500, 'd' : -1, 'n' : 1 },
@@ -265,6 +272,7 @@ class FfieldParameters( object ):
               ('c3', 'h1' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('c3', 'n3m' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
               ('c3', 'cp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
+              ('c3', 'cpp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
               ('c3', 'c' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
               ('c3', 'hc' )     : { 'epsilon' : 0.0254,   'sigma' : 3.6691  },
 
@@ -272,6 +280,7 @@ class FfieldParameters( object ):
               ('c4', 'c4' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
               ('c4', 'c' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
               ('c4', 'cp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
+              ('c4', 'cpp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
               ('c4', 'c4o' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('c4', 'o2e' )     : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
               ('c4', 'o1=' )     : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
@@ -315,6 +324,8 @@ class FfieldParameters( object ):
 
               #cp-cp for DCX
               ('cp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
+              ('cpp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
+              ('cpp', 'cpp' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
               #else:('cp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'cl' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('cp', 'cpa' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
@@ -322,8 +333,10 @@ class FfieldParameters( object ):
               #cp-hc for DCX
               #('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 1.4893  },
               ('cp', 'br' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
+              ('cpp', 'br' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               #else('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
+              ('cpp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('cpa', 'hc' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'ct' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('cp', 'nb' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
@@ -337,6 +350,7 @@ class FfieldParameters( object ):
               ('cp', 'hn' )      : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
               ('cpa', 'hn' )     : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
               ('cp', 'n3m' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
+              ('cpp', 'n3m' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
               ('cp', 'h' )       : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
               ('ct', 'ct' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
               ('ct', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
@@ -370,6 +384,7 @@ class FfieldParameters( object ):
               ('o1=', 'o1=' )    : { 'epsilon' : 0.2400,   'sigma' : 3.5350  },
               ('o1=', 'h1' )     : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },
               ('o1=', 'cp' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
+              ('o1=', 'cpp' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
               ('o1=', 'hc' )     : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },
 
               ('h', 'n3m' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
@@ -383,6 +398,7 @@ class FfieldParameters( object ):
               #('h1', 'zn+2' )    : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
               ('h1', 'c1' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h1', 'cp' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
+              ('h1', 'cpp' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h1', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
               ('h1', 'c' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
