@@ -888,7 +888,10 @@ class Cell():
 
         # Select a random block/endGroup of that type
         # (REM: need to remove the first block from the list of possibles hence the difference thing
-        block2 = random.sample( endGroupTypes2Block[ eg2Type ].difference(set([block1])), 1 )[0]
+        # Also need to convert to list as sets don't support random.choice
+        # Using choice and list as sample was giving error "ValueError: sample larger than population"
+        # block2 = random.sample( endGroupTypes2Block[ eg2Type ].difference(set([block1])), 1 )[0]
+        block2 = random.choice( list(endGroupTypes2Block[ eg2Type ].difference(set([block1]))))
         endGroup2 = block2.randomEndGroup( endGroupTypes=[eg2Type] )
 
         self.logger.debug("cellEndGroupPair returning: {0} {1}".format(endGroup1.type(),endGroup2.type()) )
