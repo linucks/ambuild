@@ -839,7 +839,8 @@ class Cell():
         #
         endGroupTypes2Block = self.endGroupTypes2Block()
         if len(endGroupTypes2Block.keys()) == 0:
-            raise RuntimeError,"No available endGroups in the cell"
+            self.logger.critical("cellEndGroupPair: No available endGroups for: {0}".format(cellEndGroups))
+            return None,None
         #
         # If the user supplied a list of cellEndGroups we use this to determine what can bond -
         # other wise we use all available endGroups
@@ -873,14 +874,15 @@ class Cell():
                     cell2cell[ eg ] = ceg
 
         if len(cell2cell.keys()) == 0:
-            raise RuntimeError,"No endGroups of types {0} are available to bond from {1}".format( cellEndGroups, allTypes )
+            self.logger.critical("cellEndGroupPair: No endGroups of types {0} are available to bond from {1}".format(cellEndGroups,allTypes))
+            return None,None
 
         # At this point we assume we can definitely bond at least 2 blocks
         self.logger.debug("cellEndGroupPair got cell/library endGroups: {0}".format(cell2cell) )
 
         # Select a random block/endGroup from the list
         eg1Type = random.choice( cell2cell.keys() )
-        block1 = random.sample( endGroupTypes2Block[ eg1Type ], 1 )[0]
+        block1 = random.choice(list(endGroupTypes2Block[ eg1Type ]))
         endGroup1 = block1.randomEndGroup( endGroupTypes=[eg1Type] )
 
         # Pick a random endGroup type that can bond to this
@@ -888,10 +890,15 @@ class Cell():
 
         # Select a random block/endGroup of that type
         # (REM: need to remove the first block from the list of possibles hence the difference thing
-        # Also need to convert to list as sets don't support random.choice
+        # XXX Also need to convert to list as sets don't support random.choice
         # Using choice and list as sample was giving error "ValueError: sample larger than population"
         # block2 = random.sample( endGroupTypes2Block[ eg2Type ].difference(set([block1])), 1 )[0]
-        block2 = random.choice( list(endGroupTypes2Block[ eg2Type ].difference(set([block1]))))
+        try:
+            block2 = random.choice( list(endGroupTypes2Block[ eg2Type ].difference(set([block1]))))
+            # This will trigger an IndexError if there isn't a free block of the given type
+        except IndexError:
+            self.logger.critical("cellEndGroupPair: No 2nd block available for cellEndGroups".format(cellEndGroups))
+            return None,None
         endGroup2 = block2.randomEndGroup( endGroupTypes=[eg2Type] )
 
         self.logger.debug("cellEndGroupPair returning: {0} {1}".format(endGroup1.type(),endGroup2.type()) )
@@ -1422,6 +1429,9 @@ class Cell():
 
             # Select 2 random blocks that can be joined
             moveEndGroup, staticEndGroup = self.cellEndGroupPair(cellEndGroups=cellEndGroups)
+            if moveEndGroup==None or staticEndGroup==None:
+                self.logger.critical("joinBlocks cannot join any more blocks")
+                return added
 
             # Copy the original block so we can replace it if the join fails
             moveBlock = moveEndGroup.block()
@@ -2431,6 +2441,33 @@ class Cell():
 
         """
 
+        # First bond atom is start of ray, last is end
+        for bond in self._possibleBonds:
+            # Create bond coordinates method
+            p1=bond.endGroup1.block().coord(bond.endGroup1.endGroupIdx())
+            p2=bond.endGroup2.block().coord(bond.endGroup2.endGroupIdx())
+
+            # sanity check
+            assert 0 < p1[0] < self.A and 0 < p1[1] < self.B and 0 < p1[2] < self.C
+
+            # Find the cell that p1 is in
+            a=int( math.floor( p1[0] / self.boxSize ) )
+            b=int( math.floor( p1[1] / self.boxSize ) )
+            c=int( math.floor( p1[2] / self.boxSize ) )
+            cell = (a,b,c)
+
+            # Determine the direction of the ray
+            d=numpy.linalg.norm(p2-p1)
+
+            # place p1 at the start of the box
+
+            # Step through the boxes intersected by the ray will we reach the box of p2 and
+            # check for clashes with the
+
+            tMax,tDelta,cell=[]
+
+
+
         return False
 
     def __str__(self):
@@ -3257,7 +3294,7 @@ class TestCell(unittest.TestCase):
         mycell.runMD(rigidBody=False,
                      doDihedral=True,
                      rCut=5.0,
-                     mdCycles=100,
+                     mdCycles=1000,
                      T=1.0,
                      tau=0.5,
                      dt=0.0005 )
