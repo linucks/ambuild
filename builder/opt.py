@@ -1237,6 +1237,10 @@ class HoomdOptimiser(FFIELD):
         self.impropers = None
         self.atomTypes = None
         self.rCut = 5.0
+        
+        self.groupActive=None
+        self.groupAll=None
+        self.groupStatic=None
 
         self.debug=True
 
@@ -1371,7 +1375,7 @@ class HoomdOptimiser(FFIELD):
 
         # Create the integrator with the values specified
         if rigidBody:
-            fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=hoomdblue.group.all(),
+            fire = hoomdblue.integrate.mode_minimize_rigid_fire( group=self.groupActive,
                                                                  dt=dt,
                                                                  Nmin=Nmin,
                                                                  alpha_start=alpha_start,
@@ -1381,7 +1385,7 @@ class HoomdOptimiser(FFIELD):
                                                                  fdec=fdec,
                                                                 )
         else:
-            fire=hoomdblue.integrate.mode_minimize_fire(group=hoomdblue.group.all(),
+            fire=hoomdblue.integrate.mode_minimize_fire(group=self.groupActive,
                                                         dt=dt,
                                                         Nmin=Nmin,
                                                         alpha_start=alpha_start,
@@ -1547,9 +1551,10 @@ class HoomdOptimiser(FFIELD):
         integrator_mode = hoomdblue.integrate.mode_standard( dt=dt )
 
         if rigidBody:
-            nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
+            #nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
+            nvt = hoomdblue.integrate.nvt_rigid(group=self.groupActive, T=T, tau=tau )
         else:
-            nvt = hoomdblue.integrate.nvt(group=hoomdblue.group.all(), T=T, tau=tau )
+            nvt = hoomdblue.integrate.nvt(group=self.groupActive, T=T, tau=tau )
 
         if dump:
             xmld = hoomdblue.dump.xml(filename="runmd.xml",
@@ -1691,6 +1696,20 @@ class HoomdOptimiser(FFIELD):
         self.atomTypes = atomTypes
 
         return
+    
+    def setupGroups(self,data):
+        self.groupAll=hoomdblue.group.all()
+        # All atoms that are part of static fragments
+        if any(data.static):
+            self.groupStatic=hoomdblue.group.tag_list(name="static",
+                                                      tags=[i for i,s in enumerate(data.static) if s])
+            self.groupActive=hoomdblue.group.difference(name="active",
+                                                        a=self.groupAll,
+                                                        b=self.groupStatic)
+        else:
+            self.groupActive=self.groupAll
+            
+        return
 
     def setupSystem(self,
                     data,
@@ -1747,6 +1766,9 @@ class HoomdOptimiser(FFIELD):
 
         lj = hoomdblue.pair.lj( r_cut=rCut)
         self.setPair( lj )
+        
+        # Specify the groups
+        self.setupGroups(data)
 
         if rigidBody:
             hoomdblue.globals.neighbor_list.reset_exclusions(exclusions = ['1-2', '1-3', '1-4', 'angle', 'body'] )

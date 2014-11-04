@@ -131,6 +131,7 @@ class CellData(object):
         self.images                  = []
         self.masses                  = []
         self.symbols                 = []
+        self.static                  = [] # If this atom is part of a group that isn't to be moved
 
         self.bonds                   = []
         self.bondLabels              = []
@@ -153,11 +154,20 @@ class Cell():
     BONDTYPESEP     = "-" # Character for separating bonds
     ENDGROUPSEP     = ":" # Character for separating endGroups in bonds
 
-    def __init__( self, boxDim, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False ):
+    def __init__(self,
+                 boxDim=None,
+                 filePath=None,
+                 atomMargin=0.5,
+                 bondMargin=0.5,
+                 bondAngleMargin=15,
+                 doLog=False):
         '''Construct an empty cell:
 
         Args:
         boxDim - a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms)
+                 Dimensions are from 0 - A, B or C
+        filePath - a (.car) file with the cell dimensions and the coordinates of molecules that will be kept
+                   static throught the simulation.
         atomMargin - the additional distance that will be added on to the VdW radii of two atoms
                      to determine if they are close enough to clash.
         bondMargin - two atoms are considered close enough to bond if they are within the bond length
@@ -166,17 +176,6 @@ class Cell():
         doLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
                 and slows the program.
         '''
-
-        # A, B and C are cell vectors - for the time being we assume they are orthogonal
-        # so they are just floats
-        if not type(boxDim) is list and len(boxDim) == 3:
-            raise RuntimeError,"Cell constructor needs the first argument to be list of 3 numbers setting the cell dimensions!"
-
-        self.A = float(boxDim[0])
-        self.B = float(boxDim[1])
-        self.C = float(boxDim[2])
-
-        assert self.A >0 and self.B > 0 and self.C > 0
 
         # For time being origin always 0,0,0
         self.origin = numpy.array( [0,0,0], dtype=numpy.float64 )
@@ -236,6 +235,23 @@ class Cell():
         self._setupAnalyse()
 
         self._fileCount=0 # for naming output files
+
+        if not (boxDim or filePath) or (boxDim and filePath):
+            raise RuntimeError,"Cell constructor needs a boxDim list _or_ the path to a file with the box dimensions!"
+        
+        if boxDim:
+            # A, B and C are cell vectors - for the time being we assume they are orthogonal
+            # so they are just floats
+            if not type(boxDim) is list and len(boxDim) == 3:
+                raise RuntimeError,"Cell constructor needs the boxDim argument to be list of 3 numbers setting the cell dimensions!"
+
+            self.A = float(boxDim[0])
+            self.B = float(boxDim[1])
+            self.C = float(boxDim[2])
+        else:
+            self.initFromFile(filePath)
+
+        assert self.A >0 and self.B > 0 and self.C > 0
 
         return
 
@@ -340,43 +356,6 @@ class Cell():
 
             self._bondTable[ bondA ].add( bondB )
             self._bondTable[ bondB ].add( bondA )
-        return
-
-    def libraryAddFragment( self, filename, fragmentType='A' ):
-        """Add a fragment of type fragmentType defined in the .car file filename
-
-        Args:
-        filename - the path to the .car file. There will need to be a corresponding .csv file that defines
-                 - the endGroups, capAtoms etc.
-        fragmentType - a name that will be used to identify the fragment - cannot contain the ":" character
-        """
-
-        if self._fragmentLibrary.has_key( fragmentType ):
-            raise RuntimeError,"Adding existing ftype {0} again!".format( fragmentType )
-
-        # For now don't allow adding blocks when the cell has blocks in
-        assert not len(self.blocks),"Cannot add library fragments with populated cell!"
-
-        # Make sure the type is valid
-        if ":" in fragmentType or "-" in fragmentType:
-            raise RuntimeError,"fragmentType cannot contain - or : characters!"
-
-        # Create fragment
-        f = fragment.Fragment( filename, fragmentType )
-
-        # Update cell parameters for this fragment
-        maxAtomRadius = f.maxAtomRadius()
-        if  maxAtomRadius > self.maxAtomRadius:
-            self.updateCellSize( maxAtomRadius=maxAtomRadius )
-
-        # Add to _fragmentLibrary
-        self._fragmentLibrary[ fragmentType ] = f
-
-        # create dictionary keyed by endGroup types
-        for ft in f.endGroupTypes():
-            assert ft not in self._endGroup2LibraryFragment,"Adding existing endGroup type to library: {0}".format(ft)
-            self._endGroup2LibraryFragment[ ft ] = fragmentType
-
         return
 
     def angle(self, c1, c2, c3):
@@ -1039,6 +1018,11 @@ class Cell():
                         bodyCount +=1
                         lastBody = b
                     d.bodies.append( bodyCount )
+                    
+                    if frag.static:
+                        d.static.append(True)
+                    else:
+                        d.static.append(False)
 
                     # Increment global atom count
                     atomCount += 1
@@ -1236,6 +1220,11 @@ class Cell():
 
     def fragmentTypeFromEndGroupType(self, endGroupType):
         return endGroupType.split( self.ENDGROUPSEP)[0]
+    
+    def fromFile(self,filePath):
+        
+        
+        return
 
     def fromHoomdblueSystem(self, system ):
         """Reset the particle positions from hoomdblue system"""        # Should really check HOOMD version but...
@@ -1392,6 +1381,43 @@ class Cell():
         self.logger.info("After growBlocks numBlocks: {0}".format( len(self.blocks) ) )
 
         return added
+    
+    def initFromFile(self,filePath):
+
+        # Create fragment
+        name=os.path.splitext(os.path.basename(filePath))[0]
+        f = fragment.Fragment(filePath,fragmentType=name,static=True)
+        p=f.cellParameters()
+        if not p:
+            raise RuntimeError,"car file needs to have PBC=ON and a PBC line defining the cell!"
+        self.A=p['A']
+        self.B=p['B']
+        self.C=p['C']
+        
+        self.logger.info("Read cell parameters A={0}, B={1}, C={2} from car file: {3}".format(p['A'],
+                                                                                              p['B'],
+                                                                                              p['C'],
+                                                                                              filePath))
+
+        # Update cell parameters for this fragment
+        maxAtomRadius = f.maxAtomRadius()
+        if  maxAtomRadius > self.maxAtomRadius:
+            self.updateCellSize(maxAtomRadius=maxAtomRadius)
+        
+        b=buildingBlock.Block(initFragment=f)
+        
+        #Add the block so we can check for clashes/bonds
+        idxBlock = self.addBlock(b)
+
+        # Test for Clashes with other molecules
+        if not self.checkMove(idxBlock):
+            raise RuntimeError,"Problem adding static block-got clashes!"
+        if self.processBonds() > 0:
+            raise RuntimeError,"Problem adding static block-we made bonds!"
+            
+        self.logger.info("Added static block to cell")
+
+        return
 
     def joinBlocks(self, toJoin, cellEndGroups=None, dihedral=None, maxTries=100 ):
         """
@@ -1457,6 +1483,43 @@ class Cell():
         self.logger.info("After joinBlocks numBlocks: {0}".format( len(self.blocks) ) )
 
         return added
+
+    def libraryAddFragment( self, filename, fragmentType='A' ):
+        """Add a fragment of type fragmentType defined in the .car file filename
+
+        Args:
+        filename - the path to the .car file. There will need to be a corresponding .csv file that defines
+                 - the endGroups, capAtoms etc.
+        fragmentType - a name that will be used to identify the fragment - cannot contain the ":" character
+        """
+
+        if self._fragmentLibrary.has_key( fragmentType ):
+            raise RuntimeError,"Adding existing ftype {0} again!".format( fragmentType )
+
+        # For now don't allow adding blocks when the cell has blocks in
+        #assert not len(self.blocks),"Cannot add library fragments with populated cell!"
+
+        # Make sure the type is valid
+        if ":" in fragmentType or "-" in fragmentType:
+            raise RuntimeError,"fragmentType cannot contain - or : characters!"
+
+        # Create fragment
+        f = fragment.Fragment( filename, fragmentType )
+
+        # Update cell parameters for this fragment
+        maxAtomRadius = f.maxAtomRadius()
+        if  maxAtomRadius > self.maxAtomRadius:
+            self.updateCellSize( maxAtomRadius=maxAtomRadius )
+
+        # Add to _fragmentLibrary
+        self._fragmentLibrary[ fragmentType ] = f
+
+        # create dictionary keyed by endGroup types
+        for ft in f.endGroupTypes():
+            assert ft not in self._endGroup2LibraryFragment,"Adding existing endGroup type to library: {0}".format(ft)
+            self._endGroup2LibraryFragment[ ft ] = fragmentType
+
+        return
 
     def libraryEndGroupPair(self, cellEndGroups=None, libraryEndGroups=None ):
         """Return a fee endGroup from the cell and one from the library that can be bonded to it."""
@@ -2548,6 +2611,7 @@ class TestCell(unittest.TestCase):
         cls.ch4Ca2Car = os.path.join( cls.ambuildDir, "blocks", "ch4Ca2.car" )
         cls.amineCar = os.path.join( cls.ambuildDir, "blocks", "amine_typed.car" )
         cls.triquinCar = os.path.join( cls.ambuildDir, "blocks", "triquin_typed.car" )
+        cls.graphiteCar = os.path.join( cls.ambuildDir, "blocks", "2_graphite_cont.car" )
 
         return
 
@@ -3341,6 +3405,30 @@ class TestCell(unittest.TestCase):
         mycell=self.createTestCell()
         mycell.optimiseGeometry( doDihedral=True, quiet=True )
         os.unlink("hoomdOpt.xml")
+        return
+    
+    def testOptimiseGeometryStatic(self):
+        """
+        """
+
+        mycell = Cell(filePath=self.graphiteCar)
+        mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
+        mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
+        mycell.addBondType('amine:a-triquin:b')
+
+        mycell.seed( 3, fragmentType='triquin', center=True )
+        mycell.growBlocks(toGrow=2, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=10)
+        
+        mycell.dump()
+
+        ok=mycell.optimiseGeometry(rigidBody=False,
+                                doDihedral=True,
+                                optCycles=10000,
+                                dump=False,
+                                quiet=False
+                                 )
+        mycell.dump()
+
         return
 
     def testRunMD(self):

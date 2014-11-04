@@ -76,8 +76,10 @@ This creates an empty cell object called mycell (we call it mycell so it doesn't
 we import the Cell code module with). The boxDim argument sets the size of the A,B and C cell axes.
 
 The arguments to cell are:
-
 boxDim - a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms)
+         Dimensions are from 0 - A, B or C
+filePath - a (.car) file with the cell dimensions and the coordinates of molecules that will be kept
+           static throught the simulation.
 atomMargin - the additional distance that will be added on to the VdW radii of two atoms
              to determine if they are close enough to clash.
 bondMargin - two atoms are considered close enough to bond if they are within the bond length
@@ -85,6 +87,14 @@ bondMargin - two atoms are considered close enough to bond if they are within th
 bondAngleMargin - the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
 doLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
         and slows the program.
+                
+Alternatively, the cell can be read from a .car file using the filePath argument instead of the boxDim argument. In
+this case, the cell dimensions will be taken from the .car file PBC line, e.g.:
+
+PBC   40.0000   30.0000   30.0000   90.0000   90.0000   90.0000 (P1)
+
+And the molecule will be read in as a static structure - i.e. it will not be moved in any of the MD or geometry optimisation
+steps. The name of this static will be the named after the .car file.
 
 With the cell defined, the next stage is to add the fragments to the cell library so that they will become available
 for use. This is done with the following command:

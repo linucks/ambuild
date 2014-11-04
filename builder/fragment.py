@@ -147,7 +147,11 @@ class Fragment(object):
     classdocs
     '''
 
-    def __init__( self, filePath=None, fragmentType=None ):
+    def __init__(self,
+                 filePath=None,
+                 fragmentType=None,
+                 static=False
+                 ):
         '''
         Constructor
         '''
@@ -159,6 +163,7 @@ class Fragment(object):
             '_bodies'          : [], # a list of which body within this fragment each atom belongs to
             '_bonds'           : [], # List of internal fragment bonds
             '_bonded'          : [], # List of which atoms are bonded to which
+            '_cellParameters'  : {},
             '_charges'         : [],
             'fragmentType'     : fragmentType,
             '_labels'          : [],
@@ -166,6 +171,7 @@ class Fragment(object):
             '_radii'           : [],
             '_maxBonds'        : {},
             '_radius'          : -1,
+            'static'           : False,
             '_symbols'         : [], # ordered array of symbols (in upper case)
             '_totalMass'       : -1,
             '_types'            : [],
@@ -199,6 +205,9 @@ class Fragment(object):
         # Set as attributes of self
         for a, v in individualAttrs.iteritems():
             setattr( self, a, v )
+            
+        # Static set on construction
+        if static: self.static=True
 
         # Set these manually
         self._individualAttrs = individualAttrs
@@ -276,17 +285,11 @@ class Fragment(object):
         http://stackoverflow.com/questions/6430091/efficient-distance-calculation-between-n-points-and-a-reference-in-numpy-scipy
         """
 
-        distances = []
-        for i, coord in enumerate( self._coords ):
-            #distances.append( numpy.linalg.norm(coord-cog) )
-            distances.append( util.distance(self._centroid, coord) )
-
+        distances=[util.distance(self._centroid, coord) for coord in self._coords]
         imax = numpy.argmax( distances )
         dist = distances[ imax ]
-
         # Add on the radius of the largest atom
         self._radius = dist + self.maxAtomRadius()
-
         return
 
     def _calcProperties(self):
@@ -294,6 +297,9 @@ class Fragment(object):
         self._calcRadius()
         self._changed = False
         return
+    
+    def cellParameters(self):
+        return self._cellParameters
 
     def centroid(self):
         """
@@ -407,12 +413,18 @@ class Fragment(object):
             pbc, state = f.readline().strip().split("=")
             assert pbc.strip() == "PBC"
             state=state.strip()
-            nskip=3
-            if state.upper() == "OFF":
-                nskip=2
-
-            for i in range(nskip):
-                f.readline()
+            
+            # skip two lines
+            f.readline()
+            f.readline()
+            if state.upper() == "ON":
+                # Read in the PBC
+                line=f.readline().strip()
+                fields=line.split()
+                assert fields[0].upper()=="PBC"
+                self._cellParameters['A']=float(fields[1])
+                self._cellParameters['B']=float(fields[2])
+                self._cellParameters['C']=float(fields[3])
 
             count=0
             while reading:
