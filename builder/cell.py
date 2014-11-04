@@ -1406,6 +1406,13 @@ class Cell():
         
         b=buildingBlock.Block(initFragment=f)
         
+        # Check the molecule fits in the cell
+        for i,coord in enumerate(b.iterCoord()):
+            if coord[0] < 0 or coord[0] > self.A or \
+               coord[1] < 0 or coord[1] > self.B or \
+               coord[2] < 0 or coord[2] > self.C:
+                raise RuntimeError,"Static block doesn't fit in the cell! First failing coord is #{0}: {1}".format(i,coord)
+
         #Add the block so we can check for clashes/bonds
         idxBlock = self.addBlock(b)
 
