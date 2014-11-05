@@ -15,7 +15,6 @@ import random
 import sys
 import time
 import unittest
-import xml.etree.ElementTree as ET
 
 # External modules
 import numpy
@@ -223,7 +222,7 @@ class Cell():
         # dictionary mapping id of the block to the block - can't use a list and indices
         # as we add and remove blocks and need to keep track of them
         self.blocks = collections.OrderedDict()
-
+        
         # Holds possible bond after checkMove is run
         self._possibleBonds = []
 
@@ -1820,12 +1819,6 @@ class Cell():
         move_block.randomRotateBlock( origin=self.origin )
         return
 
-    def resizeCells( self, boxMargin ):
-        # Change the cell size
-        self.updateCellSize( boxMargin=boxMargin )
-        self.repopulateCells()
-        return
-
     def repopulateCells(self):
         """Add all the blocks to resized cells"""
 
@@ -2180,6 +2173,9 @@ class Cell():
                                                                                      self.maxAtomRadius,
                                                                                      self.boxMargin)
                           )
+        # If there are already blocks in the cell, we need to add them to the new boxes
+        if len(self.blocks):
+            self.repopulateCells()
 
         return
 
