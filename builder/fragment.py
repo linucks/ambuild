@@ -9,6 +9,7 @@ import copy
 import csv
 import os
 import types
+import unittest
 
 import numpy
 import util
@@ -668,10 +669,16 @@ class Fragment(object):
 
         # Calculate anything we haven't been given
         self.fillData()
+        
+        # If under PBC we need to change how we calculate the bonds
+        cell=None
+        if self._cellParameters and self.static:
+            cell=[self._cellParameters['A'],self._cellParameters['B'],self._cellParameters['C']]
 
         # Specify internal bonds - bond margin probably too big...
         self._bonds = util.calcBonds( coords,
                                       symbols,
+                                      cell=cell,
                                       maxAtomRadius=self.maxAtomRadius(),
                                       bondMargin=0.25
                                        )
@@ -773,3 +780,28 @@ class Fragment(object):
 
         return "{0} : {1}".format(self.__repr__(),str(me))
 
+class TestFragment(unittest.TestCase):
+
+    def setUp(self):
+
+        thisd =  os.path.abspath( os.path.dirname( __file__ ) )
+        paths = thisd.split( os.sep )
+        self.ambuildDir = os.sep.join( paths[ : -1 ] )
+        return
+
+    def testBonds(self):
+        graphite = os.path.join( self.ambuildDir, "blocks", "2_graphite_cont.car" )
+
+        f = Fragment( filePath=graphite, fragmentType='A' )
+        self.assertEqual(len(f.bonds()),1284)
+        
+        f = Fragment( filePath=graphite, fragmentType='A', static=True )
+        self.assertEqual(len(f.bonds()),1792)
+        
+        return
+    
+if __name__ == '__main__':
+    """
+    Run the unit tests
+    """
+    unittest.main()  
