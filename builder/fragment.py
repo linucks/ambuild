@@ -341,7 +341,10 @@ class Fragment(object):
             elif a in self._individualAttrs.keys():
                 setattr( f, a, copy.deepcopy( getattr( self, a ) ) )
             else:
-                raise RuntimeError,"MISSING ATTRIBUTE {0}".format(a)
+                #raise RuntimeError,"MISSING ATTRIBUTE {0}".format(a)
+                # HACK FOR WHEN DEALING WITH OLD FILES
+                print "MISSING ATTRIBUTE {0}".format(a)
+                setattr( f, a, copy.deepcopy( getattr( self, a ) ) )
 
             # Update fragment references in the endGroups
             for e in f._endGroups:

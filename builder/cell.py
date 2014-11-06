@@ -1018,7 +1018,7 @@ class Cell():
                         lastBody = b
                     d.bodies.append( bodyCount )
                     
-                    if frag.static:
+                    if hasattr(frag,'static') and frag.static:
                         d.static.append(True)
                     else:
                         d.static.append(False)
