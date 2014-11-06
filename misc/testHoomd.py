@@ -434,14 +434,17 @@ globals.neighbor_list.reset_exclusions(exclusions = ['1-2', '1-3', '1-4', 'angle
 #                    overwrite=True
 #                    )
 
-fire = integrate.mode_minimize_fire( group=group.all(),
-                                           dt=0.005,
-                                           Nmin=5,
-                                           alpha_start=0.1,
-                                           ftol=1e-2,
-                                           Etol=1e-4,
-                                           finc=1.1,
-                                           fdec=0.5 )
+# fire = integrate.mode_minimize_fire( group=group.all(),
+#                                            dt=0.005,
+#                                            Nmin=5,
+#                                            alpha_start=0.1,
+#                                            ftol=1e-2,
+#                                            Etol=1e-4,
+#                                            finc=1.1,
+#                                            fdec=0.5 )
+
+integrator_mode = integrate.mode_standard( dt=0.005 )
+nvt = integrate.nvt(group=group.all(), T=1, tau=0.5 )
 
 xmld = dump.xml(filename="runtest.xml", vis=True)
 dcdd = dump.dcd(filename="runtest.dcd",
@@ -451,11 +454,9 @@ dcdd = dump.dcd(filename="runtest.dcd",
                 )
 
 
-optCycles=10000
-run(optCycles,
-    callback=lambda x: -1 if fire.has_converged() else 0,
-    callback_period=1 )
-
-if fire.has_converged():
-    print "CONVERGED!!!!"
+run(10000)
+# optCycles=10000
+# run(optCycles,
+#     callback=lambda x: -1 if fire.has_converged() else 0,
+#     callback_period=1 )
 
