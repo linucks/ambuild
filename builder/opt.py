@@ -776,26 +776,31 @@ class DLPOLY(FFIELD):
             blockImproperTypes = []
 
             # Do bonds first as counting starts from atomCount and goes up through the blocks
+            # It turns out the counting is within a molecule, not global so need to fix.
             if not rigidBody:
                 # add all bonds, angles and dihederals throughout the whole block
                 # Add all bonds
-                blockBonds += [ (a1+atomCount, a2+atomCount) for a1, a2 in block.bonds() ]
+                #blockBonds += [ (a1+atomCount, a2+atomCount) for a1, a2 in block.bonds() ]
+                blockBonds += block.bonds()
                 blockBondTypes += [ (block.type(a1),block.type(a2)) for a1, a2 in block.bonds() ]
                 _angles, _propers, _impropers = block.anglesAndDihedrals()
                 # Add all angles
-                blockAngles += [ (a1+atomCount, a2+atomCount, a3+atomCount) for a1, a2, a3 in _angles ]
+                #blockAngles += [ (a1+atomCount, a2+atomCount, a3+atomCount) for a1, a2, a3 in _angles ]
+                blockAngles += _angles
                 blockAngleTypes += [ (block.type(a1),block.type(a2),block.type(a3)) for a1, a2, a3 in _angles ]
                 # Add all propers
-                blockPropers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
-                                 for a1, a2, a3, a4 in _propers ]
+                #blockPropers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
+                #                 for a1, a2, a3, a4 in _propers ]
+                blockPropers += _propers
                 blockProperTypes += [ (block.type(a1),
                                        block.type(a2),
                                        block.type(a3),
                                        block.type(a4)
                                        ) for a1, a2, a3, a4 in _propers ]
                 # Add all impropers
-                blockImpropers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
-                                   for a1, a2, a3, a4 in _impropers ]
+                #blockImpropers += [ (a1+atomCount, a2+atomCount, a3+atomCount, a4+atomCount) \
+                #                   for a1, a2, a3, a4 in _impropers ]
+                blockImpropers += _impropers
                 blockImproperTypes += [ (block.type(a1),
                                          block.type(a2),
                                          block.type(a3),
@@ -808,7 +813,8 @@ class DLPOLY(FFIELD):
                 for b1, b2 in block.blockBonds():
 
                     # The bonds themselves
-                    blockBonds.append( (b1+atomCount,b2+atomCount) )
+                    #blockBonds.append( (b1+atomCount,b2+atomCount) )
+                    blockBonds.append((b1,b2))
                     blockBondTypes.append(( block.type(b1),block.type(b2) ))
 
                     _angles=set()
@@ -827,7 +833,8 @@ class DLPOLY(FFIELD):
 
                     # Add to overall lists
                     for a1, a2, a3 in _angles:
-                        blockAngles.append( (a1+atomCount, a2+atomCount, a3+atomCount))
+                        #blockAngles.append( (a1+atomCount, a2+atomCount, a3+atomCount))
+                        blockAngles.append((a1,a2,a3))
                         blockAngleTypes.append( ( block.type( a1 ),
                                                   block.type( a2 ),
                                                   block.type( a3 ) ) )
@@ -836,10 +843,11 @@ class DLPOLY(FFIELD):
                     # Dihedrals
                     #
                     for dindices in block.dihedrals( b1, b2 ):
-                        dihedral = ( dindices[0] + atomCount,
-                                     dindices[1] + atomCount,
-                                     dindices[2] + atomCount,
-                                     dindices[3] + atomCount )
+                        #dihedral = ( dindices[0] + atomCount,
+                        #             dindices[1] + atomCount,
+                        #             dindices[2] + atomCount,
+                        #             dindices[3] + atomCount )
+                        dihedral = ( dindices[0],dindices[1],dindices[2],dindices[3])
                         blockPropers.append( dihedral )
                         blockProperTypes.append( ( block.type( dindices[0] ),
                                                    block.type( dindices[1] ),
