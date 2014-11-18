@@ -761,6 +761,7 @@ class DLPOLY(FFIELD):
         symbols = []
         bodies = []
         bodies2 = []
+        frozen = []
 
         atomCount = 0 # Global count in cell
         bodyCount = -1
@@ -864,6 +865,7 @@ class DLPOLY(FFIELD):
             blockSymbols = []
             blockBodies = []
             blockBodies2 = []
+            blockFrozen = []
 
             # Now loop through fragments and coordinates
             if hasattr(block,'_fragments'):
@@ -871,13 +873,15 @@ class DLPOLY(FFIELD):
             else:
                 fragments=block.fragments
             #for idxFrag,frag in enumerate(block.fragments): # need index of fragment in block
+            molCount=0
             for idxFrag,frag in enumerate(fragments): # need index of fragment in block
 
                 # Body count always increments with fragment although it may go up within a fragment too
                 bodyCount += 1
 
                 lastBody=frag.body(0)
-                bstart=atomCount
+                #bstart=atomCount
+                bstart=molCount
                 for i,coord in enumerate(frag.iterCoord()):
                     if periodic:
                         x, ix = util.wrapCoord( coord[0], cell.A, center=center )
@@ -900,17 +904,25 @@ class DLPOLY(FFIELD):
                     if b != lastBody:
                         bodyCount +=1
                         lastBody = b
-                        blockBodies2.append((bstart,atomCount))
-                        bstart=atomCount+1
+                        #blockBodies2.append((bstart,atomCount))
+                        #bstart=atomCount+1
+                        blockBodies2.append((bstart,molCount))
+                        bstart=molCount+1
                     blockBodies.append( bodyCount )
+                    if frag.static:
+                        blockFrozen.append(1)
+                    else:
+                        blockFrozen.append(0)
 
                     # Increment global atom count
-                    atomCount += 1
+                    atomCount += 1 # NOT USED AS COUNTING IS INTER_MOLECULAR!
+                    molCount += 1
 
                 # Work out which fragment this is in
                 # REM blockCount is NOT idxBlock in the dict - need to rationalise this.
                 #d.tagIndices.append((idxBlock,idxFrag,atomCount-i,atomCount))
-                blockBodies2.append((bstart,atomCount))
+                #blockBodies2.append((bstart,atomCount))
+                blockBodies2.append((bstart,molCount))
 
             #END loop through fragments
 
@@ -933,6 +945,7 @@ class DLPOLY(FFIELD):
             symbols.append(blockSymbols)
             bodies.append(blockBodies)
             bodies2.append(blockBodies2)
+            frozen.append(blockFrozen)
 
         # End block loop
 
@@ -971,7 +984,8 @@ class DLPOLY(FFIELD):
                 for j in range(len(coords[i])):
                     t = types[i][j]
                     _types.add(t)
-                    f.write("{0:6}  {1:6}  {2:6}    1\n".format( t, masses[i][j], charges[i][j] ))
+                    #f.write("{0:6}  {1:6}  {2:6}    1\n".format( t, masses[i][j], charges[i][j] ))
+                    f.write("{0:6}  {1:6}  {2:6}    1    {3}\n".format( t, masses[i][j], charges[i][j], frozen[i][j] ))
                     #d = (t, masses[i][j], charges[i][j])
                     #x.add(d)
                 #for t,m,c in x:
