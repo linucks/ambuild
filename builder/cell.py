@@ -1085,11 +1085,15 @@ class Cell():
                 continue
 
             # Check if all fragments in this block are of the given type
-            if not any([True for f in block.fragments if f.fragmentType!=fragmentType]):
+            #if not any([True for f in block.fragments if f.fragmentType!=fragmentType]):
+            #    blist.append(idxBlock)
+            # Don't bother with this any more - we delete any block that contains a fragment of the given type
+            if any([True for f in block.fragments if f.fragmentType==fragmentType]):
                 blist.append(idxBlock)
 
         if not len(blist):
-            self.logger.critical("Delete could not find any single-fragment blocks of type: {0}".format(fragmentType))
+            #self.logger.critical("Delete could not find any single-fragment blocks of type: {0}".format(fragmentType))
+            self.logger.critical("Delete could not find any blocks containing fragments of type: {0}".format(fragmentType))
             return 0
 
         # We have a list of valid block ids
