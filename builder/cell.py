@@ -2556,7 +2556,7 @@ class Cell():
                     
                     # First need to find whether the point is inside the segment
                     #print "P1, P2, P3 ",p1,p2,p3
-                    assert False,"PBC"
+                    self.logger.warn("NEED TO FIX FOR PBC")
                     t=numpy.dot((p3-p1),(p2-p1))/numpy.square(numpy.linalg.norm(p2-p1))
                     if 0 < t < 1:
                         dist = numpy.linalg.norm(numpy.cross(p3-p1, p3-p2))/numpy.linalg.norm(p2-p1)
@@ -4040,7 +4040,6 @@ class TestCell(unittest.TestCase):
         made = mycell.zipBlocks( bondMargin=6, bondAngleMargin=1,clashCheck=True )
         self.assertEqual(made,1)
         
-        
         # Add the pesky middle block and see if it now works
         mycell.addBlock(b2)
         made = mycell.zipBlocks( bondMargin=6, bondAngleMargin=1 )
@@ -4269,17 +4268,4 @@ if __name__ == '__main__':
     """
     Run the unit tests
     """
-    #unittest.main()
-    
-    
-    mycell = Cell([12.0,12.0,12.0])   
-    boxSize=1
-    mycell.boxSize=boxSize
-    mycell.numBoxA=int(math.ceil(mycell.A/boxSize))
-    mycell.numBoxB=int(math.ceil(mycell.B/boxSize))
-    mycell.numBoxC=int(math.ceil(mycell.C/boxSize))
-    
-    
-    p1=numpy.array( [ 7.5347038,5.99462014,6.00620536])
-    p2=numpy.array([-0.15284469,5.96146523,5.98356573])
-    print mycell._intersectedCells(p1,p2)
+    unittest.main()
