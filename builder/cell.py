@@ -271,19 +271,8 @@ class Cell():
 
         #print "nbox ",self.numBoxA,self.numBoxB,self.numBoxC
         for idxCoord,coord in enumerate( block.iterCoord() ):
-
-            # Periodic Boundaries
-            x = coord[0] % self.A
-            y = coord[1] % self.B
-            z = coord[2] % self.C
-
-            # Calculate which cell the atom is in
-            a=int( math.floor( x / self.boxSize ) )
-            b=int( math.floor( y / self.boxSize ) )
-            c=int( math.floor( z / self.boxSize ) )
-            key = (a,b,c)
+            key = self._getBox(coord)
             block.atomCell[ idxCoord ] = key
-
             try:
                 # Add the atom to the cell
                 self.box1[ key ].append( ( idxBlock, idxCoord ) )
@@ -2325,7 +2314,7 @@ class Cell():
         self.logger.info( "Wrote cell file: {0}".format(fpath) )
         return
 
-    def zipBlocks(self, bondMargin=None, bondAngleMargin=None):
+    def zipBlocks(self, bondMargin=None, bondAngleMargin=None,clashCheck=True):
         """Join existing blocks in the cell by changing the bondMargin and bondAngleMargin parameters that were
         specified when the cell was created, and then looping over all the free endGroups to see if any can bond
         with the new parameters. The blocks are not moved in this step and no check is made as to whether there
@@ -2467,7 +2456,7 @@ class Cell():
             return 0
 
         # Check the bonds don't clash with anything
-        if self.zipBlocksClash():
+        if clashCheck and self.zipBlocksClash():
             self.logger.info("zipBlocks: bonds not accepted due to clashes")
             return 0
 
@@ -2507,15 +2496,15 @@ class Cell():
           if any distances < threshold:
              return False
 
-
-
         """
 
         # First bond atom is start of ray, last is end
         for bond in self._possibleBonds:
             # Create bond coordinates method
             idxAtom1=bond.endGroup1.endGroupIdx()
+            idxCap1=bond.endGroup1.capIdx()
             idxAtom2=bond.endGroup2.endGroupIdx()
+            idxCap2=bond.endGroup2.capIdx()
             p1=bond.endGroup1.block().coord(idxAtom1)
             p2=bond.endGroup2.block().coord(idxAtom2)
             
@@ -2528,32 +2517,69 @@ class Cell():
             
             idxBlock1=bond.endGroup1.block().id
             idxBlock2=bond.endGroup2.block().id
-
-            cells=self._intersectedCells(p1, p2)
             
-            # loop through all the atoms in the cells (excluding the 2 bonding atoms)
-            # & check if any are too close to the bond vector
-            for cell in cells:
-                try:
-                    alist = self.box1[cell]
-                except KeyError:
-                    continue
-                for (idxBlock3, idxAtom3) in alist:
+            #print "P1, P2 ",p1,p2
 
-                    # Dont' check the bond atoms
+            # Get a list of the cells the bond passes through (excluding endpoints)
+            cells=self._intersectedCells(p1,p2)
+            #print "FOUND CELLS ",cells
+            
+            # Now build up a list of the cells surrounding the cells on the bond vector
+            allcells=set(cells)
+            for cell in cells:
+                try: surround=self.box3[cell]
+                except KeyError: continue
+                allcells.update(surround)
+                
+            #print "FOUND allCELLS ",allcells
+            
+            # loop through all the atoms in the cells
+            # & check if any are too close to the bond vector
+            for cell in list(allcells):
+                try: alist = self.box1[cell]
+                except KeyError: continue
+                for (idxBlock3,idxAtom3) in alist:
+
+                    # Dont' check the bond atoms or the cap atoms
                     if idxBlock3==idxBlock1 and idxAtom3==idxAtom1 or\
-                    idxBlock3==idxBlock2 and idxAtom3==idxAtom2:
+                    idxBlock3==idxBlock2 and idxAtom3==idxAtom2 or \
+                    idxBlock3==idxBlock1 and idxAtom3==idxCap1 or \
+                    idxBlock3==idxBlock2 and idxAtom3==idxCap2:
                         continue
 
                     block3=self.blocks[idxBlock3]
                     p3=block3.coord(idxAtom3)
                     
-                    # See how far from the line this is
-                    print "GOT POINT ",p3
+                    # Distance of a point from a line:
+                    #  http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
+                    # http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
+                    
+                    # First need to find whether the point is inside the segment
+                    #print "P1, P2, P3 ",p1,p2,p3
+                    assert False,"PBC"
+                    t=numpy.dot((p3-p1),(p2-p1))/numpy.square(numpy.linalg.norm(p2-p1))
+                    if 0 < t < 1:
+                        dist = numpy.linalg.norm(numpy.cross(p3-p1, p3-p2))/numpy.linalg.norm(p2-p1)
+                        #print "GOT D ",dist
+                        if dist < 2.0: # Totally abitrary number - a wee bit longer than a C-C bond
+                            return True
 
         return False
     
-    def _intersectedCells(self,p1,p2):
+    def _getBox(self,coord):
+        """Return the box that the coord is in under periodic boundaries"""
+        # Periodic Boundaries
+        x = coord[0] % self.A
+        y = coord[1] % self.B
+        z = coord[2] % self.C
+
+        # Calculate which cell the atom is in
+        a=int( math.floor( x / self.boxSize ) )
+        b=int( math.floor( y / self.boxSize ) )
+        c=int( math.floor( z / self.boxSize ) )
+        return (a,b,c)
+
+    def _intersectedCells(self,p1,p2,endPointCells=True):
         """Return a list of the cells intersected by the vector passing from p1 to p2.
         
         Filched from:
@@ -2561,21 +2587,26 @@ class Cell():
         http://stackoverflow.com/questions/12367071/how-do-i-initialize-the-t-variables-in-a-fast-voxel-traversal-algorithm-for-ray
         """
         
-        # Check sane values (ie. in cell)
-        assert 0 < p1[0] < self.A and 0 < p1[1] < self.B and 0 < p1[2] < self.C
-        assert 0 < p2[0] < self.A and 0 < p2[1] < self.B and 0 < p2[2] < self.C
-        
         TMAXMAX=max(self.A,self.B,self.C) # Not 100% sure - just needs to be bigger than any possible value in the cell
+        # Wrap into a single cell
+        p1[0] = p1[0] % self.A
+        p1[1] = p1[1] % self.B
+        p1[2] = p1[2] % self.C
+        p2[0] = p2[0] % self.A
+        p2[1] = p2[1] % self.B
+        p2[2] = p2[2] % self.C
+        
+        X,Y,Z=self._getBox(p1) # The cell p1 is in
+        outX,outY,outZ=self._getBox(p2) # The cell p2 is in
         #
         # X
-        #        
+        #
         dx=p2[0]-p1[0] #length of x-component of line
-        X=int(math.floor((p1[0]/self.A)*self.numBoxA))  # The cell p1 is in
+        if math.fabs(dx) > self.A * 0.5: dx = dx - math.copysign( self.A, dx)
+        #stepX=int(math.copysign(1,dx)) # the direction of travel in the x-direction
         stepX=int(math.copysign(1,dx)) # the direction of travel in the x-direction
-        # When we've got to the end - i.e the cell with p2 in it.
-        outX=int(math.floor((p2[0]/self.A)*self.numBoxA))
         # If there is no direction along a component, we need to make sure tMaxX is > the cell
-        if dx==0:
+        if X==outX:
             tDeltaX=0
             tMaxX=TMAXMAX
         else:
@@ -2584,15 +2615,13 @@ class Cell():
             tDeltaX=self.boxSize/dx  # How many boxes fit in the x-direction
             # tMaxX - how far we can move along the x-coordinate before we cross a cell boundary
             tMaxX = tDeltaX * (1.0 - math.modf(p1[0] /self.boxSize)[0])
-        
         #
         # Y
         #
         dy=p2[1]-p1[1]
-        Y=int(math.floor((p1[1]/self.B)*self.numBoxB))
-        stepY=int(math.copysign(1,dy)) 
-        outY=int(math.floor((p2[1]/self.B)*self.numBoxB))
-        if dy==0:
+        if math.fabs(dy) > self.B * 0.5: dy = dy - math.copysign( self.B, dy)
+        stepY=stepX=int(math.copysign(1,dy))
+        if Y==outY:
             tDeltaY=0
             tMaxY=TMAXMAX
         else:
@@ -2602,10 +2631,9 @@ class Cell():
         # Z
         #            
         dz=p2[2]-p1[2]
-        Z=int(math.floor((p1[2]/self.C)*self.numBoxC))
-        stepZ=int(math.copysign(1,dy)) 
-        outZ=int(math.floor((p2[2]/self.C)*self.numBoxC))
-        if dz==0:
+        if math.fabs(dz) > self.C * 0.5: dz = dz - math.copysign( self.C, dz)
+        stepZ=int(math.copysign(1,dz))
+        if Z==outZ:
             tDeltaZ=0
             tMaxZ=TMAXMAX
         else:
@@ -2618,7 +2646,12 @@ class Cell():
             if X==outX and Y==outY and Z==outZ: break 
             if tMaxX < tMaxY:
                 if tMaxX < tMaxZ:
+                    #PBC
                     X = X + stepX
+                    if X < 0:
+                        X = self.numBoxA-1
+                    elif X > self.numBoxA-1:
+                        X = 0
                     cells.append((X,Y,Z))
                     if X==outX:
                         tMaxX=TMAXMAX
@@ -2626,6 +2659,11 @@ class Cell():
                         tMaxX += tDeltaX
                 else:
                     Z = Z + stepZ
+                    #PBC
+                    if Z < 0:
+                        Z = self.numBoxC-1
+                    elif Z > self.numBoxC-1:
+                        Z = 0    
                     cells.append((X,Y,Z))
                     if Z==outZ:
                         tMaxZ=TMAXMAX
@@ -2633,7 +2671,12 @@ class Cell():
                         tMaxZ += tDeltaZ
             else:
                 if tMaxY < tMaxZ:
+                    #PBC
                     Y = Y + stepY
+                    if Y < 0:
+                        Y = self.numBoxB-1
+                    elif Y > self.numBoxB-1:
+                        Y = 0 
                     cells.append((X,Y,Z))
                     if Y==outY:
                         tMaxY=TMAXMAX
@@ -2641,6 +2684,11 @@ class Cell():
                         tMaxY += tDeltaY
                 else:
                     Z = Z + stepZ
+                    #PBC
+                    if Z < 0:
+                        Z = self.numBoxC-1
+                    elif Z > self.numBoxC-1:
+                        Z = 0 
                     cells.append((X,Y,Z))
                     if Z==outZ:
                         tMaxZ=TMAXMAX
@@ -2648,7 +2696,10 @@ class Cell():
                         tMaxZ += tDeltaZ
         
         #return tDeltaX,tMaxX,X,tDeltaY,tMaxY,Y
-        return cells
+        if endPointCells:
+            return cells
+        else:
+            return cells[1:-1]
 
     def __str__(self):
         """
@@ -2743,6 +2794,37 @@ class TestCell(unittest.TestCase):
         mycell.growBlocks( 8 )
         return mycell
     
+    def testGetBox(self):
+        mycell = Cell([10,10,10])   
+        boxSize=1
+        mycell.boxSize=boxSize
+        mycell.numBoxA=int(math.ceil(mycell.A/boxSize))
+        mycell.numBoxB=int(math.ceil(mycell.B/boxSize))
+        mycell.numBoxC=int(math.ceil(mycell.C/boxSize))
+        
+        p1=numpy.array([0,0,0])
+        self.assertEqual(mycell._getBox(p1),(0,0,0))
+        
+        p1=numpy.array([5.5,5.5,5.5])
+        self.assertEqual(mycell._getBox(p1),(5,5,5))
+        
+        p1=numpy.array([-5.5,-5.5,-5.5])
+        self.assertEqual(mycell._getBox(p1),(4,4,4))
+        
+        p1=numpy.array([10.5,10.5,10.5])
+        self.assertEqual(mycell._getBox(p1),(0,0,0))
+        
+        p1=numpy.array([100.5,100.5,100.5])
+        self.assertEqual(mycell._getBox(p1),(0,0,0))
+        
+        p1=numpy.array([-100.5,-100.5,-100.5])
+        self.assertEqual(mycell._getBox(p1),(9,9,9))
+        
+        p1=numpy.array([-3,0,0])
+        self.assertEqual(mycell._getBox(p1),(7,0,0))
+        
+        return    
+    
     def testIntersectedCells(self):
         
         mycell = Cell([10,10,10])   
@@ -2754,34 +2836,41 @@ class TestCell(unittest.TestCase):
         
         p1=numpy.array([0.5,0.5,0.5])
         p2=numpy.array([8.5,8.5,8.5])
-        ref=[(0,0,0),(0, 0, 1), (0, 1, 1), (1, 1, 1), (1, 1, 2), (1, 2, 2), (2, 2, 2), (2, 2, 3),
-             (2, 3, 3), (3, 3, 3), (3, 3, 4), (3, 4, 4), (4, 4, 4), (4, 4, 5), (4, 5, 5),
-             (5, 5, 5), (5, 5, 6), (5, 6, 6), (6, 6, 6), (6, 6, 7), (6, 7, 7), (7, 7, 7),
-             (7, 7, 8), (7, 8, 8), (8, 8, 8)]
+        ref=[(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8), (9, 8, 8), (8, 8, 8)]
         self.assertEqual(mycell._intersectedCells(p1,p2),ref)
+        
         
         p1=numpy.array([0.5,0.5,0.5])
         p2=numpy.array([0.5,8.5,8.5])
-        ref=[(0,0,0),(0, 0, 1), (0, 1, 1), (0, 1, 2), (0, 2, 2), (0, 2, 3), (0, 3, 3), (0, 3, 4),
-             (0, 4, 4), (0, 4, 5), (0, 5, 5), (0, 5, 6), (0, 6, 6), (0, 6, 7), (0, 7, 7),
-             (0, 7, 8), (0, 8, 8)]
+        ref=[(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8)]
         self.assertEqual(mycell._intersectedCells(p1,p2),ref)
         
         p1=numpy.array([0.5,0.5,0.5])
         p2=numpy.array([0.6,8.5,8.5])
-        ref=[(0,0,0),(0, 0, 1), (0, 1, 1), (0, 1, 2), (0, 2, 2), (0, 2, 3), (0, 3, 3), (0, 3, 4),
-             (0, 4, 4), (0, 4, 5), (0, 5, 5), (0, 5, 6), (0, 6, 6), (0, 6, 7), (0, 7, 7),
-             (0, 7, 8), (0, 8, 8)]
+        ref=[(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8)]
         self.assertEqual(mycell._intersectedCells(p1,p2),ref)
         
         p1=numpy.array([0.5,0.5,0.5])
         p2=numpy.array([0.5,0.5,8.5])
-        ref=[(0,0,0),(0, 0, 1), (0, 0, 2), (0, 0, 3), (0, 0, 4), (0, 0, 5), (0, 0, 6), (0, 0, 7), (0, 0, 8)]
+        ref=[(0, 0, 0), (0, 0, 9), (0, 0, 8)]
         self.assertEqual(mycell._intersectedCells(p1,p2),ref)
-        
-        
-        return
 
+        p1=numpy.array([-2.5,-2.5,-2.5])
+        p2=numpy.array([8.5,8.5,8.5])
+        ref=[(7, 7, 7), (7, 7, 8), (7, 8, 8), (8, 8, 8)]
+        self.assertEqual(mycell._intersectedCells(p1,p2),ref)
+    
+        p1=numpy.array([5,0,0])
+        p2=numpy.array([-3,0,0])
+        self.assertEqual(mycell._intersectedCells(p1,p2),[(5, 0, 0), (6, 0, 0), (7, 0, 0)])
+        
+        p1=numpy.array([9,9,9])
+        p2=numpy.array([1,1,1])
+        self.assertEqual(mycell._intersectedCells(p1,p2),[(9, 9, 9), (9, 9, 0), (9, 0, 0),
+                                                          (0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)])
+
+        return
+    
     def testCX4(self):
         """First pass"""
 
@@ -3862,6 +3951,8 @@ class TestCell(unittest.TestCase):
         b1.bondBlock( bond )
 
         b1_id = mycell.addBlock(b1)
+        
+        mycell.dump()
 
         made = mycell.zipBlocks( bondMargin=5, bondAngleMargin=5 )
 
@@ -3941,15 +4032,19 @@ class TestCell(unittest.TestCase):
         # b3 + 5 on x
         b3.translateCentroid( [ mycell.A/2+5, mycell.B/2, mycell.C/2 ] )
 
-        # Add to cell
+        # Add blocks either side to cell and make sure we can bond
         mycell.addBlock(b1)
-        mycell.addBlock(b2)
         mycell.addBlock(b3)
 
-        made = mycell.zipBlocks( bondMargin=6, bondAngleMargin=1 )
-        self.assertEqual( made, 1 )
+        mycell.dump()
+        made = mycell.zipBlocks( bondMargin=6, bondAngleMargin=1,clashCheck=True )
+        self.assertEqual(made,1)
         
-        #mycell.dump()
+        
+        # Add the pesky middle block and see if it now works
+        mycell.addBlock(b2)
+        made = mycell.zipBlocks( bondMargin=6, bondAngleMargin=1 )
+        self.assertEqual(made,0)
 
         return
 
@@ -4174,4 +4269,17 @@ if __name__ == '__main__':
     """
     Run the unit tests
     """
-    unittest.main()
+    #unittest.main()
+    
+    
+    mycell = Cell([12.0,12.0,12.0])   
+    boxSize=1
+    mycell.boxSize=boxSize
+    mycell.numBoxA=int(math.ceil(mycell.A/boxSize))
+    mycell.numBoxB=int(math.ceil(mycell.B/boxSize))
+    mycell.numBoxC=int(math.ceil(mycell.C/boxSize))
+    
+    
+    p1=numpy.array( [ 7.5347038,5.99462014,6.00620536])
+    p2=numpy.array([-0.15284469,5.96146523,5.98356573])
+    print mycell._intersectedCells(p1,p2)
