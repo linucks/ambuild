@@ -808,7 +808,7 @@ def XdistanceP(self, v1, v2 ):
 
     return math.sqrt( dx*dx + dy*dy + dz*dz )
 
-def dumpPkl(pickleFile,split=None):
+def dumpPkl(pickleFile,split=None,nonPeriodic=False):
 
     fpath = os.path.abspath( pickleFile )
     print "Dumping pkl file: {0}".format( fpath )
@@ -840,13 +840,16 @@ def dumpPkl(pickleFile,split=None):
                 b.writeCml("{0}_block{1}.cml".format(prefix,i))
 
     else:
-        data = mycell.dataDict(rigidBody=False)
-        mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
-        #self.writeCar(prefix+"_P.car",data=data,periodic=True)
-        mycell.writeCml(prefix+"_PV.cml", data=data, periodic=True, pruneBonds=True)
-        #mycell.writeHoomdXml( xmlFilename=prefix+"_hoomd.xml", data=data)
-        # For non-periodic stuff
-        # mycell.writeCml(prefix+".cml", data=mycell.dataDict(rigidBody=False,periodic=False), periodic=False, pruneBonds=False)
+        if nonPeriodic:
+            data=mycell.dataDict(rigidBody=False,periodic=False)
+            mycell.writeCml(prefix+"_NP.cml",data,
+                            periodic=False, pruneBonds=False)
+            mycell.writeXyz(prefix+"_NP.xyz",data=data, periodic=False)
+        else:
+            data = mycell.dataDict(rigidBody=False)
+            mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
+            #self.writeCar(prefix+"_P.car",data=data,periodic=True)
+            mycell.writeCml(prefix+"_PV.cml", data=data, periodic=True, pruneBonds=True)
 
     return
 
@@ -1313,6 +1316,7 @@ if __name__ == '__main__':
     split=None
     dlpoly=False
     rigid=True
+    nonPeriodic=False
     if len(sys.argv)==3:
         pklFile=sys.argv[2]
         if sys.argv[1]=="--fragments" or sys.argv[1]=="-f":
@@ -1325,6 +1329,8 @@ if __name__ == '__main__':
         elif sys.argv[1]=="-dr":
             dlpoly=True
             rigid=True
+        elif sys.argv[1]=="-np":
+            nonPeriodic=True
         else:
             print "Unrecognised option: {0}".format(sys.argv[2])
     else:
@@ -1336,5 +1342,5 @@ if __name__ == '__main__':
     if dlpoly:
         dumpDLPOLY(pklFile,rigidBody=rigid)
     else:
-        dumpPkl(pklFile,split=split)
+        dumpPkl(pklFile,split=split,nonPeriodic=nonPeriodic)
 
