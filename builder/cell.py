@@ -2979,7 +2979,7 @@ class TestCell(unittest.TestCase):
         mycell=self.createTestCell()
         mycell.capBlocks(fragmentType='A', filename=self.capLinker )
         #mycell.dump()
-        block = mycell.blocks[ mycell.blocks.keys()[0] ]
+        mycell.blocks[ mycell.blocks.keys()[0] ]
         return
 
     def testCellIO(self):
@@ -3406,7 +3406,7 @@ class TestCell(unittest.TestCase):
         mycell.addBondType( 'A:a-A:b' )
         mycell.setMaxBond( 'A:a', 1 )
 
-        added = mycell.seed( 1 )
+        mycell.seed( 1 )
         mycell.growBlocks(10, cellEndGroups=None, maxTries=10)
 
         #mycell.dump()
@@ -3423,7 +3423,7 @@ class TestCell(unittest.TestCase):
         mycell.addBondType( 'A:CH-A:CCl' )
         mycell.setMaxBond( 'A:CH', 1 )
 
-        added = mycell.seed( 1 )
+        mycell.seed( 1 )
         mycell.growBlocks(10, cellEndGroups=['A:CH'])
 
         #mycell.dump()
@@ -3469,11 +3469,11 @@ class TestCell(unittest.TestCase):
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType( 'A:a-A:a')
 
-        added = mycell.seed( 1, center=True )
+        mycell.seed( 1, center=True )
 
         nblocks=2
         dihedral=90
-        added = mycell.growBlocks( nblocks, cellEndGroups=None, libraryEndGroups=None, dihedral=dihedral, maxTries=5 )
+        mycell.growBlocks( nblocks, cellEndGroups=None, libraryEndGroups=None, dihedral=dihedral, maxTries=5 )
 
         # Check angle between two specified dihedrals is correct
         block1 = mycell.blocks[ mycell.blocks.keys()[0] ]
@@ -3834,18 +3834,18 @@ class TestCell(unittest.TestCase):
         # Check no block is outside the unit cell
         # We seed by the centroid so the edges could stick out by radius
         #radius = ch4.radius()
-
+        
         bad = []
         for i,b in mycell.blocks.iteritems():
             radius = b.blockRadius()
             for c in b.iterCoord():
-                if ( 0-radius > c[0] > CELLA[0]+ radius ) or \
-                   ( 0-radius > c[1] > CELLB[1]+ radius ) or \
-                   ( 0-radius > c[2] > CELLC[2]+ radius ):
+                if not 0-radius < c[0] < mycell.A + radius  or \
+                   not 0-radius < c[1] < mycell.B + radius  or \
+                   not 0-radius < c[2] < mycell.C + radius :
 
-                    bad.append( b )
+                    bad.append( c )
 
-        self.assertEqual( 0, len(bad), "Got {} blocks outside cell: {}".format( len(bad), bad ) )
+        self.assertEqual( 0, len(bad), "Got {} atoms outside cell: {}".format( len(bad), bad ) )
 
         #mycell.writeXyz("seedTest.xyz")
 
@@ -3950,7 +3950,7 @@ class TestCell(unittest.TestCase):
         bond = buildingBlock.Bond(endGroup1, endGroup2)
         b1.bondBlock( bond )
 
-        b1_id = mycell.addBlock(b1)
+        mycell.addBlock(b1)
         
         mycell.dump()
 
