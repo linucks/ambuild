@@ -728,6 +728,14 @@ class Cell():
         # Got bonds and no clashes
         self.logger.debug( "Checkmove no clashes" )
         return 0
+    
+    def clear(self):
+        """Empty the cell of blocks and reset any data structures"""
+        # Remove all blocks from their cells
+        self.box1 = {}
+        self.box3 = {}
+        self.blocks.clear() # Delete block list
+        return
 
     def closeAtoms(self, idxBlock1):
         """
@@ -1815,21 +1823,19 @@ class Cell():
     def repopulateCells(self):
         """Add all the blocks to resized cells"""
 
-        # Remove all blocks from their cells
-        self.box1 = {}
-        self.box3 = {}
-
+        blocks=None
         if len( self.blocks ):
             # Put all the blocks into the new cells
             # First copy the blocks dictionary
             blocks = copy.copy( self.blocks )
+        
+        # Empty the cell
+        self.clear()
 
-            self.blocks.clear() # Delete the old one and reset
-
+        if len(blocks):
             self.logger.debug("repopulateCells, adding blocks into new cells")
             for idxBlock, block in blocks.iteritems():
                 self.addBlock( block, idxBlock=idxBlock )
-
             del blocks
         return
 
@@ -2089,9 +2095,7 @@ class Cell():
         """
         return a list of the cells surrounding the one with the given key
         """
-
         #print "box size {} : {},{},{}".format( self.boxSize, self.numBoxA, self.numBoxB, self.numBoxC )
-
         # REM - max box num is numboxes - 1
         a,b,c = key
         l = []
@@ -2182,6 +2186,9 @@ class Cell():
                 bodyCount += frag.numBodies()
                 atomCount += frag.lenData()
         return
+    
+    def vecDiff(self,p1,p2):
+        return util.vecDiff(p1,p2,cell=numpy.array([self.A,self.B,self.C]))
 
     def writePickle( self, fileName="cell.pkl" ):
         """Pickle ourselves"""
@@ -2261,7 +2268,7 @@ class Cell():
         self.logger.info( "Wrote car file: {0}".format(fpath) )
         return
 
-    def writeCml(self, cmlFilename, rigidBody=True, data=None, periodic=True, pruneBonds=False):
+    def writeCml(self, cmlFilename, data=None, rigidBody=True, periodic=True, pruneBonds=False):
 
 #         atomTypes = []
 #         coords    = []
@@ -2307,14 +2314,18 @@ class Cell():
             d = data
 
         if periodic:
-            fpath = util.writeXyz(ofile,d.coords,d.symbols)
-        else:
             fpath = util.writeXyz(ofile,d.coords,d.symbols,cell=[self.A,self.B,self.C])
+        else:
+            fpath = util.writeXyz(ofile,d.coords,d.symbols)
 
         self.logger.info( "Wrote cell file: {0}".format(fpath) )
         return
 
-    def zipBlocks(self, bondMargin=None, bondAngleMargin=None,clashCheck=True):
+    def zipBlocks(self,
+                  bondMargin=None,
+                  bondAngleMargin=None,
+                  clashCheck=True,
+                  clashDist=1.8):
         """Join existing blocks in the cell by changing the bondMargin and bondAngleMargin parameters that were
         specified when the cell was created, and then looping over all the free endGroups to see if any can bond
         with the new parameters. The blocks are not moved in this step and no check is made as to whether there
@@ -2456,7 +2467,7 @@ class Cell():
             return 0
 
         # Check the bonds don't clash with anything
-        if clashCheck and self.zipBlocksClash():
+        if clashCheck and self.zipBlocksClash(clashDist=clashDist):
             self.logger.info("zipBlocks: bonds not accepted due to clashes")
             return 0
 
@@ -2480,7 +2491,7 @@ class Cell():
 
         return bondsMade
 
-    def zipBlocksClash(self):
+    def zipBlocksClash(self,clashDist=1.8):
         """Check if any of the bonds in zipBlocks clash with atoms in the cell
 
 
@@ -2499,6 +2510,7 @@ class Cell():
         """
 
         # First bond atom is start of ray, last is end
+        #got=False
         for bond in self._possibleBonds:
             # Create bond coordinates method
             idxAtom1=bond.endGroup1.endGroupIdx()
@@ -2508,17 +2520,14 @@ class Cell():
             p1=bond.endGroup1.block().coord(idxAtom1)
             p2=bond.endGroup2.block().coord(idxAtom2)
             
-#             print "p1 in ",[int(math.floor((p1[0]/self.A)*self.numBoxA)),
-#                             int(math.floor((p1[1]/self.B)*self.numBoxB)),
-#                             int(math.floor((p1[2]/self.B)*self.numBoxC))]
-#             print "p2 in ",[int(math.floor((p2[0]/self.A)*self.numBoxA)),
-#                             int(math.floor((p2[1]/self.B)*self.numBoxB)),
-#                             int(math.floor((p2[2]/self.B)*self.numBoxC))]
+            #print "P1, P2 ",p1,p2
+            #print "p1 in ",self._getBox(p1)
+            #print "p2 in ",self._getBox(p2)
+            #print "BOX ",self.boxSize,self.numBoxA,self.numBoxB,self.numBoxC
             
             idxBlock1=bond.endGroup1.block().id
             idxBlock2=bond.endGroup2.block().id
             
-            #print "P1, P2 ",p1,p2
 
             # Get a list of the cells the bond passes through (excluding endpoints)
             cells=self._intersectedCells(p1,p2)
@@ -2531,7 +2540,7 @@ class Cell():
                 except KeyError: continue
                 allcells.update(surround)
                 
-            #print "FOUND allCELLS ",allcells
+            #print "FOUND allCELLS ",sorted(allcells)
             
             # loop through all the atoms in the cells
             # & check if any are too close to the bond vector
@@ -2555,16 +2564,25 @@ class Cell():
                     # http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
                     
                     # First need to find whether the point is inside the segment
-                    #print "P1, P2, P3 ",p1,p2,p3
-                    self.logger.warn("NEED TO FIX FOR PBC")
-                    t=numpy.dot((p3-p1),(p2-p1))/numpy.square(numpy.linalg.norm(p2-p1))
+                    #print "P3 ",p3
+                    # I _think_ this implements it under PBC
+                    #p3p1=p3-p1
+                    #p3p2=p3-p2
+                    #p2p1=p2-p1
+                    p3p1=self.vecDiff(p3,p1)
+                    p3p2=self.vecDiff(p3,p2)
+                    p2p1=self.vecDiff(p2,p1)
+                    t=numpy.dot((p3p1),(p2p1))/numpy.square(numpy.linalg.norm(p2p1))
                     if 0 < t < 1:
-                        dist = numpy.linalg.norm(numpy.cross(p3-p1, p3-p2))/numpy.linalg.norm(p2-p1)
-                        #print "GOT D ",dist
-                        if dist < 2.0: # Totally abitrary number - a wee bit longer than a C-C bond
+                        dist = numpy.linalg.norm(numpy.cross(p3p1, p3p2))/numpy.linalg.norm(p2p1)
+                        #print "GOT D ",dist,p3
+                        if dist < clashDist: # Totally abitrary number - a wee bit longer than a C-C bond
                             return True
+                            #got=True
 
         return False
+        #print "CLASH RETURNING ",got
+        #return got
     
     def _getBox(self,coord):
         """Return the box that the coord is in under periodic boundaries"""
@@ -2585,9 +2603,13 @@ class Cell():
         Filched from:
         http://www.flipcode.com/archives/Raytracing_Topics_Techniques-Part_4_Spatial_Subdivisions.shtml
         http://stackoverflow.com/questions/12367071/how-do-i-initialize-the-t-variables-in-a-fast-voxel-traversal-algorithm-for-ray
+        
+        Could potentially speed things up by not returning the endpoints as they will be found by the surroundingCells algorithm
+        and we then only search the ends.
         """
         
         TMAXMAX=max(self.A,self.B,self.C) # Not 100% sure - just needs to be bigger than any possible value in the cell
+        
         # Wrap into a single cell
         p1[0] = p1[0] % self.A
         p1[1] = p1[1] % self.B
@@ -2598,11 +2620,11 @@ class Cell():
         
         X,Y,Z=self._getBox(p1) # The cell p1 is in
         outX,outY,outZ=self._getBox(p2) # The cell p2 is in
+        dx,dy,dz=self.vecDiff(p2, p1) # length components of line
+        
         #
         # X
         #
-        dx=p2[0]-p1[0] #length of x-component of line
-        if math.fabs(dx) > self.A * 0.5: dx = dx - math.copysign( self.A, dx)
         #stepX=int(math.copysign(1,dx)) # the direction of travel in the x-direction
         stepX=int(math.copysign(1,dx)) # the direction of travel in the x-direction
         # If there is no direction along a component, we need to make sure tMaxX is > the cell
@@ -2618,9 +2640,7 @@ class Cell():
         #
         # Y
         #
-        dy=p2[1]-p1[1]
-        if math.fabs(dy) > self.B * 0.5: dy = dy - math.copysign( self.B, dy)
-        stepY=stepX=int(math.copysign(1,dy))
+        stepY=int(math.copysign(1,dy))
         if Y==outY:
             tDeltaY=0
             tMaxY=TMAXMAX
@@ -2630,8 +2650,6 @@ class Cell():
         #
         # Z
         #            
-        dz=p2[2]-p1[2]
-        if math.fabs(dz) > self.C * 0.5: dz = dz - math.copysign( self.C, dz)
         stepZ=int(math.copysign(1,dz))
         if Z==outZ:
             tDeltaZ=0
@@ -2639,6 +2657,12 @@ class Cell():
         else:
             tDeltaZ=self.boxSize/dz
             tMaxZ = tDeltaZ * (1.0 - math.modf(p1[2] /self.boxSize)[0])
+            
+        
+        #print "dx ",dx,dy,dz
+        #print "IN ",X,Y,Z
+        #print "OUT ",outX,outY,outZ
+        #print "stepX ",stepX
             
         cells=[(X,Y,Z)] # Start with this cell
         while True:
@@ -2833,44 +2857,56 @@ class TestCell(unittest.TestCase):
         mycell.numBoxA=int(math.ceil(mycell.A/boxSize))
         mycell.numBoxB=int(math.ceil(mycell.B/boxSize))
         mycell.numBoxC=int(math.ceil(mycell.C/boxSize))
-        
+         
         p1=numpy.array([0.5,0.5,0.5])
         p2=numpy.array([8.5,8.5,8.5])
         ref=[(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8), (9, 8, 8), (8, 8, 8)]
         self.assertEqual(mycell._intersectedCells(p1,p2),ref)
-        
-        
+         
+         
         p1=numpy.array([0.5,0.5,0.5])
         p2=numpy.array([0.5,8.5,8.5])
         ref=[(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8)]
         self.assertEqual(mycell._intersectedCells(p1,p2),ref)
-        
+         
         p1=numpy.array([0.5,0.5,0.5])
         p2=numpy.array([0.6,8.5,8.5])
         ref=[(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8)]
         self.assertEqual(mycell._intersectedCells(p1,p2),ref)
-        
+         
         p1=numpy.array([0.5,0.5,0.5])
         p2=numpy.array([0.5,0.5,8.5])
         ref=[(0, 0, 0), (0, 0, 9), (0, 0, 8)]
         self.assertEqual(mycell._intersectedCells(p1,p2),ref)
-
+ 
         p1=numpy.array([-2.5,-2.5,-2.5])
         p2=numpy.array([8.5,8.5,8.5])
         ref=[(7, 7, 7), (7, 7, 8), (7, 8, 8), (8, 8, 8)]
         self.assertEqual(mycell._intersectedCells(p1,p2),ref)
-    
+     
         p1=numpy.array([5,0,0])
         p2=numpy.array([-3,0,0])
         self.assertEqual(mycell._intersectedCells(p1,p2),[(5, 0, 0), (6, 0, 0), (7, 0, 0)])
-        
+         
         p1=numpy.array([9,9,9])
         p2=numpy.array([1,1,1])
         self.assertEqual(mycell._intersectedCells(p1,p2),[(9, 9, 9), (9, 9, 0), (9, 0, 0),
                                                           (0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)])
 
+
+        mycell = Cell([25,25,25])   
+        mycell.boxSize=1.91761148234
+        mycell.numBoxA=14
+        mycell.numBoxB=14
+        mycell.numBoxC=14
+
+        p1=numpy.array([ -3.46529620e+00,   7.99752596e-03,   1.86788673e-03])
+        p2=numpy.array( [  3.45583501e+00,   7.99752596e-03,   1.86788673e-03])
+        self.assertEqual(mycell._intersectedCells(p1,p2),[(11, 0, 0), (12, 0, 0), (13, 0, 0),
+                                                          (0, 0, 0),(1, 0, 0)])
+
         return
-    
+
     def testCX4(self):
         """First pass"""
 
@@ -3999,9 +4035,99 @@ class TestCell(unittest.TestCase):
         return
 
 
-    def testZipClash(self):
+    def testZipClash1(self):
+        """Test no clashes"""
 
-        boxDim=[100,100,100]
+        boxDim=[25,25,25]
+        mycell = Cell(boxDim,doLog=True)
+
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+
+        # Create blocks manually
+        b1 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        #b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        #b3 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+
+        # Align bond along x-axis
+        b1.alignAtoms( 0, 3, [ 0, 0, 1 ] )
+        b1.alignAtoms( 0, 3, [ 0, 1, 0 ] )
+        b1.alignAtoms( 0, 3, [ 1, 0, 0 ] )
+
+        b2 = b1.copy()
+        b3 = b1.copy()
+        
+        # b1 in center of cell -5 on x-axis
+        b1.translateCentroid( [ (mycell.A/2)-5, mycell.B/2, mycell.C/2 ] )
+
+        # b2 in center
+        b2.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+
+        # rotate so ring facing bond axis
+        b2.rotate([0,1,0],math.pi/2,center=b2.centroid())
+        
+        # b3 + 5 on x
+        b3.translateCentroid( [ (mycell.A/2)+5, mycell.B/2, mycell.C/2 ] )
+
+        # Add blocks either side to cell and make sure we can bond
+        mycell.addBlock(b1)
+        mycell.addBlock(b3)
+
+        made = mycell.zipBlocks( bondMargin=6, bondAngleMargin=1,clashCheck=True)
+        self.assertEqual(made,1)
+        return
+    
+    def testZipClash2(self):
+        """Test clash when bond is through a benzene ring"""
+
+        boxDim=[25,25,25]
+        mycell = Cell(boxDim,doLog=True)
+
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+
+        # Create blocks manually
+        b1 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        #b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        #b3 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+
+        # Align bond along x-axis
+        b1.alignAtoms( 0, 3, [ 0, 0, 1 ] )
+        b1.alignAtoms( 0, 3, [ 0, 1, 0 ] )
+        b1.alignAtoms( 0, 3, [ 1, 0, 0 ] )
+
+        b2 = b1.copy()
+        b3 = b1.copy()
+        
+        # b1 in center of cell -5 on x-axis
+        b1.translateCentroid( [ (mycell.A/2)-5, mycell.B/2, mycell.C/2 ] )
+
+        # b2 in center
+        b2.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+
+        # rotate so ring facing bond axis
+        b2.rotate([0,1,0],math.pi/2,center=b2.centroid())
+        
+        # b3 + 5 on x
+        b3.translateCentroid( [ (mycell.A/2)+5, mycell.B/2, mycell.C/2 ] )
+
+        # Add blocks either side to cell and make sure we can bond
+        mycell.addBlock(b1)
+        mycell.addBlock(b3)
+
+        # Add the pesky middle block and see if it now works
+        mycell.addBlock(b2)
+        #print "ATOM BLOCK ",sorted(b2.atomCell)
+                
+        made = mycell.zipBlocks(bondMargin=6, bondAngleMargin=1,clashCheck=True,clashDist=1.8)
+        self.assertEqual(made,0)
+        
+        return    
+
+    def testZipClashPBC1(self):
+        """Test clash for bond across PBC"""
+
+        boxDim=[25,25,25]
         mycell = Cell(boxDim,doLog=True)
 
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
@@ -4021,29 +4147,78 @@ class TestCell(unittest.TestCase):
         b3 = b1.copy()
 
         # b1 in center of cell -5 on x-axis
-        b1.translateCentroid( [ mycell.A/2-5, mycell.B/2, mycell.C/2 ] )
+        b1.translateCentroid( [ -5, 0, 0 ] )
 
-        # b2 in center
-        b2.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        # b2 on cell bounudary
+        b2.translateCentroid( [ 0, 0, 0 ] )
 
         # rotate so ring facing bond axis
-        b2.rotate([0,1,0],math.pi/2,center=[0,0,0])
+        b2.rotate([0,1,0],math.pi/2,center=b2.centroid())
 
         # b3 + 5 on x
-        b3.translateCentroid( [ mycell.A/2+5, mycell.B/2, mycell.C/2 ] )
+        b3.translateCentroid( [ 5, 0, 0 ] )
 
         # Add blocks either side to cell and make sure we can bond
         mycell.addBlock(b1)
         mycell.addBlock(b3)
-
-        mycell.dump()
-        made = mycell.zipBlocks( bondMargin=6, bondAngleMargin=1,clashCheck=True )
-        self.assertEqual(made,1)
         
         # Add the pesky middle block and see if it now works
         mycell.addBlock(b2)
-        made = mycell.zipBlocks( bondMargin=6, bondAngleMargin=1 )
+        #mycell.dump()
+        #print "ATOM BLOCK ",sorted(b2.atomCell)
+
+        made = mycell.zipBlocks(bondMargin=6, bondAngleMargin=1, clashCheck=True, clashDist=1.8)
+        #mycell.dump()
         self.assertEqual(made,0)
+
+        return
+    
+    def testZipClashPBC2(self):
+        """Test clash for bond across PBC"""
+
+        boxDim=[25,25,25]
+        mycell = Cell(boxDim,doLog=True)
+
+        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
+        mycell.addBondType( 'A:a-A:a')
+
+        # Create blocks manually
+        b1 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        #b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        #b3 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+
+        # Align bond along x-axis
+        b1.alignAtoms( 0, 3, [ 0, 0, 1 ] )
+        b1.alignAtoms( 0, 3, [ 0, 1, 0 ] )
+        b1.alignAtoms( 0, 3, [ 1, 0, 0 ] )
+
+        b2 = b1.copy()
+        b3 = b1.copy()
+
+        # b1 in center of cell -5 on x-axis
+        b1.translateCentroid( [ -5, 0, 0 ] )
+
+        # b2 on cell bounudary
+        b2.translateCentroid( [ 0, 0, 0 ] )
+
+        # rotate so ring facing bond axis
+        b2.rotate([0,1,0],math.pi/2,center=b2.centroid())
+
+        # b3 + 5 on x
+        b3.translateCentroid( [ 5, 0, 0 ] )
+
+        # Add blocks either side to cell and make sure we can bond
+        mycell.addBlock(b1)
+        mycell.addBlock(b3)
+        
+        # Add the pesky middle block and see if it now works
+        mycell.addBlock(b2)
+        #mycell.dump()
+        #print "ATOM BLOCK ",sorted(b2.atomCell)
+
+        made = mycell.zipBlocks(bondMargin=6, bondAngleMargin=1, clashCheck=False )
+        #mycell.dump()
+        self.assertEqual(made,1)
 
         return
 

@@ -776,7 +776,15 @@ def distance(v1, v2, cell=None ):
     Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
     Changed so that it can cope with distances across more than one cell
     """
-    assert len(v1) > 0 and len(v2) > 0, "distance needs vectors!"
+    return numpy.sqrt((vecDiff(v1,v2,cell) ** 2).sum(axis=-1))
+
+def vecDiff(v1, v2, cell=None ):
+    """Difference between vectors with numpy taking PBC into account
+    This works either with 2 points or a vector of any number of points
+    Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
+    Changed so that it can cope with distances across more than one cell
+    """
+    assert len(v1) > 0 and len(v2) > 0, "vecDiff needs vectors!"
     delta = numpy.array(v1) - numpy.array(v2)
     if cell is not None:
         #dimensions = numpy.array( cell )
@@ -787,7 +795,7 @@ def distance(v1, v2, cell=None ):
         delta = numpy.where(numpy.abs(delta) > 0.5 * dimensions,
                             delta - numpy.copysign( dimensions, delta ),
                             delta)
-    return numpy.sqrt((delta ** 2).sum(axis=-1))
+    return delta
 
 def XdistanceP(self, v1, v2 ):
     """
