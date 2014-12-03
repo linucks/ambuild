@@ -2467,9 +2467,14 @@ class Cell():
             return 0
 
         # Check the bonds don't clash with anything
-        if clashCheck and self.zipBlocksClash(clashDist=clashDist):
-            self.logger.info("zipBlocks: bonds not accepted due to clashes")
-            return 0
+        if clashCheck:
+            toRemove=[bond for bond in self._possibleBonds if self.zipBlocksClash(bond,clashDist=clashDist)]
+            if len(toRemove):
+                self.logger.info("zipBlocks: {0} bonds not accepted due to clashes".format(len(toRemove)))
+                for b in toRemove: self._possibleBonds.remove(bond)
+                if not len(self._possibleBonds):
+                    self.logger.info("zipBlocks: No bonds remaining after clash checks")
+                    return 0
 
         self.logger.info("zipBlocks: found {0} additional bonds".format( todo ) )
 #         for b in self._possibleBonds:
@@ -2491,7 +2496,7 @@ class Cell():
 
         return bondsMade
 
-    def zipBlocksClash(self,clashDist=1.8):
+    def zipBlocksClash(self,bond, clashDist=1.8):
         """Check if any of the bonds in zipBlocks clash with atoms in the cell
 
 
@@ -2509,76 +2514,75 @@ class Cell():
 
         """
 
-        # First bond atom is start of ray, last is end
-        #got=False
-        for bond in self._possibleBonds:
-            # Create bond coordinates method
-            idxAtom1=bond.endGroup1.endGroupIdx()
-            idxCap1=bond.endGroup1.capIdx()
-            idxAtom2=bond.endGroup2.endGroupIdx()
-            idxCap2=bond.endGroup2.capIdx()
-            p1=bond.endGroup1.block().coord(idxAtom1)
-            p2=bond.endGroup2.block().coord(idxAtom2)
-            
-            #print "P1, P2 ",p1,p2
-            #print "p1 in ",self._getBox(p1)
-            #print "p2 in ",self._getBox(p2)
-            #print "BOX ",self.boxSize,self.numBoxA,self.numBoxB,self.numBoxC
-            
-            idxBlock1=bond.endGroup1.block().id
-            idxBlock2=bond.endGroup2.block().id
-            
+        assert 0 < clashDist < min(self.A,self.B,self.C),"Unreasonable clashDist: {0}".format(clashDist)
 
-            # Get a list of the cells the bond passes through (excluding endpoints)
-            cells=self._intersectedCells(p1,p2)
-            #print "FOUND CELLS ",cells
+        # Create bond coordinates method
+        idxAtom1=bond.endGroup1.endGroupIdx()
+        idxCap1=bond.endGroup1.capIdx()
+        idxAtom2=bond.endGroup2.endGroupIdx()
+        idxCap2=bond.endGroup2.capIdx()
+        p1=bond.endGroup1.block().coord(idxAtom1)
+        p2=bond.endGroup2.block().coord(idxAtom2)
+        
+        #print "P1, P2 ",p1,p2
+        #print "p1 in ",self._getBox(p1)
+        #print "p2 in ",self._getBox(p2)
+        #print "BOX ",self.boxSize,self.numBoxA,self.numBoxB,self.numBoxC
+        
+        idxBlock1=bond.endGroup1.block().id
+        idxBlock2=bond.endGroup2.block().id
+        
+
+        # Get a list of the cells the bond passes through (excluding endpoints)
+        cells=self._intersectedCells(p1,p2)
+        #print "FOUND CELLS ",cells
+        
+        # Now build up a list of the cells surrounding the cells on the bond vector
+        allcells=set(cells)
+        for cell in cells:
+            try: surround=self.box3[cell]
+            except KeyError: continue
+            allcells.update(surround)
             
-            # Now build up a list of the cells surrounding the cells on the bond vector
-            allcells=set(cells)
-            for cell in cells:
-                try: surround=self.box3[cell]
-                except KeyError: continue
-                allcells.update(surround)
+        #print "FOUND allCELLS ",sorted(allcells)
+        
+        # loop through all the atoms in the cells
+        # & check if any are too close to the bond vector
+        for cell in list(allcells):
+            try: alist = self.box1[cell]
+            except KeyError: continue
+            for (idxBlock3,idxAtom3) in alist:
+
+                # Dont' check the bond atoms or the cap atoms
+                if idxBlock3==idxBlock1 and idxAtom3==idxAtom1 or\
+                idxBlock3==idxBlock2 and idxAtom3==idxAtom2 or \
+                idxBlock3==idxBlock1 and idxAtom3==idxCap1 or \
+                idxBlock3==idxBlock2 and idxAtom3==idxCap2:
+                    continue
+
+                block3=self.blocks[idxBlock3]
+                p3=block3.coord(idxAtom3)
                 
-            #print "FOUND allCELLS ",sorted(allcells)
-            
-            # loop through all the atoms in the cells
-            # & check if any are too close to the bond vector
-            for cell in list(allcells):
-                try: alist = self.box1[cell]
-                except KeyError: continue
-                for (idxBlock3,idxAtom3) in alist:
-
-                    # Dont' check the bond atoms or the cap atoms
-                    if idxBlock3==idxBlock1 and idxAtom3==idxAtom1 or\
-                    idxBlock3==idxBlock2 and idxAtom3==idxAtom2 or \
-                    idxBlock3==idxBlock1 and idxAtom3==idxCap1 or \
-                    idxBlock3==idxBlock2 and idxAtom3==idxCap2:
-                        continue
-
-                    block3=self.blocks[idxBlock3]
-                    p3=block3.coord(idxAtom3)
-                    
-                    # Distance of a point from a line:
-                    #  http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
-                    # http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
-                    
-                    # First need to find whether the point is inside the segment
-                    #print "P3 ",p3
-                    # I _think_ this implements it under PBC
-                    #p3p1=p3-p1
-                    #p3p2=p3-p2
-                    #p2p1=p2-p1
-                    p3p1=self.vecDiff(p3,p1)
-                    p3p2=self.vecDiff(p3,p2)
-                    p2p1=self.vecDiff(p2,p1)
-                    t=numpy.dot((p3p1),(p2p1))/numpy.square(numpy.linalg.norm(p2p1))
-                    if 0 < t < 1:
-                        dist = numpy.linalg.norm(numpy.cross(p3p1, p3p2))/numpy.linalg.norm(p2p1)
-                        #print "GOT D ",dist,p3
-                        if dist < clashDist: # Totally abitrary number - a wee bit longer than a C-C bond
-                            return True
-                            #got=True
+                # Distance of a point from a line:
+                #  http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
+                # http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
+                
+                # First need to find whether the point is inside the segment
+                #print "P3 ",p3
+                # I _think_ this implements it under PBC
+                #p3p1=p3-p1
+                #p3p2=p3-p2
+                #p2p1=p2-p1
+                p3p1=self.vecDiff(p3,p1)
+                p3p2=self.vecDiff(p3,p2)
+                p2p1=self.vecDiff(p2,p1)
+                t=numpy.dot((p3p1),(p2p1))/numpy.square(numpy.linalg.norm(p2p1))
+                if 0 < t < 1:
+                    dist = numpy.linalg.norm(numpy.cross(p3p1, p3p2))/numpy.linalg.norm(p2p1)
+                    #print "GOT D ",dist,p3
+                    if dist < clashDist: # Totally abitrary number - a wee bit longer than a C-C bond
+                        return True
+                        #got=True
 
         return False
         #print "CLASH RETURNING ",got
