@@ -2325,7 +2325,7 @@ class Cell():
                   bondMargin=None,
                   bondAngleMargin=None,
                   clashCheck=True,
-                  clashDist=1.8):
+                  clashDist=1.6):
         """Join existing blocks in the cell by changing the bondMargin and bondAngleMargin parameters that were
         specified when the cell was created, and then looping over all the free endGroups to see if any can bond
         with the new parameters. The blocks are not moved in this step and no check is made as to whether there
@@ -2468,7 +2468,8 @@ class Cell():
 
         # Check the bonds don't clash with anything
         if clashCheck:
-            toRemove=[bond for bond in self._possibleBonds if self.zipBlocksClash(bond,clashDist=clashDist)]
+            toRemove=[bond for bond in self._possibleBonds if self.zipBlocksClash(bond=bond,
+                                                                                  clashDist=clashDist)]
             if len(toRemove):
                 self.logger.info("zipBlocks: {0} bonds not accepted due to clashes".format(len(toRemove)))
                 for b in toRemove: self._possibleBonds.remove(bond)
@@ -2496,7 +2497,7 @@ class Cell():
 
         return bondsMade
 
-    def zipBlocksClash(self,bond, clashDist=1.8):
+    def zipBlocksClash(self,bond,clashDist):
         """Check if any of the bonds in zipBlocks clash with atoms in the cell
 
 
