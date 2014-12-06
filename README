@@ -153,6 +153,8 @@ fragmentType - the type of fragments to add. If fragment is None, or omitted, th
                chosen from the library.
 maxTries - the number of attempts to make when adding a block before the seed step is fails and returns.
 center - True/False - if True, place the first block in the center of the cell.
+save - a list of (single-fragment) fragmentTypes that will be deleted from the cell, but saved and then
+       re-added after seeding.
 
 Once the system is seeded, Grow or Join steps are used either add new blocks to the system, or join existing blocks
 together.

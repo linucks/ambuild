@@ -283,6 +283,20 @@ class Cell():
                 self.box3[ key ] = self.surroundCells( key )
 
         return idxBlock
+    
+    def addBlocks(self,blocks):
+        """Try and add a list of blocks to the cell"""
+        added=0
+        for block in blocks:
+            idxBlock=self.addBlock(block)
+            if self.checkMove(idxBlock):
+                added+=1
+                if self.processBonds() > 0:
+                    self.logger.info("Added bond while adding blocks!")
+            else:
+                self.delBlock(idxBlock)
+        del blocks
+        return added
 
     def addBondType( self, bondType ):
         """Allow bonds between the two endGroups specified in the bondType.
@@ -1062,8 +1076,7 @@ class Cell():
                 del self.box1[key]
                 del self.box3[key]
         del self.blocks[blockId]
-        del block
-
+        #del block # Don't want to delete the block as we might be saving it
         return
 
     def delete(self,numBlocks,fragmentType,multiple=False):
@@ -1932,8 +1945,27 @@ class Cell():
         self.fromHoomdblueSystem( optimiser.system )
 
         return ok
+    
+    def saveBlocks(self,saveList):
+        """Delete all block of type in saveList from cell and return a list of those blocks"""
+        assert type(saveList) is list,"saveBlocks needs a list of blocks!"
 
-    def seed( self, nblocks, fragmentType=None, maxTries=500, center=False ):
+        # Get a list of the blocks we want to save
+        idxList=[]
+        for idxBlock, block in self.blocks.iteritems():
+            # Only allow single-fragment blocks
+            if len(block.fragments) is 1 and block.fragments[0].fragmentType in saveList:
+                idxList.append(idxBlock)
+        
+        # Delete them from the cell, but save them for readding after
+        blockList=[]
+        for idxBlock, block in self.blocks.iteritems():
+            if idxBlock in idxList:
+                blockList.append(block)
+                self.delBlock(idxBlock)        
+        return blockList        
+        
+    def seed( self, nblocks, fragmentType=None, maxTries=500, center=False, save=None):
         """ Seed a cell with nblocks of type fragmentType.
 
         Args:
@@ -1942,7 +1974,8 @@ class Cell():
                        chosen type will be added.
         maxTries - the number of attempts to make when adding a block before the seed step is fails and returns.
         center - True/False - if True, place the first block in the center of the cell.
-
+        save - a list of (single-fragment) fragmentTypes that will be deleted from the cell, but saved and then
+               re-added after seeding.
         Returns:
         the number of blocks added
         """
@@ -1956,6 +1989,10 @@ class Cell():
             raise RuntimeError,"Must have set an initBlock before seeding."
 
         self.logger.info("seed adding {0} block of type {1}".format( nblocks, fragmentType ) )
+        
+        if save:
+            savedBlocks=self.saveBlocks(save)
+            self.logger.info( "saveBlocks removed {0} blocks from cell".format(len(savedBlocks)) )
 
         numBlocksAdded = 0
         # Loop through the nblocks adding the blocks to the cell
@@ -2007,6 +2044,10 @@ class Cell():
 
         self.logger.info("Seed added {0} blocks. Cell now contains {1} blocks".format( numBlocksAdded,
                                                                                        len(self.blocks) ) )
+        if save:
+            added=self.addBlocks(savedBlocks)
+            self.logger.info("Seed re-added {0} blocks. Cell now contains {1} blocks".format( added,
+                                                                                              len(self.blocks) ) )
 
         return numBlocksAdded
 
@@ -3854,6 +3895,25 @@ class TestCell(unittest.TestCase):
         os.unlink( filename )
 
         return
+    
+    def testSave(self):
+
+        boxDim=[20,20,20]
+        mycell = Cell(boxDim)
+
+        mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
+        mycell.libraryAddFragment( filename=self.benzeneCar, fragmentType='B' )
+        mycell.addBondType( 'B:a-B:a' )
+
+        mycell.seed(70,fragmentType='A')
+        mycell.dump()
+        toAdd=15
+        added=mycell.seed(toAdd,fragmentType='B',save=['A'])
+        mycell.dump()
+        self.assertEqual(added,toAdd)
+        
+        return
+        
 
     def testSeed(self):
         """Test we can seed correctly"""
