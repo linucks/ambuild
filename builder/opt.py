@@ -884,9 +884,9 @@ class DLPOLY(FFIELD):
                 bstart=molCount
                 for i,coord in enumerate(frag.iterCoord()):
                     if periodic:
-                        x, ix = util.wrapCoord( coord[0], cell.A, center=center )
-                        y, iy = util.wrapCoord( coord[1], cell.B, center=center )
-                        z, iz = util.wrapCoord( coord[2], cell.C, center=center )
+                        x, ix = util.wrapCoord( coord[0], cell.dim[0], center=center )
+                        y, iy = util.wrapCoord( coord[1], cell.dim[1], center=center )
+                        z, iz = util.wrapCoord( coord[2], cell.dim[2], center=center )
                         blockCoords.append( [x,y,z] )
                         blockImages.append([ix,iy,iz])
                     else:
@@ -951,7 +951,7 @@ class DLPOLY(FFIELD):
 
         # First write out the CONFIG file
         # Unpack the coordinates and types from the blocks
-        self._writeCONFIG([cell.A,cell.B,cell.C], [j for i in types for j in i], [j for i in coords for j in i])
+        self._writeCONFIG(cell.dim, [j for i in types for j in i], [j for i in coords for j in i])
 
         # Quick hack hijacking hoomdblue machinary
         # Check we have all the parameters we need

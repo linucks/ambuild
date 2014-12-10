@@ -587,83 +587,91 @@ def calcBondsHACK( coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargi
                 bonds.append( (i, j) )
     return bonds
 
-def calcBonds( coords, symbols, cell=None, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0 ):
+def haloCells(key, boxNum=None):
+    """Returns the list of cells surrounding a cell
+    boxNum is the number of boxes in each dimension of the containing cell if we
+    are under PBC
+    """
+    a,b,c = key
+    #cells = set()
+    cells = set()
+    for  i in [ 0, -1, +1 ]:
+        for j in [ 0, -1, +1 ]:
+            for k in [ 0, -1, +1 ]:
+                # Impose periodic boundaries
+                ai = a+i
+                bj = b+j
+                ck = c+k
+                if boxNum:
+                    # Impose periodic boundaries 
+                    if ai < 0:
+                        ai = boxNum[0]-1
+                    elif ai > boxNum[0]-1:
+                        ai = 0
+                    if bj < 0:
+                        bj = boxNum[1]-1
+                    elif bj > boxNum[1]-1:
+                        bj = 0
+                    if ck < 0:
+                        ck = boxNum[2]-1
+                    elif ck > boxNum[2]-1:
+                        ck = 0
+                skey = (ai, bj, ck)
+                #print "sKey ({},{},{})->({})".format(a,b,c,skey)
+                #cells.add(skey)
+                cells.add(skey)
+
+    return list(cells)
+
+def calcBonds(coords, symbols, cellDim=None, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0):
     """Calculate the bonds for the fragments. This is done at the start when the only coordinates
     are those in the fragment.
     If supplied cell is a list/numpy array with the dimensions of the simulation cell, in which case
     PBC will be applied
     """
+    close=closeAtoms(coords, symbols, cellDim, maxAtomRadius, boxMargin)
+    v1=[]
+    v2=[]
+    for idxAtom1,idxAtom2 in close:
+        v1.append(coords[idxAtom1])
+        v2.append(coords[idxAtom2])
+        
+    distances=distance(v1, v2, cellDim)
+    bonds=[]
+    for i,(idxAtom1,idxAtom2) in enumerate(close):
+        bond_length = bondLength(symbols[idxAtom1],symbols[idxAtom2])
+        if bond_length < 0: continue
+        #print "Dist:length {0}:{1} {2}-{3} {4} {5}".format( idxAtom1, idxAtom2, symbol1, symbol2, bond_length, dist )
+        if  bond_length - bondMargin < distances[i] < bond_length + bondMargin:
+            bonds.append( (idxAtom1, idxAtom2) )
+    
+    return bonds
 
-    def getSurroundCells( key, boxNum=None ):
-        """Returns the list of cells surrounding a cell
-        boxNum is the number of boxes in each dimension of the containing cell if we
-        are under PBC
-        """
-        a,b,c = key
-        #cells = set()
-        cells = set()
-        for  i in [ 0, -1, +1 ]:
-            for j in [ 0, -1, +1 ]:
-                for k in [ 0, -1, +1 ]:
-                    # Impose periodic boundaries
-                    ai = a+i
-                    bj = b+j
-                    ck = c+k
-                    if boxNum:
-                        # Impose periodic boundaries 
-                        if ai < 0:
-                            ai = boxNum[0]-1
-                        elif ai > boxNum[0]-1:
-                            ai = 0
-                        if bj < 0:
-                            bj = boxNum[1]-1
-                        elif bj > boxNum[1]-1:
-                            bj = 0
-                        if ck < 0:
-                            ck = boxNum[2]-1
-                        elif ck > boxNum[2]-1:
-                            ck = 0
-                    skey = (ai, bj, ck)
-                    #print "sKey ({},{},{})->({})".format(a,b,c,skey)
-                    #cells.add(skey)
-                    cells.add(skey)
-
-        return list(cells)
-    ## End getSurroundCells
-
+def closeAtoms(coords, symbols, cellDim=None, maxAtomRadius=None, boxMargin=1.0):
+    """Return a list of which atoms in the cell are close to each other.
+    Close is defined by the maxAtomRadius and boxMargin"""
     if maxAtomRadius is None:
         for s in set( symbols ):
-            z = SYMBOL_TO_NUMBER[ s.upper() ]
-            r = COVALENT_RADII[z] * BOHR2ANGSTROM
-            maxAtomRadius = max( r, maxAtomRadius )
+            maxAtomRadius = max(COVALENT_RADII[SYMBOL_TO_NUMBER[s.upper()]] * BOHR2ANGSTROM, maxAtomRadius)
 
-    # Calculate how big the boxes are
     boxSize = ( maxAtomRadius * 2 ) + boxMargin
-    
     # If we are under PBC calculate the number of boxes in each dimenson
     boxNum=None
-    if cell:
-        if type(cell) is list:
-            cell=numpy.array(cell)
-        boxNum=[None,None,None]
-        boxNum[0] = int(math.ceil( cell[0] / boxSize ) )
-        boxNum[1] = int(math.ceil( cell[1] / boxSize ) )
-        boxNum[2] = int(math.ceil( cell[2] / boxSize ) )
+    if cellDim is not None:
+        if type(cellDim) is list:
+            cellDim=numpy.array(cellDim)
+        boxNum=[ int(math.ceil( cellDim[0] / boxSize ) ),
+                 int(math.ceil( cellDim[1] / boxSize ) ),
+                 int(math.ceil( cellDim[2] / boxSize ) )]
 
     atomCells = [] # List of which cell each atom is in - matches coords array
-    # For cells and surroundCells, the key is a triple of the indices of the cell position (a,b,c)
+    # For cells and hCells, the key is a triple of the indices of the cell position (a,b,c)
     cells = {} # Dictionary of the cells, each containing a list of atoms in that cell
-    surroundCells = {} # Dictionary keyed by cell with a list of the cells that surround a particular cell
+    hCells = {} # Dictionary keyed by cell with a list of the cells that surround a particular cell
 
     # Work out which box each atom is in and the surrounding boxes
     for idxAtom1, coord in enumerate( coords ):
-
-        x, y, z = coord
-        a=int( math.floor( x / boxSize ) )
-        b=int( math.floor( y / boxSize ) )
-        c=int( math.floor( z / boxSize ) )
-
-        key = (a,b,c)
+        key=getCell(coord,boxSize,cellDim=cellDim)
         atomCells.append( key )
         if cells.has_key( key ):
             cells[ key ].append( idxAtom1 )
@@ -671,43 +679,37 @@ def calcBonds( coords, symbols, cell=None, maxAtomRadius=None, bondMargin=0.2, b
             # Add to main list
             cells[ key ] = [ ( idxAtom1 ) ]
             # Map surrounding boxes
-            surroundCells[ key ] = getSurroundCells( key, boxNum=boxNum )
-
-    bonds = []
+            hCells[ key ] = haloCells( key, boxNum=boxNum )
 
     # Now calculate the bonding
-    for idxAtom1, coord1 in enumerate( coords ):
-
-        symbol1 = symbols[ idxAtom1 ]
+    _closeAtoms=[]
+    for idxAtom1 in range(len(coords)):
         key = atomCells[ idxAtom1 ]
-
         # Loop through all cells surrounding this one
-        for scell in surroundCells[ key ]:
-
+        for scell in hCells[ key ]:
             # Check if we have a cell with anything in it
-            # Trigger exception so we don't have to search through the keys
-            try:
-                alist=cells[ scell ]
-            except KeyError:
-                continue
-
+            try: alist=cells[ scell ]
+            except KeyError: continue # Trigger exception to save searching through the keys
             for idxAtom2 in alist:
+                if idxAtom2 > idxAtom1: # Skip atoms we've already processed
+                    _closeAtoms.append((idxAtom1,idxAtom2))
+    return _closeAtoms
 
-                # Skip atoms we've already processed
-                if idxAtom2 > idxAtom1:
+def getCell(coord,boxSize,cellDim=None):
+    """Return the cell that the coord is in under periodic boundaries"""
+    # Periodic Boundaries
+    if cellDim is not None:
+        x = coord[0] % cellDim[0]
+        y = coord[1] % cellDim[1]
+        z = coord[2] % cellDim[2]
+    else:
+        x,y,z=coord[0],coord[1],coord[2]
 
-                    coord2 = coords[ idxAtom2 ]
-                    symbol2 = symbols[ idxAtom2 ]
-
-                    bond_length = bondLength( symbol1, symbol2 )
-                    if bond_length < 0:
-                        continue
-
-                    #print "Dist:length {0}:{1} {2}-{3} {4} {5}".format( idxAtom1, idxAtom2, symbol1, symbol2, bond_length, dist )
-                    if  bond_length - bondMargin < distance( coord1, coord2, cell=cell ) < bond_length + bondMargin:
-                        bonds.append( (idxAtom1, idxAtom2) )
-
-    return bonds
+    # Calculate which cell the atom is in
+    a=int( math.floor( x / boxSize ) )
+    b=int( math.floor( y / boxSize ) )
+    c=int( math.floor( z / boxSize ) )
+    return (a,b,c)
 
 def cellFromPickle(pickleFile):
     with open(pickleFile) as f:
@@ -840,9 +842,9 @@ def dumpPkl(pickleFile,split=None,nonPeriodic=False):
             # Write out each block to a separate file
             if periodic:
                 b.writeXyz("{0}_block{1}.xyz".format(prefix,i),
-                           cell=[mycell.A,mycell.B,mycell.C])
+                           cell=mycell.dim)
                 b.writeCml("{0}_block{1}.cml".format(prefix,i),
-                           cell=[mycell.A,mycell.B,mycell.C])
+                           cell=mycell.dim)
             else:
                 b.writeXyz("{0}_block{1}.xyz".format(prefix,i))
                 b.writeCml("{0}_block{1}.cml".format(prefix,i))

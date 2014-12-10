@@ -210,9 +210,7 @@ class Cell():
         self.minCellData = None
 
         # number of boxes in A,B,C axes - used for calculating PBC
-        self.numBoxA = None
-        self.numBoxB = None
-        self.numBoxC = None
+        self.numBoxes = [None,None,None]
 
         self._fragmentLibrary = {} # fragmentType -> parentFragment
         self._endGroup2LibraryFragment = {} # endGroup type -> parentFragment
@@ -244,13 +242,11 @@ class Cell():
             if not type(boxDim) is list and len(boxDim) == 3:
                 raise RuntimeError,"Cell constructor needs the boxDim argument to be list of 3 numbers setting the cell dimensions!"
 
-            self.A = float(boxDim[0])
-            self.B = float(boxDim[1])
-            self.C = float(boxDim[2])
+            self.dim=[float(boxDim[0]),float(boxDim[1]),float(boxDim[2])]
         else:
             self.initFromFile(filePath)
 
-        assert self.A >0 and self.B > 0 and self.C > 0
+        assert self.dim[0] >0 and self.dim[1] > 0 and self.dim[2] > 0
 
         return
 
@@ -280,7 +276,7 @@ class Cell():
                 # Add the cell to the list and then add the atom
                 self.box1[ key ] = [ ( idxBlock, idxCoord ) ]
                 # Map the cells surrounding this one
-                self.box3[ key ] = self.surroundCells( key )
+                self.box3[ key ] = self.haloCells( key )
 
         return idxBlock
     
@@ -295,7 +291,6 @@ class Cell():
                     self.logger.info("Added bond while adding blocks!")
             else:
                 self.delBlock(idxBlock)
-        del blocks
         return added
 
     def addBondType( self, bondType ):
@@ -363,7 +358,7 @@ class Cell():
     def angle(self, c1, c2, c3):
         """Return the angle in radians c1---c2---c3
         where c are the coordinates in a numpy array"""
-        return util.angle(c1, c2, c3, cell=numpy.array([self.A,self.B,self.C]))
+        return util.angle(c1, c2, c3, cell=numpy.array(self.dim))
 
     def attachBlock(self, growEndGroup, staticEndGroup, dihedral=None ):
         """
@@ -610,26 +605,6 @@ class Cell():
         """
         get pairs of close atoms
 
-        bond=False
-        for each pair:
-            if are bonding atoms:
-                if distance acceptable:
-                    if angle acceptable and bond allowed:
-                        bond=True
-                        add to possible bonds
-
-            if not bond:
-                # Add atoms to list clash atoms
-
-        if possible bonds:
-            remove atoms directly bonded to bond atoms from clash atoms
-
-        if there are still clash atoms:
-            return False
-
-        if possible bonds:
-            process the bonds in order
-
         """
 
         # Get a list of the close atoms
@@ -778,33 +753,23 @@ class Cell():
             key = block1.atomCell[ idxAtom1 ]
 
             # Skip checking dummy atoms
-            if key is None:
-                continue
-
+            if key is None: continue
             #print "Close checking [{}] {}: {} : {}".format(key,idxBlock1,idxAtom1,coord1)
 
-            # Get a list of the boxes surrounding this one
-            surrounding = self.box3[key]
-
             #For each box loop through all its atoms chekcking for clashes
+            surrounding = self.box3[key]
             for sbox in surrounding:
-
                 #print "KEY ",i,sbox
                 # For each box, get the list of the atoms as (block,coord1) tuples
                 # Check if we have a box with anything in it
-                try:
-                    alist = self.box1[ sbox ]
-                except KeyError:
-                    continue
-
+                try: alist = self.box1[ sbox ]
+                except KeyError: continue
+                
                 for (idxBlock2, idxAtom2) in alist:
-
                     # Check we are not checking ourself - need to check block index too!
-                    if idxBlock1 == idxBlock2:
-                        continue
+                    if idxBlock1 == idxBlock2: continue
 
                     block2 = self.blocks[idxBlock2]
-
                     c1.append( coord1 )
                     c2.append( block2.coord( idxAtom2 ) )
                     allContacts.append( ( idxAtom1, block2, idxAtom2 ) )
@@ -898,7 +863,7 @@ class Cell():
         # Object to hold the cell data
         d = CellData()
 
-        d.cell = [self.A,self.B,self.C]
+        d.cell = self.dim
 
         if fragmentType is not None:
             # Only returning data for one type of fragment
@@ -1007,9 +972,9 @@ class Cell():
                 lastBody=frag.body(0)
                 for i,coord in enumerate(frag.iterCoord()):
                     if periodic:
-                        x, ix = util.wrapCoord( coord[0], self.A, center=center )
-                        y, iy = util.wrapCoord( coord[1], self.B, center=center )
-                        z, iz = util.wrapCoord( coord[2], self.C, center=center )
+                        x, ix = util.wrapCoord( coord[0], self.dim[0], center=center )
+                        y, iy = util.wrapCoord( coord[1], self.dim[1], center=center )
+                        z, iz = util.wrapCoord( coord[2], self.dim[2], center=center )
                         d.coords.append( numpy.array([x,y,z]))
                         d.images.append([ix,iy,iz])
                     else:
@@ -1119,11 +1084,11 @@ class Cell():
 
     def density(self):
         """The density of the cell"""
-        d = ( sum( [ b.blockMass() for b in self.blocks.itervalues() ] ) / ( self.A * self.B * self.C ) )
+        d = ( sum( [ b.blockMass() for b in self.blocks.itervalues() ] ) / ( self.dim[0] * self.dim[1] * self.dim[2] ) )
         return d * (10/6.022)
 
     def dihedral(self, p1, p2, p3, p4):
-        return util.dihedral(p1, p2, p3, p4,cell=[self.A,self.B,self.C])
+        return util.dihedral(p1, p2, p3, p4,cell=self.dim)
 
     def distance(self, v1, v2, cell=None ):
         """Distance with numpy taking PBC into account
@@ -1131,7 +1096,7 @@ class Cell():
         Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
         Changed so that it can cope with distances across more than one cell
         """
-        return util.distance(v1, v2, cell=numpy.array([self.A,self.B,self.C]))
+        return util.distance(v1, v2, cell=numpy.array(self.dim))
 
     def dump(self, prefix="step", addCount=True ):
         """Write out our current state"""
@@ -1403,9 +1368,7 @@ class Cell():
         p=f.cellParameters()
         if not p:
             raise RuntimeError,"car file needs to have PBC=ON and a PBC line defining the cell!"
-        self.A=p['A']
-        self.B=p['B']
-        self.C=p['C']
+        self.dim=[p['A'],p['B'],p['C']]
         
         self.logger.info("Read cell parameters A={0}, B={1}, C={2} from car file: {3}".format(p['A'],
                                                                                               p['B'],
@@ -1421,9 +1384,9 @@ class Cell():
         
         # Check the molecule fits in the cell
         for i,coord in enumerate(b.iterCoord()):
-            if coord[0] < 0 or coord[0] > self.A or \
-               coord[1] < 0 or coord[1] > self.B or \
-               coord[2] < 0 or coord[2] > self.C:
+            if coord[0] < 0 or coord[0] > self.dim[0] or \
+               coord[1] < 0 or coord[1] > self.dim[1] or \
+               coord[2] < 0 or coord[2] > self.dim[2]:
                 raise RuntimeError,"Static block doesn't fit in the cell! First failing coord is #{0}: {1}".format(i,coord)
 
         #Add the block so we can check for clashes/bonds
@@ -1706,18 +1669,14 @@ class Cell():
         oradius = bradius + ( 2 * self.boxMargin )
 
         # Check there is enough space
-        if oradius >= self.A or oradius >= self.B or oradius >= self.C:
-            raise RuntimeError, "Cannot fit block with radius {0} into cell [{1}, {2}, {3}]!".format( bradius,
-                                                                                                      self.A,
-                                                                                                      self.B,
-                                                                                                      self.C
-                                                                                                       )
+        if oradius >= self.dim[0] or oradius >= self.dim[1] or oradius >= self.dim[2]:
+            raise RuntimeError, "Cannot fit block with radius {0} into cell {1}!".format( bradius,self.dim)
 
         # get a range for x, y and z that would fit the block in the cell, pick random values within that
         # and stick the block there
-        x = random.uniform( bradius+self.boxMargin, self.A-bradius-self.boxMargin )
-        y = random.uniform( bradius+self.boxMargin, self.B-bradius-self.boxMargin )
-        z = random.uniform( bradius+self.boxMargin, self.C-bradius-self.boxMargin )
+        x = random.uniform( bradius+self.boxMargin, self.dim[0]-bradius-self.boxMargin )
+        y = random.uniform( bradius+self.boxMargin, self.dim[1]-bradius-self.boxMargin )
+        z = random.uniform( bradius+self.boxMargin, self.dim[2]-bradius-self.boxMargin )
 
         coord = numpy.array([x,y,z], dtype=numpy.float64 )
 
@@ -1793,13 +1752,13 @@ class Cell():
         # Get _coords of random point in the cell that we will move the block to after
         # we've rotated at the origin
         if margin:
-            x = random.uniform(margin,self.A-margin)
-            y = random.uniform(margin,self.B-margin)
-            z = random.uniform(margin,self.C-margin)
+            x = random.uniform(margin,self.dim[0]-margin)
+            y = random.uniform(margin,self.dim[1]-margin)
+            z = random.uniform(margin,self.dim[2]-margin)
         else:
-            x = random.uniform(0,self.A)
-            y = random.uniform(0,self.B)
-            z = random.uniform(0,self.C)
+            x = random.uniform(0,self.dim[0])
+            y = random.uniform(0,self.dim[1])
+            z = random.uniform(0,self.dim[2])
 
         coord = numpy.array([x,y,z], dtype=numpy.float64 )
 
@@ -1980,7 +1939,7 @@ class Cell():
         the number of blocks added
         """
 
-        if self.A is None or self.B is None or self.C is None:
+        if self.dim[0] is None or self.dim[1] is None or self.dim[2] is None:
             raise RuntimeError,"Need to specify cell before seeding"
 
         #if not len( self._fragmentLibrary ) or not len( self.bondTypes):
@@ -2012,7 +1971,7 @@ class Cell():
                 # if center put the first one in the center of the cell
                 # only if this is the first attempt as otherwise we always fail if there is already something there
                 if center and seedCount==0 and tries==0:
-                    newblock.translateCentroid( [ self.A/2, self.B/2, self.C/2 ] )
+                    newblock.translateCentroid( [ self.dim[0]/2, self.dim[1]/2, self.dim[2]/2 ] )
                 else:
                     # Move the block and rotate it
                     self.randomMoveBlock( newblock )
@@ -2129,42 +2088,8 @@ class Cell():
         self.logger = logger
         return
 
-    def surroundCells(self, key ):
-        return self._surroundCells( key, self.numBoxA, self.numBoxB, self.numBoxC )
-
-    def _surroundCells(self, key, numBoxA, numBoxB, numBoxC ):
-        """
-        return a list of the cells surrounding the one with the given key
-        """
-        #print "box size {} : {},{},{}".format( self.boxSize, self.numBoxA, self.numBoxB, self.numBoxC )
-        # REM - max box num is numboxes - 1
-        a,b,c = key
-        l = []
-        for  i in [ 0, -1, +1 ]:
-            for j in [ 0, -1, +1 ]:
-                for k in [ 0, -1, +1 ]:
-                    # Impose periodic boundaries
-                    ai = a+i
-                    if ai < 0:
-                        ai = numBoxA-1
-                    elif ai > numBoxA-1:
-                        ai = 0
-                    bj = b+j
-                    if bj < 0:
-                        bj = numBoxB-1
-                    elif bj > numBoxB-1:
-                        bj = 0
-                    ck = c+k
-                    if ck < 0:
-                        ck = numBoxC-1
-                    elif ck > numBoxC-1:
-                        ck = 0
-                    skey = (ai, bj, ck)
-                    #print "sKey ({},{},{})->({})".format(a,b,c,skey)
-                    if skey not in l:
-                        l.append(skey)
-
-        return l
+    def haloCells(self, key ):
+        return util.haloCells(key, self.numBoxes)
 
     def updateFromBlock(self, block ):
         """Update cell parameters from the block"""
@@ -2202,12 +2127,12 @@ class Cell():
         self.boxSize = ( self.maxAtomRadius * 2 ) + self.boxMargin
 
         #jmht - ceil or floor
-        self.numBoxA = int(math.ceil( self.A / self.boxSize ) )
-        self.numBoxB = int(math.ceil( self.B / self.boxSize ) )
-        self.numBoxC = int(math.ceil( self.C / self.boxSize ) )
+        self.numBoxes[0] = int(math.ceil( self.dim[0] / self.boxSize ) )
+        self.numBoxes[1] = int(math.ceil( self.dim[1] / self.boxSize ) )
+        self.numBoxes[2] = int(math.ceil( self.dim[2] / self.boxSize ) )
 
         self.logger.debug( "updateCellSize: boxSize {0} nboxes: {1} maxR {2} margin {3}".format( self.boxSize,
-                                                                                      ( self.numBoxA, self.numBoxB, self.numBoxC ),
+                                                                                      self.numBoxes,
                                                                                      self.maxAtomRadius,
                                                                                      self.boxMargin)
                           )
@@ -2229,7 +2154,7 @@ class Cell():
         return
     
     def vecDiff(self,p1,p2):
-        return util.vecDiff(p1,p2,cell=numpy.array([self.A,self.B,self.C]))
+        return util.vecDiff(p1,p2,cell=numpy.array(self.dim))
 
     def writePickle( self, fileName="cell.pkl" ):
         """Pickle ourselves"""
@@ -2331,7 +2256,7 @@ class Cell():
 
         cell = None
         if periodic:
-            cell = [self.A,self.B,self.C]
+            cell = self.dim
 
         cmlFilename = util.writeCml(cmlFilename,
                                     d.coords,
@@ -2355,7 +2280,7 @@ class Cell():
             d = data
 
         if periodic:
-            fpath = util.writeXyz(ofile,d.coords,d.symbols,cell=[self.A,self.B,self.C])
+            fpath = util.writeXyz(ofile,d.coords,d.symbols,cell=self.dim)
         else:
             fpath = util.writeXyz(ofile,d.coords,d.symbols)
 
@@ -2386,9 +2311,10 @@ class Cell():
         # Should calculate max possible bond length
         maxBondLength=2.5
         boxSize = maxBondLength + bondMargin
-        numBoxA = int(math.ceil( self.A / boxSize ) )
-        numBoxB = int(math.ceil( self.B / boxSize ) )
-        numBoxC = int(math.ceil( self.C / boxSize ) )
+        numBoxes=[None,None,None]
+        numBoxes[0] = int(math.ceil( self.dim[0] / boxSize ) )
+        numBoxes[1] = int(math.ceil( self.dim[1] / boxSize ) )
+        numBoxes[2] = int(math.ceil( self.dim[2] / boxSize ) )
 
         # Create empty cells to hold data
         cell1 = {}
@@ -2413,9 +2339,9 @@ class Cell():
             coord = block.coord( idxEndGroup )
 
             # Periodic Boundaries
-            x = coord[0] % self.A
-            y = coord[1] % self.B
-            z = coord[2] % self.C
+            x = coord[0] % self.dim[0]
+            y = coord[1] % self.dim[1]
+            z = coord[2] % self.dim[2]
 
             # Calculate which cell the atom is in
             a=int( math.floor( x / boxSize ) )
@@ -2431,10 +2357,9 @@ class Cell():
                 # Add the cell to the list and then add the atom
                 cell1[ key ] = [ ( block, idxEndGroup ) ]
                 # Map the cells surrounding this one
-                cell3[ key ] = self._surroundCells( key, numBoxA, numBoxB, numBoxC )
+                cell3[ key ] = util.haloCells(key, numBoxes)
 
         # Loop through all the end groups and run canBond
-        self._possibleBonds = []
         egPairs             = []
         c1                  = []
         c2                  = []
@@ -2488,6 +2413,7 @@ class Cell():
         distances = self.distance(c1, c2)
 
         # Now check for bonds
+        self._possibleBonds = []
         for i, ( block1, idxEndGroup1, block2, idxEndGroup2 ) in enumerate( egPairs ):
             got = self.canBond( block1,
                                 idxEndGroup1,
@@ -2498,9 +2424,6 @@ class Cell():
                                 bondAngleMargin,
                                 )
 
-        # Assumption is that zipBlocks called on a valid structure, so we don't do any checks for clashes
-        # just process the bonds
-
         # Process any bonds
         todo = len( self._possibleBonds )
         if todo==0:
@@ -2509,8 +2432,8 @@ class Cell():
 
         # Check the bonds don't clash with anything
         if clashCheck:
-            toRemove=[bond for bond in self._possibleBonds if self.zipBlocksClash(bond=bond,
-                                                                                  clashDist=clashDist)]
+            toRemove=[bond for bond in self._possibleBonds if self.bondClash(bond=bond,
+                                                                             clashDist=clashDist)]
             if len(toRemove):
                 self.logger.info("zipBlocks: {0} bonds not accepted due to clashes".format(len(toRemove)))
                 for b in toRemove: self._possibleBonds.remove(bond)
@@ -2538,25 +2461,11 @@ class Cell():
 
         return bondsMade
 
-    def zipBlocksClash(self,bond,clashDist):
-        """Check if any of the bonds in zipBlocks clash with atoms in the cell
-
-
-        for each bond:
-
-        get endPoints of bond
-        use endPoints as the vector of a ray intersecting the simulation cell
-        get a list of all the cells intersected by the ray (only return populated cells)
-
-        for each cell:
-          get the list of blocks/atoms in that cell
-          calculate distances of the atoms from the ray vector
-          if any distances < threshold:
-             return False
-
+    def bondClash(self,bond,clashDist):
+        """Check if any atoms are clashDist from bond.
         """
 
-        assert 0 < clashDist < min(self.A,self.B,self.C),"Unreasonable clashDist: {0}".format(clashDist)
+        assert 0 < clashDist < min(self.dim[0],self.dim[1],self.dim[2]),"Unreasonable clashDist: {0}".format(clashDist)
 
         # Create bond coordinates method
         idxAtom1=bond.endGroup1.endGroupIdx()
@@ -2574,7 +2483,6 @@ class Cell():
         idxBlock1=bond.endGroup1.block().id
         idxBlock2=bond.endGroup2.block().id
         
-
         # Get a list of the cells the bond passes through (excluding endpoints)
         cells=self._intersectedCells(p1,p2)
         #print "FOUND CELLS ",cells
@@ -2591,9 +2499,9 @@ class Cell():
         # loop through all the atoms in the cells
         # & check if any are too close to the bond vector
         for cell in list(allcells):
-            try: alist = self.box1[cell]
+            try: atomList = self.box1[cell]
             except KeyError: continue
-            for (idxBlock3,idxAtom3) in alist:
+            for (idxBlock3,idxAtom3) in atomList:
 
                 # Dont' check the bond atoms or the cap atoms
                 if idxBlock3==idxBlock1 and idxAtom3==idxAtom1 or\
@@ -2612,9 +2520,6 @@ class Cell():
                 # First need to find whether the point is inside the segment
                 #print "P3 ",p3
                 # I _think_ this implements it under PBC
-                #p3p1=p3-p1
-                #p3p2=p3-p2
-                #p2p1=p2-p1
                 p3p1=self.vecDiff(p3,p1)
                 p3p2=self.vecDiff(p3,p2)
                 p2p1=self.vecDiff(p2,p1)
@@ -2632,16 +2537,7 @@ class Cell():
     
     def _getBox(self,coord):
         """Return the box that the coord is in under periodic boundaries"""
-        # Periodic Boundaries
-        x = coord[0] % self.A
-        y = coord[1] % self.B
-        z = coord[2] % self.C
-
-        # Calculate which cell the atom is in
-        a=int( math.floor( x / self.boxSize ) )
-        b=int( math.floor( y / self.boxSize ) )
-        c=int( math.floor( z / self.boxSize ) )
-        return (a,b,c)
+        return util.getCell(coord, self.boxSize, cellDim=self.dim)
 
     def _intersectedCells(self,p1,p2,endPointCells=True):
         """Return a list of the cells intersected by the vector passing from p1 to p2.
@@ -2654,15 +2550,15 @@ class Cell():
         and we then only search the ends.
         """
         
-        TMAXMAX=max(self.A,self.B,self.C) # Not 100% sure - just needs to be bigger than any possible value in the cell
+        TMAXMAX=max(self.dim[0],self.dim[1],self.dim[2]) # Not 100% sure - just needs to be bigger than any possible value in the cell
         
         # Wrap into a single cell
-        p1[0] = p1[0] % self.A
-        p1[1] = p1[1] % self.B
-        p1[2] = p1[2] % self.C
-        p2[0] = p2[0] % self.A
-        p2[1] = p2[1] % self.B
-        p2[2] = p2[2] % self.C
+        p1[0] = p1[0] % self.dim[0]
+        p1[1] = p1[1] % self.dim[1]
+        p1[2] = p1[2] % self.dim[2]
+        p2[0] = p2[0] % self.dim[0]
+        p2[1] = p2[1] % self.dim[1]
+        p2[2] = p2[2] % self.dim[2]
         
         X,Y,Z=self._getBox(p1) # The cell p1 is in
         outX,outY,outZ=self._getBox(p2) # The cell p2 is in
@@ -2719,8 +2615,8 @@ class Cell():
                     #PBC
                     X = X + stepX
                     if X < 0:
-                        X = self.numBoxA-1
-                    elif X > self.numBoxA-1:
+                        X = self.numBoxes[0]-1
+                    elif X > self.numBoxes[0]-1:
                         X = 0
                     cells.append((X,Y,Z))
                     if X==outX:
@@ -2731,8 +2627,8 @@ class Cell():
                     Z = Z + stepZ
                     #PBC
                     if Z < 0:
-                        Z = self.numBoxC-1
-                    elif Z > self.numBoxC-1:
+                        Z = self.numBoxes[2]-1
+                    elif Z > self.numBoxes[2]-1:
                         Z = 0    
                     cells.append((X,Y,Z))
                     if Z==outZ:
@@ -2744,8 +2640,8 @@ class Cell():
                     #PBC
                     Y = Y + stepY
                     if Y < 0:
-                        Y = self.numBoxB-1
-                    elif Y > self.numBoxB-1:
+                        Y = self.numBoxes[1]-1
+                    elif Y > self.numBoxes[1]-1:
                         Y = 0 
                     cells.append((X,Y,Z))
                     if Y==outY:
@@ -2756,8 +2652,8 @@ class Cell():
                     Z = Z + stepZ
                     #PBC
                     if Z < 0:
-                        Z = self.numBoxC-1
-                    elif Z > self.numBoxC-1:
+                        Z = self.numBoxes[2]-1
+                    elif Z > self.numBoxes[2]-1:
                         Z = 0 
                     cells.append((X,Y,Z))
                     if Z==outZ:
@@ -2864,13 +2760,32 @@ class TestCell(unittest.TestCase):
         mycell.growBlocks( 8 )
         return mycell
     
+    def clashes(self,mycell,minDist=1.0):
+        """Return True of if any atoms are < minDist apart"""
+        #coords=[ c for b in cell.blocks.itervalues() for i, c in enumerate(b.iterCoord())]
+        symbols=[]
+        coords=[]
+        for b in mycell.blocks.itervalues():
+            for i, c in enumerate(b.iterCoord()):
+                coords.append(c)
+                symbols.append(b.symbol(i))
+        cellDim=numpy.array([mycell.dim[0],mycell.dim[1],mycell.dim[2]])
+        close=util.closeAtoms(coords, symbols, cellDim=cellDim, boxMargin=1.0)
+        v1=[]
+        v2=[]
+        for idxAtom1,idxAtom2 in close:
+            v1.append(coords[idxAtom1])
+            v2.append(coords[idxAtom2])
+        distances=util.distance(v1, v2, cellDim)
+        return any(map(lambda x: x < minDist, distances))
+        
     def testGetBox(self):
         mycell = Cell([10,10,10])   
         boxSize=1
         mycell.boxSize=boxSize
-        mycell.numBoxA=int(math.ceil(mycell.A/boxSize))
-        mycell.numBoxB=int(math.ceil(mycell.B/boxSize))
-        mycell.numBoxC=int(math.ceil(mycell.C/boxSize))
+        mycell.numBoxes=[int(math.ceil(mycell.dim[0]/boxSize)),
+                         int(math.ceil(mycell.dim[1]/boxSize)),
+                         int(math.ceil(mycell.dim[2]/boxSize)) ]
         
         p1=numpy.array([0,0,0])
         self.assertEqual(mycell._getBox(p1),(0,0,0))
@@ -2900,9 +2815,9 @@ class TestCell(unittest.TestCase):
         mycell = Cell([10,10,10])   
         boxSize=1
         mycell.boxSize=boxSize
-        mycell.numBoxA=int(math.ceil(mycell.A/boxSize))
-        mycell.numBoxB=int(math.ceil(mycell.B/boxSize))
-        mycell.numBoxC=int(math.ceil(mycell.C/boxSize))
+        mycell.numBoxes=[int(math.ceil(mycell.dim[0]/boxSize)),
+                         int(math.ceil(mycell.dim[1]/boxSize)),
+                         int(math.ceil(mycell.dim[2]/boxSize)) ]
          
         p1=numpy.array([0.5,0.5,0.5])
         p2=numpy.array([8.5,8.5,8.5])
@@ -2942,9 +2857,7 @@ class TestCell(unittest.TestCase):
 
         mycell = Cell([25,25,25])   
         mycell.boxSize=1.91761148234
-        mycell.numBoxA=14
-        mycell.numBoxB=14
-        mycell.numBoxC=14
+        mycell.numBoxes=[14,14,14]
 
         p1=numpy.array([ -3.46529620e+00,   7.99752596e-03,   1.86788673e-03])
         p2=numpy.array( [  3.45583501e+00,   7.99752596e-03,   1.86788673e-03])
@@ -3096,7 +3009,7 @@ class TestCell(unittest.TestCase):
         natoms = block1.numAtoms()
 
         # block radius is 1.8
-        block1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        block1.translateCentroid( [ mycell.dim[0]/2, mycell.dim[1]/2, mycell.dim[2]/2 ] )
         block1Idx = mycell.addBlock(block1)
 
         # Alone in cell but in center
@@ -3104,9 +3017,9 @@ class TestCell(unittest.TestCase):
 
         # Add second block overlapping first but in other image
         block2 = mycell.getInitBlock('A')
-        block2.translateCentroid( [ mycell.A/2 + mycell.A,
-                                   mycell.B/2 + mycell.B,
-                                   mycell.C/2 + mycell.C ] )
+        block2.translateCentroid( [ mycell.dim[0]/2 + mycell.dim[0],
+                                   mycell.dim[1]/2 + mycell.dim[1],
+                                   mycell.dim[2]/2 + mycell.dim[2] ] )
         block2Idx = mycell.addBlock(block2)
 
         # Make sure every atom overlaps with ever other
@@ -3155,9 +3068,9 @@ class TestCell(unittest.TestCase):
         # Now check across periodic boundary
         mycell.delBlock(block2_id)
         block2 = mycell.getInitBlock('A')
-        x = 2.2 + 2 * mycell.A
-        y = 2.2 + 2 * mycell.B
-        z = 2.2 + 2 * mycell.C
+        x = 2.2 + 2 * mycell.dim[0]
+        y = 2.2 + 2 * mycell.dim[1]
+        z = 2.2 + 2 * mycell.dim[2]
 
         block2.translateCentroid( [x,y,z] )
         block2_id = mycell.addBlock(block2)
@@ -3475,6 +3388,8 @@ class TestCell(unittest.TestCase):
         nblocks += 1
         # Need to subtract cap atoms
         self.assertEqual( natoms2, (natoms*nblocks)- (nblocks-1)*2 )
+        
+        self.assertFalse(self.clashes(mycell))
 
         return
 
@@ -3490,6 +3405,9 @@ class TestCell(unittest.TestCase):
 
         mycell.seed( 1 )
         mycell.growBlocks(10, cellEndGroups=None, maxTries=10)
+        
+        self.assertFalse(self.clashes(mycell))
+
 
         #mycell.dump()
 
@@ -3507,7 +3425,7 @@ class TestCell(unittest.TestCase):
 
         mycell.seed( 1 )
         mycell.growBlocks(10, cellEndGroups=['A:CH'])
-
+        self.assertFalse(self.clashes(mycell))
         #mycell.dump()
 
         return
@@ -3528,7 +3446,7 @@ class TestCell(unittest.TestCase):
         block1.alignAtoms( 0, 3, [ 1, 0, 0 ] )
 
         # Now put it at the center of the cell
-        block1.translateCentroid( [mycell.A/2, mycell.B/2, mycell.C/2] )
+        block1.translateCentroid( [mycell.dim[0]/2, mycell.dim[1]/2, mycell.dim[2]/2] )
 
         # Add to the cell
         mycell.addBlock(block1)
@@ -3539,6 +3457,7 @@ class TestCell(unittest.TestCase):
 
         self.assertEqual( added, 5, "growBlocks did not add 5 blocks")
         self.assertEqual(1,len(mycell.blocks), "Growing blocks found {0} blocks".format( len(mycell.blocks) ) )
+        self.assertFalse(self.clashes(mycell))
 
         return
 
@@ -3567,6 +3486,7 @@ class TestCell(unittest.TestCase):
         p4 = block1.coord( bond1.endGroup2.dihedralIdx() )
 
         self.assertAlmostEqual( math.degrees( util.dihedral( p1, p2, p3, p4) ), dihedral )
+        self.assertFalse(self.clashes(mycell))
 
         return
 
@@ -3582,6 +3502,7 @@ class TestCell(unittest.TestCase):
 
         mycell.seed( 1, fragmentType='triquin', center=True )
         mycell.growBlocks(toGrow=1, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
+        self.assertFalse(self.clashes(mycell))
 
         return
 
@@ -3614,6 +3535,7 @@ class TestCell(unittest.TestCase):
 
         # Need to subtract cap atoms
         self.assertEqual(nc-(toJoin*2), nc2, "Growing blocks found {0} coords".format( nc2 ) )
+        self.assertFalse(self.clashes(mycell))
 
         return
 
@@ -3630,6 +3552,7 @@ class TestCell(unittest.TestCase):
                                         dt=0.005,
                                         Etol=1e-5,
                                          )
+        self.assertFalse(self.clashes(mycell))
         os.unlink("hoomdOpt.xml")
         return
 
@@ -3665,6 +3588,7 @@ class TestCell(unittest.TestCase):
                                  )
 
         self.assertTrue(ok,"All Optimisation failed!")
+        self.assertFalse(self.clashes(mycell))
         #os.unlink("hoomdOpt.xml")
         return
 
@@ -3689,6 +3613,7 @@ class TestCell(unittest.TestCase):
                      T=1.0,
                      tau=0.5,
                      dt=0.0005 )
+        self.assertFalse(self.clashes(mycell))
         #os.unlink("hoomdOpt.xml")
         return
 
@@ -3731,6 +3656,7 @@ class TestCell(unittest.TestCase):
         """
         mycell=self.createTestCell()
         mycell.optimiseGeometry( doDihedral=True, quiet=True )
+        self.assertFalse(self.clashes(mycell))
         os.unlink("hoomdOpt.xml")
         return
     
@@ -3746,7 +3672,7 @@ class TestCell(unittest.TestCase):
         mycell.seed( 3, fragmentType='triquin', center=True )
         mycell.growBlocks(toGrow=2, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=10)
         
-        mycell.dump()
+        #mycell.dump()
 
         ok=mycell.optimiseGeometry(rigidBody=False,
                                 doDihedral=True,
@@ -3754,7 +3680,8 @@ class TestCell(unittest.TestCase):
                                 dump=False,
                                 quiet=False
                                  )
-        mycell.dump()
+        self.assertFalse(self.clashes(mycell))
+        #mycell.dump()
 
         return
 
@@ -3770,6 +3697,7 @@ class TestCell(unittest.TestCase):
                              tau=0.5,
                              dt=0.0005,
                          )
+        self.assertFalse(self.clashes(mycell))
         os.unlink("hoomdMD.xml")
         return
 
@@ -3778,6 +3706,7 @@ class TestCell(unittest.TestCase):
         """
         mycell=self.createTestCell()
         mycell.runMDAndOptimise( doDihedral=True, quiet=True )
+        self.assertFalse(self.clashes(mycell))
         os.unlink("hoomdMDOpt.xml")
         return
 
@@ -3797,17 +3726,17 @@ class TestCell(unittest.TestCase):
         wcoords = []
         images = []
         for c in coords:
-            x, xi = util.wrapCoord( c[0], mycell.A, center=False )
-            y, yi = util.wrapCoord( c[1], mycell.B, center=False )
-            z, zi = util.wrapCoord( c[2], mycell.C, center=False )
+            x, xi = util.wrapCoord( c[0], mycell.dim[0], center=False )
+            y, yi = util.wrapCoord( c[1], mycell.dim[1], center=False )
+            z, zi = util.wrapCoord( c[2], mycell.dim[2], center=False )
             wcoords.append( [ x, y, z ] )
             images.append( [ xi, yi, zi ] )
 
         # Now umwrap them
         for i, c in enumerate( wcoords ):
-            x = util.unWrapCoord( c[0], images[i][0], mycell.A, centered=False )
-            y = util.unWrapCoord( c[1], images[i][1], mycell.B, centered=False )
-            z = util.unWrapCoord( c[2], images[i][2], mycell.C, centered=False )
+            x = util.unWrapCoord( c[0], images[i][0], mycell.dim[0], centered=False )
+            y = util.unWrapCoord( c[1], images[i][1], mycell.dim[1], centered=False )
+            z = util.unWrapCoord( c[2], images[i][2], mycell.dim[2], centered=False )
 
             self.assertAlmostEqual( x,
                                     coords[ i ][ 0 ],
@@ -3826,17 +3755,17 @@ class TestCell(unittest.TestCase):
         wcoords = []
         images = []
         for c in coords:
-            x, xi = util.wrapCoord( c[0], mycell.A, center=True )
-            y, yi = util.wrapCoord( c[1], mycell.B, center=True )
-            z, zi = util.wrapCoord( c[2], mycell.C, center=True )
+            x, xi = util.wrapCoord( c[0], mycell.dim[0], center=True )
+            y, yi = util.wrapCoord( c[1], mycell.dim[1], center=True )
+            z, zi = util.wrapCoord( c[2], mycell.dim[2], center=True )
             wcoords.append( [ x, y, z ] )
             images.append( [ xi, yi, zi ] )
 
         # Now umwrap them
         for i, c in enumerate( wcoords ):
-            x = util.unWrapCoord( c[0], images[i][0], mycell.A, centered=True )
-            y = util.unWrapCoord( c[1], images[i][1], mycell.B, centered=True )
-            z = util.unWrapCoord( c[2], images[i][2], mycell.C, centered=True )
+            x = util.unWrapCoord( c[0], images[i][0], mycell.dim[0], centered=True )
+            y = util.unWrapCoord( c[1], images[i][1], mycell.dim[1], centered=True )
+            z = util.unWrapCoord( c[2], images[i][2], mycell.dim[2], centered=True )
 
             self.assertAlmostEqual( x,
                                     coords[ i ][ 0 ],
@@ -3873,9 +3802,9 @@ class TestCell(unittest.TestCase):
             x, y, z  = p.position
             ix, iy, iz = p.image
 
-            x = util.unWrapCoord( x, ix, mycell.A, centered=True )
-            y = util.unWrapCoord( y, iy, mycell.B, centered=True )
-            z = util.unWrapCoord( z, iz, mycell.C, centered=True )
+            x = util.unWrapCoord( x, ix, mycell.dim[0], centered=True )
+            y = util.unWrapCoord( y, iy, mycell.dim[1], centered=True )
+            z = util.unWrapCoord( z, iz, mycell.dim[2], centered=True )
 
             self.assertAlmostEqual( x,
                                     coords[ i ][ 0 ],
@@ -3940,13 +3869,14 @@ class TestCell(unittest.TestCase):
         for i,b in mycell.blocks.iteritems():
             radius = b.blockRadius()
             for c in b.iterCoord():
-                if not 0-radius < c[0] < mycell.A + radius  or \
-                   not 0-radius < c[1] < mycell.B + radius  or \
-                   not 0-radius < c[2] < mycell.C + radius :
+                if not 0-radius < c[0] < mycell.dim[0] + radius  or \
+                   not 0-radius < c[1] < mycell.dim[1] + radius  or \
+                   not 0-radius < c[2] < mycell.dim[2] + radius :
 
                     bad.append( c )
 
         self.assertEqual( 0, len(bad), "Got {} atoms outside cell: {}".format( len(bad), bad ) )
+        self.assertFalse(self.clashes(mycell))
 
         #mycell.writeXyz("seedTest.xyz")
 
@@ -3962,20 +3892,21 @@ class TestCell(unittest.TestCase):
         mycell.atomMargin = 0.0
 
         mycell.boxSize = ( mycell.maxAtomRadius * 2 ) + mycell.atomMargin
-        mycell.numBoxA = int(math.floor( mycell.A / mycell.boxSize ) )
-        mycell.numBoxB = int(math.floor( mycell.B / mycell.boxSize ) )
-        mycell.numBoxC = int(math.floor( mycell.C / mycell.boxSize ) )
+        mycell.numBoxes=[int(math.ceil(mycell.dim[0]/mycell.boxSize)),
+                         int(math.ceil(mycell.dim[1]/mycell.boxSize)),
+                         int(math.ceil(mycell.dim[2]/mycell.boxSize)) ]
 
         s = [(2, 2, 2), (2, 2, 1), (2, 2, 3), (2, 1, 2), (2, 1, 1), (2, 1, 3), (2, 3, 2), (2, 3, 1),
          (2, 3, 3), (1, 2, 2), (1, 2, 1), (1, 2, 3), (1, 1, 2), (1, 1, 1), (1, 1, 3), (1, 3, 2),
           (1, 3, 1), (1, 3, 3), (3, 2, 2), (3, 2, 1), (3, 2, 3), (3, 1, 2), (3, 1, 1), (3, 1, 3),
           (3, 3, 2), (3, 3, 1), (3, 3, 3)]
-        self.assertEqual(s, mycell.surroundCells( (2,2,2) ), "in center")
+        
+        self.assertEqual(sorted(s), sorted(mycell.haloCells( (2,2,2) )), "in center")
 
-        sb = mycell.surroundCells( (0,0,0) )
-        s = [ (0, 0, 0), (0, 0, 4), (0, 0, 1), (0, 4, 0), (0, 4, 4), (0, 4, 1), (0, 1, 0), (0, 1, 4),
+        sb = sorted(mycell.haloCells( (0,0,0) ))
+        s = sorted([ (0, 0, 0), (0, 0, 4), (0, 0, 1), (0, 4, 0), (0, 4, 4), (0, 4, 1), (0, 1, 0), (0, 1, 4),
         (0, 1, 1), (4, 0, 0), (4, 0, 4), (4, 0, 1), (4, 4, 0), (4, 4, 4), (4, 4, 1), (4, 1, 0), (4, 1, 4),
-         (4, 1, 1), (1, 0, 0), (1, 0, 4), (1, 0, 1), (1, 4, 0), (1, 4, 4), (1, 4, 1), (1, 1, 0), (1, 1, 4), (1, 1, 1)]
+         (4, 1, 1), (1, 0, 0), (1, 0, 4), (1, 0, 1), (1, 4, 0), (1, 4, 4), (1, 4, 1), (1, 1, 0), (1, 1, 4), (1, 1, 1)])
         self.assertEqual(s, sb , "periodic: {0}".format( sb ) )
         return
 
@@ -3996,7 +3927,7 @@ class TestCell(unittest.TestCase):
         b4 = buildingBlock.Block( filePath=ch4Car, fragmentType='A'  )
 
         # b1 in center of cell
-        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        b1.translateCentroid( [ mycell.dim[0]/2, mycell.dim[1]/2, mycell.dim[2]/2 ] )
         mycell.addBlock(b1)
         endGroup1 = b1.freeEndGroups()[ 0 ]
         endGroup2 = b2.freeEndGroups()[ 0 ]
@@ -4020,6 +3951,7 @@ class TestCell(unittest.TestCase):
         made = mycell.zipBlocks( bondMargin=0.5, bondAngleMargin=0.5 )
 
         self.assertEqual(made,3)
+        self.assertFalse(self.clashes(mycell))
 
         return
 
@@ -4039,7 +3971,7 @@ class TestCell(unittest.TestCase):
         # - use two opposing C-atoms 0 & 3
         b1.alignAtoms( 0, 3, [ 1, 0, 0 ] )
 
-        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        b1.translateCentroid( [ mycell.dim[0]/2, mycell.dim[1]/2, mycell.dim[2]/2 ] )
 
         endGroup1 = b1.freeEndGroups()[ 0 ]
         endGroup2 = b2.freeEndGroups()[ 0 ]
@@ -4058,6 +3990,7 @@ class TestCell(unittest.TestCase):
         made = mycell.zipBlocks( bondMargin=5, bondAngleMargin=5 )
 
         self.assertEqual( made, 1)
+        self.assertFalse(self.clashes(mycell))
         return
 
     def testZipBlocks3(self):
@@ -4078,7 +4011,7 @@ class TestCell(unittest.TestCase):
         b1.alignAtoms( 0, 1, [ 1, 0, 0 ] )
 
         # b1 in center of cell
-        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        b1.translateCentroid( [ mycell.dim[0]/2, mycell.dim[1]/2, mycell.dim[2]/2 ] )
         mycell.addBlock(b1)
 
         endGroup1 = b1.freeEndGroups()[ 0 ]
@@ -4096,6 +4029,7 @@ class TestCell(unittest.TestCase):
 
         made = mycell.zipBlocks( bondMargin=0.5, bondAngleMargin=16 )
         self.assertEqual( made, 1 )
+        self.assertFalse(self.clashes(mycell))
 
         return
 
@@ -4123,16 +4057,16 @@ class TestCell(unittest.TestCase):
         b3 = b1.copy()
         
         # b1 in center of cell -5 on x-axis
-        b1.translateCentroid( [ (mycell.A/2)-5, mycell.B/2, mycell.C/2 ] )
+        b1.translateCentroid( [ (mycell.dim[0]/2)-5, mycell.dim[1]/2, mycell.dim[2]/2 ] )
 
         # b2 in center
-        b2.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        b2.translateCentroid( [ mycell.dim[0]/2, mycell.dim[1]/2, mycell.dim[2]/2 ] )
 
         # rotate so ring facing bond axis
         b2.rotate([0,1,0],math.pi/2,center=b2.centroid())
         
         # b3 + 5 on x
-        b3.translateCentroid( [ (mycell.A/2)+5, mycell.B/2, mycell.C/2 ] )
+        b3.translateCentroid( [ (mycell.dim[0]/2)+5, mycell.dim[1]/2, mycell.dim[2]/2 ] )
 
         # Add blocks either side to cell and make sure we can bond
         mycell.addBlock(b1)
@@ -4140,6 +4074,7 @@ class TestCell(unittest.TestCase):
 
         made = mycell.zipBlocks( bondMargin=6, bondAngleMargin=1,clashCheck=True)
         self.assertEqual(made,1)
+        self.assertFalse(self.clashes(mycell))
         return
     
     def testZipClash2(self):
@@ -4165,16 +4100,16 @@ class TestCell(unittest.TestCase):
         b3 = b1.copy()
         
         # b1 in center of cell -5 on x-axis
-        b1.translateCentroid( [ (mycell.A/2)-5, mycell.B/2, mycell.C/2 ] )
+        b1.translateCentroid( [ (mycell.dim[0]/2)-5, mycell.dim[1]/2, mycell.dim[2]/2 ] )
 
         # b2 in center
-        b2.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        b2.translateCentroid( [ mycell.dim[0]/2, mycell.dim[1]/2, mycell.dim[2]/2 ] )
 
         # rotate so ring facing bond axis
         b2.rotate([0,1,0],math.pi/2,center=b2.centroid())
         
         # b3 + 5 on x
-        b3.translateCentroid( [ (mycell.A/2)+5, mycell.B/2, mycell.C/2 ] )
+        b3.translateCentroid( [ (mycell.dim[0]/2)+5, mycell.dim[1]/2, mycell.dim[2]/2 ] )
 
         # Add blocks either side to cell and make sure we can bond
         mycell.addBlock(b1)
@@ -4186,6 +4121,7 @@ class TestCell(unittest.TestCase):
                 
         made = mycell.zipBlocks(bondMargin=6, bondAngleMargin=1,clashCheck=True,clashDist=1.8)
         self.assertEqual(made,0)
+        self.assertFalse(self.clashes(mycell))
         
         return    
 
@@ -4311,7 +4247,7 @@ class TestCell(unittest.TestCase):
         b4 = b1.copy()
 
         # b1 in center of cell
-        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        b1.translateCentroid( [ mycell.dim[0]/2, mycell.dim[1]/2, mycell.dim[2]/2 ] )
         mycell.addBlock(b1)
 
         for b in [ b2, b3, b4]:
@@ -4404,7 +4340,7 @@ class TestCell(unittest.TestCase):
         b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
 
         # b1 in center of cell
-        b1.translateCentroid( [ mycell.A/2, mycell.B/2, mycell.C/2 ] )
+        b1.translateCentroid( [ mycell.dim[0]/2, mycell.dim[1]/2, mycell.dim[2]/2 ] )
         endGroup1 = b1.freeEndGroups()[ 0 ]
         endGroup2 = b2.freeEndGroups()[ 0 ]
 
