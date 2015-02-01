@@ -9,7 +9,7 @@ import sys
 
 # If you run ambuild from a directory other than the builder directory, you will need to put the
 # path to the builder directory in builderHome variable below
-builderHome="/home/abbiet/ambuild.new"
+builderHome="/opt/ambuild"
 #builderHome="/opt/ambuild"
 sys.path.insert(0,os.path.join(builderHome,"builder"))
 
@@ -119,7 +119,8 @@ for i in range(3):
                 )
 
     # We now see if any endGroups have come close enough to bond
-    added = mycell.zipBlocks( bondMargin=5, bondAngleMargin=45 )
+    # Set clashCheck to True to disallow the bond if any atoms come close to the bond vector
+    added = mycell.zipBlocks( bondMargin=5, bondAngleMargin=45, clashCheck=True )
     if added > 0:
         print "Added {0} bonds in zip step".format(added)
         # We've made some bonds! We now optimise the geometry of the new structure
