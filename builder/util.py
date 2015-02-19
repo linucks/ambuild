@@ -714,6 +714,10 @@ def getCell(coord,boxSize,cellDim=None):
 def cellFromPickle(pickleFile):
     with open(pickleFile) as f:
         myCell=cPickle.load(f)
+    # Need to hack to work with older versions
+    if not hasattr(myCell,'dim'):
+        myCell.dim=[myCell.A,myCell.B,myCell.C]
+        myCell.numBoxes=[myCell.numBoxA,myCell.numBoxB,myCell.numBoxC]
     return myCell
 
 def dihedral(p1, p2, p3, p4,cell=None):
