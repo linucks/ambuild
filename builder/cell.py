@@ -178,6 +178,8 @@ class Cell():
 
         # For time being origin always 0,0,0
         self.origin = numpy.array( [0,0,0], dtype=numpy.float64 )
+        
+        self.dim = None
 
         # additional distance to add on to the characteristic bond length
         # when checking whether 2 atoms are close enough to bond
@@ -237,12 +239,7 @@ class Cell():
             raise RuntimeError,"Cell constructor needs a boxDim list _or_ the path to a file with the box dimensions!"
         
         if boxDim:
-            # A, B and C are cell vectors - for the time being we assume they are orthogonal
-            # so they are just floats
-            if not type(boxDim) is list and len(boxDim) == 3:
-                raise RuntimeError,"Cell constructor needs the boxDim argument to be list of 3 numbers setting the cell dimensions!"
-
-            self.dim=[float(boxDim[0]),float(boxDim[1]),float(boxDim[2])]
+            self.setBoxSize(boxDim)
         else:
             self.initFromFile(filePath)
 
@@ -1361,20 +1358,18 @@ class Cell():
         return added
     
     def initFromFile(self,filePath):
-
         # Create fragment
         name=os.path.splitext(os.path.basename(filePath))[0]
         f = fragment.Fragment(filePath,fragmentType=name,static=True)
         p=f.cellParameters()
         if not p:
             raise RuntimeError,"car file needs to have PBC=ON and a PBC line defining the cell!"
-        self.dim=[p['A'],p['B'],p['C']]
         
         self.logger.info("Read cell parameters A={0}, B={1}, C={2} from car file: {3}".format(p['A'],
                                                                                               p['B'],
                                                                                               p['C'],
                                                                                               filePath))
-
+        self.setBoxSize([p['A'],p['B'],p['C']])
         # Update cell parameters for this fragment
         maxAtomRadius = f.maxAtomRadius()
         if  maxAtomRadius > self.maxAtomRadius:
@@ -1792,7 +1787,7 @@ class Cell():
         move_block.randomRotateBlock( origin=self.origin )
         return
 
-    def repopulateCells(self):
+    def repopulateCells(self, boxShift=None):
         """Add all the blocks to resized cells"""
 
         blocks=None
@@ -1807,10 +1802,11 @@ class Cell():
         if len(blocks):
             self.logger.debug("repopulateCells, adding blocks into new cells")
             for idxBlock, block in blocks.iteritems():
-                self.addBlock( block, idxBlock=idxBlock )
+                if boxShift: block.translate(boxShift) # Need to move if box has been resizes
+                self.addBlock(block, idxBlock=idxBlock)
             del blocks
         return
-
+    
     def runMD(self,
               xmlFilename="hoomdMD.xml",
               rigidBody=True,
@@ -2010,6 +2006,36 @@ class Cell():
 
         return numBlocksAdded
 
+    def setBoxSize(self, boxDim):
+        # A, B and C are cell vectors - for the time being we assume they are orthogonal
+        # so they are just floats
+        if not type(boxDim) is list and len(boxDim) == 3:
+            raise RuntimeError,"setBoxSize needs list of 3 numbers setting the cell dimensions!"
+        
+        old_dim = None
+        if self.dim: old_dim = self.dim
+
+        self.dim = [float(boxDim[0]), float(boxDim[1]), float(boxDim[2])]
+        assert self.dim[0] >0 and self.dim[1] > 0 and self.dim[2] > 0,"Invalid box dimensions: {0}".format(self.dim)
+        
+        boxShift=None
+        if old_dim:
+            if not (self.dim[0] > old_dim[0] and \
+                self.dim[1] > old_dim[1] and 
+                self.dim[2] > old_dim[2]):
+                raise RuntimeError,"Can currently only increase box size!"
+            
+            # If we've made the cell bigger we need to shift all blocks so that they sit
+            # in the centre again
+            boxShift = [ (self.dim[0] - old_dim[0]) / 2, \
+                         (self.dim[1] - old_dim[1]) / 2, \
+                         (self.dim[2] - old_dim[2]) / 2 \
+                        ]
+        
+        self.updateCellSize(boxShift=boxShift)
+   
+        return
+
     def setMaxBond(self, bondType, count ):
         """Limit the number of bondType bonds to an individual fragment to count bonds.
 
@@ -2108,7 +2134,7 @@ class Cell():
 
         return
 
-    def updateCellSize(self, boxMargin=None, maxAtomRadius=None, MARGIN=0.01 ):
+    def updateCellSize(self, boxMargin=None, maxAtomRadius=None, MARGIN=0.01, boxShift=None):
         """The cell size is the vdw radius of the largest atom plus the largest of atom or bondMargin
         plus a MARGIN to account for overflows
         """
@@ -2124,7 +2150,7 @@ class Cell():
 
         assert self.boxMargin != 0 and self.maxAtomRadius != 0
 
-        self.boxSize = ( self.maxAtomRadius * 2 ) + self.boxMargin
+        self.boxSize = (self.maxAtomRadius * 2) + self.boxMargin
 
         #jmht - ceil or floor
         self.numBoxes[0] = int(math.ceil( self.dim[0] / self.boxSize ) )
@@ -2138,7 +2164,7 @@ class Cell():
                           )
         # If there are already blocks in the cell, we need to add them to the new boxes
         if len(self.blocks):
-            self.repopulateCells()
+            self.repopulateCells(boxShift=boxShift)
 
         return
 
@@ -3843,7 +3869,6 @@ class TestCell(unittest.TestCase):
         
         return
         
-
     def testSeed(self):
         """Test we can seed correctly"""
 
@@ -3879,6 +3904,26 @@ class TestCell(unittest.TestCase):
         self.assertFalse(self.clashes(mycell))
 
         #mycell.writeXyz("seedTest.xyz")
+
+        return
+    
+    def testSetBoxSize(self):
+
+        boxDim=[10,10,10]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.addBondType('A:a-A:a')
+
+        added = mycell.seed(5)
+        added = mycell.growBlocks(5)
+        
+        mycell.dump()
+        mycell.setBoxSize([20,20,20])
+        
+        mycell.dump()
+        added = mycell.growBlocks(5)
+        
+        mycell.dump()
 
         return
 
