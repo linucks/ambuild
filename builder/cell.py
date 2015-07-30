@@ -1478,8 +1478,8 @@ class Cell():
         #assert not len(self.blocks),"Cannot add library fragments with populated cell!"
 
         # Make sure the type is valid
-        if ":" in fragmentType or "-" in fragmentType:
-            raise RuntimeError,"fragmentType cannot contain - or : characters!"
+        if self.BONDTYPESEP in fragmentType or self.ENDGROUPSEP in fragmentType:
+            raise RuntimeError,"fragmentType cannot containing {0} or {1} characters!".format(self.BONDTYPESEP,self.ENDGROUPSEP)
 
         # Create fragment
         f = fragment.Fragment( filename, fragmentType )
@@ -1791,10 +1791,10 @@ class Cell():
         """Add all the blocks to resized cells"""
 
         blocks=None
-        if len( self.blocks ):
+        if len(self.blocks):
             # Put all the blocks into the new cells
             # First copy the blocks dictionary
-            blocks = copy.copy( self.blocks )
+            blocks = copy.copy(self.blocks)
         
         # Empty the cell
         self.clear()
@@ -3914,16 +3914,11 @@ class TestCell(unittest.TestCase):
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
 
-        added = mycell.seed(5)
-        added = mycell.growBlocks(5)
+        mycell.seed(5)
+        mycell.growBlocks(5)
         
-        mycell.dump()
         mycell.setBoxSize([20,20,20])
-        
-        mycell.dump()
-        added = mycell.growBlocks(5)
-        
-        mycell.dump()
+        mycell.growBlocks(5)
 
         return
 
