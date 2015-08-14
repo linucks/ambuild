@@ -290,7 +290,7 @@ class Cell():
                 self.delBlock(idxBlock)
         return added
 
-    def addBondType( self, bondType ):
+    def addBondType(self, bondType):
         """Allow bonds between the two endGroups specified in the bondType.
 
         endGroups are defined by the fragmentType they belong to (which is set by the fragmentType argument
@@ -336,7 +336,7 @@ class Cell():
 
         # Now recalculate the bond table
         self._updateBondTable()
-
+        
         return
 
     def _updateBondTable(self):
@@ -1333,8 +1333,13 @@ class Cell():
 
             # Select two random blocks that can be bonded
             #initBlock, newEG, idxStaticBlock, staticEG = self.randomInitAttachments( endGroupType=endGroupType )
-            cellEndGroup, libraryEndGroup = self.libraryEndGroupPair(cellEndGroups=cellEndGroups,
-                                                                     libraryEndGroups=libraryEndGroups)
+            try:
+                cellEndGroup, libraryEndGroup = self.libraryEndGroupPair(cellEndGroups=cellEndGroups,
+                                                                         libraryEndGroups=libraryEndGroups)
+            except RuntimeError,e:
+                self.logger.critical("growBlocks cannot grow more blocks: {0}".format(e))
+                return added
+                
 
             # Apply random rotation in 3 axes to randomise the orientation before we align
             libraryBlock = libraryEndGroup.block()
