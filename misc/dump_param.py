@@ -24,14 +24,15 @@ ffield = FfieldParameters()
 # 'cp-cp'   : { 'k' : 1550.0, 'r0' : 1.384 }
 
 pfile = os.path.join(builder_dir,'bond_params.csv')
-header = ['bond','k','r0','comments']
+header = ['A','B','k','r0','comments']
 with open(pfile,'w') as f:
     writer = csv.writer(f, delimiter=',', quotechar='"')
     writer.writerow(header)
     for bond in ffield.bonds.keys():
+        a,b = bond.split('-')
         k = ffield.bonds[bond]['k']
         r0 = ffield.bonds[bond]['r0']
-        writer.writerow([bond,k,r0,""])
+        writer.writerow([a,b,k,r0,""])
 
 # angles
 # 'h-c-c'    : { 'k' : 330.0, 't0' : math.radians(109) }
