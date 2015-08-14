@@ -4,7 +4,7 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
-VERSION = "d7ef6ea491ec"
+VERSION = "d03f49ca572b"
 
 import collections
 import copy
@@ -1755,7 +1755,11 @@ class Cell():
         """
         if point or radius:
             assert point and radius
-            raise RuntimeError, "point and radius not implemented yet"
+            x = random.uniform(-radius, radius)
+            y = random.uniform(-radius, radius)
+            z = random.uniform(-radius, radius)
+            xyz = numpy.array([x, y, z], dtype=numpy.float64)
+            coord = numpy.add(point, xyz)
         elif zone:
             assert len(zone) == 6
             assert zone[0] >= 0
@@ -1768,6 +1772,7 @@ class Cell():
             x = random.uniform(zone[0] + bmargin, zone[1] - bmargin)
             y = random.uniform(zone[2] + bmargin, zone[3] - bmargin)
             z = random.uniform(zone[4] + bmargin, zone[5] - bmargin)
+            coord = numpy.array([x, y, z], dtype=numpy.float64)
         else:
             if margin:
                 x = random.uniform(margin, self.dim[0] - margin)
@@ -1777,8 +1782,7 @@ class Cell():
                 x = random.uniform(0, self.dim[0])
                 y = random.uniform(0, self.dim[1])
                 z = random.uniform(0, self.dim[2])
-
-        coord = numpy.array([x, y, z], dtype=numpy.float64)
+            coord = numpy.array([x, y, z], dtype=numpy.float64)
 
         # print "Got random coord: {}".format(coord)
         # Move to origin, rotate there and then move to new coord
@@ -1789,24 +1793,6 @@ class Cell():
         # Now move to new coord
         block.translateCentroid(coord)
 
-        return
-
-    def randomMoveAroundCenter(self, move_block, center, radius):
-        """
-        Move the move_block to a random point so that the its centroid is withiin
-        radius of the center
-        """
-
-        # Calculate new coord
-        x = random.uniform(-radius, radius)
-        y = random.uniform(-radius, radius)
-        z = random.uniform(-radius, radius)
-        xyz = numpy.array([x, y, z], dtype=numpy.float64)
-        coord = numpy.add(center, xyz)
-
-        move_block.translateCentroid(coord)
-
-        move_block.randomRotateBlock(origin=self.origin)
         return
 
     def repopulateCells(self, boxShift=None):
