@@ -2741,22 +2741,7 @@ class Cell():
 
         return
 
-class TestCell(unittest.TestCase):
-
-#     def setUp(self):
-#
-#         thisd =  os.path.abspath( os.path.dirname( __file__ ) )
-#         paths = thisd.split( os.sep )
-#         self.ambuildDir = os.sep.join( paths[ : -1 ] )
-#
-#         self.cx4Car = os.path.join( self.ambuildDir, "blocks", "cx4.car" )
-#         self.ch4Car = os.path.join( self.ambuildDir, "blocks", "ch4.car" )
-#         self.capLinker = os.path.join( self.ambuildDir, "blocks", "cap_linker.car" )
-#         self.benzeneCar = os.path.join( self.ambuildDir, "blocks", "benzene.car" )
-#         self.benzene2Car = os.path.join( self.ambuildDir, "blocks", "benzene2.car" )
-#         self.pafCar = os.path.join( self.ambuildDir, "blocks", "PAF_bb_typed.car" )
-#
-#         return
+class Test(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
