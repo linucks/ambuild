@@ -841,7 +841,7 @@ def dumpPkl(pickleFile,split=None,nonPeriodic=False):
                             periodic=True,
                             pruneBonds=True)
     elif split=="blocks":
-        periodic=False
+        periodic=True
         for i, b in enumerate(mycell.blocks.values()):
             # Write out each block to a separate file
             if periodic:
