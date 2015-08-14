@@ -306,19 +306,19 @@ class DLPOLY(FFIELD):
             f.write("Ambuild CONFIG file\n")
 
             # levcfg (0=just coordinates) imcon (1=cubic bounduary conditions)
-            f.write("0    1\n")
+            f.write("{0:>10}{1:>10}\n".format(0,1))
 
             # Now cell
-            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(cell[0],0.0,0.0))
-            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,cell[1],0.0))
-            f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,0.0,cell[2]))
+            f.write("{0: > 20.6F}{1: > 20.6F}{2: > 20.6F}\n".format(cell[0],0.0,0.0))
+            f.write("{0: > 20.6F}{1: > 20.6F}{2: > 20.6F}\n".format(0.0,cell[1],0.0))
+            f.write("{0: > 20.6F}{1: > 20.6F}{2: > 20.6F}\n".format(0.0,0.0,cell[2]))
 
             # Loop through coordinates
             count=1 # FORTRAN COUNTING
             for i,coord in enumerate(coords):
                 f.write("{0}    {1}\n".format(types[i],count))
                 x,y,z=coord
-                f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(x,y,z))
+                f.write("{0: > 20.6F}{1: > 20.6F}{2: > 20.6F}\n".format(x,y,z))
                 count+=1
         return
 
