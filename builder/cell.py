@@ -4,6 +4,8 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
+VERSION = "e3c3720d252e+"
+
 import collections
 import copy
 import cPickle
@@ -244,6 +246,8 @@ class Cell():
             self.initFromFile(filePath)
 
         assert self.dim[0] >0 and self.dim[1] > 0 and self.dim[2] > 0
+        
+        self.logger.info("AMBUILD version: {0}".format(VERSION))
 
         return
 
@@ -2300,20 +2304,25 @@ class Cell():
         self.logger.info( "Wrote cml file: {0}".format(cmlFilename) )
         return
 
-    def writeXyz(self, ofile, data=None, periodic=False ):
+    def writeXyz(self, ofile, data=None, periodic=False, atomTypes=False):
         """Write out the cell atoms to an xyz file
         If label is true we write out the atom label and block, otherwise the symbol
         """
-
         if data is None:
             d = self.dataDict(periodic=periodic, fragmentType=None)
         else:
             d = data
 
         if periodic:
-            fpath = util.writeXyz(ofile,d.coords,d.symbols,cell=self.dim)
+            if atomTypes:
+                fpath = util.writeXyz(ofile,d.coords,d.atomTypes,cell=self.dim)
+            else:
+                fpath = util.writeXyz(ofile,d.coords,d.symbols,cell=self.dim)
         else:
-            fpath = util.writeXyz(ofile,d.coords,d.symbols)
+            if atomTypes:
+                fpath = util.writeXyz(ofile,d.coords,d.symbols)
+            else:
+                fpath = util.writeXyz(ofile,d.coords,d.atomTypes)
 
         self.logger.info( "Wrote cell file: {0}".format(fpath) )
         return

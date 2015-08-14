@@ -852,19 +852,19 @@ def dumpPkl(pickleFile,split=None,nonPeriodic=False):
             else:
                 b.writeXyz("{0}_block{1}.xyz".format(prefix,i))
                 b.writeCml("{0}_block{1}.cml".format(prefix,i))
-
     else:
         if nonPeriodic:
             data=mycell.dataDict(rigidBody=False,periodic=False)
             mycell.writeCml(prefix+"_NP.cml",data,
                             periodic=False, pruneBonds=False)
             mycell.writeXyz(prefix+"_NP.xyz",data=data, periodic=False)
+            mycell.writeXyz(prefix+"_NP_types.xyz",data=data, periodic=False, atomTypes=True)
         else:
             data = mycell.dataDict(rigidBody=False)
             mycell.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
+            mycell.writeXyz(prefix+"_P_types.xyz",data=data, periodic=True, atomTypes=True)
             #self.writeCar(prefix+"_P.car",data=data,periodic=True)
             mycell.writeCml(prefix+"_PV.cml", data=data, periodic=True, pruneBonds=True)
-
     return
 
 def dumpDLPOLY(pickleFile,rigidBody=False):
