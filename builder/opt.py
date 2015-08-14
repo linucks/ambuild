@@ -183,7 +183,7 @@ class FFIELD(object):
         self.atomTypes = None
         return
 
-    def checkParameters(self):
+    def checkParameters(self, skip_dihedrals=False):
 
         assert self.ffield
         assert self.atomTypes
@@ -200,15 +200,17 @@ class FFIELD(object):
                 ok = False
                 missingAngles.append( angle )
         missingDihedrals = []
-        for dihedral in self.dihedrals:
-            if not self.ffield.hasDihedral( dihedral ):
-                ok = False
-                missingDihedrals.append( dihedral )
         missingImpropers = []
-        for improper in self.impropers:
-            if not self.ffield.hasImproper( improper ):
-                ok = False
-                missingImpropers.append( improper )
+        if not skip_dihedrals:
+            for dihedral in self.dihedrals:
+                if not self.ffield.hasDihedral( dihedral ):
+                    ok = False
+                    missingDihedrals.append( dihedral )
+            for improper in self.impropers:
+                if not self.ffield.hasImproper( improper ):
+                    ok = False
+                    missingImpropers.append( improper )
+
         missingPairs = []
         for i, atype in enumerate( self.atomTypes ):
             for j, btype in enumerate( self.atomTypes ):
@@ -561,7 +563,9 @@ class DLPOLY(FFIELD):
         self.dihedrals = set([ "{0}-{1}-{2}-{3}".format(j[0],j[1],j[2],j[3]) for i in properTypes for j in i ])
         self.impropers = set([ "{0}-{1}-{2}-{3}".format(j[0],j[1],j[2],j[3]) for i in improperTypes for j in i ])
         self.atomTypes = set([ j for i in types for j in i ])
-        self.checkParameters()
+        # Pierre wants us to write things out even if there are missing dihedral parameters, but we need to know
+        # if there are any valid parameters as that determines whether to add the relevant section
+        self.checkParameters(skip_dihedrals=True)
 
         # Now write out FIELD file
         # REM DLPOLY does FORTRAN counting so add 1 to everything
@@ -640,24 +644,34 @@ class DLPOLY(FFIELD):
 
                 # Dihedrals
                 if (len(propers[i])):
-                    f.write("DIHEDRALS {0}\n".format(len(propers[i])))
+                    # Check if any are valid
+                    ok_propers = []
                     for j in range(len(propers[i])):
-                        #d1,d2,d3,d4 = sorted(properTypes[i][j] )
                         d1,d2,d3,d4 = properTypes[i][j]
                         d = "{0}-{1}-{2}-{3}".format(d1,d2,d3,d4)
-                        param = self.ffield.dihedralParameter( d )
-                        # A delta m - DLPOLY
-                        # k d  n - hoomd
-                        # d parameter should be 0 or 180
-                        if param['d'] == -1: dp = 180
-                        elif param['d'] == 1: dp = 0
-                        f.write("cos  {0:6}  {1:6}  {2:6}  {3:6}  {4:6}  {5:6} {6:6}\n".format(propers[i][j][0]+1,
-                                                                                         propers[i][j][1]+1,
-                                                                                         propers[i][j][2]+1,
-                                                                                         propers[i][j][3]+1,
-                                                                                         param['k']/2,
-                                                                                         dp,
-                                                                                         param['n'] ))
+                        if self.ffield.hasDihedral(d): ok_propers.append(True)
+                        else: ok_propers.append(False)
+                     
+                    if any(ok_propers):
+                        f.write("DIHEDRALS {0}\n".format(sum(ok_propers)))
+                        for j in range(len(propers[i])):
+                            if not ok_propers[j]: continue
+                            #d1,d2,d3,d4 = sorted(properTypes[i][j] )
+                            d1,d2,d3,d4 = properTypes[i][j]
+                            d = "{0}-{1}-{2}-{3}".format(d1,d2,d3,d4)
+                            param = self.ffield.dihedralParameter(d)
+                            # A delta m - DLPOLY
+                            # k d  n - hoomd
+                            # d parameter should be 0 or 180
+                            if param['d'] == -1: dp = 180
+                            elif param['d'] == 1: dp = 0
+                            f.write("cos  {0:6}  {1:6}  {2:6}  {3:6}  {4:6}  {5:6} {6:6}\n".format(propers[i][j][0]+1,
+                                                                                             propers[i][j][1]+1,
+                                                                                             propers[i][j][2]+1,
+                                                                                             propers[i][j][3]+1,
+                                                                                             param['k']/2,
+                                                                                             dp,
+                                                                                             param['n'] ))
 
                 # End of Molecule
                 f.write("FINISH\n")
