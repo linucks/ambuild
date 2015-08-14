@@ -2036,7 +2036,7 @@ class Cell():
    
         return
 
-    def setMaxBond(self, bondType, count ):
+    def setMaxBond(self, bondType, count):
         """Limit the number of bondType bonds to an individual fragment to count bonds.
 
         Args:
@@ -2103,7 +2103,7 @@ class Cell():
 
         # create formatter for fl
         # Always add a blank line after every print
-        formatter = logging.Formatter( '%(message)s\n' )
+        formatter = logging.Formatter( '%(asctime)s: %(message)s\n' )
 
         # add formatter to fl
         cl.setFormatter( formatter  )
