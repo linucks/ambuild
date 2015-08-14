@@ -4,7 +4,7 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
-VERSION = "d03f49ca572b"
+VERSION = "34eb9923f4fd"
 
 import collections
 import copy
@@ -1754,7 +1754,9 @@ class Cell():
          when selecting the coord
         """
         if point or radius:
-            assert point and radius
+            assert len(point) == 3,"Point needs to be a list of three floats!"
+            if not (0 <= point[0] <= self.dim[0] and 0 <= point[1] <= self.dim[1] and \
+                    0 <= point[2] <= self.dim[2] ): raise RuntimeError,"Point needs to be inside the cell."
             x = random.uniform(-radius, radius)
             y = random.uniform(-radius, radius)
             z = random.uniform(-radius, radius)
