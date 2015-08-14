@@ -183,7 +183,7 @@ class FFIELD(object):
         self.atomTypes = None
         return
 
-    def checkParameters(self, skip_dihedrals=False):
+    def checkParameters(self, skipDihedrals=False):
 
         assert self.ffield
         assert self.atomTypes
@@ -201,7 +201,7 @@ class FFIELD(object):
                 missingAngles.append( angle )
         missingDihedrals = []
         missingImpropers = []
-        if not skip_dihedrals:
+        if not skipDihedrals:
             for dihedral in self.dihedrals:
                 if not self.ffield.hasDihedral( dihedral ):
                     ok = False
@@ -565,7 +565,7 @@ class DLPOLY(FFIELD):
         self.atomTypes = set([ j for i in types for j in i ])
         # Pierre wants us to write things out even if there are missing dihedral parameters, but we need to know
         # if there are any valid parameters as that determines whether to add the relevant section
-        self.checkParameters(skip_dihedrals=True)
+        self.checkParameters(skipDihedrals=True)
 
         # Now write out FIELD file
         # REM DLPOLY does FORTRAN counting so add 1 to everything
