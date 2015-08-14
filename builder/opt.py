@@ -22,7 +22,7 @@ pe_c1 = logger.query('potential_energy_b1')
 pe = logger.query('potential_energy')
 
 """
-
+import csv
 import math
 import os
 import sys
@@ -34,547 +34,92 @@ import hoomdblue
 
 class FfieldParameters( object ):
 
-
     def __init__(self):
 
-        # REM = bonds are in alphabetical order as in the order of the atoms in a bond
-        # e.g. c-h NOT h-c
+        thisd =  os.path.abspath(os.path.dirname(__file__ ))
+        
         # All parameters calculated to fit PCFF adapted forcefield Holden et al j.phys.chem.c 2012
         # from combining rules calculated using dlpoly-prep (Willock)
         # bonds adapted from quartic PCFF
-        self.bonds = {
-                      'cp-cp'   : { 'k' : 1550.0, 'r0' : 1.384 },
-                      'cpp-cpp'   : { 'k' : 3000.0, 'r0' : 1.384 },
-                      'c1-cp'   : { 'k' : 970.0,  'r0' : 1.501 },
-                      'cp-c1'   : { 'k' : 970.0,  'r0' : 1.501 },
-                      'c2-cp'   : { 'k' : 2000.0,  'r0' : 1.524 },
-                      #'cp-ct'   : { 'k' : 1200.0, 'r0' : 1.54 },
-                      #'c3a-c3a' : { 'k' : 1200.0, 'r0' : 1.54 },
-                      'c-c'     : { 'k' : 930.0,  'r0' : 1.536 },
-                      'c-h'     : { 'k' : 1400.0, 'r0' : 1.010 },
-                      'cp-h'    : { 'k' : 1400.0, 'r0' : 1.079 },
-                      'cp-hx'   : { 'k' : 1400.0, 'r0' : 1.079 },
-                      #'ct-hx'   : { 'k' : 1200.0, 'r0' : 1.09 },
-                      #Here c_0 is = c= and nb is = n= to maintain ff label. Bondlength fitted to DFT
-                      #at b3lyp with vdw3 disp 6-311G basis set
-                      'c_0-nb'   : { 'k' : 1200.0, 'r0' : 1.320 },
-                      'nb-c_0'   : { 'k' : 1200.0, 'r0' : 1.320 },
-                      #for aza dlpoly all atom
-                      'c_0-c_0'   : { 'k' : 970.0, 'r0' : 1.560 },
-                      'c_0-o_1'   : { 'k' : 970.0, 'r0' : 1.196 },
-                      'cpa-cpa'   : { 'k' : 1550.0, 'r0' : 1.384 },
-                      'cpa-hc'   : { 'k' : 1400.0, 'r0' : 1.079 },
-                      'cpa-nb'   : { 'k' : 1200.0, 'r0' : 1.416 },
-                      'nb-hn'   : { 'k' : 1200.0, 'r0' : 1.015 },
-                      'cpa-cp'   : { 'k' : 1550.0, 'r0' : 1.384 },
-                      'cp-hc'   : { 'k' : 1400.0, 'r0' : 1.079 },
-                      'cp-cpa'   : { 'k' : 1550.0, 'r0' : 1.384 },
-                      'hn-nb'   : { 'k' : 1200.0, 'r0' : 1.015 },
-#s-o bodged to get config/field for dlpoly not to be used !!!
-                      's-o'      : { 'k' : 1550.0, 'r0' : 1.384 },
-                      'o-s'      : { 'k' : 1550.0, 'r0' : 1.384 },
-                      }
+        bond_file = os.path.join(thisd,'bond_params.csv')
+        if not os.path.isfile(bond_file): raise RuntimeError,"Cannot find bond parameter file: {0}".format(bond_file)
+        header = ['A','B','k','r0','comments']
+        self.bonds = {}
+        with open(bond_file) as f:
+            reader = csv.reader(f, delimiter=',', quotechar='"')
+            for i, row in enumerate(reader):
+                if i == 0:
+                    if row != header: raise RuntimeError,"Header for {0} file, should be: {1}".format(bond_file,",".join(header))
+                    else: continue
+                A = row[0]
+                B = row[1]
+                k = float(row[2])
+                r0 = float(row[3])
+                self.bonds[(A,B)] = {'k' : k, 'r0' : r0}
+        
+        # REM: angles are stored in degrees in the parameter file, but we convert to radians for our uses
+        angle_file = os.path.join(thisd,'angle_params.csv')
+        if not os.path.isfile(angle_file): raise RuntimeError,"Cannot find angle parameter file: {0}".format(angle_file)
+        header = ['angle','k','t0','comments']
+        self.angles = {}
+        with open(angle_file) as f:
+            reader = csv.reader(f, delimiter=',', quotechar='"')
+            for i, row in enumerate(reader):
+                if i == 0:
+                    if row != header: raise RuntimeError,"Header for {0} file, should be: {1}".format(angle_file,",".join(header))
+                    else: continue
+                angle = row[0]
+                k = float(row[1])
+                t0 = math.radians(float(row[2]))
+                self.angles[angle] = {'k' : k, 't0' : t0}
+        
+        dihedral_file = os.path.join(thisd,'dihedral_params.csv')
+        if not os.path.isfile(dihedral_file): raise RuntimeError,"Cannot find dihedral parameter file: {0}".format(dihedral_file)
+        header = ['dihedral','k','d','n','comments']
+        self.dihedrals = {}
+        with open(dihedral_file) as f:
+            reader = csv.reader(f, delimiter=',', quotechar='"')
+            for i, row in enumerate(reader):
+                if i == 0:
+                    if row != header: raise RuntimeError,"Header for {0} file, should be: {1}".format(dihedral_file,",".join(header))
+                    else: continue
+                dihedral = row[0]
+                k = int(row[1])
+                d = int(row[2])
+                n = int(row[3])
+                self.dihedrals[dihedral] = {'k' : k, 'd' : d, 'n' : n}
 
-        self.angles = {
-                       #2*math.pi/3 = 120
-                       #math.pi = 180
-
-                       'h-c-c'    : { 'k' : 330.0, 't0' : math.radians(109) },
-                       'c-c-h'    : { 'k' : 330.0, 't0' : math.radians(109) },
-                       'cp-cp-cp'     : { 'k' : 300.0, 't0' : math.radians(120) },
-                       'cpp-cpp-cp'     : { 'k' : 300.0, 't0' : math.radians(120) },           
-                       'cp-cpp-cpp'     : { 'k' : 300.0, 't0' : math.radians(120) },
-                       'c3a-c3a-c3a'  : { 'k' : 700.0, 't0' : math.radians(120) },
-                       'cp-cp-ct'     : { 'k' : 700.0, 't0' : math.radians(120) },
-                       'ct-cp-cp'     : { 'k' : 700.0, 't0' : math.radians(120) },
-                       #'cp-cp-hx'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       #'cp-cp-np'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       #'np-cp-cp'     : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'ct-ct-cp'    : { 'k' : 700.0, 't0' : math.radians(180) },
-                       'cp-ct-ct'    : { 'k' : 700.0, 't0' : math.radians(180) },
-                       #'ct-ct-hx'    : { 'k' : 330.0, 't0' : math.radians(180) },
-                       'ct-ct-cp'    : { 'k' : 700.0, 't0' : math.radians(180) },
-                       'cp-ct-nt'    : { 'k' : 700.0, 't0' : math.radians(180) },
-                       'h1-c1-cp'    : { 'k' : 330.0, 't0' : math.radians(109) },
-                       'hc-c2-cp'    : { 'k' : 330.0, 't0' : math.radians(109) },
-                       'cp-c2-hc'    : { 'k' : 330.0, 't0' : math.radians(109) },
-                       'c1-cp-cp'    : { 'k' : 2500.0, 't0' : math.radians(120) },
-                       'c1-cp-np'    : { 'k' : 2500.0, 't0' : math.radians(120) },
-                       'cp-cp-c1'    : { 'k' : 2500.0, 't0' : math.radians(120) },
-                       'c2-cp-cp'    : { 'k' : 2500.0, 't0' : math.radians(120) },
-                       'np-cp-c1'    : { 'k' : 2500.0, 't0' : math.radians(120) },
-                       'cp-cp-c2'    : { 'k' : 2500.0, 't0' : math.radians(120) },
-                       'cp-c1-h1'    : { 'k' : 330.0, 't0' : math.radians(120) },
-                       'cp-c1-cp'    : { 'k' : 2500.0, 't0' : math.radians(109) },
-                       'cp-c1-cp'    : { 'k' : 2500.0, 't0' : math.radians(109) },
-                       'cp-c1-o_1'   : { 'k' : 700.0, 't0' : math.radians(109) },
-                       'cp-c2-cp'    : { 'k' : 2500.0, 't0' : math.radians(109) },
-                       'c_0-c_0-nb'  : { 'k' : 1000.0, 't0' : math.radians(118) },
-                       'nb-c_0-c_0'  : { 'k' : 1000.0, 't0' : math.radians(118) },
-                       'c_0-nb-cpa'  : { 'k' : 800.0, 't0' : math.radians(138) },
-                       'cpa-nb-c_0'  : { 'k' : 800.0, 't0' : math.radians(138) },
-                       #aza for dlpoly all atom
-                       'c_0-c_0-c_0'  : { 'k' : 1000.0, 't0' : math.radians(120) },
-                       'c_0-c_0-o_1'  : { 'k' : 1000.0, 't0' : math.radians(120) },
-                       'cpa-cpa-cpa'  : { 'k' : 800.0, 't0' : math.radians(120) },
-                       'cpa-cpa-hc'   : { 'k' : 800.0, 't0' : math.radians(119) },
-                       'cpa-cpa-nb'   : { 'k' : 800.0, 't0' : math.radians(120) },
-                       'cpa-nb-hc'    : { 'k' : 800.0, 't0' : math.radians(112) },
-                       'hn-nb-hn'     : { 'k' : 800.0, 't0' : math.radians(109.6) },
-                       'cp-cpa-cpa'  : { 'k' : 800.0, 't0' : math.radians(120) },
-                       'cpa-nb-hn'    : { 'k' : 800.0, 't0' : math.radians(112) },
-                       'cpa-nb-hc'    : { 'k' : 800.0, 't0' : math.radians(112) },
-                       'cpa-cp-cpa'  : { 'k' : 800.0, 't0' : math.radians(120) },
-                       'cp-cpa-nb'  : { 'k' : 800.0, 't0' : math.radians(120) },
-                       'cpa-cpa-cp'  : { 'k' : 800.0, 't0' : math.radians(120) },
-                       'cpa-cp-hc'  : { 'k' : 800.0, 't0' : math.radians(120) },
-                       #for PAF topology
-                       'cp-cp-c'      : { 'k' : 200.0, 't0' : math.radians(180) },
-                       'c-cp-cp'      : { 'k' : 200.0, 't0' : math.radians(0) },
-#o-s-o bodged to get config/field for dlpoly not to be used !!!
-                       'o-s-o'        : { 'k' : 800.0, 't0' : math.radians(112) },
-                      }
-
-        self.dihedrals = {
-                        # jens hack
-                       'h-c-c-h'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
-                       #'cp-cp-cp-cp'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
-                       #'cp-cp-cp-hc'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
-                       #'ct-cp-cp-cp'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
-                       #'ct-cp-cp-hc'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
-                       #'cp-cp-ct-nt'       : { 'k' : 200, 'd' : -1, 'n' : 0 }, # Jens just for testing
-
-                       #DCX
-                       # Needs minima at 180
-                       'c2-cp-cp-cp'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
-                       #
-                       'c2-cp-cp-hc'     : { 'k' : 70, 'd' : -1, 'n' : 1 },
-                       'c2-cp-cp-c2'     : { 'k' : 70, 'd' : -1, 'n' : 1 },
-                       # Acceptable values from optimised dimer: -172, -129, -109, -13, 7, 13, 52, 70, 109, 168
-                       # Decided that values were ~ 0, 60, 120, 180 - need best minima at 120.3.
-                       'cp-cp-c2-hc'     : { 'k' : 3, 'd' : -1, 'n' : 3 },
-                       'hc-c2-cp-cp'     : { 'k' : 3, 'd' : -1, 'n' : 3 },
-                       'cp-cp-c2-cp'     : { 'k' : 70, 'd' : -1, 'n' : 1 },
-                       'cp-c2-cp-cp'     : { 'k' : 70, 'd' : -1, 'n' : 1 },
-
-                       #aza
-                       'nb-c_0-c_0-c_0'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'nb-c_0-c_0-o_1'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'c_0-nb-cpa-cp'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'c_0-nb-cpa-cpa'     : { 'k' : 70, 'd' : -1, 'n' : 2 },
-                       'c_0-c_0-nb-cpa'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cpa-nb-c_0-c_0'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'nb-c_0-c_0-nb'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       #for dlpoly all atom
-                       'c_0-c_0-c_0-c_0'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'o_1-c_0-c_0-o_1'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'hc-cpa-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'nb-cpa-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'o_1-c_0-c_0-nb'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cpa-cpa-cp-hc'       : { 'k' : 3, 'd' : -1, 'n' : 2 },
-                       'cpa-cp-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cp-cpa-nb-c_0'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'nb-cpa-cp-hc'        : { 'k' : 3, 'd' : -1, 'n' : 2 },
-                       'cpa-cp-cpa-cpa'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cp-cpa-cpa-nb'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cp-cpa-cpa-cp'       : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cpa-cpa-nb-hn'       : { 'k' : 3, 'd' : -1, 'n' : 2 },
-                       'c_0-c_0-c_0-nb'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cpa-cpa-cp-cpa'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'c_0-c_0-c_0-o_1'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cp-cpa-nb-hn'        : { 'k' : 3, 'd' : -1, 'n' : 2 },
-                       'cpa-cpa-nb-c_0'      : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       #CTF
-                       'c1-cp-np-cp'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
-                       'c1-cp-np-cp'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
-                       'cp-c1-cp-np'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
-                       'np-cp-c1-h1'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
-                       'h1-c1-cp-np'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
-                       'np-cp-c1-cp'     : { 'k' : 70, 'd' : 1, 'n' : 1 },
-
-                       #PAF
-                       'cp-cp-cp-cp'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cp-cp-cp-hc'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cp-cpp-cpp-cp'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cpp-cpp-cp-hc'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cpp-cpp-cp-cp'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-                       'cpp-cpp-cp-cpp'     : { 'k' : 30, 'd' : -1, 'n' : 2 },
-
-                       #PAF topology
-                       'c-cp-cp-c'     : { 'k' : 500, 'd' : -1, 'n' : 1 },
-                         }
-
-        self.impropers = {
-                       'cp-cp-cp-np'       : { 'k' : 200, 'chi' : 0.0 },
-                       'np-cp-cp-cp'       : { 'k' : 200, 'chi' : 0.0 },
-                       'cp-cp-ct-nt'       : { 'k' : 200, 'chi' : 0.0 },
-                       'nt-ct-cp-cp'       : { 'k' : 200, 'chi' : 0.0 },
-                       #for dlpoly all atom for aza
-                       'cpa-nb-cp-cpa'       : { 'k' : 200, 'chi' : 0.0 },
-                       'c_0-c_0-o_1-c_0'       : { 'k' : 200, 'chi' : 0.0 },
-                       'c_0-c_0-nb-c_0'       : { 'k' : 200, 'chi' : 0.0 },
-                       'nb-hn-cpa-hn'       : { 'k' : 200, 'chi' : 0.0 },
-                       'cpa-cpa-cp-nb'       : { 'k' : 200, 'chi' : 0.0 },
-                       'cpa-cpa-cp-hc'       : { 'k' : 200, 'chi' : 0.0 },
-                       'cpa-nb-cpa-cp'       : { 'k' : 200, 'chi' : 0.0 },
-                       'cp-hc-cpa-cpa'       : { 'k' : 200, 'chi' : 0.0 },
-                       'c_0-c_0-c_0-o_1'       : { 'k' : 200, 'chi' : 0.0 },
-                       'c_0-c_0-c_0-nb'       : { 'k' : 200, 'chi' : 0.0 },
-                       'cpa-cpa-hc-cpa'       : { 'k' : 200, 'chi' : 0.0 },
-                       'cpa-cpa-nb-cp'       : { 'k' : 200, 'chi' : 0.0 },
-                       'nb-hn-hn-cpa'       : { 'k' : 200, 'chi' : 0.0 },
-                       'c_0-o_1-c_0-c_0'       : { 'k' : 200, 'chi' : 0.0 },
-                       'nb-cpa-hn-hn'       : { 'k' : 200, 'chi' : 0.0 },
-                       'cpa-cp-nb-cpa'       : { 'k' : 200, 'chi' : 0.0 },
-                       'cpa-cp-cpa-nb'       : { 'k' : 200, 'chi' : 0.0 },
-                       'c_0-nb-c_0-c_0'       : { 'k' : 200, 'chi' : 0.0 },
-                       'cp-cpa-cpa-hc'       : { 'k' : 200, 'chi' : 0.0 },
-                       'cp-cpa-hc-cpa'       : { 'k' : 200, 'chi' : 0.0 },
-#s-o-o-o bodged to get config/field for dlpoly not to be used !!!
-                       's-o-o-o'             : { 'k' : 200, 'chi' : 0.0 },
-                         }
-
-        self.pairs = {
-
-              # Ones with x in are cap atoms and are ignored - see setPair
-
-              #PCFF typed pair potentials
-              ('c',  'h' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('h', 'h' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
-
-              ('c',  'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-
-              ('c2', 'c2' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c2', 'ct' )      : { 'epsilon' : 0.0760,   'sigma' : 3.9007  },
-              ('c2', 'cp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
-              #c2-hc for DCX
-              ('c2', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              #else:('c2', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              ('c2', 'nb' )      : { 'epsilon' : 0.0759,   'sigma' : 3.9357  },
-              ('c2', 'hx' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              ('c2', 'cl' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-
-              ('c', 'o1=' )     : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-
-              ('c', 'n3m' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
-
-              ('c1', 'c1' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c', 'c1' )        : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c1', 'cl' )        : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c1', 'c3' )        : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c2', 'c' )        : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c2', 'c3' )        : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c', 'cl' )        : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c3', 'cl' )        : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-
-              ('c', 'c' )        : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c', 'br' )       : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
-              ('c1', 'c2' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c', 'n3a' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
-              ('c3', 'br' )       : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
-              ('c4', 'br' )       : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
-
-              ('c=1', 'c=1' )    : { 'epsilon' : 0.0640,   'sigma' : 4.0100  },
-              ('c=1', 'c1' )     : { 'epsilon' : 0.0760,   'sigma' : 3.9007  },
-              ('c=1', 'hc' )     : { 'epsilon' : 0.0254,   'sigma' : 3.6691  },
-              ('c=1', 'c2' )     : { 'epsilon' : 0.0760,   'sigma' : 3.9007  },
-              ('c=1', 'c' )     : { 'epsilon' : 0.0760,   'sigma' : 3.9007  },
-              ('c=1', 'cp' )     : { 'epsilon' : 0.0828,   'sigma' : 3.9007  },
-              ('c=1', 'np' )     : { 'epsilon' : 0.0828,   'sigma' : 3.9007  },#needs changing
-              ('c=1', 'c3' )     : { 'epsilon' : 0.0760,   'sigma' : 3.9007  },
-              ('c=1', 'cl' )     : { 'epsilon' : 0.0760,   'sigma' : 3.9007  },
-
-              ('c3', 'c4' )     : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c3', 'o1=' )     : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-              ('c3', 'c3' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c3', 'h1' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('c3', 'n3m' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
-              ('c3', 'cp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
-              ('c3', 'cpp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
-              ('c3', 'c' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c3', 'hc' )     : { 'epsilon' : 0.0254,   'sigma' : 3.6691  },
-
-              ('c4', 'hc' )     : { 'epsilon' : 0.0254,   'sigma' : 3.6691  },
-              ('c4', 'c4' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c4', 'c' )      : { 'epsilon' : 0.0933,   'sigma' : 3.7736  },
-              ('c4', 'cp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
-              ('c4', 'cpp' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
-              ('c4', 'c4o' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('c4', 'o2e' )     : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-              ('c4', 'o1=' )     : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-              ('c4', 'h1' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('c4', 'n3a' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
-              ('c4', 'n2a' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
-             # ('c4', 'zn+2' )    : { 'epsilon' : 0.25106,  'sigma' : 3.296   },
-              ('c4', 'p' )       : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('c4', 'f1p' )     : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('c4', 'c3a' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('c4', 'n3m' )     : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
-
-              ('c4o', 'c4o' )    : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('c4o', 'c3a' )    : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('c4o', 'o2e' )    : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-              ('c4o', 'h1' )     : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('c4o', 'n3a' )    : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
-              ('c4o', 'n2a' )    : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
-             # ('c4o', 'zn+2' )   : { 'epsilon' : 0.25106,  'sigma' : 3.296   },
-              ('c4o', 'p' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('c4o', 'f1p' )    : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-
-              ('c_0', 'c_0' )    : { 'epsilon' : 0.1200,   'sigma' : 3.3080  },
-              ('c_0', 'o_1' )    : { 'epsilon' : 0.1755,   'sigma' : 3.4309  },
-              ('c1', 'o_1' )     : { 'epsilon' : 0.1755,   'sigma' : 3.4309  },
-              ('c_0', 'cp' )     : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },
-              ('c_0', 'cpa' )    : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },
-              ('c_0', 'nb' )     : { 'epsilon' : 0.0736,   'sigma' : 3.7823  },
-              ('c_0', 'hc' )     : { 'epsilon' : 0.0469,   'sigma' : 3.1707  },
-              ('c_0', 'hn' )     : { 'epsilon' : 0.0029,   'sigma' : 2.9477  },
-
-              ('c3a', 'c3a' )    : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('c3a', 'n2a' )    : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
-              ('c3a', 'o2e' )    : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-              ('c3a', 'h1' )     : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('c3a', 'n3a' )    : { 'epsilon' : 0.1187,   'sigma' : 3.9357  },
-             # ('c3a', 'zn+2' )   : { 'epsilon' : 0.25106,  'sigma' : 3.296   },
-              ('c3a', 'p' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('c3a', 'f1p' )    : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('c3a', 'o2e' )    : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-
-              #cp-cp for DCX
-              ('cpp', 'cpp' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
-              ('cpp', 'cpp' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
-              ('cp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
-              ('cpp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
-              ('cpp', 'cpp' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
-              ('cpp', 'cpa' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
-              ('cp', 'cpm' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
-              ('cpp', 'cpm' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
-              ('cpm', 'cpm' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
-              ('cpm', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('cpm', 'cpa' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('cpp', 'nb' )     : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
-              ('cpm', 'nb' )     : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
-              ('cpp', 'hn' )     : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
-              ('cpm', 'hn' )     : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
-              ('o_1', 'cpp' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
-              ('o_1', 'cpm' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
-              ('c_0', 'cpp' )    : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },
-              ('c_0', 'cpm' )    : { 'epsilon' : 0.1068,   'sigma' : 3.5782  },
-
-              #else:('cp', 'cp' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('cp', 'cl' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('cp', 'cpa' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('cpa', 'cpa' )    : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              #cp-hc for DCX
-              #('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 1.4893  },
-              ('cp', 'br' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('cpp', 'br' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              #else('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('cp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('cpp', 'hc' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('cpa', 'hc' )     : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('cp', 'ct' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('cp', 'nb' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
-              ('cpa', 'nb' )     : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
-              ('cp', 'nt' )      : { 'epsilon' : 0.0836,   'sigma' : 3.6788  },
-              ('cp', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('cp', 'np' )      : { 'epsilon' : 0.0664,   'sigma' : 3.6788  },
-              ('cp', 'oc' )      : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-              ('cp', 'c1' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
-              ('cp', 'c' )       : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },
-              ('cp', 'hn' )      : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
-              ('cpa', 'hn' )     : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
-              ('cp', 'n3m' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
-              ('cpp', 'n3m' )      : { 'epsilon' : 0.0827,   'sigma' : 3.9357  },
-              ('cp', 'h' )       : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('ct', 'ct' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('ct', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('ct', 'nb' )      : { 'epsilon' : 0.0644,   'sigma' : 4.0406  },
-              ('ct', 'np' )      : { 'epsilon' : 0.0644,   'sigma' : 4.0406  },
-              ('ct', 'nt' )      : { 'epsilon' : 0.0608,   'sigma' : 3.8214  },
-              ('ct', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-
-              ('o2e', 'o2e' )    : { 'epsilon' : 0.2400,   'sigma' : 3.5350  },
-              ('o2e', 'h1' )     : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },
-              ('o2e', 'n3a' )    : { 'epsilon' : 0.1644,   'sigma' : 3.8484  },
-              ('o2e', 'n2a' )    : { 'epsilon' : 0.1644,   'sigma' : 3.8484  },
-              #('o2e', 'zn+2' )   : { 'epsilon' : 0.25106,  'sigma' : 3.296   },
-              ('o2e', 'p' )      : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },
-              ('o2e', 'f1p' )    : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },
-
-              ('oc', 'oc' )      : { 'epsilon' : 0.2400,   'sigma' : 3.5350  },
-              ('oc', 'np' )      : { 'epsilon' : 0.0992,   'sigma' : 3.5527  },
-              ('oc', 'nt' )      : { 'epsilon' : 0.1248,   'sigma' : 3.5527  },
-
-              ('o_1', 'o_1' )    : { 'epsilon' : 0.2670,   'sigma' : 3.5350  },
-              ('o_1', 'cp' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
-              ('o_1', 'cpa' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
-              #('o_1', 'nb' )     : { 'epsilon' : 0.1208,   'sigma' : 3.8484  },
-              ('o_1', 'nb' )     : { 'epsilon' : 1.1208,   'sigma' : 2.3200  },
-              ('o_1', 'hc' )     : { 'epsilon' : 0.0649,   'sigma' : 3.3189  },
-              #('o_1', 'hn' )     : { 'epsilon' : 0.0035,   'sigma' : 3.1498  },
-              ('o_1', 'hn' )     : { 'epsilon' : 0.0035,   'sigma' : 1.6110  },
-              ('o_1', 'h1' )     : { 'epsilon' : 0.0035,   'sigma' : 1.6110  },
-
-              ('o1=', 'o1=' )    : { 'epsilon' : 0.2400,   'sigma' : 3.5350  },
-              ('o1=', 'h1' )     : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },
-              ('o1=', 'cp' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
-              ('o1=', 'cpp' )     : { 'epsilon' : 0.1686,   'sigma' : 3.6640  },
-              ('o1=', 'hc' )     : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },
-
-              ('h', 'n3m' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
-              ('hc', 'n3m' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
-
-              ('h1', 'h1' )      : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
-              ('h1', 'n3a' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
-              ('h1', 'n2a' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
-              ('h1', 'p' )       : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
-              ('h1', 'f1p' )     : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
-              #('h1', 'zn+2' )    : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
-              ('h1', 'c1' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              ('h1', 'cp' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              ('h1', 'cpp' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              ('h1', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              ('h', 'hc' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              ('h1', 'c' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              ('h1', 'n3m' )     : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
-              ('h1', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-              ('h1', 'c' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              #hc-hc for DCX
-             #('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 1.7736  },
-              #else('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('hc', 'hc' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('hc', 'nb' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
-              ('h1', 'np' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
-              ('hc', 'nt' )      : { 'epsilon' : 0.0316,   'sigma' : 3.3431  },
-              ('hc', 'hn' )      : { 'epsilon' : 0.0016,   'sigma' : 2.6693  },
-              ('hn', 'hn' )      : { 'epsilon' : 0.0130,   'sigma' : 1.0980  },
-              ('hc', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('hc', 'np' )      : { 'epsilon' : 0.0251,   'sigma' : 3.3431  },
-              ('hc', 'oc' )      : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },
-              ('hc', 'c1' )      : { 'epsilon' : 0.0346,   'sigma' : 3.4893  },
-              ('hc', 'cl' )      : { 'epsilon' : 0.0200,   'sigma' : 2.9950  },
-              ('hc', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-
-              ('hx', 'hx' )      : { 'epsilon' : 0.1106,   'sigma' : 3.7736  },
-              ('hx', 'nb' )      : { 'epsilon' : 0.0248,   'sigma' : 3.7161  },
-              ('nb', 'hn' )      : { 'epsilon' : 0.0011,   'sigma' : 3.6262  },
-
-              ('cl', 'cl' )      : { 'epsilon' : 0.0200,   'sigma' : 2.9950  },
-
-              ('n3a', 'n3a' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
-              ('n3a', 'n2a' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
-             # ('n3a', 'zn+2' )   : { 'epsilon' : 0.25106,  'sigma' : 3.296   },
-              ('n3a', 'p' )      : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
-              ('n3a', 'f1p' )    : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
-
-              ('n3m', 'n3m' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
-              ('o1=', 'n3m' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
-              ('o1=', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-
-              ('n2a', 'n2a' )    : { 'epsilon' : 0.1340,   'sigma' : 4.070   },
-              #('n2a', 'zn+2' )   : { 'epsilon' : 0.25106,  'sigma' : 3.296   },
-              ('n2a', 'p' )      : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
-              ('n2a', 'f1p' )    : { 'epsilon' : 0.0356,   'sigma' : 3.7161  },
-
-              ('nb', 'nb' )      : { 'epsilon' : 0.0650,   'sigma' : 4.0700  },
-              ('nb', 'np' )      : { 'epsilon' : 0.0479,   'sigma' : 3.8600  },
-              ('nb', 'ct' )      : { 'epsilon' : 0.0644,   'sigma' : 4.0406  },
-              ('nb', 'nt' )      : { 'epsilon' : 0.0603,   'sigma' : 3.8600  },
-
-              ('np', 'np' )      : { 'epsilon' : 0.0410,   'sigma' : 3.5700  },
-              ('np', 'nt' )      : { 'epsilon' : 0.0516,   'sigma' : 3.5700  },
-              ('np', 'c1' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },#needs changing
-              ('np', 'c2' )      : { 'epsilon' : 0.1016,   'sigma' : 3.7736  },#needs changing
-
-           #   ('br', 'br' )      : { 'epsilon' : 100.0376,   'sigma' : 3.4893  },
-
-              ('br', 'br' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-
-              ('br', 'n3m' )      : { 'epsilon' : 0.0376,   'sigma' : 3.4893  },
-
-              ('nt', 'nt' )      : { 'epsilon' : 0.0650,   'sigma' : 3.5700  },
-
-              ('n=', 'n=' )      : { 'epsilon' : 0.1382,   'sigma' : 3.5759  },
-              ('n=', 'cp' )      : { 'epsilon' : 0.1220,   'sigma' : 3.6814  },
-              ('n=', 'np' )      : { 'epsilon' : 0.1220,   'sigma' : 3.6814  },#needs changing
-              ('n=', 'hc' )      : { 'epsilon' : 0.0459,   'sigma' : 3.3472  },
-              ('n=', 'c=1' )     : { 'epsilon' : 0.0888,   'sigma' : 3.8235  },
-              ('n=', 'c1' )      : { 'epsilon' : 0.1121,   'sigma' : 3.6814  },
-              ('n=', 'c2' )      : { 'epsilon' : 0.1121,   'sigma' : 3.5759  },
-              ('n=', 'c' )      : { 'epsilon' : 0.1121,   'sigma' : 3.6814  },
-              ('n=', 'c3' )      : { 'epsilon' : 0.1121,   'sigma' : 3.6814  },
-              ('n=', 'cl' )      : { 'epsilon' : 0.1121,   'sigma' : 3.6814  },
-
-
-
-              ('zn+2', 'zn+2' )  : { 'epsilon' : 0.25106,  'sigma' : 3.296   },
-              ('zn+2', 'p' )     : { 'epsilon' : 0.02,     'sigma' : 2.995   },
-              ('zn+2', 'f1p' )   : { 'epsilon' : 0.02,     'sigma' : 2.995   },
-
-              ('p', 'p' )        : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
-              ('p', 'f1p' )      : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
-
-              ('f1p', 'f1p' )    : { 'epsilon' : 0.02,     'sigma' : 2.9950  },
-        #aza cmp and acid#
-              ('cp', 's' )       : { 'epsilon' : 0.0870,   'sigma' : 3.9105  },
-              ('cp', 'o' )       : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-              ('cp', 'o*' )      : { 'epsilon' : 0.1725,   'sigma' : 3.6954  },
-              ('cp', 'hw' )      : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
-              ('s', 's' )        : { 'epsilon' : 0.0710,   'sigma' : 4.0270  },
-              ('s', 'o' )        : { 'epsilon' : 0.1212,   'sigma' : 3.8202  },
-              ('s', 'o*' )       : { 'epsilon' : 0.1322,   'sigma' : 3.8458  },
-              ('s', 'hw' )       : { 'epsilon' : 0.0012,   'sigma' : 3.5879  },
-              ('s', 'c_0' )      : { 'epsilon' : 0.0783,   'sigma' : 3.7515  },
-              ('s', 'o_1' )      : { 'epsilon' : 0.1278,   'sigma' : 3.8202  },
-              ('s', 'cpa' )      : { 'epsilon' : 0.0870,   'sigma' : 3.9105  },
-              ('s', 'nb' )       : { 'epsilon' : 0.0679,   'sigma' : 4.0488  },
-              ('s', 'hc' )       : { 'epsilon' : 0.0265,   'sigma' : 3.6824  },
-              ('s', 'hn' )       : { 'epsilon' : 0.0012,   'sigma' : 3.5879  },
-              ('o', 'o' )        : { 'epsilon' : 0.2400,   'sigma' : 3.5350  },
-              ('o', 'o*' )       : { 'epsilon' : 0.2560,   'sigma' : 3.5724  },
-              ('o', 'hw' )       : { 'epsilon' : 0.0033,   'sigma' : 3.1498  },
-              ('o', 'c_0' )      : { 'epsilon' : 0.0783,   'sigma' : 3.7515  },
-              ('o', 'o_1' )      : { 'epsilon' : 0.1278,   'sigma' : 3.8208  },
-              ('o', 'cpa' )      : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-              ('o', 'nb' )       : { 'epsilon' : 0.1145,   'sigma' : 3.8484  },
-              ('o', 'hc' )       : { 'epsilon' : 0.0615,   'sigma' : 3.3189  },
-              ('o', 'hn' )       : { 'epsilon' : 0.0033,   'sigma' : 3.1498  },
-              ('o*', 'o*' )      : { 'epsilon' : 0.2740,   'sigma' : 3.6080  },
-              ('o*', 'hw' )      : { 'epsilon' : 0.0034,   'sigma' : 3.2148  },
-              ('o*', 'c_0' )     : { 'epsilon' : 0.1753,   'sigma' : 3.4741  },
-              ('o*', 'o_1' )     : { 'epsilon' : 0.2700,   'sigma' : 3.5724  },
-              ('o*', 'cpa' )     : { 'epsilon' : 0.1725,   'sigma' : 3.6954  },
-              ('o*', 'nb' )      : { 'epsilon' : 0.1252,   'sigma' : 3.8731  },
-              ('o*', 'hc' )      : { 'epsilon' : 0.0638,   'sigma' : 3.3696  },
-              ('o*', 'hn' )      : { 'epsilon' : 0.0034,   'sigma' : 3.2148  },
-              ('hw', 'hw' )      : { 'epsilon' : 0.0130,   'sigma' : 1.0980  },
-              ('hw', 'c_0' )     : { 'epsilon' : 0.0029,   'sigma' : 2.9477  },
-              ('hw', 'o_1' )     : { 'epsilon' : 0.0035,   'sigma' : 3.1498  },
-              ('hw', 'cpa' )     : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
-              ('hw', 'nb' )      : { 'epsilon' : 0.0011,   'sigma' : 3.6262  },
-              ('hw', 'hc' )      : { 'epsilon' : 0.0016,   'sigma' : 2.6693  },
-              ('hw', 'hn' )      : { 'epsilon' : 0.0130,   'sigma' : 1.0980  },
-              ('cpp', 's' )       : { 'epsilon' : 0.0870,   'sigma' : 3.9105  },
-              ('cpp', 'o' )       : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-              ('cpp', 'o*' )      : { 'epsilon' : 0.1725,   'sigma' : 3.6954  },
-              ('cpp', 'hw' )      : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
-              ('cpm', 's' )       : { 'epsilon' : 0.0870,   'sigma' : 3.9105  },
-              ('cpm', 'o' )       : { 'epsilon' : 0.1598,   'sigma' : 3.6640  },
-              ('cpm', 'o*' )      : { 'epsilon' : 0.1725,   'sigma' : 3.6954  },
-              ('cpm', 'hw' )      : { 'epsilon' : 0.0019,   'sigma' : 3.3622  },
-
-
-
-        #Zn ghost atom
-         #     ('zn+2', 'zn+2' )  : { 'epsilon' : 0.00001,  'sigma' : 0.00001 },
-          #    ('zn+2', 'hc' )    : { 'epsilon' : 0.00001,  'sigma' : 0.00001 },
-           #   ('zn+2', 'nb' )    : { 'epsilon' : 0.00001,  'sigma' : 0.00001 },
-            #  ('zn+2', 'cp' )    : { 'epsilon' : 0.00001,  'sigma' : 0.00001 },
-             # ('zn+2', 'c2' )    : { 'epsilon' : 0.00001,  'sigma' : 0.00001 },
-              #('zn+2', 'ct' )    : { 'epsilon' : 0.00001,  'sigma' : 0.00001 },
-            }
-
+        improper_file = os.path.join(thisd,'improper_params.csv')
+        if not os.path.isfile(improper_file): raise RuntimeError,"Cannot find dihedral parameter file: {0}".format(improper_file)
+        header = ['improper','k','chi','comments']
+        self.impropers = {}
+        with open(improper_file) as f:
+            reader = csv.reader(f, delimiter=',', quotechar='"')
+            for i, row in enumerate(reader):
+                if i == 0:
+                    if row != header: raise RuntimeError,"Header for {0} file, should be: {1}".format(improper_file,",".join(header))
+                    else: continue
+                improper = row[0]
+                k = int(row[1])
+                chi = float(row[2])
+                self.impropers[improper] = {'k' : k, 'chi' : chi}
+                
+        pairs_file = os.path.join(thisd,'pair_params.csv')
+        if not os.path.isfile(pairs_file): raise RuntimeError,"Cannot find pair parameter file: {0}".format(pairs_file)
+        header = ['atom1','atom2','epsilon','sigma','comments']
+        self.pairs = {}
+        with open(pairs_file) as f:
+            reader = csv.reader(f, delimiter=',', quotechar='"')
+            for i, row in enumerate(reader):
+                if i == 0:
+                    if row != header: raise RuntimeError,"Header for {0} file, should be: {1}".format(pairs_file,",".join(header))
+                    else: continue
+                atom1 = row[0]
+                atom2 = row[1]
+                epsilon = float(row[2])
+                sigma = float(row[3])
+                self.pairs[(atom1,atom2)] = {'epsilon' : epsilon, 'sigma' : sigma}
+        
         return
 
     def angleParameter( self, angle ):
@@ -583,13 +128,20 @@ class FfieldParameters( object ):
     def hasAngle(self, angle):
         return angle in self.angles.keys()
 
-    def bondParameter( self, bond ):
-        return self.bonds[ bond ]
+    def bondParameter(self, bond):
+        a,b = bond.split('-')
+        if (a,b) in self.bonds.keys():
+            return self.bonds[(a,b)]
+        elif (b,a) in self.bonds.keys():
+            return self.bonds[(b,a)]
+        else:
+            raise RuntimeError,"Missing bond parameter for: {0} {1}".format(a,b)
 
     def hasBond(self, bond):
-        return bond in self.bonds.keys()
+        a,b = bond.split('-')
+        return (a,b) in self.bonds.keys() or (b,a) in self.bonds.keys()
 
-    def dihedralParameter( self, dihedral ):
+    def dihedralParameter(self, dihedral):
         return self.dihedrals[ dihedral ]
 
     def hasDihedral(self, dihedral):
@@ -891,6 +443,7 @@ class DLPOLY(FFIELD):
                     #
                     # Dihedrals
                     #
+                    # jmht CHECK PROPERS AND IMPROPERS
                     for dindices in block.dihedrals( b1, b2 ):
                         #dihedral = ( dindices[0] + atomCount,
                         #             dindices[1] + atomCount,
@@ -1095,12 +648,15 @@ class DLPOLY(FFIELD):
                         param = self.ffield.dihedralParameter( d )
                         # A delta m - DLPOLY
                         # k d  n - hoomd
+                        # d parameter should be 0 or 180
+                        if param['d'] == -1: dp = 180
+                        elif param['d'] == 1: dp = 0
                         f.write("cos  {0:6}  {1:6}  {2:6}  {3:6}  {4:6}  {5:6} {6:6}\n".format(propers[i][j][0]+1,
                                                                                          propers[i][j][1]+1,
                                                                                          propers[i][j][2]+1,
                                                                                          propers[i][j][3]+1,
                                                                                          param['k']/2,
-                                                                                         param['d'],
+                                                                                         dp,
                                                                                          param['n'] ))
 
                 # End of Molecule
