@@ -14,14 +14,11 @@ https://github.com/patvarilly/periodic_kdtree
 '''
 
 # Python imports
-import collections
 import copy
 import itertools
 import os
 import math
 import random
-import sys
-import types
 import unittest
 
 # external imports
@@ -331,7 +328,11 @@ class Block(object):
         self._blockBonds.append( bond )
 
         return self._update()
-
+    
+    def blockRadius(self):
+        if self._changed: self._calcProperties()
+        return self._radius
+    
     def _calcCenters(self):
 
         sumG = numpy.zeros( 3 )
@@ -733,11 +734,6 @@ class Block(object):
             endGroup = random.choice( self.freeEndGroupsFromTypes( endGroupTypes=[ ftype ] ) )
 
         return endGroup
-
-    def blockRadius(self):
-        if self._changed:
-            self._calcProperties()
-        return self._radius
 
     def randomRotate( self, origin=[ 0,0,0 ], atOrigin=False ):
         """Randomly rotate a block.
