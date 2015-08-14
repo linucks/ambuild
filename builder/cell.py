@@ -1748,21 +1748,35 @@ class Cell():
 
         return blockId
 
-    def randomMoveBlock(self, block, margin=None ):
+    def randomMoveBlock(self, block, margin=None, point=None, radius=None, zone=None):
         """Randomly move the given block
-         If buffer is given, use this as a buffer from the edges of the cell
+         If margin is given, use this as a buffer from the edges of the cell
          when selecting the coord
         """
-        # Get _coords of random point in the cell that we will move the block to after
-        # we've rotated at the origin
-        if margin:
-            x = random.uniform(margin,self.dim[0]-margin)
-            y = random.uniform(margin,self.dim[1]-margin)
-            z = random.uniform(margin,self.dim[2]-margin)
+        if point or radius:
+            assert point and radius
+            raise RuntimeError,"point and radius not implemented yet"
+        elif zone:
+            assert len(zone) == 6
+            assert zone[0] >= 0
+            assert zone[1] <= self.dim[0]
+            assert zone[2] >= 0
+            assert zone[3] <= self.dim[1]
+            assert zone[4] >= 0
+            assert zone[5] <= self.dim[2]
+            bmargin = block.blockRadius()
+            x = random.uniform(zone[0] + bmargin, zone[1] - bmargin)
+            y = random.uniform(zone[2] + bmargin, zone[3] - bmargin)
+            z = random.uniform(zone[4] + bmargin, zone[5] - bmargin)
         else:
-            x = random.uniform(0,self.dim[0])
-            y = random.uniform(0,self.dim[1])
-            z = random.uniform(0,self.dim[2])
+            if margin:
+                x = random.uniform(margin,self.dim[0]-margin)
+                y = random.uniform(margin,self.dim[1]-margin)
+                z = random.uniform(margin,self.dim[2]-margin)
+            else:
+                x = random.uniform(0,self.dim[0])
+                y = random.uniform(0,self.dim[1])
+                z = random.uniform(0,self.dim[2])
 
         coord = numpy.array([x,y,z], dtype=numpy.float64 )
 
@@ -1929,7 +1943,15 @@ class Cell():
                 self.delBlock(idxBlock)        
         return blockList        
         
-    def seed( self, nblocks, fragmentType=None, maxTries=500, center=False, save=None):
+    def seed(self,
+             nblocks,
+             fragmentType=None,
+             maxTries=500,
+             center=False,
+             save=None,
+             point=None,
+             radius=None,
+             zone=None):
         """ Seed a cell with nblocks of type fragmentType.
 
         Args:
@@ -1979,7 +2001,7 @@ class Cell():
                     newblock.translateCentroid( [ self.dim[0]/2, self.dim[1]/2, self.dim[2]/2 ] )
                 else:
                     # Move the block and rotate it
-                    self.randomMoveBlock( newblock )
+                    self.randomMoveBlock(newblock, point=point, radius=radius, zone=zone)
 
                 #Add the block so we can check for clashes/bonds
                 idxBlock = self.addBlock( newblock )
