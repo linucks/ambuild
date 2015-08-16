@@ -597,9 +597,7 @@ class Cell():
 
     def checkMove(self, idxAddBlock):
         clashing = self._checkMove(idxAddBlock)
-        if clashing > 0:
-            return False
-
+        if clashing > 0: return False
         return True
 
     def _checkMove(self, idxAddBlock):
@@ -607,15 +605,11 @@ class Cell():
         get pairs of close atoms
 
         """
-
-        # Get a list of the close atoms
-        close = self.closeAtoms(idxAddBlock)
-        # if close:
-        #    print "GOT {0} CLOSE ATOMS ".format( len(close) )
+        close = self.closeAtoms(idxAddBlock) # Get a list of the close atoms
+        # if close: print "GOT {0} CLOSE ATOMS ".format( len(close) )
 
         if not close:
             self.logger.debug("_checkMove no close contacts")
-            # Nothing to see so move along
             return 0
 
         # Get the block1
@@ -1756,21 +1750,18 @@ class Cell():
         if point or radius:
             assert len(point) == 3,"Point needs to be a list of three floats!"
             if not (0 <= point[0] <= self.dim[0] and 0 <= point[1] <= self.dim[1] and \
-                    0 <= point[2] <= self.dim[2] ): raise RuntimeError,"Point needs to be inside the cell."
-            x = random.uniform(-radius, radius)
-            y = random.uniform(-radius, radius)
-            z = random.uniform(-radius, radius)
-            xyz = numpy.array([x, y, z], dtype=numpy.float64)
-            coord = numpy.add(point, xyz)
+                    0 <= point[2] <= self.dim[2] ):
+                raise RuntimeError,"Point needs to be inside the cell."
+            coord = self.randomSpherePoint(point, radius)
         elif zone:
-            assert len(zone) == 6
-            assert zone[0] >= 0
-            assert zone[1] <= self.dim[0]
-            assert zone[2] >= 0
-            assert zone[3] <= self.dim[1]
-            assert zone[4] >= 0
-            assert zone[5] <= self.dim[2]
-            bmargin = block.blockRadius()
+            if not len(zone) == 6:
+                raise RuntimeError,"Zone needs to be a list of 6 floats: [x0,x1,y1,y2,z1,z1]"
+            if not zone[0] >= 0 and zone[1] <= self.dim[0] and\
+                zone[2] >= 0 and zone[3] <= self.dim[1] and \
+                zone[4] >= 0 and zone[5] <= self.dim[2]:
+                raise RuntimeError,"Zone needs to be within the cell"
+            #bmargin = block.blockRadius()
+            bmargin = 0
             x = random.uniform(zone[0] + bmargin, zone[1] - bmargin)
             y = random.uniform(zone[2] + bmargin, zone[3] - bmargin)
             z = random.uniform(zone[4] + bmargin, zone[5] - bmargin)
@@ -1791,15 +1782,28 @@ class Cell():
         # Use the cell axis definitions
         block.translateCentroid(self.origin)
         block.randomRotate(origin=self.origin, atOrigin=True)
-
-        # Now move to new coord
         block.translateCentroid(coord)
-
         return
+    
+    def randomSpherePoint(self, center, radius):
+        """Return a random point on a sphere of radius radius centerd at center.
+        From: http://mathworld.wolfram.com/SpherePointPicking.html
+        """
+        
+        # We use spherical coordinates and calculate theta and phi
+        theta = 2 * math.pi * random.uniform(0,1)
+        phi = math.acos(2 * random.uniform(0,1) - 1)
+        rradius = random.uniform(0,radius)
+        
+        # coordinate of point centered at origin is therefore:
+        x = rradius * math.cos(theta) * math.sin(phi)
+        y = rradius * math.sin(theta) * math.sin(phi)
+        z = rradius * math.cos(phi)
+        
+        return numpy.array([x + center[0], y + center[1], z + center[2]], dtype=numpy.float64)
 
     def repopulateCells(self, boxShift=None):
         """Add all the blocks to resized cells"""
-
         blocks = None
         if len(self.blocks):
             # Put all the blocks into the new cells
