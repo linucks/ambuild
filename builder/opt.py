@@ -36,12 +36,12 @@ class FfieldParameters(object):
 
     def __init__(self):
 
-        thisd = os.path.abspath(os.path.dirname(__file__))
+        paramd = os.path.join(os.path.abspath(os.path.dirname(__file__)),'params')
         
         # All parameters calculated to fit PCFF adapted forcefield Holden et al j.phys.chem.c 2012
         # from combining rules calculated using dlpoly-prep (Willock)
         # bonds adapted from quartic PCFF
-        bond_file = os.path.join(thisd, 'bond_params.csv')
+        bond_file = os.path.join(paramd, 'bond_params.csv')
         if not os.path.isfile(bond_file): raise RuntimeError, "Cannot find bond parameter file: {0}".format(bond_file)
         header = ['A', 'B', 'k', 'r0', 'comments']
         self.bonds = {}
@@ -58,7 +58,7 @@ class FfieldParameters(object):
                 self.bonds[(A, B)] = {'k' : k, 'r0' : r0}
         
         # REM: angles are stored in degrees in the parameter file, but we convert to radians for our uses
-        angle_file = os.path.join(thisd, 'angle_params.csv')
+        angle_file = os.path.join(paramd, 'angle_params.csv')
         if not os.path.isfile(angle_file): raise RuntimeError, "Cannot find angle parameter file: {0}".format(angle_file)
         header = ['angle', 'k', 't0', 'comments']
         self.angles = {}
@@ -73,7 +73,7 @@ class FfieldParameters(object):
                 t0 = math.radians(float(row[2]))
                 self.angles[angle] = {'k' : k, 't0' : t0}
         
-        dihedral_file = os.path.join(thisd, 'dihedral_params.csv')
+        dihedral_file = os.path.join(paramd, 'dihedral_params.csv')
         if not os.path.isfile(dihedral_file): raise RuntimeError, "Cannot find dihedral parameter file: {0}".format(dihedral_file)
         header = ['dihedral', 'k', 'd', 'n', 'comments']
         self.dihedrals = {}
@@ -89,7 +89,7 @@ class FfieldParameters(object):
                 n = int(row[3])
                 self.dihedrals[dihedral] = {'k' : k, 'd' : d, 'n' : n}
 
-        improper_file = os.path.join(thisd, 'improper_params.csv')
+        improper_file = os.path.join(paramd, 'improper_params.csv')
         if not os.path.isfile(improper_file): raise RuntimeError, "Cannot find dihedral parameter file: {0}".format(improper_file)
         header = ['improper', 'k', 'chi', 'comments']
         self.impropers = {}
@@ -104,7 +104,7 @@ class FfieldParameters(object):
                 chi = float(row[2])
                 self.impropers[improper] = {'k' : k, 'chi' : chi}
                 
-        pairs_file = os.path.join(thisd, 'pair_params.csv')
+        pairs_file = os.path.join(paramd, 'pair_params.csv')
         if not os.path.isfile(pairs_file): raise RuntimeError, "Cannot find pair parameter file: {0}".format(pairs_file)
         header = ['atom1', 'atom2', 'epsilon', 'sigma', 'comments']
         self.pairs = {}
