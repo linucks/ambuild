@@ -4,7 +4,7 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
-VERSION = "de4875e59d72"
+VERSION = "e3c001b31c1d"
 
 import collections
 import copy
@@ -478,8 +478,8 @@ class Cell():
     def bondClash(self, bond, clashDist):
         """Check if any atoms are clashDist from bond.
         """
-
-        assert 0 < clashDist < min(self.dim[0], self.dim[1], self.dim[2]), "Unreasonable clashDist: {0}".format(clashDist)
+        if  clashDist > self.boxSize:
+            raise RuntimeError,"clashDist needs to be less than the boxSize: {0}".format(self.boxSize)
 
         # Create bond coordinates method
         idxAtom1 = bond.endGroup1.endGroupIdx()
@@ -541,10 +541,8 @@ class Cell():
                 if 0 < t < 1:
                     dist = numpy.linalg.norm(numpy.cross(p3p1, p3p2)) / numpy.linalg.norm(p2p1)
                     # print "GOT D ",dist,p3
-                    if dist < clashDist:  # Totally abitrary number - a wee bit longer than a C-C bond
-                        return True
-                        # got=True
-
+                    # Totally abitrary number - a wee bit longer than a C-C bond
+                    if dist < clashDist: return True
         return False
 
     def canBond(self,
@@ -2697,6 +2695,7 @@ class Cell():
 
         # Check the bonds don't clash with anything
         if clashCheck:
+            self.logger.info("zipBlocks: checking for clashes with bonds...")
             toRemove = [bond for bond in self._possibleBonds if self.bondClash(bond=bond,
                                                                              clashDist=clashDist)]
             if len(toRemove):
@@ -2718,12 +2717,8 @@ class Cell():
 #
         bondsMade = self.processBonds()
         if bondsMade != todo:
-            self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(
-                                                                                            todo,
-                                                                                            bondsMade))
-
+            self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(todo,bondsMade))
         self.analyse.stop('zip')
-
         return bondsMade
     
     def __str__(self):
