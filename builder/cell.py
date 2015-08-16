@@ -4,7 +4,7 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
-VERSION = "1950036d369d"
+VERSION = "de4875e59d72"
 
 import collections
 import copy
@@ -299,17 +299,17 @@ class Cell():
 
         endGroups are defined by the fragmentType they belong to (which is set by the fragmentType argument
         to libraryAddFragment), together with the identifier for that endGroup (which is specified by the first column
-        in the .csv file). These are separated by a colon, so an endGroup identifier is of the form:
+        in the .csv file). These are separated by a {0}, so an endGroup identifier is of the form:
 
-        FRAGMENT1:ENDGROUP1
+        FRAGMENT1{0}ENDGROUP1
 
-        A bond is defined by two endGroups, separated by a hyphen, so a bond identifier has the form:
+        A bond is defined by two endGroups, separated by a {1}, so a bond identifier has the form:
 
-        FRAGMENT1:ENDGROUP1-FRAGMENT2:ENDGROUP2
+        FRAGMENT1{0}ENDGROUP1{1}FRAGMENT2{0}ENDGROUP2
 
         Args:
-        bondType - a string specifying the two endGroups separated by a "-"
-        """
+        bondType - a string specifying the two endGroups separated by a "{1}"
+        """.format(self.ENDGROUPSEP,self.BONDTYPESEP)
 
         try:
             b1EndGroupType, b2EndGroupType = bondType.split(self.BONDTYPESEP)
@@ -474,6 +474,78 @@ class Cell():
         # self.logger.debug("after bond: {0} - {1}".format( idxBlock1, block1._bondObjects) )
         self.addBlock(bond.endGroup1.block())
         return
+
+    def bondClash(self, bond, clashDist):
+        """Check if any atoms are clashDist from bond.
+        """
+
+        assert 0 < clashDist < min(self.dim[0], self.dim[1], self.dim[2]), "Unreasonable clashDist: {0}".format(clashDist)
+
+        # Create bond coordinates method
+        idxAtom1 = bond.endGroup1.endGroupIdx()
+        idxCap1 = bond.endGroup1.capIdx()
+        idxAtom2 = bond.endGroup2.endGroupIdx()
+        idxCap2 = bond.endGroup2.capIdx()
+        p1 = bond.endGroup1.block().coord(idxAtom1)
+        p2 = bond.endGroup2.block().coord(idxAtom2)
+        
+        # print "P1, P2 ",p1,p2
+        # print "p1 in ",self._getBox(p1)
+        # print "p2 in ",self._getBox(p2)
+        # print "BOX ",self.boxSize,self.numBoxA,self.numBoxB,self.numBoxC
+        
+        idxBlock1 = bond.endGroup1.block().id
+        idxBlock2 = bond.endGroup2.block().id
+        
+        # Get a list of the cells the bond passes through (excluding endpoints)
+        cells = self._intersectedCells(p1, p2)
+        # print "FOUND CELLS ",cells
+        
+        # Now build up a list of the cells surrounding the cells on the bond vector
+        allcells = set(cells)
+        for cell in cells:
+            try: surround = self.box3[cell]
+            except KeyError: continue
+            allcells.update(surround)
+            
+        # print "FOUND allCELLS ",sorted(allcells)
+        
+        # loop through all the atoms in the cells
+        # & check if any are too close to the bond vector
+        for cell in list(allcells):
+            try: atomList = self.box1[cell]
+            except KeyError: continue
+            for (idxBlock3, idxAtom3) in atomList:
+
+                # Dont' check the bond atoms or the cap atoms
+                if idxBlock3 == idxBlock1 and idxAtom3 == idxAtom1 or\
+                idxBlock3 == idxBlock2 and idxAtom3 == idxAtom2 or \
+                idxBlock3 == idxBlock1 and idxAtom3 == idxCap1 or \
+                idxBlock3 == idxBlock2 and idxAtom3 == idxCap2:
+                    continue
+
+                block3 = self.blocks[idxBlock3]
+                p3 = block3.coord(idxAtom3)
+                
+                # Distance of a point from a line:
+                #  http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
+                # http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
+                
+                # First need to find whether the point is inside the segment
+                # print "P3 ",p3
+                # I _think_ this implements it under PBC
+                p3p1 = self.vecDiff(p3, p1)
+                p3p2 = self.vecDiff(p3, p2)
+                p2p1 = self.vecDiff(p2, p1)
+                t = numpy.dot((p3p1), (p2p1)) / numpy.square(numpy.linalg.norm(p2p1))
+                if 0 < t < 1:
+                    dist = numpy.linalg.norm(numpy.cross(p3p1, p3p2)) / numpy.linalg.norm(p2p1)
+                    # print "GOT D ",dist,p3
+                    if dist < clashDist:  # Totally abitrary number - a wee bit longer than a C-C bond
+                        return True
+                        # got=True
+
+        return False
 
     def canBond(self,
                  staticBlock,
@@ -1266,6 +1338,10 @@ class Cell():
 
         return
 
+    def _getBox(self, coord):
+        """Return the box that the coord is in under periodic boundaries"""
+        return util.getCell(coord, self.boxSize, cellDim=self.dim)
+
     def getInitBlock(self, fragmentType=None):
         """Return an initBlock"""
 
@@ -1359,6 +1435,9 @@ class Cell():
         self.logger.info("After growBlocks numBlocks: {0}".format(len(self.blocks)))
 
         return added
+
+    def haloCells(self, key):
+        return util.haloCells(key, self.numBoxes)
     
     def initFromFile(self, filePath):
         # Create fragment
@@ -1399,6 +1478,133 @@ class Cell():
         self.logger.info("Added static block to cell")
 
         return
+    def _intersectedCells(self, p1, p2, endPointCells=True):
+        """Return a list of the cells intersected by the vector passing from p1 to p2.
+        
+        Filched from:
+        http://www.flipcode.com/archives/Raytracing_Topics_Techniques-Part_4_Spatial_Subdivisions.shtml
+        http://stackoverflow.com/questions/12367071/how-do-i-initialize-the-t-variables-in-a-fast-voxel-traversal-algorithm-for-ray
+        
+        Could potentially speed things up by not returning the endpoints as they will be found by the surroundingCells algorithm
+        and we then only search the ends.
+        """
+        
+        TMAXMAX = max(self.dim[0], self.dim[1], self.dim[2])  # Not 100% sure - just needs to be bigger than any possible value in the cell
+        
+        # Wrap into a single cell
+        p1[0] = p1[0] % self.dim[0]
+        p1[1] = p1[1] % self.dim[1]
+        p1[2] = p1[2] % self.dim[2]
+        p2[0] = p2[0] % self.dim[0]
+        p2[1] = p2[1] % self.dim[1]
+        p2[2] = p2[2] % self.dim[2]
+        
+        X, Y, Z = self._getBox(p1)  # The cell p1 is in
+        outX, outY, outZ = self._getBox(p2)  # The cell p2 is in
+        dx, dy, dz = self.vecDiff(p2, p1)  # length components of line
+        
+        #
+        # X
+        #
+        # stepX=int(math.copysign(1,dx)) # the direction of travel in the x-direction
+        stepX = int(math.copysign(1, dx))  # the direction of travel in the x-direction
+        # If there is no direction along a component, we need to make sure tMaxX is > the cell
+        if X == outX:
+            tDeltaX = 0
+            tMaxX = TMAXMAX
+        else:
+            # tDeltaX - how far we can move along the x-component of the ray for the movement to equal
+            # the width of a cell
+            tDeltaX = self.boxSize / dx  # How many boxes fit in the x-direction
+            # tMaxX - how far we can move along the x-coordinate before we cross a cell boundary
+            tMaxX = tDeltaX * (1.0 - math.modf(p1[0] / self.boxSize)[0])
+        #
+        # Y
+        #
+        stepY = int(math.copysign(1, dy))
+        if Y == outY:
+            tDeltaY = 0
+            tMaxY = TMAXMAX
+        else:
+            tDeltaY = self.boxSize / dy
+            tMaxY = tDeltaY * (1.0 - math.modf(p1[1] / self.boxSize)[0])
+        #
+        # Z
+        #            
+        stepZ = int(math.copysign(1, dz))
+        if Z == outZ:
+            tDeltaZ = 0
+            tMaxZ = TMAXMAX
+        else:
+            tDeltaZ = self.boxSize / dz
+            tMaxZ = tDeltaZ * (1.0 - math.modf(p1[2] / self.boxSize)[0])
+            
+        
+        # print "dx ",dx,dy,dz
+        # print "IN ",X,Y,Z
+        # print "OUT ",outX,outY,outZ
+        # print "stepX ",stepX
+            
+        cells = [(X, Y, Z)]  # Start with this cell
+        while True:
+            # Stop when we've reached the cell with p2
+            if X == outX and Y == outY and Z == outZ: break 
+            if tMaxX < tMaxY:
+                if tMaxX < tMaxZ:
+                    # PBC
+                    X = X + stepX
+                    if X < 0:
+                        X = self.numBoxes[0] - 1
+                    elif X > self.numBoxes[0] - 1:
+                        X = 0
+                    cells.append((X, Y, Z))
+                    if X == outX:
+                        tMaxX = TMAXMAX
+                    else:
+                        tMaxX += tDeltaX
+                else:
+                    Z = Z + stepZ
+                    # PBC
+                    if Z < 0:
+                        Z = self.numBoxes[2] - 1
+                    elif Z > self.numBoxes[2] - 1:
+                        Z = 0    
+                    cells.append((X, Y, Z))
+                    if Z == outZ:
+                        tMaxZ = TMAXMAX
+                    else:
+                        tMaxZ += tDeltaZ
+            else:
+                if tMaxY < tMaxZ:
+                    # PBC
+                    Y = Y + stepY
+                    if Y < 0:
+                        Y = self.numBoxes[1] - 1
+                    elif Y > self.numBoxes[1] - 1:
+                        Y = 0 
+                    cells.append((X, Y, Z))
+                    if Y == outY:
+                        tMaxY = TMAXMAX
+                    else:
+                        tMaxY += tDeltaY
+                else:
+                    Z = Z + stepZ
+                    # PBC
+                    if Z < 0:
+                        Z = self.numBoxes[2] - 1
+                    elif Z > self.numBoxes[2] - 1:
+                        Z = 0 
+                    cells.append((X, Y, Z))
+                    if Z == outZ:
+                        tMaxZ = TMAXMAX
+                    else:
+                        tMaxZ += tDeltaZ
+        
+        # return tDeltaX,tMaxX,X,tDeltaY,tMaxY,Y
+        if endPointCells:
+            return cells
+        else:
+            return cells[1:-1]
 
     def joinBlocks(self, toJoin, cellEndGroups=None, dihedral=None, maxTries=100):
         """
@@ -1953,6 +2159,12 @@ class Cell():
         center - True/False - if True, place the first block in the center of the cell.
         save - a list of (single-fragment) fragmentTypes that will be deleted from the cell, but saved and then
                re-added after seeding.
+        point - a list of three floats defiting a point around which the centroids of the blocks will be seeded
+                (requires the radius argument).
+        radius - a single float specifying the radius of a sphere around point, within which the centroids of 
+                 the blocks will be seeded (requires point argument).
+        zone - a list of 6 floats specifying a box within the cell within which the centroids of the blocks will
+               be seeded.
         Returns:
         the number of blocks added
         """
@@ -2135,9 +2347,6 @@ class Cell():
 
         self.logger = logger
         return
-
-    def haloCells(self, key):
-        return util.haloCells(key, self.numBoxes)
 
     def updateFromBlock(self, block):
         """Update cell parameters from the block"""
@@ -2347,20 +2556,23 @@ class Cell():
                   clashDist=1.6):
         """Join existing blocks in the cell by changing the bondMargin and bondAngleMargin parameters that were
         specified when the cell was created, and then looping over all the free endGroups to see if any can bond
-        with the new parameters. The blocks are not moved in this step and no check is made as to whether there
-        are any other atoms between the two endGroups when a bond is made.
+        with the new parameters. The blocks are not moved in this step.
 
         Args:
         bondMargin - the new bondMargin [degrees] (see __init__ for definition)
-        bondAngleMargin - the new bondAngleMargin [degrees] (see __init__ for definition)"""
-
+        bondAngleMargin - the new bondAngleMargin [degrees] (see __init__ for definition)
+        clashCheck - True/False check for clashes between the bond and any atoms that fall within a cylinder
+                     of radius clashDist (default=1.6A) centered on the bond axis.
+        clashDist  - a float specifying the perpendicular distance from the bond axis that determines if an atom 
+                     is clashing with the bond. clashDist needs to be < the the cell box size as otherwise we won't
+                     see the atom.
+        """
         self.logger.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin))
 
         # Convert to radians
         bondAngleMargin = math.radians(bondAngleMargin)
 
         # Calculate the number of boxes
-
         # Should calculate max possible bond length
         maxBondLength = 2.5
         boxSize = maxBondLength + bondMargin
@@ -2513,213 +2725,7 @@ class Cell():
         self.analyse.stop('zip')
 
         return bondsMade
-
-    def bondClash(self, bond, clashDist):
-        """Check if any atoms are clashDist from bond.
-        """
-
-        assert 0 < clashDist < min(self.dim[0], self.dim[1], self.dim[2]), "Unreasonable clashDist: {0}".format(clashDist)
-
-        # Create bond coordinates method
-        idxAtom1 = bond.endGroup1.endGroupIdx()
-        idxCap1 = bond.endGroup1.capIdx()
-        idxAtom2 = bond.endGroup2.endGroupIdx()
-        idxCap2 = bond.endGroup2.capIdx()
-        p1 = bond.endGroup1.block().coord(idxAtom1)
-        p2 = bond.endGroup2.block().coord(idxAtom2)
-        
-        # print "P1, P2 ",p1,p2
-        # print "p1 in ",self._getBox(p1)
-        # print "p2 in ",self._getBox(p2)
-        # print "BOX ",self.boxSize,self.numBoxA,self.numBoxB,self.numBoxC
-        
-        idxBlock1 = bond.endGroup1.block().id
-        idxBlock2 = bond.endGroup2.block().id
-        
-        # Get a list of the cells the bond passes through (excluding endpoints)
-        cells = self._intersectedCells(p1, p2)
-        # print "FOUND CELLS ",cells
-        
-        # Now build up a list of the cells surrounding the cells on the bond vector
-        allcells = set(cells)
-        for cell in cells:
-            try: surround = self.box3[cell]
-            except KeyError: continue
-            allcells.update(surround)
-            
-        # print "FOUND allCELLS ",sorted(allcells)
-        
-        # loop through all the atoms in the cells
-        # & check if any are too close to the bond vector
-        for cell in list(allcells):
-            try: atomList = self.box1[cell]
-            except KeyError: continue
-            for (idxBlock3, idxAtom3) in atomList:
-
-                # Dont' check the bond atoms or the cap atoms
-                if idxBlock3 == idxBlock1 and idxAtom3 == idxAtom1 or\
-                idxBlock3 == idxBlock2 and idxAtom3 == idxAtom2 or \
-                idxBlock3 == idxBlock1 and idxAtom3 == idxCap1 or \
-                idxBlock3 == idxBlock2 and idxAtom3 == idxCap2:
-                    continue
-
-                block3 = self.blocks[idxBlock3]
-                p3 = block3.coord(idxAtom3)
-                
-                # Distance of a point from a line:
-                #  http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
-                # http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
-                
-                # First need to find whether the point is inside the segment
-                # print "P3 ",p3
-                # I _think_ this implements it under PBC
-                p3p1 = self.vecDiff(p3, p1)
-                p3p2 = self.vecDiff(p3, p2)
-                p2p1 = self.vecDiff(p2, p1)
-                t = numpy.dot((p3p1), (p2p1)) / numpy.square(numpy.linalg.norm(p2p1))
-                if 0 < t < 1:
-                    dist = numpy.linalg.norm(numpy.cross(p3p1, p3p2)) / numpy.linalg.norm(p2p1)
-                    # print "GOT D ",dist,p3
-                    if dist < clashDist:  # Totally abitrary number - a wee bit longer than a C-C bond
-                        return True
-                        # got=True
-
-        return False
-        # print "CLASH RETURNING ",got
-        # return got
     
-    def _getBox(self, coord):
-        """Return the box that the coord is in under periodic boundaries"""
-        return util.getCell(coord, self.boxSize, cellDim=self.dim)
-
-    def _intersectedCells(self, p1, p2, endPointCells=True):
-        """Return a list of the cells intersected by the vector passing from p1 to p2.
-        
-        Filched from:
-        http://www.flipcode.com/archives/Raytracing_Topics_Techniques-Part_4_Spatial_Subdivisions.shtml
-        http://stackoverflow.com/questions/12367071/how-do-i-initialize-the-t-variables-in-a-fast-voxel-traversal-algorithm-for-ray
-        
-        Could potentially speed things up by not returning the endpoints as they will be found by the surroundingCells algorithm
-        and we then only search the ends.
-        """
-        
-        TMAXMAX = max(self.dim[0], self.dim[1], self.dim[2])  # Not 100% sure - just needs to be bigger than any possible value in the cell
-        
-        # Wrap into a single cell
-        p1[0] = p1[0] % self.dim[0]
-        p1[1] = p1[1] % self.dim[1]
-        p1[2] = p1[2] % self.dim[2]
-        p2[0] = p2[0] % self.dim[0]
-        p2[1] = p2[1] % self.dim[1]
-        p2[2] = p2[2] % self.dim[2]
-        
-        X, Y, Z = self._getBox(p1)  # The cell p1 is in
-        outX, outY, outZ = self._getBox(p2)  # The cell p2 is in
-        dx, dy, dz = self.vecDiff(p2, p1)  # length components of line
-        
-        #
-        # X
-        #
-        # stepX=int(math.copysign(1,dx)) # the direction of travel in the x-direction
-        stepX = int(math.copysign(1, dx))  # the direction of travel in the x-direction
-        # If there is no direction along a component, we need to make sure tMaxX is > the cell
-        if X == outX:
-            tDeltaX = 0
-            tMaxX = TMAXMAX
-        else:
-            # tDeltaX - how far we can move along the x-component of the ray for the movement to equal
-            # the width of a cell
-            tDeltaX = self.boxSize / dx  # How many boxes fit in the x-direction
-            # tMaxX - how far we can move along the x-coordinate before we cross a cell boundary
-            tMaxX = tDeltaX * (1.0 - math.modf(p1[0] / self.boxSize)[0])
-        #
-        # Y
-        #
-        stepY = int(math.copysign(1, dy))
-        if Y == outY:
-            tDeltaY = 0
-            tMaxY = TMAXMAX
-        else:
-            tDeltaY = self.boxSize / dy
-            tMaxY = tDeltaY * (1.0 - math.modf(p1[1] / self.boxSize)[0])
-        #
-        # Z
-        #            
-        stepZ = int(math.copysign(1, dz))
-        if Z == outZ:
-            tDeltaZ = 0
-            tMaxZ = TMAXMAX
-        else:
-            tDeltaZ = self.boxSize / dz
-            tMaxZ = tDeltaZ * (1.0 - math.modf(p1[2] / self.boxSize)[0])
-            
-        
-        # print "dx ",dx,dy,dz
-        # print "IN ",X,Y,Z
-        # print "OUT ",outX,outY,outZ
-        # print "stepX ",stepX
-            
-        cells = [(X, Y, Z)]  # Start with this cell
-        while True:
-            # Stop when we've reached the cell with p2
-            if X == outX and Y == outY and Z == outZ: break 
-            if tMaxX < tMaxY:
-                if tMaxX < tMaxZ:
-                    # PBC
-                    X = X + stepX
-                    if X < 0:
-                        X = self.numBoxes[0] - 1
-                    elif X > self.numBoxes[0] - 1:
-                        X = 0
-                    cells.append((X, Y, Z))
-                    if X == outX:
-                        tMaxX = TMAXMAX
-                    else:
-                        tMaxX += tDeltaX
-                else:
-                    Z = Z + stepZ
-                    # PBC
-                    if Z < 0:
-                        Z = self.numBoxes[2] - 1
-                    elif Z > self.numBoxes[2] - 1:
-                        Z = 0    
-                    cells.append((X, Y, Z))
-                    if Z == outZ:
-                        tMaxZ = TMAXMAX
-                    else:
-                        tMaxZ += tDeltaZ
-            else:
-                if tMaxY < tMaxZ:
-                    # PBC
-                    Y = Y + stepY
-                    if Y < 0:
-                        Y = self.numBoxes[1] - 1
-                    elif Y > self.numBoxes[1] - 1:
-                        Y = 0 
-                    cells.append((X, Y, Z))
-                    if Y == outY:
-                        tMaxY = TMAXMAX
-                    else:
-                        tMaxY += tDeltaY
-                else:
-                    Z = Z + stepZ
-                    # PBC
-                    if Z < 0:
-                        Z = self.numBoxes[2] - 1
-                    elif Z > self.numBoxes[2] - 1:
-                        Z = 0 
-                    cells.append((X, Y, Z))
-                    if Z == outZ:
-                        tMaxZ = TMAXMAX
-                    else:
-                        tMaxZ += tDeltaZ
-        
-        # return tDeltaX,tMaxX,X,tDeltaY,tMaxY,Y
-        if endPointCells:
-            return cells
-        else:
-            return cells[1:-1]
-
     def __str__(self):
         """
         """
@@ -2760,7 +2766,6 @@ class Cell():
         else:
             logfile = 'ambuild_1.csv'
         self._setupAnalyse(logfile=logfile)
-
         return
 
 class Test(unittest.TestCase):
