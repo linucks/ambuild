@@ -1177,8 +1177,7 @@ def writeXyz(fileName, coords, symbols, cell=None):
     if cell is a list of 3 floats, write out a periodic cell using the 3 floats as the cell parameters
     """
 
-    if cell:
-        assert len(cell) == 3
+    if cell: assert len(cell) == 3
 
     xyz = "{}\n".format(len(coords))
     if cell:
@@ -1305,17 +1304,26 @@ def xyzContacts(xyzFile):
 
     return
 
-class TestCell(unittest.TestCase):
+class Test(unittest.TestCase):
 
     def testVectorAngle(self):
         """Test we can measure angles"""
-
         v1 = numpy.array([0, 0, 0])
         v2 = numpy.array([1, 0, 0])
-
         theta = vectorAngle(v1, v2)
-        print math.degrees(theta)
-
+        self.assertEqual(180,math.degrees(theta))
+        return
+    
+    def testVecDiff(self):
+        v1 = numpy.array([0, 0, 0])
+        v2 = numpy.array([1, 0, 0])
+        v3 = numpy.array([0, 1, 0])
+        v4 = numpy.array([0, 0, 1])
+        
+        print numpy.array([v1,v2]) - numpy.array([v3,v4])
+        
+        #diff = vecDiff(v1, v2, cell=None)
+        
         return
 
 if __name__ == '__main__':

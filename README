@@ -1,18 +1,17 @@
-Amorphous Builder (Ambi)
+Amorphous Builder (Ambuild)
 
-Ambi is a python program for creating polymeric molecular structures.
+Ambuild is a python program for creating polymeric molecular structures.
 
 
 Concepts
 ========
-Ambi works with fragments, blocks, endGroups and cells. The cell is a cubic volume of space that will be filled
+Ambuild works with fragments, blocks, endGroups and cells. The cell is a cubic volume of space that will be filled
 with molecular blocks. The blocks themselves are containers for fragments. Fragments are molecules that can
 contain one or more endGroups that may be used to form bonds. Fragments never exist by themselves in the cell,
 they are always contained within blocks. A block may contain one or more fragments of the same or different types.
 The fragments within a block are bonded to each other via their endGroups, and rules can be specified for which
 endGroups can bond to which, the dihedral angle around the bond that the fragment should adopt, and any atoms that
 may need to be removed on bonding.
-
 
 Specifying fragments and endGroups
 ========================================
@@ -59,14 +58,14 @@ The meanings of the columns are:
   atoms could be the capAtom and the other the delatom, so that the on bonding to another NH2 endGroup a N=N bond would
   be formed.
 
-The following sections describe the various operations that can be performed by ambi. For an annotated example script,
+The following sections describe the various operations that can be performed by ambuild. For an annotated example script,
 see the builder.py file in the builder directory.
 
 
 Setting up the system
 =====================
 
-Ambi creates its structures in a cubic cell. The first step is to create an empty cell object. This is done with
+Ambuild creates its structures in a cubic cell. The first step is to create an empty cell object. This is done with
 a line likethe following:
 
 boxDim=[20,20,20]
@@ -155,6 +154,12 @@ maxTries - the number of attempts to make when adding a block before the seed st
 center - True/False - if True, place the first block in the center of the cell.
 save - a list of (single-fragment) fragmentTypes that will be deleted from the cell, but saved and then
        re-added after seeding.
+point - a list of three floats defiting a point around which the centroids of the blocks will be seeded
+        (requires the radius argument).
+radius - a single float specifying the radius of a sphere around point, within which the centroids of 
+         the blocks will be seeded (requires point argument).
+zone - a list of 6 floats specifying a box within the cell within which the centroids of the blocks will
+       be seeded.
 
 Once the system is seeded, Grow or Join steps are used either add new blocks to the system, or join existing blocks
 together.
@@ -202,14 +207,22 @@ maxTries - the maximum number of moves to try when joining
 
 zipBlocks
 --------
-zipBlocks joins existing blocks in the cell by changing (usually by extending) the bondMargin and bondAngleMargin
-parameters that were specified when the cell was created, and then looping over all the free endGroups to see if
-any can bond with the new parameters. The blocks are not moved in this step and no check is made as to whether there
-are any other atoms between the two endGroups when a bond is made.
+Join existing blocks in the cell by changing the bondMargin and bondAngleMargin parameters that were
+specified when the cell was created, and then looping over all the free endGroups to see if any can bond
+with the new parameters. The blocks are not moved in this step.
+
+The arguments to zipBlock are:
+bondMargin - the new bondMargin [degrees]
+bondAngleMargin - the new bondAngleMargin [degrees] 
+clashCheck - True/False check for clashes between the bond and any atoms that fall within a cylinder
+             of radius clashDist (default=1.6A) centered on the bond axis.
+clashDist  - a float specifying the perpendicular distance from the bond axis that determines if an atom 
+             is clashing with the bond. clashDist needs to be < the the cell box size as otherwise we won't
+             see the atom.
 
 zipBlocks is called thus:
 
-zipBlocks(bondMargin=5, bondAngleMargin=30)
+zipBlocks(bondMargin=5, bondAngleMargin=30, clashTest=True, clashDist=1.6)
 
 Optimising the geometry of the blocks in the cell and running molecular dynamics simulations
 ============================================================================================
@@ -219,8 +232,7 @@ simulation.
 
 Geometry Optimisation
 ---------------------
-Geometry optimisations and MD runs are carried out using HOOMD-blue:
-http://codeblue.umich.edu/hoomd-blue/
+Geometry optimisations and MD runs are carried out using HOOMD-blue: http://codeblue.umich.edu/hoomd-blue/
 
 Rigid body optimisation is carried out using the mode_minimize_rigid_fire optimiser. The optimiser is run with a command
 similar to the following:
@@ -269,7 +281,7 @@ mycell.runMD( doDihedral=True,
 MD and Geometry optimisation combined
 -------------------------------------
 
-In order to save copying data between ambi and hoomdblue, a combined MD and Optimisation command has been created. This runs
+In order to save copying data between ambuild and hoomdblue, a combined MD and Optimisation command has been created. This runs
 a very short optimisation loop to stabilise the structure, then runs an MD simulation, before running a full geometry optimisation
 to convergence (if possible).
 
@@ -282,7 +294,7 @@ All the arguments accepted by optimiseGeometry and runMD are accepted by runMDAn
 Saving Results and extracting coordinates
 =========================================
 
-By default, ambi doesn't save any data or coordinates. The dump command is used to save the current state of the cell.
+By default, ambuild doesn't save any data or coordinates. The dump command is used to save the current state of the cell.
 
 This is done as follows:
 
