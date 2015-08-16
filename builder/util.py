@@ -598,7 +598,6 @@ def haloCells(key, boxNum=None):
     for  i in [ 0, -1, +1 ]:
         for j in [ 0, -1, +1 ]:
             for k in [ 0, -1, +1 ]:
-                # Impose periodic boundaries
                 ai = a + i
                 bj = b + j
                 ck = c + k
