@@ -36,7 +36,7 @@ class FfieldParameters(object):
 
     def __init__(self):
 
-        paramd = os.path.join(os.path.abspath(os.path.dirname(__file__)),'params')
+        paramd = os.path.join(os.path.abspath(os.path.dirname(__file__)),'..','params')
         
         # All parameters calculated to fit PCFF adapted forcefield Holden et al j.phys.chem.c 2012
         # from combining rules calculated using dlpoly-prep (Willock)
