@@ -93,9 +93,22 @@ def write_car_file(car_file,symbols,coords,charges,dim,dima):
     car += "ambuild generated car file\n"
     tstr = time.strftime("%a %b %d %H:%M:%S %Y", time.gmtime())
     car += "!DATE {0}\n".format(tstr)
-    car += "PBC  {0: < 9.4F} {1: < 9.4F} {2: < 9.4F}  90.0000   90.0000   90.0000 (P1)\n".format(dim[0],
-                                                                                                 dim[1],
-                                                                                                 dim[2])
+    car += "PBC  {0: < 9.4F} {1: < 9.4F} {2: < 9.4F} {3: < 9.4F} {4: < 9.4F} {5: < 9.4F}(P1)\n".format(dim[0],
+                                                                                                       dim[1],
+                                                                                                       dim[2],
+                                                                                                       dima[0],
+                                                                                                       dima[1],
+                                                                                                       dima[2],)
+# 1-4    Atom name.
+# 6-20    x Cartesian coordinate for the atom (angstrom).
+# 21-35    y Cartesian coordinate for the atom (angstrom).
+# 36-50    z Cartesian coordinate for the atom (angstrom).
+# 52-55    Name of residue containing atom.
+# 56-60    Residue sequence number relative to the  beginningof the current molecule.
+# 62-65    Potential function atom type (left justified) (ignored; see Molecular Data File).
+# 71-72    Element type.
+# 74-79    Partial charge on the atom.
+
     for i, coord in enumerate(coords):
             x = coord[0]
             y = coord[1]
@@ -104,7 +117,14 @@ def write_car_file(car_file,symbols,coords,charges,dim,dima):
             charge = charges[i]
             symbol = symbols[i]
             label = '{0}{1}'.format(symbol,i+1)
-            car += "{0: <5} {1: >15.10} {2: >15.10} {3: >15.10} XXXX 1      {4: <4}    {5: <2} {6: > 2.3f}\n".format(label, x, y, z, atype, symbol, charge)
+            #car += "{0: <5} {1: >15.10} {2: >15.10} {3: >15.10} XXXX 1      {4: <4}    {5: <2} {6: > 2.3f}\n".format(label, x, y, z, atype, symbol, charge)
+            car += "{0: <4} {1: >15.10}{2: >15.10}{3: >15.10} XXXX    1 {4: <4}      {5: <2} {6: > 2.3f}\n".format(label,
+                                                                                                                     x,
+                                                                                                                     y,
+                                                                                                                     z,
+                                                                                                                     atype,
+                                                                                                                     symbol,
+                                                                                                                     charge)
     car += "end\nend\n\n"
     
     with open(car_file, 'w') as f:
@@ -125,7 +145,27 @@ car_file=os.path.abspath(name+'.car')
 symbols,coords,charges,dim,dima = read_nwchem_output(nwchem_file)
 write_car_file(car_file,symbols,coords,charges,dim,dima)
 
+sys.exit()
 
-
-
+# 1-4    Atom name.
+# 6-20    x Cartesian coordinate for the atom (angstrom).
+# 21-35    y Cartesian coordinate for the atom (angstrom).
+# 36-50    z Cartesian coordinate for the atom (angstrom).
+# 52-55    Name of residue containing atom.
+# 56-60    Residue sequence number relative to the  beginningof the current molecule.
+# 62-65    Potential function atom type (left justified) (ignored; see Molecular Data File).
+# 71-72    Element type.
+# 74-79    Partial charge on the atom.
+with open(car_file) as f:
+    for i,line in enumerate(f):
+        if i != 5: continue
+        print "Name ",line[0:4]
+        print "x ",line[5:20]
+        print "y ",line[20:35]
+        print "z ",line[35:50]
+        print "rname ",line[51:55]
+        print "rsn ",line[55:60]
+        print "rsn ",line[61:65]
+        print "elemen ",line[70:72]
+        print "charge ",line[73:79]
 
