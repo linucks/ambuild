@@ -93,7 +93,7 @@ def write_car_file(car_file,symbols,coords,charges,dim,dima):
     car += "ambuild generated car file\n"
     tstr = time.strftime("%a %b %d %H:%M:%S %Y", time.gmtime())
     car += "!DATE {0}\n".format(tstr)
-    car += "PBC  {0: < 9.4F} {1: < 9.4F} {2: < 9.4F} {3: < 9.4F} {4: < 9.4F} {5: < 9.4F}(P1)\n".format(dim[0],
+    car += "PBC{0: > 10.4F}{1: >10.4F}{2: >10.4F}{3: > 10.4F}{4: > 10.4F}{5: > 10.4F} (P1)\n".format(dim[0],
                                                                                                        dim[1],
                                                                                                        dim[2],
                                                                                                        dima[0],
