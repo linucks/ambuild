@@ -866,7 +866,7 @@ def dumpPkl(pickleFile, split=None, nonPeriodic=False):
             mycell.writeCml(prefix + "_PV.cml", data=data, periodic=True, pruneBonds=True)
     return
 
-def dumpDLPOLY(pickleFile, rigidBody=False):
+def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
     fpath = os.path.abspath(pickleFile)
     print "Dumping DLPOLY files from pkl file: {0}".format(fpath)
     mycell = cellFromPickle(pickleFile)
@@ -876,7 +876,7 @@ def dumpDLPOLY(pickleFile, rigidBody=False):
 
     d = opt.DLPOLY()
     # d.writeCONFIG(mycell)
-    d.writeFIELDandCONFIG(mycell, rigidBody=rigidBody)
+    d.writeFIELDandCONFIG(mycell, rigidBody=rigidBody, skipDihedrals=skipDihedrals)
     return
 
 def frange(start, stop, step):
@@ -1327,41 +1327,43 @@ class Test(unittest.TestCase):
         return
 
 if __name__ == '__main__':
-    """
-    Run the unit tests
-    """
-
-    # hoomdCml(sys.argv[1])
-    # sys.exit()
-    assert len(sys.argv) == 2 or len(sys.argv) == 3, "To dump coordinates from pickle: {0} [ -b | -f | -da | -dr]  <file.pkl>".format(sys.argv[0])
+    
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument('pkl_file', type=str, metavar='pickle_file.pkl', help='Ambuild pickle file')
+    p.add_argument('-f', '--split_fragments', action='store_true', default=False, help="Split the cell into fragments")
+    p.add_argument('-b', '--split_blocks', action='store_true', default=False, help="Split the cell into blocks")
+    p.add_argument('-da', '--dlpoly_allatom', action='store_true', default=False, help="Create all-atom DLPOLY CONFIG and FIELD files")
+    p.add_argument('-dr', '--dlpoly_rigid', action='store_true', default=False, help="Create rigid-body DLPOLY CONFIG and FIELD files")
+    p.add_argument('-np', '--non_periodic', action='store_true', default=False, help="Dump a non-periodic system")
+    p.add_argument('-id', '--ignore_dihedrals', action='store_true', default=False, help="Ignore missing dihedrals when creating DL-POLY files.")
+    args=p.parse_args()
+    
     split = None
     dlpoly = False
     rigid = True
     nonPeriodic = False
-    if len(sys.argv) == 3:
-        pklFile = sys.argv[2]
-        if sys.argv[1] == "--fragments" or sys.argv[1] == "-f":
-            split = "fragments"
-        elif sys.argv[1] == "--blocks" or sys.argv[1] == "-b":
-            split = "blocks"
-        elif sys.argv[1] == "-da":
-            dlpoly = True
-            rigid = False
-        elif sys.argv[1] == "-dr":
-            dlpoly = True
-            rigid = True
-        elif sys.argv[1] == "-np":
-            nonPeriodic = True
-        else:
-            print "Unrecognised option: {0}".format(sys.argv[2])
-    else:
-        pklFile = sys.argv[1]
+    skipDihedrals = False
+
+    if args.split_fragments:
+        split='fragments'
+    elif args.split_blocks:
+        split='blocks'
+        
+    if args.dlpoly_allatom:
+        dlpoly = True
+        rigid = False
+    elif args.dlpoly_rigid:
+        dlpoly = True
+        rigid = True
+        
+    if args.non_periodic: nonPeriodic = True
+    if args.ignore_dihedrals: skipDihedrals = True     
 
     # Need to reset sys.argv as otherwise hoomdblue eats it and complains
     sys.argv = [sys.argv[0]]
 
     if dlpoly:
-        dumpDLPOLY(pklFile, rigidBody=rigid)
+        dumpDLPOLY(args.pkl_file, rigidBody=rigid, skipDihedrals=skipDihedrals)
     else:
-        dumpPkl(pklFile, split=split, nonPeriodic=nonPeriodic)
-
+        dumpPkl(args.pkl_file, split=split, nonPeriodic=nonPeriodic)
