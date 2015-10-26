@@ -329,7 +329,7 @@ class DLPOLY(FFIELD):
                    rigidBody=True,
                    periodic=True,
                    center=True,
-                   ):
+                   skipDihedrals=False):
         """
         ALSO WRITES OUT CONFIG
 
@@ -565,7 +565,7 @@ class DLPOLY(FFIELD):
         self.atomTypes = set([ j for i in types for j in i ])
         # Pierre wants us to write things out even if there are missing dihedral parameters, but we need to know
         # if there are any valid parameters as that determines whether to add the relevant section
-        self.checkParameters(skipDihedrals=True)
+        self.checkParameters(skipDihedrals=skipDihedrals)
 
         # Now write out FIELD file
         # REM DLPOLY does FORTRAN counting so add 1 to everything
