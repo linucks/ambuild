@@ -1709,29 +1709,23 @@ class Cell():
     def libraryEndGroupPair(self, cellEndGroups=None, libraryEndGroups=None):
         """Return a fee endGroup from the cell and one from the library that can be bonded to it."""
 
-        #
         # Get a list of available free endGroups in the cell
-        #
         endGroupTypes2Block = self.endGroupTypes2Block()
-        if len(endGroupTypes2Block.keys()) == 0:
-            raise RuntimeError, "No available endGroups in the cell"
-        #
+        if len(endGroupTypes2Block.keys()) == 0: raise RuntimeError, "No available endGroups in the cell"
+        
         # We create a dictionary mapping cell endGroups to possible libraryEndGroups
-        #
         cell2Library = {}
         for ceg in endGroupTypes2Block.keys():
             # We add those endGroup types that can be bonded to that are also in the library
-            leg = self._bondTable[ ceg ].intersection(self._endGroup2LibraryFragment.keys())
-            if len(leg) > 0:
-                cell2Library[ ceg ] = leg
+            if ceg in self._bondTable:
+                leg = self._bondTable[ ceg ].intersection(self._endGroup2LibraryFragment.keys())
+                if len(leg) > 0: cell2Library[ ceg ] = leg
 
         # Check that there are some available
         if len(cell2Library.keys()) == 0:
             raise RuntimeError, "No library fragments available to bond under the given rules: {0}".format(endGroupTypes2Block.keys())
 
-        #
         # If the user supplied a list of cellEndGroups we prune the list of cell endGroups to those that are in this list
-        #
         if cellEndGroups is not None:
             # Convert to a set - make sure is a list first
             if isinstance(cellEndGroups, str):
@@ -1739,14 +1733,12 @@ class Cell():
             for ceg in cell2Library.keys():
                 if ceg not in cellEndGroups:
                     del cell2Library[ ceg ]
-
+                    
             if len(cell2Library.keys()) == 0:
                 raise RuntimeError, "No free endGroups of types in cellEndGroups: {0} - {1}".format(cellEndGroups,
-                                                                                                   endGroupTypes2Block.keys())
+                                                                                                    endGroupTypes2Block.keys())
 
-        #
         # If the user supplied a list of libraryEndGroups we remove any library endGroups that aren't in the list
-        #
         if libraryEndGroups is not None:
             # Convert to a set - make sure is a list first
             if isinstance(libraryEndGroups, str):
