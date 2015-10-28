@@ -2688,16 +2688,14 @@ class Cell():
                                 )
 
         # Process any bonds
-        todo = len(self._possibleBonds)
-        if todo == 0:
+        if len(self._possibleBonds) == 0:
             self.logger.info("zipBlocks: no acceptable bonds found")
             return 0
 
         # Check the bonds don't clash with anything
         if clashCheck:
             self.logger.info("zipBlocks: checking for clashes with bonds...")
-            toRemove = [bond for bond in self._possibleBonds if self.bondClash(bond=bond,
-                                                                             clashDist=clashDist)]
+            toRemove = [bond for bond in self._possibleBonds if self.bondClash(bond=bond, clashDist=clashDist)]
             if len(toRemove):
                 self.logger.info("zipBlocks: {0} bonds not accepted due to clashes".format(len(toRemove)))
                 for b in toRemove: self._possibleBonds.remove(b)
@@ -2705,7 +2703,7 @@ class Cell():
                     self.logger.info("zipBlocks: No bonds remaining after clash checks")
                     return 0
 
-        self.logger.info("zipBlocks: found {0} additional bonds".format(todo))
+        self.logger.info("zipBlocks: found {0} additional bonds".format(len(self._possibleBonds)))
 #         for b in self._possibleBonds:
 #             print "Attempting to bond: {0} {1} {2} -> {3} {4} {5}".format( b.block1.id(),
 #                                                                    b.endGroup1.blockEndGroupIdx,
@@ -2715,9 +2713,9 @@ class Cell():
 #                                                                    b.block2.atomCoord( b.endGroup2.blockEndGroupIdx),
 #                                                                 )
 #
+        todo=len(self._possibleBonds)
         bondsMade = self.processBonds()
-        if bondsMade != todo:
-            self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(todo,bondsMade))
+        if bondsMade != todo: self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(todo,bondsMade))
         self.analyse.stop('zip')
         return bondsMade
     
