@@ -41,7 +41,7 @@ class FfieldParameters(object):
         # All parameters calculated to fit PCFF adapted forcefield Holden et al j.phys.chem.c 2012
         # from combining rules calculated using dlpoly-prep (Willock)
         # bonds adapted from quartic PCFF
-        bond_file = os.path.join(paramd, 'bond_params.csv')
+        bond_file = os.path.abspath(os.path.join(paramd, 'bond_params.csv'))
         if not os.path.isfile(bond_file): raise RuntimeError, "Cannot find bond parameter file: {0}".format(bond_file)
         header = ['A', 'B', 'k', 'r0', 'comments']
         self.bonds = {}
@@ -51,11 +51,16 @@ class FfieldParameters(object):
                 if i == 0:
                     if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(bond_file, ",".join(header))
                     else: continue
-                A = row[0]
-                B = row[1]
-                k = float(row[2])
-                r0 = float(row[3])
-                self.bonds[(A, B)] = {'k' : k, 'r0' : r0}
+                try:
+                    A = row[0]
+                    B = row[1]
+                    k = float(row[2])
+                    r0 = float(row[3])
+                    self.bonds[(A, B)] = {'k' : k, 'r0' : r0}
+                except Exception as e:
+                    print "Error reading bond parameters from file: {0}".format(bond_file)
+                    print "Error occured with line: {0}".format(",".join(row))
+                    raise e
         
         # REM: angles are stored in degrees in the parameter file, but we convert to radians for our uses
         angle_file = os.path.join(paramd, 'angle_params.csv')
