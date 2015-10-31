@@ -32,7 +32,10 @@ import xml.etree.ElementTree as ET
 import util
 import hoomdblue
 
+PARAM_SEP=','
+
 class FfieldParameters(object):
+    
 
     def __init__(self):
 
@@ -52,7 +55,7 @@ class FfieldParameters(object):
         header = ['A', 'B', 'k', 'r0', 'comments']
         bonds = {}
         with open(bond_file) as f:
-            reader = csv.reader(f, delimiter=',', quotechar='"')
+            reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
                     if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(bond_file, ",".join(header))
@@ -65,7 +68,7 @@ class FfieldParameters(object):
                     bonds[(A, B)] = {'k' : k, 'r0' : r0}
                 except Exception as e:
                     print "Error reading bond parameters from file: {0}".format(bond_file)
-                    print "Error occured on line {0}: {1}".format(i+1,",".join(row))
+                    print "Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row))
                     raise e
         return bonds
     
@@ -75,7 +78,7 @@ class FfieldParameters(object):
         header = ['angle', 'k', 't0', 'comments']
         angles = {}
         with open(angle_file) as f:
-            reader = csv.reader(f, delimiter=',', quotechar='"')
+            reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
                     if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(angle_file, ",".join(header))
@@ -87,7 +90,7 @@ class FfieldParameters(object):
                     angles[angle] = {'k' : k, 't0' : t0}
                 except Exception as e:
                     print "Error reading angle parameters from file: {0}".format(angle_file)
-                    print "Error occured on line {0}: {1}".format(i+1,",".join(row))
+                    print "Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row))
                     raise e
         return angles
 
@@ -96,7 +99,7 @@ class FfieldParameters(object):
         header = ['dihedral', 'k', 'd', 'n', 'comments']
         dihedrals = {}
         with open(dihedral_file) as f:
-            reader = csv.reader(f, delimiter=',', quotechar='"')
+            reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
                     if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(dihedral_file, ",".join(header))
@@ -109,7 +112,7 @@ class FfieldParameters(object):
                     dihedrals[dihedral] = {'k' : k, 'd' : d, 'n' : n}
                 except Exception as e:
                     print "Error reading dihedral parameters from file: {0}".format(dihedral_file)
-                    print "Error occured on line {0}: {1}".format(i+1,",".join(row))
+                    print "Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row))
                     raise e
         return dihedrals
     
@@ -118,7 +121,7 @@ class FfieldParameters(object):
         header = ['improper', 'k', 'chi', 'comments']
         impropers = {}
         with open(improper_file) as f:
-            reader = csv.reader(f, delimiter=',', quotechar='"')
+            reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
                     if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(improper_file, ",".join(header))
@@ -130,7 +133,7 @@ class FfieldParameters(object):
                     impropers[improper] = {'k' : k, 'chi' : chi}
                 except Exception as e:
                     print "Error reading improper parameters from file: {0}".format(improper_file)
-                    print "Error occured on line {0}: {1}".format(i+1,",".join(row))
+                    print "Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row))
                     raise e
         return impropers
     
@@ -139,7 +142,7 @@ class FfieldParameters(object):
         header = ['atom1', 'atom2', 'epsilon', 'sigma', 'comments']
         pairs = {}
         with open(pairs_file) as f:
-            reader = csv.reader(f, delimiter=',', quotechar='"')
+            reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
                     if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(pairs_file, ",".join(header))
@@ -152,7 +155,7 @@ class FfieldParameters(object):
                     pairs[(atom1, atom2)] = {'epsilon' : epsilon, 'sigma' : sigma}
                 except Exception as e:
                     print "Error reading pair parameters from file: {0}".format(pairs_file)
-                    print "Error occured on line {0}: {1}".format(i+1,",".join(row))
+                    print "Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row))
                     raise e
         return pairs
     
