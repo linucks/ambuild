@@ -37,14 +37,20 @@ class FfieldParameters(object):
     def __init__(self):
 
         paramd = os.path.join(os.path.abspath(os.path.dirname(__file__)),'..','params')
-        
         # All parameters calculated to fit PCFF adapted forcefield Holden et al j.phys.chem.c 2012
         # from combining rules calculated using dlpoly-prep (Willock)
         # bonds adapted from quartic PCFF
-        bond_file = os.path.abspath(os.path.join(paramd, 'bond_params.csv'))
+        self.bonds = self._readBonds(os.path.abspath(os.path.join(paramd, 'bond_params.csv')))
+        self.angles = self._readAngles(os.path.abspath(os.path.join(paramd, 'angle_params.csv')))
+        self.dihedrals = self._readDihedrals(os.path.abspath(os.path.join(paramd, 'dihedral_params.csv')))
+        self.impropers = self._readImpropers(os.path.abspath(os.path.join(paramd, 'improper_params.csv')))
+        self.pairs = self._readPairs(os.path.abspath(os.path.join(paramd, 'pair_params.csv')))
+        return
+    
+    def _readBonds(self,bond_file):
         if not os.path.isfile(bond_file): raise RuntimeError, "Cannot find bond parameter file: {0}".format(bond_file)
         header = ['A', 'B', 'k', 'r0', 'comments']
-        self.bonds = {}
+        bonds = {}
         with open(bond_file) as f:
             reader = csv.reader(f, delimiter=',', quotechar='"')
             for i, row in enumerate(reader):
@@ -56,77 +62,100 @@ class FfieldParameters(object):
                     B = row[1]
                     k = float(row[2])
                     r0 = float(row[3])
-                    self.bonds[(A, B)] = {'k' : k, 'r0' : r0}
+                    bonds[(A, B)] = {'k' : k, 'r0' : r0}
                 except Exception as e:
                     print "Error reading bond parameters from file: {0}".format(bond_file)
-                    print "Error occured with line: {0}".format(",".join(row))
+                    print "Error occured on line {0}: {1}".format(i+1,",".join(row))
                     raise e
-        
+        return bonds
+    
+    def _readAngles(self, angle_file):
         # REM: angles are stored in degrees in the parameter file, but we convert to radians for our uses
-        angle_file = os.path.join(paramd, 'angle_params.csv')
         if not os.path.isfile(angle_file): raise RuntimeError, "Cannot find angle parameter file: {0}".format(angle_file)
         header = ['angle', 'k', 't0', 'comments']
-        self.angles = {}
+        angles = {}
         with open(angle_file) as f:
             reader = csv.reader(f, delimiter=',', quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
                     if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(angle_file, ",".join(header))
                     else: continue
-                angle = row[0]
-                k = float(row[1])
-                t0 = math.radians(float(row[2]))
-                self.angles[angle] = {'k' : k, 't0' : t0}
-        
-        dihedral_file = os.path.join(paramd, 'dihedral_params.csv')
+                try:
+                    angle = row[0]
+                    k = float(row[1])
+                    t0 = math.radians(float(row[2]))
+                    angles[angle] = {'k' : k, 't0' : t0}
+                except Exception as e:
+                    print "Error reading angle parameters from file: {0}".format(angle_file)
+                    print "Error occured on line {0}: {1}".format(i+1,",".join(row))
+                    raise e
+        return angles
+
+    def _readDihedrals(self, dihedral_file):
         if not os.path.isfile(dihedral_file): raise RuntimeError, "Cannot find dihedral parameter file: {0}".format(dihedral_file)
         header = ['dihedral', 'k', 'd', 'n', 'comments']
-        self.dihedrals = {}
+        dihedrals = {}
         with open(dihedral_file) as f:
             reader = csv.reader(f, delimiter=',', quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
                     if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(dihedral_file, ",".join(header))
                     else: continue
-                dihedral = row[0]
-                k = int(row[1])
-                d = int(row[2])
-                n = int(row[3])
-                self.dihedrals[dihedral] = {'k' : k, 'd' : d, 'n' : n}
-
-        improper_file = os.path.join(paramd, 'improper_params.csv')
+                try:
+                    dihedral = row[0]
+                    k = int(row[1])
+                    d = int(row[2])
+                    n = int(row[3])
+                    dihedrals[dihedral] = {'k' : k, 'd' : d, 'n' : n}
+                except Exception as e:
+                    print "Error reading dihedral parameters from file: {0}".format(dihedral_file)
+                    print "Error occured on line {0}: {1}".format(i+1,",".join(row))
+                    raise e
+        return dihedrals
+    
+    def _readImpropers(self,improper_file):
         if not os.path.isfile(improper_file): raise RuntimeError, "Cannot find dihedral parameter file: {0}".format(improper_file)
         header = ['improper', 'k', 'chi', 'comments']
-        self.impropers = {}
+        impropers = {}
         with open(improper_file) as f:
             reader = csv.reader(f, delimiter=',', quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
                     if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(improper_file, ",".join(header))
                     else: continue
-                improper = row[0]
-                k = int(row[1])
-                chi = float(row[2])
-                self.impropers[improper] = {'k' : k, 'chi' : chi}
-                
-        pairs_file = os.path.join(paramd, 'pair_params.csv')
+                try:
+                    improper = row[0]
+                    k = int(row[1])
+                    chi = float(row[2])
+                    impropers[improper] = {'k' : k, 'chi' : chi}
+                except Exception as e:
+                    print "Error reading improper parameters from file: {0}".format(improper_file)
+                    print "Error occured on line {0}: {1}".format(i+1,",".join(row))
+                    raise e
+        return impropers
+    
+    def _readPairs(self,pairs_file):
         if not os.path.isfile(pairs_file): raise RuntimeError, "Cannot find pair parameter file: {0}".format(pairs_file)
         header = ['atom1', 'atom2', 'epsilon', 'sigma', 'comments']
-        self.pairs = {}
+        pairs = {}
         with open(pairs_file) as f:
             reader = csv.reader(f, delimiter=',', quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
                     if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(pairs_file, ",".join(header))
                     else: continue
-                atom1 = row[0]
-                atom2 = row[1]
-                epsilon = float(row[2])
-                sigma = float(row[3])
-                self.pairs[(atom1, atom2)] = {'epsilon' : epsilon, 'sigma' : sigma}
-        
-        return
-
+                try:
+                    atom1 = row[0]
+                    atom2 = row[1]
+                    epsilon = float(row[2])
+                    sigma = float(row[3])
+                    pairs[(atom1, atom2)] = {'epsilon' : epsilon, 'sigma' : sigma}
+                except Exception as e:
+                    print "Error reading pair parameters from file: {0}".format(pairs_file)
+                    print "Error occured on line {0}: {1}".format(i+1,",".join(row))
+                    raise e
+        return pairs
+    
     def angleParameter(self, angle):
         return self.angles[ angle ]
 
@@ -175,7 +204,6 @@ class FfieldParameters(object):
         if self.pairs.has_key((p1, p2)) or self.pairs.has_key((p2, p1)):
             return True
         return False
-
 
 class FFIELD(object):
 
