@@ -418,8 +418,14 @@ class Block(object):
 
         return coords, symbols, bonds
 
-    def deleteBond(self, bond):
+    def deleteBond(self, bond, root=None):
+        """root is an optional fragment which we want to remove and so must end up in another block if breaking the
+        bond splits the block into two blocks"""
         # See if breaking the bond separates the block into two separate blocks
+        
+        if not len(self._blockBonds): return None
+        
+        assert bond in self._blockBonds
 
         # Create dictionary of which fragments are bonded to which fragments
         bondedToFragment = {}
@@ -438,6 +444,11 @@ class Block(object):
         # Take the two fragments on either side of the bond
         f1 = bond.endGroup1.fragment
         f2 = bond.endGroup2.fragment
+        
+        assert f1 in bondedToFragment
+        assert f2 in bondedToFragment
+        
+        if root: assert root==f1 or root==f2,"Root must be attached to the bond"
 
         # Sets of which fragments can be reached from each fragment
         f1set = set()
@@ -453,7 +464,7 @@ class Block(object):
 
         f1set = addFragments(f1, f1set)
         f2set = addFragments(f2, f2set)
-
+        
         if bool(f1set.intersection(f2set)):
             # Fragments in common with both, so just delete the bond
             #print "Block remains contiguous"
@@ -468,13 +479,23 @@ class Block(object):
         
         # Breaking the bond splits the block in two, so we separate the two fragments, keeep the largest
         # for ourselves and return the new block. We set f1 and f1set to be the biggest
-        if f2set > f1set:
-            tmp = f1set
-            f1set = f2set
-            f2set = tmp
-            tmp = f1
-            f1 = f2
-            f2 = tmp
+        if root:
+            if root == f1:
+                # swap so the root fragment stays with us
+                tmp = f1set
+                f1set = f2set
+                f2set = tmp
+                tmp = f1
+                f1 = f2
+                f2 = tmp
+        else:
+            if f2set > f1set:
+                tmp = f1set
+                f1set = f2set
+                f2set = tmp
+                tmp = f1
+                f1 = f2
+                f2 = tmp
             
         # How to partition the bonds?
         f1bonds = set()
@@ -485,7 +506,7 @@ class Block(object):
                 f1bonds.add(b)
             elif b.endGroup1.fragment in f2set and b.endGroup2.fragment in f2set:
                 f2bonds.add(b)
-            else: raise RuntimeError,"Bond not in set: {0}".format(b)
+            else: raise RuntimeError,"Bond crosses set: {0}".format(b)
             
         bond.endGroup1.unBond()
         bond.endGroup2.unBond()
@@ -494,13 +515,13 @@ class Block(object):
         newBlock = Block()
         newBlock.fragments = [f2]
         if len(f2set): newBlock.fragments += list(f2set)
-        if len(f2bonds): newBlock._blockBonds = list(f2bonds)
+        newBlock._blockBonds = list(f2bonds)
         newBlock._update()
         
         # Update our list of bonds 
         self.fragments = [f1]
         if len(f1set): self.fragments += list(f1set)
-        if len(f1bonds): self._blockBonds = list(f1bonds)
+        self._blockBonds = list(f1bonds)
         self._update()
 
         return newBlock
@@ -515,7 +536,7 @@ class Block(object):
             return False
             
         # Get the list of bonds that this fragment makes
-        dbonds = [ b for b in self._blockBonds if b.endGroup1.fragment == frag and b.endGroup1.fragment == frag ]
+        dbonds = [ b for b in self._blockBonds if b.endGroup1.fragment == frag or b.endGroup2.fragment == frag ]
         
         assert len(dbonds),"Fragment is not involved in any bonds!"
         
@@ -525,7 +546,10 @@ class Block(object):
         blocks = []
         removed=False
         for bond in dbonds:
-            block = self.deleteBond(bond)
+            print "REMOVING BOND ",bond
+            # Error here is - I think - the bond we are after could end up in another block if removing
+            # the fragment splits the block in two
+            block = self.deleteBond(bond, root=frag)
             if block:
                 if frag in block.fragments:
                     if len(block.fragments) > 1:
@@ -542,7 +566,7 @@ class Block(object):
                 self.fragments.remove(frag)
                 self._update()
             else:
-                raise RuntimeError,"FIX FOR WHEN THERE IS ONLY ONE BLOCK"
+                raise RuntimeError,"SHOULD NEVER END UP HERE"
         
         return blocks
 

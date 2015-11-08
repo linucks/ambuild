@@ -3231,6 +3231,19 @@ class Test(unittest.TestCase):
         mycell.seed(1, fragmentType='A', center=True)
         f1 = mycell.blocks.values()[0].fragments[0]
         mycell.growBlocks(1, cellEndGroups=['A:a'], libraryEndGroups=['A:a'])
+        mycell.deleteFragment(f1)
+        return 
+    
+    def testDeleteFragment3(self):
+        boxDim = [20, 20, 20]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.addBondType('A:a-A:a')
+
+        # See if we can delete single blocks
+        mycell.seed(1, fragmentType='A', center=True)
+        f1 = mycell.blocks.values()[0].fragments[0]
+        mycell.growBlocks(4, cellEndGroups=['A:a'], libraryEndGroups=['A:a'])
         mycell.writeXyz("foo1.xyz")
         mycell.deleteFragment(f1)
         mycell.writeXyz("foo2.xyz")
