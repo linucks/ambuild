@@ -1146,6 +1146,33 @@ class Cell():
         self.logger.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(i + 1, len(self.blocks)))
 
         return i + 1
+    
+    def deleteFragment(self,frag,block=None):
+        self.logger.info("Deleting fragment: {0}".format(frag.fragmentType))
+        if block is None:
+            # Find the fekker
+            for b in self.blocks.itervalues():
+                for f in b.fragments:
+                    if f is frag:
+                        block = b
+                        break
+        
+        assert block,"Need to know which block to remove the fragment from!"
+        
+        # Blocks will either return a list or False if we need to delete this block
+        # We need to remove the block from the cell first as deleting the fragment changes the makeup of the blocks
+        # will change and this needs to be reflected in cell structures
+        self.delBlock(block.id)
+        blocks = block.deleteFragment(frag)
+        if type(blocks) is list:
+            self.addBlock(block) # add the original back in
+            if len(blocks):
+                self.logger.info("Deleting fragment created {0} new blocks.".format(len(blocks)))
+                for b in blocks: self.addBlock(b)
+        else:
+            self.logger.info("Deleting fragment deleted a block")
+            # Nothing to do here as we've already removed the block from the cell
+        return
 
     def density(self):
         """The density of the cell"""
@@ -3180,6 +3207,34 @@ class Test(unittest.TestCase):
         # mycell.seed(5, fragmentType='B')
 
         return
+    
+    def testDeleteFragment1(self):
+        boxDim = [20, 20, 20]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.addBondType('A:a-A:a')
+
+        # See if we can delete single blocks
+        mycell.seed(1, fragmentType='A', center=True)
+        f1 = mycell.blocks.values()[0].fragments[0]
+        mycell.deleteFragment(f1)
+        self.assertEqual(len(mycell.blocks),0)
+        return 
+    
+    def testDeleteFragment2(self):
+        boxDim = [20, 20, 20]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.addBondType('A:a-A:a')
+
+        # See if we can delete single blocks
+        mycell.seed(1, fragmentType='A', center=True)
+        f1 = mycell.blocks.values()[0].fragments[0]
+        mycell.growBlocks(1, cellEndGroups=['A:a'], libraryEndGroups=['A:a'])
+        mycell.writeXyz("foo1.xyz")
+        mycell.deleteFragment(f1)
+        mycell.writeXyz("foo2.xyz")
+        return 
 
     def testDLPOLY(self):
         """
