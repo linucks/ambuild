@@ -1159,16 +1159,14 @@ class Cell():
         
         assert block,"Need to know which block to remove the fragment from!"
         
-        # Blocks will either return a list or False if we need to delete this block
-        # We need to remove the block from the cell first as deleting the fragment changes the makeup of the blocks
-        # will change and this needs to be reflected in cell structures
+        # deleteFragment will return a list of blocks to be added back to the cell
+        # The original block may have been deleted during the fragment deletion processs so we always need to
+        # remove it and add the blocks returned by deleteFragment 
         self.delBlock(block.id)
         blocks = block.deleteFragment(frag)
-        if type(blocks) is list:
-            self.addBlock(block) # add the original back in
-            if len(blocks):
-                self.logger.info("Deleting fragment created {0} new blocks.".format(len(blocks)))
-                for b in blocks: self.addBlock(b)
+        if len(blocks):
+            self.logger.info("Deleting fragment resulted in {0} blocks.".format(len(blocks)))
+            for b in blocks: self.addBlock(b)
         else:
             self.logger.info("Deleting fragment deleted a block")
             # Nothing to do here as we've already removed the block from the cell
@@ -2547,11 +2545,9 @@ class Cell():
         """Write out the cell atoms to an xyz file
         If label is true we write out the atom label and block, otherwise the symbol
         """
-        if data is None:
-            d = self.dataDict(periodic=periodic, fragmentType=None)
-        else:
-            d = data
-
+        if data is None: d = self.dataDict(periodic=periodic, fragmentType=None)
+        else: d = data
+        
         if periodic:
             if atomTypes:
                 fpath = util.writeXyz(ofile, d.coords, d.atomTypes, cell=self.dim)
@@ -2559,9 +2555,9 @@ class Cell():
                 fpath = util.writeXyz(ofile, d.coords, d.symbols, cell=self.dim)
         else:
             if atomTypes:
-                fpath = util.writeXyz(ofile, d.coords, d.symbols)
+                fpath = util.writeXyz(ofile, d.coords,d.atomTypes)
             else:
-                fpath = util.writeXyz(ofile, d.coords, d.atomTypes)
+                fpath = util.writeXyz(ofile, d.coords, d.symbols)
 
         self.logger.info("Wrote cell file: {0}".format(fpath))
         return
@@ -3243,17 +3239,13 @@ class Test(unittest.TestCase):
         # See if we can delete single blocks
         mycell.seed(1, fragmentType='A', center=True)
         f1 = mycell.blocks.values()[0].fragments[0]
-        mycell.growBlocks(4, cellEndGroups=['A:a'], libraryEndGroups=['A:a'])
-        mycell.writeXyz("foo1.xyz")
+        mycell.growBlocks(20, cellEndGroups=['A:a'], libraryEndGroups=['A:a'])
         mycell.deleteFragment(f1)
-        mycell.writeXyz("foo2.xyz")
+        #mycell.writeCml("foo2.cml")
         return 
 
     def testDLPOLY(self):
-        """
-
-        """
-
+        """testDLPOLY"""
         boxDim = [100.0, 100.0, 100.0]
         mycell = Cell(boxDim)
 
@@ -3266,7 +3258,6 @@ class Test(unittest.TestCase):
         b1 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
         b2 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
         b3 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
-
 
         # b1 in center
         b1.translateCentroid([ 25, 25, 25 ])

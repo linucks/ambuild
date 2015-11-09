@@ -419,8 +419,8 @@ class Block(object):
         return coords, symbols, bonds
 
     def deleteBond(self, bond, root=None):
-        """root is an optional fragment which we want to remove and so must end up in another block if breaking the
-        bond splits the block into two blocks"""
+        """root is an optional fragment which we want to remove and so must stay in this block if we are
+        looping through bonds"""
         # See if breaking the bond separates the block into two separate blocks
         
         if not len(self._blockBonds): return None
@@ -444,9 +444,6 @@ class Block(object):
         # Take the two fragments on either side of the bond
         f1 = bond.endGroup1.fragment
         f2 = bond.endGroup2.fragment
-        
-        assert f1 in bondedToFragment
-        assert f2 in bondedToFragment
         
         if root: assert root==f1 or root==f2,"Root must be attached to the bond"
 
@@ -480,7 +477,7 @@ class Block(object):
         # Breaking the bond splits the block in two, so we separate the two fragments, keeep the largest
         # for ourselves and return the new block. We set f1 and f1set to be the biggest
         if root:
-            if root == f1:
+            if root == f2:
                 # swap so the root fragment stays with us
                 tmp = f1set
                 f1set = f2set
@@ -531,9 +528,8 @@ class Block(object):
             raise RuntimeError,"Cannot find fragment {0} in block".format(frag.fragmentType)
         
         if len(self.fragments) == 1:
-            # This is the only fragment in the block, so we need to delete ourselves!
-            # Return False to indicate this is the case
-            return False
+            # This is the only fragment in the block, so we need to be deleted - return an empty list
+            return []
             
         # Get the list of bonds that this fragment makes
         dbonds = [ b for b in self._blockBonds if b.endGroup1.fragment == frag or b.endGroup2.fragment == frag ]
@@ -541,32 +537,20 @@ class Block(object):
         assert len(dbonds),"Fragment is not involved in any bonds!"
         
         # Loop through deleting all bonds and returning any blocks created
-        # The fragment we seek to delete might end up in one of the other blocks if it happens to be bigger then us
-        # so we need to check for this and remove the fragment from that block
+        # The fragment we are deleting will always stay within this block as we use the root= keyword
         blocks = []
-        removed=False
         for bond in dbonds:
-            print "REMOVING BOND ",bond
-            # Error here is - I think - the bond we are after could end up in another block if removing
-            # the fragment splits the block in two
             block = self.deleteBond(bond, root=frag)
-            if block:
-                if frag in block.fragments:
-                    if len(block.fragments) > 1:
-                        block.fragments.remove(frag)
-                        block._update()
-                    else:
-                        block = None
-                    removed=True
-                if block: blocks.append(block)
+            if block: blocks.append(block)
             
-        # Now we might need to delete the fragment from ourself and update
-        if not removed:
-            if len(self.fragments) > 1:
-                self.fragments.remove(frag)
-                self._update()
-            else:
-                raise RuntimeError,"SHOULD NEVER END UP HERE"
+        # Now we need to delete the fragment from ourself and update
+        if len(self.fragments) > 1:
+            self.fragments.remove(frag)
+            self._update()
+            blocks.append(self)
+        else:
+            assert frag in self.fragments
+            # The only remainig block was the one to delete so we don't do anything
         
         return blocks
 
