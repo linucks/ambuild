@@ -18,7 +18,7 @@ import copy
 import itertools
 import os
 import math
-import random
+import random as _random
 import unittest
 
 # external imports
@@ -100,6 +100,8 @@ class Block(object):
         self._radius = None
         self._blockMass = 0
         self.id = id(self)
+        
+        self._deterministicState = 0 # For keeping track of things during testing
 
         if self.fragments: self._update()
         return
@@ -776,16 +778,62 @@ class Block(object):
 
         return
 
-    def randomEndGroup(self, endGroupTypes=None):
-        """Return a random free endGroup in the block"""
+    def randomRotate(self, origin=[ 0, 0, 0 ], atOrigin=False):
+        """Randomly rotate a block.
 
+         Args:
+         atOrigin -- flag to indicate if the block is already positioned at the origin
+        """
+        if not atOrigin:
+            position = self.centroid()
+            self.translateCentroid(origin)
+
+        xAxis = [ 1, 0, 0 ]
+        yAxis = [ 0, 1, 0 ]
+        zAxis = [ 0, 0, 1 ]
+
+        angle = _random.uniform(0, 2 * numpy.pi)
+        self.rotate(xAxis, angle)
+
+        angle = _random.uniform(0, 2 * numpy.pi)
+        self.rotate(yAxis, angle)
+
+        angle = _random.uniform(0, 2 * numpy.pi)
+        self.rotate(zAxis, angle)
+
+        if not atOrigin: self.translateCentroid(position)
+        return
+
+    def rotate(self, axis, angle, center=None):
+        if center is None: center = numpy.array([ 0, 0, 0 ])
+        rotationMatrix = util.rotation_matrix(axis, angle)
+        for f in self.fragments:
+            f.rotate(rotationMatrix, center)
+        return
+
+    def rotateT(self, axis, angle, center=None):
+        """Rotation with translation to center"""
+        position = self.centroid()
+        origin = numpy.array([ 0, 0, 0 ])
+        self.translateCentroid(origin)
+        rotationMatrix = util.rotation_matrix(axis, angle)
+        for f in self.fragments:
+            f.rotate(rotationMatrix, origin)
+        self.translateCentroid(position)
+        return
+
+    def selectEndGroup(self, endGroupTypes=None, random=True):
+        """Return a random free endGroup in the block"""
         if endGroupTypes == None:
-            # We pick a random endGroup
-            endGroup = random.choice(self.freeEndGroups())
+            if random:
+                # We pick a random endGroup
+                endGroup = _random.choice(self.freeEndGroups())
+            else:
+                i = self._deterministicState % len(self.freeEndGroups())
+                endGroup = self.freeEndGroups()[i]
         else:
             # Make sure we have a list to check against
-            if isinstance(endGroupTypes, str):
-                endGroupTypes = [ endGroupTypes ]
+            if isinstance(endGroupTypes, str): endGroupTypes = [ endGroupTypes ]
 
             # See if any in common
             common = frozenset(self.freeEndGroupTypes()).intersection(frozenset(endGroupTypes))
@@ -793,71 +841,20 @@ class Block(object):
                 raise RuntimeError, "Cannot find {0} in available types {1}".format(endGroupTypes, self.freeEndGroupTypes())
 
             # We can definitely return something so pick a random fragment type and get a random endGroup
-            ftype = random.choice(list(common))
-            endGroup = random.choice(self.freeEndGroupsFromTypes(endGroupTypes=[ ftype ]))
-
+            if random:
+                ftype = _random.choice(list(common))
+                endGroup = _random.choice(self.freeEndGroupsFromTypes(endGroupTypes=[ ftype ]))
+            else:
+                i = self._deterministicState % len(common)
+                ftype = list(common)[i]
+                i = self._deterministicState % len(self.freeEndGroupsFromTypes(endGroupTypes=[ ftype ]))
+                endGroup = self.freeEndGroupsFromTypes(endGroupTypes=[ ftype ])[i]
+        
+        if not random: self._deterministicState += 1
         return endGroup
-
-    def randomRotate(self, origin=[ 0, 0, 0 ], atOrigin=False):
-        """Randomly rotate a block.
-
-         Args:
-         atOrigin -- flag to indicate if the block is already positioned at the origin
-        """
-
-        if not atOrigin:
-            position = self.centroid()
-            self.translateCentroid(origin)
-
-
-        xAxis = [ 1, 0, 0 ]
-        yAxis = [ 0, 1, 0 ]
-        zAxis = [ 0, 0, 1 ]
-
-        angle = random.uniform(0, 2 * numpy.pi)
-        self.rotate(xAxis, angle)
-
-        angle = random.uniform(0, 2 * numpy.pi)
-        self.rotate(yAxis, angle)
-
-        angle = random.uniform(0, 2 * numpy.pi)
-        self.rotate(zAxis, angle)
-
-        if not atOrigin:
-            self.translateCentroid(position)
-
-    def randomBlock(self):
-        """Return a random block"""
-        return random.choice(self.allBlocks)
-
-    def rotate(self, axis, angle, center=None):
-
-        if center is None:
-            center = numpy.array([ 0, 0, 0 ])
-
-        rotationMatrix = util.rotation_matrix(axis, angle)
-
-        for f in self.fragments:
-            f.rotate(rotationMatrix, center)
-        return
-
-    def rotateT(self, axis, angle, center=None):
-        """Rotation with translation to center"""
-
-        position = self.centroid()
-        origin = numpy.array([ 0, 0, 0 ])
-        self.translateCentroid(origin)
-
-        rotationMatrix = util.rotation_matrix(axis, angle)
-        for f in self.fragments:
-            f.rotate(rotationMatrix, origin)
-
-        self.translateCentroid(position)
-        return
 
     def translate(self, tvector):
         """ translate the molecule by the given vector"""
-
         # CHANGE SO WE CHECK IF IS A NUMPY ARRAY
         if isinstance(tvector, list):
             tvector = numpy.array(tvector)
@@ -865,7 +862,6 @@ class Block(object):
         # Loop through each fragment and translate each in turn
         for f in self.fragments:
             f.translate(tvector)
-
         self._changed = True
         return
 

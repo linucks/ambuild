@@ -13,7 +13,7 @@ import csv
 import logging
 import math
 import os
-import random
+import random as _random
 import sys
 import time
 import unittest
@@ -236,6 +236,7 @@ class Cell():
         self._setupAnalyse()
 
         self._fileCount = 0  # for naming output files
+        self._deterministicState = 0 # For adding blocks in a non-random manner (for testing)
 
         if not (boxDim or filePath) or (boxDim and filePath):
             raise RuntimeError, "Cell constructor needs a boxDim list _or_ the path to a file with the box dimensions!"
@@ -379,12 +380,7 @@ class Cell():
 
         # Now add growBlock to the cell so we can check for clashes
         blockId = self.addBlock(growBlock)
-
-        # print "attachBlock got ",blockId, self.blocks
-        # self.dump()
-        # sys.exit()
-
-        self.logger.debug("GOT {0} {1}".format(staticEndGroup, growEndGroup))
+        #self.logger.debug("GOT {0} {1}".format(staticEndGroup, growEndGroup))
 
         # Check it doesn't clash
         if self.checkMove(blockId) and self.processBonds() > 0:
@@ -392,9 +388,6 @@ class Cell():
             return True
         else:
             self.logger.debug("attachBlock first checkMove returned False")
-            # self.writeCml("foo.cml", periodic=True, pruneBonds=False)
-            # sys.exit()
-
 
         # Only attempt rotation if we're not worried about the dihedral
         # NOTE! - should only bother with the rotation if the cell is relatively crowded - otherwise
@@ -412,9 +405,7 @@ class Cell():
             # step = math.pi/18 # 10 degree increments
             step = math.pi / 9  # 20 degree increments
             for angle in util.frange(step, math.pi * 2, step):
-
                 # print "attachBlock rotating as clash: {}".format(angle*util.RADIANS2DEGREES)
-
                 # remove the growBlock from the cell
                 self.delBlock(blockId)
 
@@ -422,9 +413,7 @@ class Cell():
                 self.logger.debug("attachBlock rotating by {0} to {1}".format(math.degrees(step),
                                                                                math.degrees(angle)))
                 growBlock.rotate(axis, angle, center=center)
-
-                # add it and check
-                self.addBlock(growBlock)
+                self.addBlock(growBlock) # add it and check
 
                 if self.checkMove(blockId) and self.processBonds() > 0:
                     self.logger.debug("attachBlock rotate worked")
@@ -432,7 +421,6 @@ class Cell():
 
         # remove the growBlock from the cell
         self.delBlock(blockId)
-
         return False
 
     def bondAllowed(self, endGroup1, endGroup2):
@@ -900,12 +888,12 @@ class Cell():
         self.logger.debug("cellEndGroupPair got cell/library endGroups: {0}".format(cell2cell))
 
         # Select a random block/endGroup from the list
-        eg1Type = random.choice(cell2cell.keys())
-        block1 = random.choice(list(endGroupTypes2Block[ eg1Type ]))
-        endGroup1 = block1.randomEndGroup(endGroupTypes=[eg1Type])
+        eg1Type = _random.choice(cell2cell.keys())
+        block1 = _random.choice(list(endGroupTypes2Block[ eg1Type ]))
+        endGroup1 = block1.selectEndGroup(endGroupTypes=[eg1Type])
 
         # Pick a random endGroup type that can bond to this
-        eg2Type = random.sample(cell2cell[ eg1Type ], 1)[0]
+        eg2Type = _random.sample(cell2cell[ eg1Type ], 1)[0]
 
         # Select a random block/endGroup of that type
         # (REM: need to remove the first block from the list of possibles hence the difference thing
@@ -913,12 +901,12 @@ class Cell():
         # Using choice and list as sample was giving error "ValueError: sample larger than population"
         # block2 = random.sample( endGroupTypes2Block[ eg2Type ].difference(set([block1])), 1 )[0]
         try:
-            block2 = random.choice(list(endGroupTypes2Block[ eg2Type ].difference(set([block1]))))
+            block2 = _random.choice(list(endGroupTypes2Block[ eg2Type ].difference(set([block1]))))
             # This will trigger an IndexError if there isn't a free block of the given type
         except IndexError:
             self.logger.critical("cellEndGroupPair: No 2nd block available for cellEndGroups".format(cellEndGroups))
             return None, None
-        endGroup2 = block2.randomEndGroup(endGroupTypes=[eg2Type])
+        endGroup2 = block2.selectEndGroup(endGroupTypes=[eg2Type])
 
         self.logger.debug("cellEndGroupPair returning: {0} {1}".format(endGroup1.type(), endGroup2.type()))
         return endGroup1, endGroup2
@@ -1139,7 +1127,7 @@ class Cell():
         # We have a list of valid block ids
         toRemove = min(numBlocks, len(blist))
         for i in range(toRemove):
-            idxBlock = random.choice(blist)
+            idxBlock = _random.choice(blist)
             self.delBlock(idxBlock)
             blist.remove(idxBlock)
 
@@ -1370,7 +1358,7 @@ class Cell():
 
         if fragmentType is None:
             # Need to determine the fragmentType from the endGroupType
-            fragmentType = random.choice(list(self._fragmentLibrary.keys()))
+            fragmentType = _random.choice(list(self._fragmentLibrary.keys()))
 
         # sanity check
         if not self._fragmentLibrary.has_key(fragmentType):
@@ -1387,7 +1375,8 @@ class Cell():
                    libraryEndGroups=None,
                    endGroupType=None,
                    dihedral=None,
-                   maxTries=50):
+                   maxTries=50,
+                   random=True):
         """
         Add toGrow new blocks to the cell.
 
@@ -1404,26 +1393,19 @@ class Cell():
         """
 
         self.logger.info("Growing {0} new blocks".format(toGrow))
-
         assert len(self.blocks), "Need to seed blocks before growing!"
-
         if endGroupType:
             self.logger.warn('endGroupType is deprecated! Use cellEndGroups/libraryEndGroups instead')
             assert not cellEndGroups or libraryEndGroups
             libraryEndGroups = endGroupType
 
-        if dihedral:
-            # Convert dihedral to radians
-            dihedral = math.radians(dihedral)
-
+        if dihedral: dihedral = math.radians(dihedral)
         added = 0
         tries = 0
         while added < toGrow:
-
             if tries >= maxTries:
                 self.logger.critical("growBlocks - exceeded maxtries {0} when joining blocks!".format(maxTries))
                 return added
-
             if self.numFreeEndGroups() == 0:
                 self.logger.critical("growBlocks got no free endGroups!")
                 return added
@@ -1432,19 +1414,18 @@ class Cell():
             # initBlock, newEG, idxStaticBlock, staticEG = self.randomInitAttachments( endGroupType=endGroupType )
             try:
                 cellEndGroup, libraryEndGroup = self.libraryEndGroupPair(cellEndGroups=cellEndGroups,
-                                                                         libraryEndGroups=libraryEndGroups)
+                                                                         libraryEndGroups=libraryEndGroups,
+                                                                         random=random)
             except RuntimeError, e:
                 self.logger.critical("growBlocks cannot grow more blocks: {0}".format(e))
                 return added
-                
 
             # Apply random rotation in 3 axes to randomise the orientation before we align
             libraryBlock = libraryEndGroup.block()
-            libraryBlock.randomRotate(origin=self.origin)
+            if random: libraryBlock.randomRotate(origin=self.origin)
 
             # Try and attach it
             ok = self.attachBlock(libraryEndGroup, cellEndGroup, dihedral=dihedral)
-
             if ok:
                 added += 1
                 self.logger.info("growBlocks added block {0} after {1} tries.".format(added, tries))
@@ -1456,7 +1437,6 @@ class Cell():
                 tries += 1
 
         self.logger.info("After growBlocks numBlocks: {0}".format(len(self.blocks)))
-
         return added
 
     def haloCells(self, key):
@@ -1730,14 +1710,9 @@ class Cell():
             self._endGroup2LibraryFragment[ ft ] = fragmentType
 
         return
-
-    def libraryEndGroupPair(self, cellEndGroups=None, libraryEndGroups=None):
-        """Return a fee endGroup from the cell and one from the library that can be bonded to it."""
-
-        # Get a list of available free endGroups in the cell
-        endGroupTypes2Block = self.endGroupTypes2Block()
+    
+    def  _getCell2Library(self, endGroupTypes2Block, cellEndGroups=None, libraryEndGroups=None):
         if len(endGroupTypes2Block.keys()) == 0: raise RuntimeError, "No available endGroups in the cell"
-        
         # We create a dictionary mapping cell endGroups to possible libraryEndGroups
         cell2Library = {}
         for ceg in endGroupTypes2Block.keys():
@@ -1778,30 +1753,54 @@ class Cell():
                     cell2Library[ ceg ] = pleg
 
             if not len(cell2Library.keys()):
-                raise RuntimeError, "No library fragments of type {0} available to bond under the given rules: {0}".format(libraryEndGroups, endGroupTypes2Block.keys())
+                raise RuntimeError, "No library fragments of type {0} available to bond under the given rules: {0}".format(libraryEndGroups,
+                                                                                                                           endGroupTypes2Block.keys())
+        return cell2Library
 
+    def libraryEndGroupPair(self, cellEndGroups=None, libraryEndGroups=None, random=True):
+        """Return a fee endGroup from the cell and one from the library that can be bonded to it."""
+        endGroupTypes2Block = self.endGroupTypes2Block()
+        cell2Library = self._getCell2Library(endGroupTypes2Block,
+                                             cellEndGroups=cellEndGroups,
+                                             libraryEndGroups=libraryEndGroups)
         self.logger.debug("libraryEndGroupPair got cell/library endGroups: {0}".format(cell2Library))
-
-        # Now we can pick a random endGroup from the cell, get the corresponding library group
-        cellEgT = random.choice(cell2Library.keys())
-
-        # First get a block that contains this type of endGroup
-        # Need to use sample as sets don't support random.choice
-        cellBlock = random.sample(endGroupTypes2Block[ cellEgT ], 1)[0]
-
-        # Now select a random endGroup of that type from it
-        cellEndGroup = cellBlock.randomEndGroup(endGroupTypes=[cellEgT])
-
-        # Now get a corresponding library endGroup
-        # We need to pick a random one of the types that we can bond to that is also in libraryTypes
-        libEgT = random.sample(cell2Library[ cellEgT ], 1)[0]
-
-        # Now determine the fragmentType and create the block and fragment
-        fragmentType = self._endGroup2LibraryFragment[ libEgT ]
-        libraryBlock = self.getInitBlock(fragmentType=fragmentType)
-
-        # now get the endGroup
-        libraryEndGroup = libraryBlock.randomEndGroup(endGroupTypes=[libEgT])
+        if random:
+            # Now we can pick a random endGroup from the cell, get the corresponding library group
+            cellEgT = _random.choice(cell2Library.keys())
+    
+            # First get a block that contains this type of endGroup
+            # Need to use sample as sets don't support random.choice
+            cellBlock = _random.sample(endGroupTypes2Block[ cellEgT ], 1)[0]
+    
+            # Now select a random endGroup of that type from it
+            cellEndGroup = cellBlock.selectEndGroup(endGroupTypes=[cellEgT], random=random)
+    
+            # Now get a corresponding library endGroup
+            # We need to pick a random one of the types that we can bond to that is also in libraryTypes
+            libEgT = _random.sample(cell2Library[ cellEgT ], 1)[0]
+    
+            # Now determine the fragmentType and create the block and fragment
+            fragmentType = self._endGroup2LibraryFragment[ libEgT ]
+            libraryBlock = self.getInitBlock(fragmentType=fragmentType)
+    
+            # now get the endGroup
+            libraryEndGroup = libraryBlock.selectEndGroup(endGroupTypes=[libEgT])
+        else:
+            # We need to keep selecting a different but deterministic endGroupType each call
+            i = self._deterministicState % len(cell2Library.keys())
+            cellEgT = cell2Library.keys()[i]
+            
+            i = self._deterministicState % len(endGroupTypes2Block[cellEgT])
+            cellBlock = list(endGroupTypes2Block[cellEgT])[i]
+            cellEndGroup = cellBlock.selectEndGroup(endGroupTypes=[cellEgT], random=random)
+            
+            i = self._deterministicState % len(cell2Library[cellEgT])
+            libEgT = list(cell2Library[cellEgT])[i]
+            fragmentType = self._endGroup2LibraryFragment[ libEgT ]
+            libraryBlock = self.getInitBlock(fragmentType=fragmentType)
+            libraryEndGroup = libraryBlock.selectEndGroup(endGroupTypes=[libEgT])
+            
+            self._deterministicState += 1
 
         # Return them both - phew!
         self.logger.debug("libraryEndGroupPair returning: {0} {1}".format(cellEndGroup.type(), libraryEndGroup.type()))
@@ -1893,9 +1892,9 @@ class Cell():
 
         # get a range for x, y and z that would fit the block in the cell, pick random values within that
         # and stick the block there
-        x = random.uniform(bradius + self.boxMargin, self.dim[0] - bradius - self.boxMargin)
-        y = random.uniform(bradius + self.boxMargin, self.dim[1] - bradius - self.boxMargin)
-        z = random.uniform(bradius + self.boxMargin, self.dim[2] - bradius - self.boxMargin)
+        x = _random.uniform(bradius + self.boxMargin, self.dim[0] - bradius - self.boxMargin)
+        y = _random.uniform(bradius + self.boxMargin, self.dim[1] - bradius - self.boxMargin)
+        z = _random.uniform(bradius + self.boxMargin, self.dim[2] - bradius - self.boxMargin)
 
         coord = numpy.array([x, y, z], dtype=numpy.float64)
 
@@ -1940,11 +1939,8 @@ class Cell():
 
     def randomBlockId(self, checkFree=True):
         """Return numBlocks random block ids"""
-
         MAXCOUNT = 100
-
-        blockId = random.choice(list(self.blocks.keys()))
-
+        blockId = _random.choice(list(self.blocks.keys()))
         if checkFree:
             if self.numFreeEndGroups() == 0:
                 return False
@@ -1958,22 +1954,23 @@ class Cell():
                 block = self.blocks[ blockId ]
                 if block.numFreeEndGroups > 0:
                     break
-
-                blockId = random.choice(list(self.blocks.keys()))
-
+                blockId = _random.choice(list(self.blocks.keys()))
         return blockId
 
-    def randomMoveBlock(self, block, margin=None, point=None, radius=None, zone=None):
+    def positionBlock(self, block, margin=None, point=None, radius=None, zone=None, random=True):
         """Randomly move the given block
          If margin is given, use this as a buffer from the edges of the cell
          when selecting the coord
         """
-        if point or radius:
+        if point:
             assert len(point) == 3,"Point needs to be a list of three floats!"
             if not (0 <= point[0] <= self.dim[0] and 0 <= point[1] <= self.dim[1] and \
                     0 <= point[2] <= self.dim[2] ):
                 raise RuntimeError,"Point needs to be inside the cell."
-            coord = self.randomSpherePoint(point, radius)
+            if radius:
+                coord = self.randomSpherePoint(point, radius)
+            else:
+                coord = numpy.array(point, dtype=numpy.float64)
         elif zone:
             if not len(zone) == 6:
                 raise RuntimeError,"Zone needs to be a list of 6 floats: [x0,x1,y1,y2,z1,z1]"
@@ -1983,26 +1980,27 @@ class Cell():
                 raise RuntimeError,"Zone needs to be within the cell"
             #bmargin = block.blockRadius()
             bmargin = 0
-            x = random.uniform(zone[0] + bmargin, zone[1] - bmargin)
-            y = random.uniform(zone[2] + bmargin, zone[3] - bmargin)
-            z = random.uniform(zone[4] + bmargin, zone[5] - bmargin)
+            x = _random.uniform(zone[0] + bmargin, zone[1] - bmargin)
+            y = _random.uniform(zone[2] + bmargin, zone[3] - bmargin)
+            z = _random.uniform(zone[4] + bmargin, zone[5] - bmargin)
             coord = numpy.array([x, y, z], dtype=numpy.float64)
         else:
             if margin:
-                x = random.uniform(margin, self.dim[0] - margin)
-                y = random.uniform(margin, self.dim[1] - margin)
-                z = random.uniform(margin, self.dim[2] - margin)
+                x = _random.uniform(margin, self.dim[0] - margin)
+                y = _random.uniform(margin, self.dim[1] - margin)
+                z = _random.uniform(margin, self.dim[2] - margin)
             else:
-                x = random.uniform(0, self.dim[0])
-                y = random.uniform(0, self.dim[1])
-                z = random.uniform(0, self.dim[2])
+                x = _random.uniform(0, self.dim[0])
+                y = _random.uniform(0, self.dim[1])
+                z = _random.uniform(0, self.dim[2])
             coord = numpy.array([x, y, z], dtype=numpy.float64)
 
         # print "Got random coord: {}".format(coord)
         # Move to origin, rotate there and then move to new coord
         # Use the cell axis definitions
-        block.translateCentroid(self.origin)
-        block.randomRotate(origin=self.origin, atOrigin=True)
+        if random:
+            block.translateCentroid(self.origin)
+            block.randomRotate(origin=self.origin, atOrigin=True)
         block.translateCentroid(coord)
         return
     
@@ -2012,9 +2010,9 @@ class Cell():
         """
         
         # We use spherical coordinates and calculate theta and phi
-        theta = 2 * math.pi * random.uniform(0,1)
-        phi = math.acos(2 * random.uniform(0,1) - 1)
-        rradius = random.uniform(0,radius)
+        theta = 2 * math.pi * _random.uniform(0,1)
+        phi = math.acos(2 * _random.uniform(0,1) - 1)
+        rradius = _random.uniform(0,radius)
         
         # coordinate of point centered at origin is therefore:
         x = rradius * math.cos(theta) * math.sin(phi)
@@ -2163,7 +2161,8 @@ class Cell():
              save=None,
              point=None,
              radius=None,
-             zone=None):
+             zone=None,
+             random=True):
         """ Seed a cell with nblocks of type fragmentType.
 
         Args:
@@ -2183,7 +2182,6 @@ class Cell():
         Returns:
         the number of blocks added
         """
-
         if self.dim[0] is None or self.dim[1] is None or self.dim[2] is None:
             raise RuntimeError, "Need to specify cell before seeding"
 
@@ -2193,7 +2191,6 @@ class Cell():
             raise RuntimeError, "Must have set an initBlock before seeding."
 
         self.logger.info("seed adding {0} block of type {1}".format(nblocks, fragmentType))
-        
         if save:
             savedBlocks = self.saveBlocks(save)
             self.logger.info("saveBlocks removed {0} blocks from cell".format(len(savedBlocks)))
@@ -2201,10 +2198,7 @@ class Cell():
         numBlocksAdded = 0
         # Loop through the nblocks adding the blocks to the cell
         for seedCount in range(nblocks):
-
-            # Create new block
-            newblock = self.getInitBlock(fragmentType=fragmentType)
-
+            newblock = self.getInitBlock(fragmentType=fragmentType) # Create new block
             tries = 0
             while True:
                 # quit on maxTries
@@ -2219,7 +2213,7 @@ class Cell():
                     newblock.translateCentroid([ self.dim[0] / 2, self.dim[1] / 2, self.dim[2] / 2 ])
                 else:
                     # Move the block and rotate it
-                    self.randomMoveBlock(newblock, point=point, radius=radius, zone=zone)
+                    self.positionBlock(newblock, point=point, radius=radius, zone=zone, random=random)
 
                 # Add the block so we can check for clashes/bonds
                 idxBlock = self.addBlock(newblock)
@@ -2240,12 +2234,10 @@ class Cell():
                 if center and seedCount == 0 and tries == 0:
                     self.logger.warn("Seed with center failed to place first block in center!")
 
-                # increment tries counter
-                tries += 1
+                tries += 1 # increment tries counter
 
             # End Clash loop
         # End of loop to seed cell
-
         self.logger.info("Seed added {0} blocks. Cell now contains {1} blocks".format(numBlocksAdded,
                                                                                        len(self.blocks)))
         if save:
@@ -3454,18 +3446,17 @@ class Test(unittest.TestCase):
 
     def testGrowBlocks(self):
         """Test we can add blocks correctly"""
-
         boxDim = [30, 30, 30]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         # mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
 
-        added = mycell.seed(1)
+        added = mycell.seed(1, random=False)
         self.assertEqual(added, 1, 'seed')
         natoms = mycell.numAtoms()
         nblocks = 10
-        added = mycell.growBlocks(nblocks, endGroupType=None, maxTries=1)
+        added = mycell.growBlocks(nblocks, endGroupType=None, maxTries=1, random=False)
 
         # mycell.writeCml("foo.cml", periodic=True, pruneBonds=False)
         self.assertEqual(added, nblocks, "growBlocks did not return ok")
@@ -3475,9 +3466,8 @@ class Test(unittest.TestCase):
         nblocks += 1
         # Need to subtract cap atoms
         self.assertEqual(natoms2, (natoms * nblocks) - (nblocks - 1) * 2)
-        
         self.assertFalse(self.clashes(mycell))
-
+        mycell.dump('jens')
         return
 
     def testGrowLimited(self):
