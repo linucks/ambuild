@@ -1353,13 +1353,18 @@ class Cell():
         """Return the box that the coord is in under periodic boundaries"""
         return util.getCell(coord, self.boxSize, cellDim=self.dim)
 
-    def getInitBlock(self, fragmentType=None):
+    def getInitBlock(self, fragmentType=None,random=True):
         """Return an initBlock"""
 
         if fragmentType is None:
             # Need to determine the fragmentType from the endGroupType
-            fragmentType = _random.choice(list(self._fragmentLibrary.keys()))
-
+            if random:
+                fragmentType = _random.choice(list(self._fragmentLibrary.keys()))
+            else:
+                i = self._deterministicState % len(self._fragmentLibrary.keys())
+                fragmentType = sorted(self._fragmentLibrary.keys())[i]
+                self._deterministicState += 1
+                
         # sanity check
         if not self._fragmentLibrary.has_key(fragmentType):
             raise RuntimeError, "Asking for a non-existing initBlock type: {0}".format(fragmentType)
@@ -1391,7 +1396,6 @@ class Cell():
         dihedral: the dihedral angle about the bond (3rd column in csv file)
         maxTries: number of attempts to make before giving up
         """
-
         self.logger.info("Growing {0} new blocks".format(toGrow))
         assert len(self.blocks), "Need to seed blocks before growing!"
         if endGroupType:
@@ -1419,7 +1423,6 @@ class Cell():
             except RuntimeError, e:
                 self.logger.critical("growBlocks cannot grow more blocks: {0}".format(e))
                 return added
-
             # Apply random rotation in 3 axes to randomise the orientation before we align
             libraryBlock = libraryEndGroup.block()
             if random: libraryBlock.randomRotate(origin=self.origin)
@@ -1733,7 +1736,6 @@ class Cell():
             for ceg in cell2Library.keys():
                 if ceg not in cellEndGroups:
                     del cell2Library[ ceg ]
-                    
             if len(cell2Library.keys()) == 0:
                 raise RuntimeError, "No free endGroups of types in cellEndGroups: {0} - {1}".format(cellEndGroups,
                                                                                                     endGroupTypes2Block.keys())
@@ -1781,25 +1783,22 @@ class Cell():
     
             # Now determine the fragmentType and create the block and fragment
             fragmentType = self._endGroup2LibraryFragment[ libEgT ]
-            libraryBlock = self.getInitBlock(fragmentType=fragmentType)
+            libraryBlock = self.getInitBlock(fragmentType=fragmentType, random=random)
     
             # now get the endGroup
             libraryEndGroup = libraryBlock.selectEndGroup(endGroupTypes=[libEgT])
         else:
             # We need to keep selecting a different but deterministic endGroupType each call
             i = self._deterministicState % len(cell2Library.keys())
-            cellEgT = cell2Library.keys()[i]
-            
+            cellEgT = sorted(cell2Library.keys())[i]
             i = self._deterministicState % len(endGroupTypes2Block[cellEgT])
-            cellBlock = list(endGroupTypes2Block[cellEgT])[i]
+            cellBlock = sorted(list(endGroupTypes2Block[cellEgT]))[i]
             cellEndGroup = cellBlock.selectEndGroup(endGroupTypes=[cellEgT], random=random)
-            
             i = self._deterministicState % len(cell2Library[cellEgT])
-            libEgT = list(cell2Library[cellEgT])[i]
+            libEgT = sorted(list(cell2Library[cellEgT]))[i]
             fragmentType = self._endGroup2LibraryFragment[ libEgT ]
-            libraryBlock = self.getInitBlock(fragmentType=fragmentType)
-            libraryEndGroup = libraryBlock.selectEndGroup(endGroupTypes=[libEgT])
-            
+            libraryBlock = self.getInitBlock(fragmentType=fragmentType, random=random)
+            libraryEndGroup = libraryBlock.selectEndGroup(endGroupTypes=[libEgT], random=random)
             self._deterministicState += 1
 
         # Return them both - phew!
@@ -1934,28 +1933,7 @@ class Cell():
 
         # Clear any other possible bonds
         self._possibleBonds = []
-
         return bondsMade
-
-    def randomBlockId(self, checkFree=True):
-        """Return numBlocks random block ids"""
-        MAXCOUNT = 100
-        blockId = _random.choice(list(self.blocks.keys()))
-        if checkFree:
-            if self.numFreeEndGroups() == 0:
-                return False
-
-            count = 0
-            while True:
-                count += 1
-                if count > MAXCOUNT:
-                    return False
-
-                block = self.blocks[ blockId ]
-                if block.numFreeEndGroups > 0:
-                    break
-                blockId = _random.choice(list(self.blocks.keys()))
-        return blockId
 
     def positionBlock(self, block, margin=None, point=None, radius=None, zone=None, random=True):
         """Randomly move the given block
@@ -2340,7 +2318,7 @@ class Cell():
         except TypeError:
             cl = logging.StreamHandler(strm=sys.stdout)
         cl.setLevel(logging.INFO)
-        # cl.setLevel( logging.DEBUG )
+        #cl.setLevel( logging.DEBUG )
 
         # create formatter for fl
         # Always add a blank line after every print
@@ -2357,19 +2335,13 @@ class Cell():
 
     def updateFromBlock(self, block):
         """Update cell parameters from the block"""
-
-        if block.maxAtomRadius <= 0:
-            raise RuntimeError, "Error updating cell from block"
+        if block.maxAtomRadius <= 0: raise RuntimeError, "Error updating cell from block"
 
         if block.maxAtomRadius() > self.maxAtomRadius:
-
             # What happens to already added blocks if we call this after we've added them?
             # Not sure so being safe...
-            if len(self.blocks) > 0:
-                raise RuntimeError, "Adding initblock after blocks have been added - not sure what to do!"
-
+            if len(self.blocks) > 0: raise RuntimeError, "Adding initblock after blocks have been added - not sure what to do!"
             self.updateCellSize(maxAtomRadius=block.maxAtomRadius())
-
         return
 
     def updateCellSize(self, boxMargin=None, maxAtomRadius=None, MARGIN=0.01, boxShift=None):
@@ -2437,7 +2409,6 @@ class Cell():
             del self._clLogHandler
             del self._flLogHandler
 
-
         fileName = os.path.abspath(fileName)
 
         # Create the pickle file
@@ -2445,17 +2416,13 @@ class Cell():
 
         # Restart logging with append mode
         # self.setupLogging( mode='a' )
-
         self.logger.info("Wrote pickle file: {0}".format(fileName))
-
         return
 
     def writeCar(self, ofile="ambuild.car", data=None, periodic=True, skipDummy=False):
         """Car File
         """
-
-        if not data:
-            data = self.dataDict()
+        if not data: data = self.dataDict()
 
         car = "!BIOSYM archive 3\n"
         if periodic:
@@ -3447,64 +3414,57 @@ class Test(unittest.TestCase):
     def testGrowBlocks(self):
         """Test we can add blocks correctly"""
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, doLog=True)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         # mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
 
-        added = mycell.seed(1, random=False)
+        added = mycell.seed(1, center=True, random=False)
         self.assertEqual(added, 1, 'seed')
         natoms = mycell.numAtoms()
         nblocks = 10
         added = mycell.growBlocks(nblocks, endGroupType=None, maxTries=1, random=False)
-
+  
         # mycell.writeCml("foo.cml", periodic=True, pruneBonds=False)
         self.assertEqual(added, nblocks, "growBlocks did not return ok")
         self.assertEqual(1, len(mycell.blocks), "Growing blocks found {0} blocks".format(len(mycell.blocks)))
-
+  
         natoms2 = mycell.numAtoms()
         nblocks += 1
         # Need to subtract cap atoms
         self.assertEqual(natoms2, (natoms * nblocks) - (nblocks - 1) * 2)
+        block = mycell.blocks.values()[0]
+        self.assertTrue(numpy.allclose(block.centroid(), [ 12.91963557,  17.39975016,  11.65120767]))
         self.assertFalse(self.clashes(mycell))
-        mycell.dump('jens')
         return
 
     def testGrowLimited(self):
         """Test we can add blocks correctly"""
-
         boxDim = [30, 30, 30]
         mycell = Cell(boxDim)
-
         mycell.libraryAddFragment(filename=self.ch4_1Car, fragmentType='A')
         mycell.addBondType('A:a-A:b')
         mycell.setMaxBond('A:a', 1)
 
-        mycell.seed(1)
-        mycell.growBlocks(10, cellEndGroups=None, maxTries=10)
-        
+        mycell.seed(1, center=True, random=False)
+        mycell.growBlocks(10, cellEndGroups=None, maxTries=10, random=False)
+        block = mycell.blocks.values()[0]
+        self.assertTrue(numpy.allclose(block.centroid(), [ 14.64787487, 15.43129673, 16.00520584]))
         self.assertFalse(self.clashes(mycell))
-
-
-        # mycell.dump()
-
         return
 
     def testGrowLimited2(self):
         """Test we can add blocks correctly"""
-
         boxDim = [30, 30, 30]
         mycell = Cell(boxDim)
-
         mycell.libraryAddFragment(filename=self.dcxCar, fragmentType='A')
         mycell.addBondType('A:CH-A:CCl')
         mycell.setMaxBond('A:CH', 1)
-
-        mycell.seed(1)
-        mycell.growBlocks(10, cellEndGroups=['A:CH'])
+        mycell.seed(1, center=True, random=False)
+        mycell.growBlocks(10, cellEndGroups=['A:CH'], random=False)
+        block = mycell.blocks.values()[0]
+        self.assertTrue(numpy.allclose(block.centroid(), [  6.17554446, 4.10903953, 17.51814496]))
         self.assertFalse(self.clashes(mycell))
-        # mycell.dump()
-
         return
 
     def testGrowBlocks2(self):
@@ -3530,12 +3490,12 @@ class Test(unittest.TestCase):
 
         # Try adding 6 blocks - only 5 will fit
         nblocks = 6
-        added = mycell.growBlocks(nblocks, endGroupType=None, maxTries=5)
+        added = mycell.growBlocks(nblocks, endGroupType=None, maxTries=5, random=False)
 
         self.assertEqual(added, 5, "growBlocks did not add 5 blocks")
         self.assertEqual(1, len(mycell.blocks), "Growing blocks found {0} blocks".format(len(mycell.blocks)))
         self.assertFalse(self.clashes(mycell))
-
+        self.assertTrue(numpy.allclose(block1.centroid(), [ 12.69119085, 14.93774993, 14.96541503]))
         return
 
     def testGrowBlocksDihedral(self):
@@ -3546,7 +3506,6 @@ class Test(unittest.TestCase):
 
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-
         mycell.seed(1, center=True)
 
         nblocks = 2
