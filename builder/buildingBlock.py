@@ -108,12 +108,9 @@ class Block(object):
 
     def alignAtoms(self, atom1Idx, atom2Idx, refVector):
         """Move molecule so two atoms are aligned along refVector"""
-
         atom1 = self.coord(atom1Idx)
         atom2 = self.coord(atom2Idx)
-        if isinstance(refVector, list):  # Should check if numpy array
-            refVector = numpy.array(refVector, dtype=numpy.float64)
-
+        if isinstance(refVector, list): refVector = numpy.array(refVector, dtype=numpy.float64)
         return self.alignVector(atom1, atom2, refVector)
 
     def alignVector(self, pos1, pos2, refVector):
@@ -123,7 +120,6 @@ class Block(object):
 
         pos1 is the coordinate of atom1 and pos2 the coordinate of atom2
         """
-
         # Move so that pos1 is at origin so the vector of pos2 can be
         # aligned with the refVector
 
@@ -141,31 +137,24 @@ class Block(object):
             return
 
         # print "alignBlock BEFORE: {0} | {1}".format( endGroup, refVector )
-
         # Calculate normalised cross product to find an axis orthogonal
         # to both that we can rotate about
         cross = numpy.cross(refVector, pos2)
-
         if numpy.array_equal(cross, [0, 0, 0]):
             # They must be already aligned but anti-parallel, so we flip
             print "alignBlock - vectors are anti-parallel so flipping"
             self.flip(refVector)
             self.translate(pos1)  # NEW - put it back
         else:
-
             # Find angle
             angle = util.vectorAngle(refVector, pos2)
-
             # Normalised cross to rotate about
             ncross = cross / numpy.linalg.norm(cross)
-
             # Rotate
             self.rotate(ncross, angle)
-
+        
         # Now shift back
         self.translate(pos1)
-
-        # print "alignBlock AFTER: {0} | {1}".format( self._coord( idxAtom ), refVector )
         return
 
     def atomBonded1(self, idxAtom):
@@ -733,7 +722,6 @@ class Block(object):
         """
         Position growBlock so it can bond to us
         """
-
         # The vector we want to align along is the vector from the endGroup
         # to the capAtom
         endGroupAtom = self.coord(endGroup.blockEndGroupIdx)
@@ -747,13 +735,13 @@ class Block(object):
         # the bond length
         symbol = growBlock.symbol(growEndGroup.blockEndGroupIdx)
         bondPos = self.newBondPosition(endGroup, symbol)
-        # print "got bondPos for {0}: {1}".format( symbol, bondPos )
+        #print "got bondPos for {0}: {1}".format( symbol, bondPos )
 
         # Align along the staticBlock bond
         growBlock.alignAtoms(growEndGroup.blockEndGroupIdx,
                               growEndGroup.blockCapIdx,
                               refVector)
-
+        #print "GROW ",growBlock
         # Now need to place the endGroup at the bond coord to do this now we just add the bondPos
         growBlock.translate(bondPos)
 
@@ -775,7 +763,6 @@ class Block(object):
                 # Need to rotate so get the axis to rotate about
                 axis = self.coord(endGroup.blockEndGroupIdx) - growBlock.coord(growEndGroup.blockEndGroupIdx)
                 growBlock.rotate(axis, angle, center=self.coord(endGroup.blockEndGroupIdx))
-
         return
 
     def randomRotate(self, origin=[ 0, 0, 0 ], atOrigin=False):
@@ -834,7 +821,6 @@ class Block(object):
         else:
             # Make sure we have a list to check against
             if isinstance(endGroupTypes, str): endGroupTypes = [ endGroupTypes ]
-
             # See if any in common
             common = frozenset(self.freeEndGroupTypes()).intersection(frozenset(endGroupTypes))
             if not bool(common):
@@ -846,7 +832,7 @@ class Block(object):
                 endGroup = _random.choice(self.freeEndGroupsFromTypes(endGroupTypes=[ ftype ]))
             else:
                 i = self._deterministicState % len(common)
-                ftype = list(common)[i]
+                ftype = sorted(common)[i]
                 i = self._deterministicState % len(self.freeEndGroupsFromTypes(endGroupTypes=[ ftype ]))
                 endGroup = self.freeEndGroupsFromTypes(endGroupTypes=[ ftype ])[i]
         
@@ -1024,7 +1010,7 @@ class Block(object):
 
         return mystr
 
-class TestBlock(unittest.TestCase):
+class Test(unittest.TestCase):
 
     def setUp(self):
 
@@ -1194,8 +1180,8 @@ class TestBlock(unittest.TestCase):
         
         #ch4_1.writeCml("foo1.cml")
         x = ch4_1.deleteBond(bond)
-        ch4_1.writeCml("foo2.cml")
-        x.writeCml("foo3.cml")
+        #ch4_1.writeCml("foo2.cml")
+        #x.writeCml("foo3.cml")
         return
 
     def testDeleteBondCircular(self):
@@ -1388,7 +1374,6 @@ class TestBlock(unittest.TestCase):
         return
 
     def testAlignAtoms(self):
-
         block = Block(filePath=self.benzeneCar, fragmentType='A')
         bcopy = block.copy()
 
@@ -1410,7 +1395,6 @@ class TestBlock(unittest.TestCase):
         z = numpy.array([  0.0, 0.0, -3.07837304 ])
 
         self.assertTrue(numpy.allclose(c1 - c2 , z), "after")
-
         return
 
     def testCentroid(self):
