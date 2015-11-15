@@ -4,7 +4,7 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
-VERSION = "0637460f7139"
+VERSION = "bc71e402a142"
 
 import collections
 import copy
@@ -248,6 +248,7 @@ class Cell():
 
         assert self.dim[0] > 0 and self.dim[1] > 0 and self.dim[2] > 0
         
+        self.version = VERSION # Save as attribute so we can query pickle files
         self.logger.info("AMBUILD version: {0}".format(VERSION))
 
         return
