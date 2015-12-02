@@ -16,6 +16,7 @@ https://github.com/patvarilly/periodic_kdtree
 # Python imports
 import copy
 import itertools
+import logging
 import os
 import math
 import random as _random
@@ -27,6 +28,8 @@ import numpy
 # local imports
 import fragment
 import util
+
+_logger = logging.getLogger()
 
 class Bond(object):
     """An object to hold all info on a bond
@@ -132,7 +135,7 @@ class Block(object):
 
         # Makes no sense if they are already aligned
         if numpy.array_equal(pos2 / numpy.linalg.norm(pos2), refVector / numpy.linalg.norm(refVector)):
-            print "alignBlock - block already aligned along vector. May not be a problem, but you should know..."
+            _logger.debug("alignBlock - block already aligned along vector. May not be a problem, but you should know...")
             self.translate(pos1)  # NEW - put it back
             return
 
@@ -142,7 +145,7 @@ class Block(object):
         cross = numpy.cross(refVector, pos2)
         if numpy.array_equal(cross, [0, 0, 0]):
             # They must be already aligned but anti-parallel, so we flip
-            print "alignBlock - vectors are anti-parallel so flipping"
+            _logger.debug("alignBlock - vectors are anti-parallel so flipping")
             self.flip(refVector)
             self.translate(pos1)  # NEW - put it back
         else:
@@ -977,7 +980,7 @@ class Block(object):
                                     cell=cell,
                                     pruneBonds=False)
 
-        print "wrote block CML file ", cmlFilename
+        _logger.info("wrote block CML file: {0}".format(cmlFilename))
         return
 
     def writeXyz(self, name, cell=None):
@@ -987,7 +990,7 @@ class Block(object):
             coords.append(c)
             symbols.append(self.symbol(i))
         fpath = util.writeXyz(name, coords, symbols, cell=cell)
-        print "Wrote block xyz file: {0}".format(fpath)
+        _logger.info("Wrote block xyz file: {0}".format(fpath))
         return
 
     def __str__(self):
@@ -1013,6 +1016,7 @@ class Block(object):
 class Test(unittest.TestCase):
 
     def setUp(self):
+        logging.basicConfig(level=logging.DEBUG)
 
         thisd = os.path.abspath(os.path.dirname(__file__))
         paths = thisd.split(os.sep)
@@ -1045,8 +1049,7 @@ class Test(unittest.TestCase):
             for i, c in enumerate(coords):
                 f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(symbols[ i ], c[0], c[1], c[2]))
 
-        print "Wrote file: {0}".format(fpath)
-
+        _logger.info("Wrote file: {0}".format(fpath))
         return
 
     def testBodies(self):
