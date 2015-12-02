@@ -7,12 +7,15 @@ Created on Jan 15, 2013
 import collections
 import copy
 import csv
+import logging
 import os
 import types
 import unittest
 
 import numpy
 import util
+
+_logger = logging.getLogger()
 
 class EndGroup(object):
 
@@ -343,7 +346,7 @@ class Fragment(object):
             else:
                 # raise RuntimeError,"MISSING ATTRIBUTE {0}".format(a)
                 # HACK FOR WHEN DEALING WITH OLD FILES
-                print "MISSING ATTRIBUTE {0}".format(a)
+                _logger.critical("MISSING ATTRIBUTE {0}".format(a))
                 setattr(f, a, copy.deepcopy(getattr(self, a)))
 
             # Update fragment references in the endGroups
@@ -436,7 +439,7 @@ class Fragment(object):
 
                 line = line.strip()
                 if not line:
-                    print "END OF CAR WITH NO END!!!"
+                    _logger.critical("END OF CAR WITH NO END!!!")
                     break
                 fields = line.split()
                 label = fields[0]
@@ -566,7 +569,7 @@ class Fragment(object):
         
         egfile = os.path.join(dirname, basename + ".csv")
         if not os.path.isfile(egfile):
-            print "No endGroup definition file supplied for file: {0}".format(filePath)
+            _logger.critical("No endGroup definition file supplied for file: {0}".format(filePath))
             return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
             
         with open(egfile) as fh:
@@ -635,10 +638,6 @@ class Fragment(object):
         """ Rotate the molecule about the given axis by the angle in radians
         """
 
-#         if center==None:
-#             center = numpy.array([0,0,0])
-#         rmat = util.rotation_matrix( axis, angle )
-
         # loop through all _blocks and change all coords
         # Need to check that the center bit is the best way of doing this-
         # am almost certainly doing more ops than needed
@@ -648,7 +647,6 @@ class Fragment(object):
             self._coords[i] = coord + center
 
         self._changed = True
-
         return
 
     def setData(self,
@@ -680,11 +678,10 @@ class Fragment(object):
 
         # Specify internal bonds - bond margin probably too big...
         self._bonds = util.calcBonds(coords,
-                                      symbols,
-                                      cellDim=cell,
-                                      maxAtomRadius=self.maxAtomRadius(),
-                                      bondMargin=0.25
-                                       )
+                                     types,
+                                     cellDim=cell,
+                                     maxAtomRadius=self.maxAtomRadius(),
+                                     bondMargin=0.25)
 
         # Create list of which atoms are bonded to each atom
         self._calcBonded()
@@ -768,7 +765,6 @@ class Fragment(object):
                 self._ext2int[ecount] = i
                 self._int2ext[i] = ecount
                 ecount += 1
-
         return
 
     def __str__(self):
@@ -785,7 +781,7 @@ class Fragment(object):
 class TestFragment(unittest.TestCase):
 
     def setUp(self):
-
+        logging.basicConfig(level=logging.DEBUG)
         thisd = os.path.abspath(os.path.dirname(__file__))
         paths = thisd.split(os.sep)
         self.ambuildDir = os.sep.join(paths[ :-1 ])
