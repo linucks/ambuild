@@ -7,12 +7,16 @@ Created on Feb 3, 2013
 Utility functions
 '''
 import cPickle
+import logging
 import os
 import numpy
 import math
 import sys
 import unittest
 import xml.etree.ElementTree as ET
+
+
+_logger = logging.getLogger()
 
 # Bits stolen from the CCP1GUI: http://sourceforge.net/projects/ccp1gui/
 # However, I wrote bits of that so I assume its ok
@@ -408,116 +412,117 @@ Sn           2.14 2.28           1.71 2.67
 Te                     1.82      1.66
 """
 
-ABBIE_LENGTHS = {}
-ABBIE_LENGTHS['c_o'] = { 'c_o' : 1.54,
-                         'o_1' : 1.21,
-                         'nb'  : 1.32}
-
-ABBIE_LENGTHS['cp'] = { 'cp' : 1.40,
-                        'nb' : 1.33,
-                        'hc'  : 1.08 }
-
-ABBIE_LENGTHS['nb'] = { 'hn' : 1.01 }
+ATOM_TYPE_BOND_LENGTHS = {}
+ATOM_TYPE_BOND_LENGTHS['ct'] = { 'ct' : 1.21 }
+# ATOM_TYPE_BOND_LENGTHS['c_o'] = { 'c_o' : 1.54,
+#                                   'o_1' : 1.21,
+#                                   'nb'  : 1.32 }
+# 
+# ATOM_TYPE_BOND_LENGTHS['cp'] = { 'cp' : 1.40,
+#                                  'nb' : 1.33,
+#                                  'hc'  : 1.08 }
+# 
+# ATOM_TYPE_BOND_LENGTHS['nb'] = { 'hn' : 1.01 }
 
 # REM - symbols should be in lower case!
 # UNITS ARE IN ANGSTROM!!!
-BOND_LENGTHS = {}
-BOND_LENGTHS['AS'] = { 'AS' : 2.10,
-                       'BR' : 2.32,
-                       'C'  : 1.96,
-                       'CL' : 2.17,
-                       'F'  : 1.71,
-                       'H'  : 1.51 }
+ELEMENT_TYPE_BOND_LENGTHS = {}
+ELEMENT_TYPE_BOND_LENGTHS['AS'] = { 'AS' : 2.10,
+                                   'BR' : 2.32,
+                                   'C'  : 1.96,
+                                   'CL' : 2.17,
+                                   'F'  : 1.71,
+                                   'H'  : 1.51 }
 
-BOND_LENGTHS['BR'] = { 'BR': 2.28,
-                       'C' : 1.94,
-                       'CL': 2.14,
-                       'F' : 1.76,
-                       'GE': 2.30,
-                       'H' : 1.41,
-                       'I' : 2.47,
-                       'P' : 2.22,
-                       'S' : 2.24,
-                       'SI' : 2.21 }
+ELEMENT_TYPE_BOND_LENGTHS['BR'] = { 'BR': 2.28,
+                                   'C' : 1.94,
+                                   'CL': 2.14,
+                                   'F' : 1.76,
+                                   'GE': 2.30,
+                                   'H' : 1.41,
+                                   'I' : 2.47,
+                                   'P' : 2.22,
+                                   'S' : 2.24,
+                                   'SI' : 2.21 }
 
-BOND_LENGTHS['C'] = { 'C' : 1.53,
-                      'CL': 1.79,
-                      'F' : 1.39,
-                      'GE': 1.95,
-                      'H' : 1.09,
-                      'I' : 2.13,
-                      'O' : 1.42,
-                      # 'N' : 1.46,
-                      'N' : 1.4,  # jmht changed for abbie
-                      'P' : 1.85,
-                      'S' : 1.82,
-                      'SE': 1.95,
-                      'SI': 1.87,
-                      'SN': 2.14 }
+ELEMENT_TYPE_BOND_LENGTHS['C'] = { 'C' : 1.53,
+                                  'CL': 1.79,
+                                  'F' : 1.39,
+                                  'GE': 1.95,
+                                  'H' : 1.09,
+                                  'I' : 2.13,
+                                  'O' : 1.42,
+                                  # 'N' : 1.46,
+                                  'N' : 1.4,  # jmht changed for abbie
+                                  'P' : 1.85,
+                                  'S' : 1.82,
+                                  'SE': 1.95,
+                                  'SI': 1.87,
+                                  'SN': 2.14 }
 
-BOND_LENGTHS['CL'] = { 'CL' : 1.99,
-                       'F'  : 1.63,
-                       'GE' : 2.15,
-                       'H'  : 1.28,
-                       'I'  : 2.32,
-                       'N'  : 1.90,
-                       'O'  : 1.70,
-                       'P'  : 2.04,
-                       'S'  : 2.05,
-                       'SB' : 2.33,
-                       'SI' : 2.05,
-                       'SN' : 2.28 }
+ELEMENT_TYPE_BOND_LENGTHS['CL'] = { 'CL' : 1.99,
+                                   'F'  : 1.63,
+                                   'GE' : 2.15,
+                                   'H'  : 1.28,
+                                   'I'  : 2.32,
+                                   'N'  : 1.90,
+                                   'O'  : 1.70,
+                                   'P'  : 2.04,
+                                   'S'  : 2.05,
+                                   'SB' : 2.33,
+                                   'SI' : 2.05,
+                                   'SN' : 2.28 }
 
-BOND_LENGTHS['F'] = { 'F'  : 1.41,
-                      'GE' : 1.73,
-                      'H'  : 0.92,
-                      'I'  : 1.91,
-                      'N'  : 1.37,
-                      'O'  : 1.42,
-#                      'P'  : 1.57, # changed for abbie
-                      'P'  : 1.63,
-                      'S'  : 1.56,
-                      'SE' : 1.71,
-                      'SI' : 1.58,
-                      'TE' : 1.82 }
+ELEMENT_TYPE_BOND_LENGTHS['F'] = { 'F'  : 1.41,
+                                  'GE' : 1.73,
+                                  'H'  : 0.92,
+                                  'I'  : 1.91,
+                                  'N'  : 1.37,
+                                  'O'  : 1.42,
+#                                  'P'  : 1.57, # changed for abbie
+                                  'P'  : 1.63,
+                                  'S'  : 1.56,
+                                  'SE' : 1.71,
+                                  'SI' : 1.58,
+                                  'TE' : 1.82 }
 
-BOND_LENGTHS['GE'] = { 'GE' : 2.40,
-                       'H'  : 1.53,
-                       'I'  : 2.51 }
+ELEMENT_TYPE_BOND_LENGTHS['GE'] = { 'GE' : 2.40,
+                                   'H'  : 1.53,
+                                   'I'  : 2.51 }
 
-BOND_LENGTHS['H'] = { 'H' : 0.74,
-                      'I' : 1.61,
-                      'N' : 1.02,
-                      'O' : 0.96,
-                      'P' : 1.42,
-                      'S' : 1.34,
-                      'SB': 1.70,
-                      'SE': 1.47,
-                      'SI': 1.48,
-                      'SN': 1.71,
-                      'TE': 1.66 }
+ELEMENT_TYPE_BOND_LENGTHS['H'] = { 'H' : 0.74,
+                                  'I' : 1.61,
+                                  'N' : 1.02,
+                                  'O' : 0.96,
+                                  'P' : 1.42,
+                                  'S' : 1.34,
+                                  'SB': 1.70,
+                                  'SE': 1.47,
+                                  'SI': 1.48,
+                                  'SN': 1.71,
+                                  'TE': 1.66 }
 
-BOND_LENGTHS['I'] = { 'I'  : 2.67,
-                      'SI' : 2.44,
-                      'SN' : 2.67 }
+ELEMENT_TYPE_BOND_LENGTHS['I'] = { 'I'  : 2.67,
+                                   'SI' : 2.44,
+                                   'SN' : 2.67 }
 
-BOND_LENGTHS['N'] = { 'N' : 1.45,
-                      'O' : 1.43,
-                      'P' : 1.65,
-                      'ZN' : 2.166,  # Added for abbie
-                       }
+ELEMENT_TYPE_BOND_LENGTHS['N'] = { 'N' : 1.45,
+                                   'O' : 1.43,
+                                   'P' : 1.65,
+                                   'ZN' : 2.166,  # Added for abbie
+                                   }
 
-BOND_LENGTHS['O'] = { 'O'  : 1.48,
-                      'SI' : 1.63 }
+ELEMENT_TYPE_BOND_LENGTHS['O'] = { 'O'  : 1.48,
+                                   'SI' : 1.63 }
 
-BOND_LENGTHS['P'] = { 'P' : 2.25 }
+ELEMENT_TYPE_BOND_LENGTHS['P'] = { 'P' : 2.25 }
 
-BOND_LENGTHS['S'] = { 'S' : 2.00,
-                      'O' : 1.69 }
+ELEMENT_TYPE_BOND_LENGTHS['S'] = { 'S' : 2.00,
+                                   'O' : 1.69 }
 
-BOND_LENGTHS['SE'] = { 'SE' : 2.33 }
+ELEMENT_TYPE_BOND_LENGTHS['SE'] = { 'SE' : 2.33 }
 
-BOND_LENGTHS['SI'] = { 'SI' : 2.33 }
+ELEMENT_TYPE_BOND_LENGTHS['SI'] = { 'SI' : 2.33 }
 
 
 def angle(c1, c2, c3, cell=None):
@@ -538,27 +543,33 @@ def angle(c1, c2, c3, cell=None):
         theta = numpy.arccos(x)
     return theta
 
-def bondLength(symbol1, symbol2):
+def bondLength(atomType1, atomType2):
     """ Get the characteristic lengths of single bonds as defined in:
         Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
-        If we can't find one return a large negative number.
     """
-    global BOND_LENGTHS
-
-    symbol1 = symbol1.upper()
-    symbol2 = symbol2.upper()
-
     # print "Getting bond length for %s-%s" % ( symbol1, symbol2 )
+    
+    # We first see if we can find the bond length in the ATOM_TYPE_BOND_LENGTHS table
+    # If not we fall back to using the bonds calculated from element types
+    if ATOM_TYPE_BOND_LENGTHS.has_key(atomType1):
+        if ATOM_TYPE_BOND_LENGTHS[ atomType1 ].has_key(atomType2):
+            return ATOM_TYPE_BOND_LENGTHS[ atomType1 ][ atomType2 ]
 
-    if BOND_LENGTHS.has_key(symbol1):
-        if BOND_LENGTHS[ symbol1 ].has_key(symbol2):
-            return BOND_LENGTHS[ symbol1 ][ symbol2 ]
+    if ATOM_TYPE_BOND_LENGTHS.has_key(atomType2):
+        if ATOM_TYPE_BOND_LENGTHS[ atomType2 ].has_key(atomType1):
+            return ATOM_TYPE_BOND_LENGTHS   [ atomType2 ][ atomType1 ]
+        
+    symbol1 = label2symbol(atomType1).upper()
+    symbol2 = label2symbol(atomType2).upper()
+    if ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol1):
+        if ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ].has_key(symbol2):
+            return ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ][ symbol2 ]
 
-    if BOND_LENGTHS.has_key(symbol2):
-        if BOND_LENGTHS[ symbol2 ].has_key(symbol1):
-            return BOND_LENGTHS[ symbol2 ][ symbol1 ]
+    if ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol2):
+        if ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ].has_key(symbol1):
+            return ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ][ symbol1 ]
 
-    print 'No data for bond length for %s-%s' % (symbol1, symbol2)
+    _logger.critical('No data for bond length for %s-%s' % (symbol1, symbol2))
     return 1.0
 
 def calcBondsHACK(coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0):
@@ -587,44 +598,10 @@ def calcBondsHACK(coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin
                 bonds.append((i, j))
     return bonds
 
-def haloCells(key, boxNum=None):
-    """Returns the list of cells surrounding a cell
-    boxNum is the number of boxes in each dimension of the containing cell if we
-    are under PBC
-    """
-    a, b, c = key
-    # cells = set()
-    cells = set()
-    for  i in [ 0, -1, +1 ]:
-        for j in [ 0, -1, +1 ]:
-            for k in [ 0, -1, +1 ]:
-                ai = a + i
-                bj = b + j
-                ck = c + k
-                if boxNum:
-                    # Impose periodic boundaries 
-                    if ai < 0:
-                        ai = boxNum[0] - 1
-                    elif ai > boxNum[0] - 1:
-                        ai = 0
-                    if bj < 0:
-                        bj = boxNum[1] - 1
-                    elif bj > boxNum[1] - 1:
-                        bj = 0
-                    if ck < 0:
-                        ck = boxNum[2] - 1
-                    elif ck > boxNum[2] - 1:
-                        ck = 0
-                skey = (ai, bj, ck)
-                # print "sKey ({},{},{})->({})".format(a,b,c,skey)
-                # cells.add(skey)
-                cells.add(skey)
-
-    return list(cells)
-
 def calcBonds(coords, symbols, cellDim=None, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0):
     """Calculate the bonds for the fragments. This is done at the start when the only coordinates
     are those in the fragment.
+    symbols can be chemical elements or atomTypes
     If supplied cell is a list/numpy array with the dimensions of the simulation cell, in which case
     PBC will be applied
     """
@@ -643,7 +620,6 @@ def calcBonds(coords, symbols, cellDim=None, maxAtomRadius=None, bondMargin=0.2,
         # print "Dist:length {0}:{1} {2}-{3} {4} {5}".format( idxAtom1, idxAtom2, symbol1, symbol2, bond_length, dist )
         if  bond_length - bondMargin < distances[i] < bond_length + bondMargin:
             bonds.append((idxAtom1, idxAtom2))
-    
     return bonds
 
 def closeAtoms(coords, symbols, cellDim=None, maxAtomRadius=None, boxMargin=1.0):
@@ -824,7 +800,7 @@ def XdistanceP(self, v1, v2):
 def dumpPkl(pickleFile, split=None, nonPeriodic=False):
 
     fpath = os.path.abspath(pickleFile)
-    print "Dumping pkl file: {0}".format(fpath)
+    _logger.info("Dumping pkl file: {0}".format(fpath))
     dname, fname = os.path.split(fpath)
     prefix = os.path.splitext(fname)[0]
 
@@ -868,7 +844,7 @@ def dumpPkl(pickleFile, split=None, nonPeriodic=False):
 
 def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
     fpath = os.path.abspath(pickleFile)
-    print "Dumping DLPOLY files from pkl file: {0}".format(fpath)
+    _logger.info("Dumping DLPOLY files from pkl file: {0}".format(fpath))
     mycell = cellFromPickle(pickleFile)
 
     # Need to do this here or else hoomdblue gets the command line arguments on import of the module
@@ -878,6 +854,41 @@ def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
     # d.writeCONFIG(mycell)
     d.writeFIELDandCONFIG(mycell, rigidBody=rigidBody, skipDihedrals=skipDihedrals)
     return
+
+def haloCells(key, boxNum=None):
+    """Returns the list of cells surrounding a cell
+    boxNum is the number of boxes in each dimension of the containing cell if we
+    are under PBC
+    """
+    a, b, c = key
+    # cells = set()
+    cells = set()
+    for  i in [ 0, -1, +1 ]:
+        for j in [ 0, -1, +1 ]:
+            for k in [ 0, -1, +1 ]:
+                ai = a + i
+                bj = b + j
+                ck = c + k
+                if boxNum:
+                    # Impose periodic boundaries 
+                    if ai < 0:
+                        ai = boxNum[0] - 1
+                    elif ai > boxNum[0] - 1:
+                        ai = 0
+                    if bj < 0:
+                        bj = boxNum[1] - 1
+                    elif bj > boxNum[1] - 1:
+                        bj = 0
+                    if ck < 0:
+                        ck = boxNum[2] - 1
+                    elif ck > boxNum[2] - 1:
+                        ck = 0
+                skey = (ai, bj, ck)
+                # print "sKey ({},{},{})->({})".format(a,b,c,skey)
+                # cells.add(skey)
+                cells.add(skey)
+
+    return list(cells)
 
 def frange(start, stop, step):
     """
@@ -915,17 +926,14 @@ def label2symbol(name):
         raise RuntimeError, "label2symbol first character of name is not a character: {0}".format(origName)
 
     # Hack - for x return x
-    if name.lower() == 'x':
-        return 'x'
+    if name.lower() == 'x': return 'x'
 
     # Get 1 character element names
     sym1c = filter(lambda x: len(x) == 1 and x != 'X', SYMBOL_TO_NUMBER.keys())
 
-    if name in sym1c:
-        return name.capitalize()
+    if name in sym1c: return name.capitalize()
 
     raise RuntimeError, "label2symbol cannot convert name {0} to symbol!".format(origName)
-
     return
 
 def newFilename(filename, separator="_"):
