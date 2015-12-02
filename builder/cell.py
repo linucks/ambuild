@@ -4,7 +4,7 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
-VERSION = "bc71e402a142"
+VERSION = "f1bdcc40ae71"
 
 import collections
 import copy
