@@ -25,6 +25,7 @@ import numpy
 import buildingBlock
 import fragment
 import opt
+from paths import AMBUILD_DIR, BLOCKS_DIR
 import util
 
 class Analyse():
@@ -2741,22 +2742,18 @@ class Test(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        thisd = os.path.abspath(os.path.dirname(__file__))
-        paths = thisd.split(os.sep)
-        cls.ambuildDir = os.sep.join(paths[ :-1 ])
-
-        cls.cx4Car = os.path.join(cls.ambuildDir, "blocks", "cx4.car")
-        cls.ch4Car = os.path.join(cls.ambuildDir, "blocks", "ch4.car")
-        cls.ch4_1Car = os.path.join(cls.ambuildDir, "blocks", "ch4_1.car")
-        cls.capLinker = os.path.join(cls.ambuildDir, "blocks", "cap_linker.car")
-        cls.benzeneCar = os.path.join(cls.ambuildDir, "blocks", "benzene.car")
-        cls.benzene2Car = os.path.join(cls.ambuildDir, "blocks", "benzene2.car")
-        cls.pafCar = os.path.join(cls.ambuildDir, "blocks", "PAF_bb_typed.car")
-        cls.dcxCar = os.path.join(cls.ambuildDir, "blocks", "DCX.car")
-        cls.ch4Ca2Car = os.path.join(cls.ambuildDir, "blocks", "ch4Ca2.car")
-        cls.amineCar = os.path.join(cls.ambuildDir, "blocks", "amine_typed.car")
-        cls.triquinCar = os.path.join(cls.ambuildDir, "blocks", "triquin_typed.car")
-        cls.graphiteCar = os.path.join(cls.ambuildDir, "blocks", "2_graphite_cont.car")
+        cls.cx4Car = os.path.join(BLOCKS_DIR, "cx4.car")
+        cls.ch4Car = os.path.join(BLOCKS_DIR, "ch4.car")
+        cls.ch4_1Car = os.path.join(BLOCKS_DIR, "ch4_1.car")
+        cls.capLinker = os.path.join(BLOCKS_DIR, "cap_linker.car")
+        cls.benzeneCar = os.path.join(BLOCKS_DIR, "benzene.car")
+        cls.benzene2Car = os.path.join(BLOCKS_DIR, "benzene2.car")
+        cls.pafCar = os.path.join(BLOCKS_DIR, "PAF_bb_typed.car")
+        cls.dcxCar = os.path.join(BLOCKS_DIR, "DCX.car")
+        cls.ch4Ca2Car = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
+        cls.amineCar = os.path.join(BLOCKS_DIR, "amine_typed.car")
+        cls.triquinCar = os.path.join(BLOCKS_DIR, "triquin_typed.car")
+        cls.graphiteCar = os.path.join(BLOCKS_DIR, "2_graphite_cont.car")
 
         return
 
@@ -4356,7 +4353,7 @@ class Test(unittest.TestCase):
         # Test is same as reference
         with open(fname) as f:
             test = f.readlines()
-        with open(os.path.join(self.ambuildDir, "tests", "testCellRigid.cml")) as f:
+        with open(os.path.join(AMBUILD_DIR, "tests", "testCellRigid.cml")) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare rigid")
@@ -4366,7 +4363,7 @@ class Test(unittest.TestCase):
         # Test is same as reference
         with open(fname) as f:
             test = f.readlines()
-        with open(os.path.join(self.ambuildDir, "tests", "testCellAll.cml")) as f:
+        with open(os.path.join(AMBUILD_DIR, "tests", "testCellAll.cml")) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare all")
@@ -4420,7 +4417,7 @@ class Test(unittest.TestCase):
         # Test what we've written out matches the reference file
         with open(xmlFilename) as f:
             test = f.readlines()
-        with open(os.path.join(self.ambuildDir, "tests", xmlFilename)) as f:
+        with open(os.path.join(AMBUILD_DIR, "tests", xmlFilename)) as f:
             ref = f.readlines()
         self.assertEqual(test, ref, "xml compare")
 

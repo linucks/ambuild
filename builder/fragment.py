@@ -13,6 +13,9 @@ import types
 import unittest
 
 import numpy
+
+# our imports
+from paths import BLOCKS_DIR
 import util
 
 _logger = logging.getLogger()
@@ -782,13 +785,10 @@ class TestFragment(unittest.TestCase):
 
     def setUp(self):
         logging.basicConfig(level=logging.DEBUG)
-        thisd = os.path.abspath(os.path.dirname(__file__))
-        paths = thisd.split(os.sep)
-        self.ambuildDir = os.sep.join(paths[ :-1 ])
         return
 
     def testBonds(self):
-        graphite = os.path.join(self.ambuildDir, "blocks", "2_graphite_cont.car")
+        graphite = os.path.join(BLOCKS_DIR, "2_graphite_cont.car")
 
         f = Fragment(filePath=graphite, fragmentType='A')
         self.assertEqual(len(f.bonds()), 1284)

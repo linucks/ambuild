@@ -27,6 +27,7 @@ import numpy
 
 # local imports
 import fragment
+from paths import AMBUILD_DIR, BLOCKS_DIR
 import util
 
 _logger = logging.getLogger()
@@ -1018,18 +1019,14 @@ class Test(unittest.TestCase):
     def setUp(self):
         logging.basicConfig(level=logging.DEBUG)
 
-        thisd = os.path.abspath(os.path.dirname(__file__))
-        paths = thisd.split(os.sep)
-        self.ambuildDir = os.sep.join(paths[ :-1 ])
-
-        self.ch4Xyz = os.path.join(self.ambuildDir, "blocks", "ch4.xyz")
-        self.ch4Car = os.path.join(self.ambuildDir, "blocks", "ch4.car")
-        self.cx4Car = os.path.join(self.ambuildDir, "blocks", "cx4.car")
-        self.ch4_1Car = os.path.join(self.ambuildDir, "blocks", "ch4_1.car")
-        # self.pafCar = os.path.join( self.ambuildDir, "blocks", "PAF_bb_typed.car" )
-        self.benzeneCar = os.path.join(self.ambuildDir, "blocks", "benzene.car")
-        self.benzene2Car = os.path.join(self.ambuildDir, "blocks", "benzene2.car")
-        self.ch4Ca2Car = os.path.join(self.ambuildDir, "blocks", "ch4Ca2.car")
+        self.ch4Xyz = os.path.join(BLOCKS_DIR, "ch4.xyz")
+        self.ch4Car = os.path.join(BLOCKS_DIR, "ch4.car")
+        self.cx4Car = os.path.join(BLOCKS_DIR, "cx4.car")
+        self.ch4_1Car = os.path.join(BLOCKS_DIR, "ch4_1.car")
+        # self.pafCar = os.path.join( BLOCKS_DIR, "PAF_bb_typed.car" )
+        self.benzeneCar = os.path.join(BLOCKS_DIR, "benzene.car")
+        self.benzene2Car = os.path.join(BLOCKS_DIR, "benzene2.car")
+        self.ch4Ca2Car = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
 
         return
 
@@ -1698,7 +1695,7 @@ class Test(unittest.TestCase):
         with open(cmlFilename) as f:
             test = f.readlines()
 
-        with open(os.path.join(self.ambuildDir, "tests", "testSplitFragment.cml")) as f:
+        with open(os.path.join(AMBUILD_DIR, "tests", "testSplitFragment.cml")) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare")
@@ -1724,7 +1721,7 @@ class Test(unittest.TestCase):
         with open(fname) as f:
             test = f.readlines()
 
-        with open(os.path.join(self.ambuildDir, "tests", "benzeneBond.cml")) as f:
+        with open(os.path.join(AMBUILD_DIR, "tests", "benzeneBond.cml")) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare")
