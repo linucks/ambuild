@@ -15,6 +15,8 @@ import sys
 import unittest
 import xml.etree.ElementTree as ET
 
+from opt import read_bond_params
+from paths import PARAMS_DIR
 
 _logger = logging.getLogger()
 
@@ -412,17 +414,14 @@ Sn           2.14 2.28           1.71 2.67
 Te                     1.82      1.66
 """
 
+# This is updated from the parameters in the bond_params.csv file
 ATOM_TYPE_BOND_LENGTHS = {}
-ATOM_TYPE_BOND_LENGTHS['ct'] = { 'ct' : 1.21 }
-# ATOM_TYPE_BOND_LENGTHS['c_o'] = { 'c_o' : 1.54,
-#                                   'o_1' : 1.21,
-#                                   'nb'  : 1.32 }
-# 
-# ATOM_TYPE_BOND_LENGTHS['cp'] = { 'cp' : 1.40,
-#                                  'nb' : 1.33,
-#                                  'hc'  : 1.08 }
-# 
-# ATOM_TYPE_BOND_LENGTHS['nb'] = { 'hn' : 1.01 }
+for p in read_bond_params(os.path.join(PARAMS_DIR,"bond_params.csv")):
+    if p.A not in ATOM_TYPE_BOND_LENGTHS:
+        if p.B in ATOM_TYPE_BOND_LENGTHS:
+            ATOM_TYPE_BOND_LENGTHS[p.B][p.A] = float(p.r0)
+        else:
+            ATOM_TYPE_BOND_LENGTHS[p.A] = { p.B : float(p.r0) }
 
 # REM - symbols should be in lower case!
 # UNITS ARE IN ANGSTROM!!!
@@ -547,7 +546,7 @@ def bondLength(atomType1, atomType2):
     """ Get the characteristic lengths of single bonds as defined in:
         Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
     """
-    # print "Getting bond length for %s-%s" % ( symbol1, symbol2 )
+    #print "Getting bond length for %s-%s" % ( atomType1, atomType2 )
     
     # We first see if we can find the bond length in the ATOM_TYPE_BOND_LENGTHS table
     # If not we fall back to using the bonds calculated from element types
@@ -561,6 +560,7 @@ def bondLength(atomType1, atomType2):
         
     symbol1 = label2symbol(atomType1).upper()
     symbol2 = label2symbol(atomType2).upper()
+    
     if ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol1):
         if ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ].has_key(symbol2):
             return ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ][ symbol2 ]
@@ -915,8 +915,9 @@ def label2symbol(name):
     if len(name) == 2 and name[0].isalpha() and name[1].isalpha():
         # 2 Character name, so see if it matches any 2-character elements
         sym2c = filter(lambda x: len(x) == 2, SYMBOL_TO_NUMBER.keys())
-        # HACK: NEED TO REMOVE NP
+        # HACK: NEED TO REMOVE NP and NB
         sym2c.remove('NP')
+        sym2c.remove('NB')
         if name in sym2c:
             return name.capitalize()
 
@@ -1335,7 +1336,6 @@ class Test(unittest.TestCase):
         return
 
 if __name__ == '__main__':
-    
     import argparse
     p = argparse.ArgumentParser()
     p.add_argument('pkl_file', type=str, metavar='pickle_file.pkl', help='Ambuild pickle file')
