@@ -422,6 +422,8 @@ for p in read_bond_params(os.path.join(PARAMS_DIR,"bond_params.csv")):
             ATOM_TYPE_BOND_LENGTHS[p.B][p.A] = float(p.r0)
         else:
             ATOM_TYPE_BOND_LENGTHS[p.A] = { p.B : float(p.r0) }
+    else:
+        ATOM_TYPE_BOND_LENGTHS[p.A][p.B] = float(p.r0)
 
 # REM - symbols should be in lower case!
 # UNITS ARE IN ANGSTROM!!!
