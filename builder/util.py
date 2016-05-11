@@ -571,7 +571,7 @@ def bondLength(atomType1, atomType2):
         if ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ].has_key(symbol1):
             return ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ][ symbol1 ]
 
-    _logger.critical('No data for bond length for %s-%s' % (symbol1, symbol2))
+    _logger.critical('No data for bond length for %s-%s' % (atomType1, atomType2))
     return 1.0
 
 def calcBondsHACK(coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0):
@@ -616,6 +616,7 @@ def calcBonds(coords, symbols, cellDim=None, maxAtomRadius=None, bondMargin=0.2,
         
     distances = distance(v1, v2, cellDim)
     bonds = []
+    
     for i, (idxAtom1, idxAtom2) in enumerate(close):
         bond_length = bondLength(symbols[idxAtom1], symbols[idxAtom2])
         if bond_length < 0: continue
@@ -1289,7 +1290,6 @@ def hoomdContacts(xmlFilename):
     assert len(coords) == len(symbols)
     bonds, md = _calcBonds(coords, symbols)
 
-    print "GOT CLOSEST ", md
     return
 
 def xyzContacts(xyzFile):
@@ -1310,8 +1310,6 @@ def xyzContacts(xyzFile):
     assert len(coords) == natoms
 
     bonds, md = _calcBonds(coords, symbols)
-
-    print "GOT CLOSEST ", md
 
     return
 
