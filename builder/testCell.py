@@ -426,9 +426,7 @@ class Test(unittest.TestCase):
         
         for idx in bidxs:
             self.assertNotIn(idx, mycell.blocks.keys(), "Block was left in list")
-
         return
-
 
     def testDeleteBlocksType(self):
         # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
@@ -459,6 +457,24 @@ class Test(unittest.TestCase):
 
         return
     
+    def testDeleteBondType(self):
+        boxDim = [50, 50, 50]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
+        mycell.addBondType('A:a-A:a')
+        mycell.addBondType('A:a-B:a')
+        self.assertEqual(len(mycell.bondTypes),2)
+        mycell.seed(5, fragmentType='A')
+        toGrow = 1
+        added = mycell.growBlocks(toGrow, cellEndGroups=['A:a'], libraryEndGroups=['B:a'])
+        self.assertEqual(added, toGrow, "Failed to grow in testDeleteBondType")
+        mycell.deleteBondType('A:a-B:a')
+        self.assertEqual(len(mycell.bondTypes),1)
+        added = mycell.growBlocks(toGrow, cellEndGroups=['A:a'], libraryEndGroups=['B:a'])
+        self.assertEqual(added, 0, "Added disallowed bond in testDeleteBondType")
+        return
+        
     def testDeleteFragment1(self):
         boxDim = [20, 20, 20]
         mycell = Cell(boxDim)
