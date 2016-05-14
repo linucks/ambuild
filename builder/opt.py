@@ -344,8 +344,10 @@ class DLPOLY(FFIELD):
             # header
             f.write("Ambuild CONFIG file\n")
 
-            # levcfg (0=just coordinates) imcon (1=cubic bounduary conditions)
-            f.write("{0:>10}{1:>10}\n".format(0, 1))
+            levcfg = 0 # just coordinates
+            # imcon 1=cubic bounduary conditions, 2=orthorhombic boundary conditions
+            imcon = 1 if cell[0] == cell[1] == cell[2] else 2
+            f.write("{0:>10}{1:>10}\n".format(levcfg, imcon))
 
             # Now cell
             f.write("{0: > 20.6F}{1: > 20.6F}{2: > 20.6F}\n".format(cell[0], 0.0, 0.0))
