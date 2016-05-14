@@ -406,7 +406,7 @@ class Test(unittest.TestCase):
         distance = mycell.distance(block1.coord(1), mycell.blocks[ block2_id ].coord(3))
         self.assertAlmostEqual(refd, distance, 12, "Closest atoms: {}".format(distance))
         return
-
+    
     def testDeleteBlocksIndices(self):
         
         boxDim = [50, 50, 50]
@@ -421,11 +421,14 @@ class Test(unittest.TestCase):
         toDelete = [0,3,5]
         
         bidxs = [ blockId for i, blockId in enumerate(mycell.blocks.iterkeys()) if i in toDelete]
-        mycell.deleteBlocksIndices(toDelete)
-        self.assertEqual(len(mycell.blocks),toSeed-len(toDelete))
+        mycell.deleteBlocksIndices(toDelete,save=True)
+        self.assertEqual(len(mycell.blocks), toSeed-len(toDelete))
         
         for idx in bidxs:
             self.assertNotIn(idx, mycell.blocks.keys(), "Block was left in list")
+            
+        mycell.restoreBlocks()
+        self.assertEqual(len(mycell.blocks), toSeed)
         return
 
     def testDeleteBlocksType(self):
@@ -442,19 +445,17 @@ class Test(unittest.TestCase):
         toSeed = 10
         mycell.seed(toSeed, fragmentType='A')
         toDelete = toSeed - 1
-        deleted = mycell.deleteBlocksType(toDelete, fragmentType='A')
+        deleted = mycell.deleteBlocksType('A', numBlocks=toDelete)
         self.assertEqual(deleted, toDelete)
         self.assertEqual(mycell.numBlocks(), toSeed - deleted)
 
         # Now try deleting multiple blocks of a single type
         mycell.growBlocks(8, cellEndGroups=['A:a'], libraryEndGroups=['A:a'])
-        deleted = mycell.deleteBlocksType(1, fragmentType='A')
+        deleted = mycell.deleteBlocksType('A', numBlocks=1)
         self.assertEqual(deleted, 0)
-        deleted = mycell.deleteBlocksType(1, fragmentType='A', multiple=True)
+        deleted = mycell.deleteBlocksType('A', numBlocks=1, multiple=True)
         self.assertEqual(deleted, 1)
-        # mycell.growBlocks( 8, cellEndGroups=[],libraryEndGroups=[] )
-        # mycell.seed(5, fragmentType='B')
-
+        
         return
     
     def testDeleteBondType(self):
@@ -1167,33 +1168,11 @@ class Test(unittest.TestCase):
                                     coords[ i ][ 2 ],
                                     places=6,
                                     msg="{0} {1}".format(z, coords[ i ][ 2 ]))
-
-
         os.unlink(filename)
-
-        return
-    
-    def testSave(self):
-
-        boxDim = [20, 20, 20]
-        mycell = Cell(boxDim)
-
-        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
-        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='B')
-        mycell.addBondType('B:a-B:a')
-
-        mycell.seed(70, fragmentType='A')
-        mycell.dump()
-        toAdd = 15
-        added = mycell.seed(toAdd, fragmentType='B', save=['A'])
-        mycell.dump()
-        self.assertEqual(added, toAdd)
-        
         return
         
     def testSeed(self):
         """Test we can seed correctly"""
-
 
         boxDim = [50, 50, 50]
         mycell = Cell(boxDim)
@@ -1238,7 +1217,6 @@ class Test(unittest.TestCase):
 
         mycell.seed(5)
         mycell.growBlocks(5)
-        
         mycell.setBoxSize([20, 20, 20])
         mycell.growBlocks(5)
 

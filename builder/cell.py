@@ -1129,6 +1129,7 @@ class Cell():
         fragmentType: the fragmentType, or list of fragmentTypes of the blocks to remove
         numBlocks: optional - the number of blocks to remove, otherwise all blocks of the specified types will be removed
         multiple: if True remove blocks that contain > 1 fragment, else only single-fragment blocks
+        save: save all deleted blocks so they can be readded with the restoreBlocks command
         """
         if type(fragmentTypes) is str: fragmentTypes = [fragmentTypes] 
         
@@ -2272,7 +2273,7 @@ class Cell():
         # A, B and C are cell vectors - for the time being we assume they are orthogonal
         # so they are just floats
         if not type(boxDim) is list and len(boxDim) == 3:
-            raise RuntimeError, "setBoxSize needs list of 3 numbers setting the cell dimensions!"
+            raise RuntimeError("setBoxSize needs list of 3 numbers setting the cell dimensions!")
         
         old_dim = None
         if self.dim: old_dim = self.dim

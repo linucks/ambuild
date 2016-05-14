@@ -153,8 +153,6 @@ fragmentType - the type of fragments to add. If fragment is None, or omitted, th
                chosen from the library.
 maxTries - the number of attempts to make when adding a block before the seed step is fails and returns.
 center - True/False - if True, place the first block in the center of the cell.
-save - a list of (single-fragment) fragmentTypes that will be deleted from the cell, but saved and then
-       re-added after seeding.
 point - a list of three floats defiting a point around which the centroids of the blocks will be seeded
         (requires the radius argument).
 radius - a single float specifying the radius of a sphere around point, within which the centroids of 
@@ -231,16 +229,18 @@ Deleting Blocks
 Blocks can be removed from the cell with two commands:
 
 deleteBlocksIndices
-- this takes a single argument which is a single integer, or list of integers, which is/are the indices of 
-the blocks in the overall list of blocks to be removed.
+Arguments:
+indices: list of indices of the blocks to be deleted
+save: save all deleted blocks so they can be readded with the restoreBlocks command
 
 deleteBlocksTypes
 delete numBlocks of blocks of the secified fragment type
 
 Arguments:
-numBlocks: the number of blocks to remove
-fragmentType: the fragmentType of the blocks to remove
-multiple: boolean that specifies whether (True) to remove blocks that contain more than one fragment (default: False)
+fragmentType: the fragmentType, or list of fragmentTypes of the blocks to remove
+numBlocks: optional - the number of blocks to remove, otherwise all blocks of the specified types will be removed
+multiple: if True remove blocks that contain > 1 fragment, else only single-fragment blocks
+save: save all deleted blocks so they can be readded with the restoreBlocks command
 
 Optimising the geometry of the blocks in the cell and running molecular dynamics simulations
 ============================================================================================
