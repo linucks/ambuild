@@ -157,6 +157,7 @@ class Fragment(object):
     def __init__(self,
                  filePath=None,
                  fragmentType=None,
+                 solvent=False,
                  static=False
                  ):
         '''
@@ -178,6 +179,7 @@ class Fragment(object):
             '_radii'           : [],
             '_maxBonds'        : {},
             '_radius'          :-1,
+            'solvent'          : solvent,  # True if this fragment is solvent and should be excluded from clashChecks
             'static'           : False,
             '_symbols'         : [],  # ordered array of symbols (in upper case)
             '_totalMass'       :-1,
@@ -670,7 +672,7 @@ class Fragment(object):
         self._labels = labels
         self._symbols = symbols
         self._types = types
-
+        
         # Calculate anything we haven't been given
         self.fillData()
         

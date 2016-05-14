@@ -812,6 +812,9 @@ class Block(object):
             f.rotate(rotationMatrix, origin)
         self.translateCentroid(position)
         return
+    
+    def solvent(self):
+        return len(self.fragments) == 1 and self.fragments[0].solvent is True
 
     def selectEndGroup(self, endGroupTypes=None, random=True):
         """Return a random free endGroup in the block"""
