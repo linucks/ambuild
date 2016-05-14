@@ -103,6 +103,7 @@ mycell.libraryAddFragment( filename=fragA, fragmentType='A' )
 filename - the path to the .car file. There will need to be a corresponding .csv file that defines
          - the endGroups, capAtoms etc.
 fragmentType - a name that will be used to identify the fragment - cannot contain the ":" or "-" characters
+solvent - specify that this fragmentType is solvent and so won't be clash-checked in Zip steps
 
 As many fragments can be added as desired, the only requirement is that they are named differently.
 
@@ -219,6 +220,7 @@ clashCheck - True/False check for clashes between the bond and any atoms that fa
 clashDist  - a float specifying the perpendicular distance from the bond axis that determines if an atom 
              is clashing with the bond. clashDist needs to be < the the cell box size as otherwise we won't
              see the atom.
+selfBond  - boolean to specify if zip will allow a block to bond to itself (True) or not (False) [default: True]
 
 zipBlocks is called thus:
 
