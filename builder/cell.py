@@ -2300,9 +2300,8 @@ class Cell():
         count - the maximum number of permissible bonds for a single fragment.
 
         """
-        # Get fragmentType and endGroupType
-        fragmentType, endGroupType = bondType.split(self.ENDGROUPSEP)
-
+        fragmentType = bondType.split(ENDGROUPSEP)[0]
+        
         # Now get the library fragment to set it's maxBond parameter
         fragment = self._fragmentLibrary[ fragmentType ]
         return fragment.setMaxBond(bondType, count)
