@@ -8,7 +8,6 @@ VERSION = "c78b673498a1"
 
 import collections
 import copy
-import cPickle
 import csv
 import logging
 import math
@@ -16,7 +15,6 @@ import os
 import random as _random
 import sys
 import time
-import unittest
 
 # External modules
 import numpy
@@ -25,7 +23,6 @@ import numpy
 import buildingBlock
 import fragment
 import opt
-from paths import AMBUILD_DIR, BLOCKS_DIR
 import util
 
 class Analyse():
@@ -1099,17 +1096,40 @@ class Cell():
         del self.blocks[blockId]
         # del block # Don't want to delete the block as we might be saving it
         return
+    
+    def deleteBlocksIndices(self, indices):
+        """Delete the index-th(s) block from the cell"""
+        if type(indices) is float:
+            indices = [indices]
+        elif type(indices) is list:
+            pass
+        else:
+            raise RuntimeError("indices needs to be a int or list of int")
+        for i, idx in enumerate(indices):
+            if not (type(idx) is int and (0 <= idx < len(self.blocks))):
+                raise RuntimeError("Bad value for index {0} : {1}".format(i,idx))
+            
+        toRemove = [ blockId for i, blockId in enumerate(self.blocks.iterkeys())  if i in indices ]
+        for blockId in toRemove:
+            self.delBlock(blockId)
+        count = len(toRemove)
+        self.logger.info("deleteBlocksIndices deleted {0} blocks. Cell now contains {1} blocks.".format(count,len(self.blocks)))
+        return count
 
-    def delete(self, numBlocks, fragmentType, multiple=False):
+    def deleteBlocksType(self, numBlocks, fragmentType, multiple=False):
         """Remove numBlocks of fragmentType from the cell.
-        If multiple remove blocks that contain multiple fragments of the given type
+        If multiple remove blocks that contain multiple fragments of the given type.
+        
+        Arguments:
+        numBlocks: the number of blocks to remove
+        fragmentType: the fragmentType of the blocks to remove
+        multiple: boolean that specifies whether (True) to remove blocks that contain more than one fragment (default: False)
         """
-
         assert numBlocks > 0, "delete cannot remove zero blocks!"
 
         # First get a list of all the blocks that contain single fragments that match the fragment type
         blist = []
-        for idxBlock, block in self.blocks.iteritems():
+        for blockId, block in self.blocks.iteritems():
 
             # Check if is multiple or not
             if not multiple and len(block.fragments) != 1:
@@ -1120,7 +1140,7 @@ class Cell():
             #    blist.append(idxBlock)
             # Don't bother with this any more - we delete any block that contains a fragment of the given type
             if any([True for f in block.fragments if f.fragmentType == fragmentType]):
-                blist.append(idxBlock)
+                blist.append(blockId)
 
         if not len(blist):
             # self.logger.critical("Delete could not find any single-fragment blocks of type: {0}".format(fragmentType))
@@ -1130,15 +1150,15 @@ class Cell():
         # We have a list of valid block ids
         toRemove = min(numBlocks, len(blist))
         for i in range(toRemove):
-            idxBlock = _random.choice(blist)
-            self.delBlock(idxBlock)
-            blist.remove(idxBlock)
+            blockId = _random.choice(blist)
+            self.delBlock(blockId)
+            blist.remove(blockId)
 
         self.logger.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(i + 1, len(self.blocks)))
 
         return i + 1
     
-    def deleteFragment(self,frag,block=None):
+    def deleteFragment(self, frag, block=None):
         self.logger.info("Deleting fragment: {0}".format(frag.fragmentType))
         if block is None:
             # Find the fekker

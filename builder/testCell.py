@@ -405,10 +405,32 @@ class Test(unittest.TestCase):
         refd = 0.673354948616
         distance = mycell.distance(block1.coord(1), mycell.blocks[ block2_id ].coord(3))
         self.assertAlmostEqual(refd, distance, 12, "Closest atoms: {}".format(distance))
+        return
+
+    def testDeleteBlocksIndices(self):
+        
+        boxDim = [50, 50, 50]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
+
+        # See if we can delete a range of blocks
+        toSeed = 10
+        seeded = mycell.seed(toSeed)
+        self.assertEqual(seeded,toSeed,"Failed to seed all blocks")
+        
+        toDelete = [0,3,5]
+        
+        bidxs = [ blockId for i, blockId in enumerate(mycell.blocks.iterkeys()) if i in toDelete]
+        mycell.deleteBlocksIndices(toDelete)
+        self.assertEqual(len(mycell.blocks),toSeed-len(toDelete))
+        
+        for idx in bidxs:
+            self.assertNotIn(idx, mycell.blocks.keys(), "Block was left in list")
 
         return
 
-    def testDelete(self):
+
+    def testDeleteBlocksType(self):
         # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
         # From code looks like default r_buff is 0.4 and our default r_cut is 5.0
         boxDim = [50, 50, 50]
@@ -422,15 +444,15 @@ class Test(unittest.TestCase):
         toSeed = 10
         mycell.seed(toSeed, fragmentType='A')
         toDelete = toSeed - 1
-        deleted = mycell.delete(toDelete, fragmentType='A')
+        deleted = mycell.deleteBlocksType(toDelete, fragmentType='A')
         self.assertEqual(deleted, toDelete)
         self.assertEqual(mycell.numBlocks(), toSeed - deleted)
 
         # Now try deleting multiple blocks of a single type
         mycell.growBlocks(8, cellEndGroups=['A:a'], libraryEndGroups=['A:a'])
-        deleted = mycell.delete(1, fragmentType='A')
+        deleted = mycell.deleteBlocksType(1, fragmentType='A')
         self.assertEqual(deleted, 0)
-        deleted = mycell.delete(1, fragmentType='A', multiple=True)
+        deleted = mycell.deleteBlocksType(1, fragmentType='A', multiple=True)
         self.assertEqual(deleted, 1)
         # mycell.growBlocks( 8, cellEndGroups=[],libraryEndGroups=[] )
         # mycell.seed(5, fragmentType='B')
