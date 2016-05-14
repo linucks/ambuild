@@ -30,7 +30,7 @@ import fragment
 from paths import AMBUILD_DIR, BLOCKS_DIR
 import util
 
-_logger = logging.getLogger()
+LOGGER = logging.getLogger(__name__)
 
 class Bond(object):
     """An object to hold all info on a bond
@@ -136,7 +136,7 @@ class Block(object):
 
         # Makes no sense if they are already aligned
         if numpy.array_equal(pos2 / numpy.linalg.norm(pos2), refVector / numpy.linalg.norm(refVector)):
-            _logger.debug("alignBlock - block already aligned along vector. May not be a problem, but you should know...")
+            LOGGER.debug("alignBlock - block already aligned along vector. May not be a problem, but you should know...")
             self.translate(pos1)  # NEW - put it back
             return
 
@@ -146,7 +146,7 @@ class Block(object):
         cross = numpy.cross(refVector, pos2)
         if numpy.array_equal(cross, [0, 0, 0]):
             # They must be already aligned but anti-parallel, so we flip
-            _logger.debug("alignBlock - vectors are anti-parallel so flipping")
+            LOGGER.debug("alignBlock - vectors are anti-parallel so flipping")
             self.flip(refVector)
             self.translate(pos1)  # NEW - put it back
         else:
@@ -984,7 +984,7 @@ class Block(object):
                                     cell=cell,
                                     pruneBonds=False)
 
-        _logger.info("wrote block CML file: {0}".format(cmlFilename))
+        LOGGER.info("wrote block CML file: {0}".format(cmlFilename))
         return
 
     def writeXyz(self, name, cell=None):
@@ -994,7 +994,7 @@ class Block(object):
             coords.append(c)
             symbols.append(self.symbol(i))
         fpath = util.writeXyz(name, coords, symbols, cell=cell)
-        _logger.info("Wrote block xyz file: {0}".format(fpath))
+        LOGGER.info("Wrote block xyz file: {0}".format(fpath))
         return
 
     def __str__(self):
@@ -1049,7 +1049,7 @@ class Test(unittest.TestCase):
             for i, c in enumerate(coords):
                 f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(symbols[ i ], c[0], c[1], c[2]))
 
-        _logger.info("Wrote file: {0}".format(fpath))
+        LOGGER.info("Wrote file: {0}".format(fpath))
         return
 
     def testBodies(self):

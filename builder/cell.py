@@ -25,6 +25,8 @@ import fragment
 import opt
 import util
 
+LOGGER = logging.getLogger(__name__)
+
 class Analyse():
     def __init__(self, cell, logfile="ambuild.csv"):
 
@@ -227,7 +229,6 @@ class Cell():
         self._possibleBonds = []
 
         # Logging functions
-        self.logger = None
         self.setupLogging(doLog=doLog)
 
         # For analysis csv
@@ -247,7 +248,7 @@ class Cell():
         assert self.dim[0] > 0 and self.dim[1] > 0 and self.dim[2] > 0
         
         self.version = VERSION # Save as attribute so we can query pickle files
-        self.logger.info("AMBUILD version: {0}".format(VERSION))
+        LOGGER.info("AMBUILD version: {0}".format(VERSION))
 
         return
 
@@ -289,7 +290,7 @@ class Cell():
             if self.checkMove(idxBlock):
                 added += 1
                 if self.processBonds() > 0:
-                    self.logger.info("Added bond while adding blocks!")
+                    LOGGER.info("Added bond while adding blocks!")
             else:
                 self.delBlock(idxBlock)
         return added
@@ -379,14 +380,14 @@ class Cell():
 
         # Now add growBlock to the cell so we can check for clashes
         blockId = self.addBlock(growBlock)
-        #self.logger.debug("GOT {0} {1}".format(staticEndGroup, growEndGroup))
+        #LOGGER.debug("GOT {0} {1}".format(staticEndGroup, growEndGroup))
 
         # Check it doesn't clash
         if self.checkMove(blockId) and self.processBonds() > 0:
-            self.logger.debug("attachBlock first checkMove returned True")
+            LOGGER.debug("attachBlock first checkMove returned True")
             return True
         else:
-            self.logger.debug("attachBlock first checkMove returned False")
+            LOGGER.debug("attachBlock first checkMove returned False")
 
         # Only attempt rotation if we're not worried about the dihedral
         # NOTE! - should only bother with the rotation if the cell is relatively crowded - otherwise
@@ -409,13 +410,13 @@ class Cell():
                 self.delBlock(blockId)
 
                 # rotate by increment
-                self.logger.debug("attachBlock rotating by {0} to {1}".format(math.degrees(step),
+                LOGGER.debug("attachBlock rotating by {0} to {1}".format(math.degrees(step),
                                                                                math.degrees(angle)))
                 growBlock.rotate(axis, angle, center=center)
                 self.addBlock(growBlock) # add it and check
 
                 if self.checkMove(blockId) and self.processBonds() > 0:
-                    self.logger.debug("attachBlock rotate worked")
+                    LOGGER.debug("attachBlock rotate worked")
                     return True
 
         # remove the growBlock from the cell
@@ -426,7 +427,7 @@ class Cell():
         """Check if the given bond is permitted from the types of the two fragments
         """
 
-        #    self.logger.debug( "checking bondAllowed {0} {1}".format( ftype1, ftype2 ) )
+        #    LOGGER.debug( "checking bondAllowed {0} {1}".format( ftype1, ftype2 ) )
         if endGroup1.fragmentType() == "cap" or endGroup2.fragmentType() == "cap":
             assert False, "NEED TO FIX CAPS!"
             return True
@@ -435,30 +436,30 @@ class Cell():
         eg1 = endGroup1.type()
         eg2 = endGroup2.type()
         for type1, type2 in self.bondTypes:
-            # self.logger.debug("bondTypes {0}".format((type1, type2)) )
+            # LOGGER.debug("bondTypes {0}".format((type1, type2)) )
             if (eg1 == type1 and eg2 == type2) or (eg1 == type2 and eg2 == type1):
-                # self.logger.debug( "BOND RETURN TRUE" )
+                # LOGGER.debug( "BOND RETURN TRUE" )
                 return True
 
-        # self.logger.debug( "BOND RETURN FALSE" )
+        # LOGGER.debug( "BOND RETURN FALSE" )
         return False
 
     def bondBlock(self, bond):
         """ Bond the second block1 to the first and update the data structures
         """
-        self.logger.debug("cell bondBlock: {0}".format(bond))
-        # self.logger.debug("before bond: {0} - {1}".format( bond.idxBlock1, bond.block1._bondObjects) )
+        LOGGER.debug("cell bondBlock: {0}".format(bond))
+        # LOGGER.debug("before bond: {0} - {1}".format( bond.idxBlock1, bond.block1._bondObjects) )
 
         # We need to remove the block even if we are bonding to self as we need to recalculate the atomCell list
         self.delBlock(bond.endGroup1.block().id)
         if bond.endGroup1.block() != bond.endGroup2.block():
             self.delBlock(bond.endGroup2.block().id)
         else:
-            self.logger.info("self-bonded block1: {0}".format(bond))
+            LOGGER.info("self-bonded block1: {0}".format(bond))
 
         # bond.block1.bondBlock( bond )
         bond.endGroup1.block().bondBlock(bond)
-        # self.logger.debug("after bond: {0} - {1}".format( idxBlock1, block1._bondObjects) )
+        # LOGGER.debug("after bond: {0} - {1}".format( idxBlock1, block1._bondObjects) )
         self.addBlock(bond.endGroup1.block())
         return
 
@@ -554,7 +555,7 @@ class Cell():
         # See if the distance between them is acceptable
         # print "CHECKING BOND ATOMS ",bond_length,self.distance( addCoord, staticCoord )
         if  not (max(0.1, bond_length - bondMargin) < distance < bond_length + bondMargin):
-            self.logger.debug("Cannot bond due to distance: {0}".format(distance))
+            LOGGER.debug("Cannot bond due to distance: {0}".format(distance))
             return False
 
         # Now loop over all endGroups seeing if any of the angles are satisfied
@@ -573,7 +574,7 @@ class Cell():
 
                 # First check if endGroups of this type can bond
                 if not self.bondAllowed(staticEndGroup, addEndGroup):
-                    self.logger.debug("Bond disallowed by bonding rules: {0} : {1}".format(staticEndGroup,
+                    LOGGER.debug("Bond disallowed by bonding rules: {0} : {1}".format(staticEndGroup,
                                                                                               addEndGroup
                                                                                              ))
                     continue
@@ -597,21 +598,21 @@ class Cell():
                 # Check if atoms are in line (zero degrees) within margin
                 if not ((0.0 - bondAngleMargin < angle1 < 0.0 + bondAngleMargin and \
                            0.0 - bondAngleMargin < angle2 < 0.0 + bondAngleMargin)):
-                    self.logger.debug("Cannot bond due to angles: {0} : {1}".format(math.degrees(angle1),
+                    LOGGER.debug("Cannot bond due to angles: {0} : {1}".format(math.degrees(angle1),
                                                                                      math.degrees(angle2)))
                     continue
 
-                self.logger.debug("Acceptable bond with angles: {0} : {1} | distance {2}".format(math.degrees(angle1),
+                LOGGER.debug("Acceptable bond with angles: {0} : {1} | distance {2}".format(math.degrees(angle1),
                                                                                     math.degrees(angle2),
                                                                                     distance))
 
                 # Create bond object and set the parameters
                 bond = buildingBlock.Bond(staticEndGroup, addEndGroup)
                 self._possibleBonds.append(bond)
-                self.logger.debug("canBond returning True with bonds: {0}".format([str(b) for b in self._possibleBonds]))
+                LOGGER.debug("canBond returning True with bonds: {0}".format([str(b) for b in self._possibleBonds]))
                 return True
 
-        self.logger.debug("canBond returning False")
+        LOGGER.debug("canBond returning False")
         return False
 
     def capBlocks(self, fragmentType=None, filename=None):
@@ -628,10 +629,10 @@ class Cell():
         for blockId, block in cblocks.iteritems():
 
             if block.numFreeEndGroups() == 0:
-                self.logger.info("capBlocks block {0} already has no free endGroups".format(blockId))
+                LOGGER.info("capBlocks block {0} already has no free endGroups".format(blockId))
                 continue
             else:
-                self.logger.info("capBlocks capping {0} endGroups of block {1}".format(block.numFreeEndGroups(),
+                LOGGER.info("capBlocks capping {0} endGroups of block {1}".format(block.numFreeEndGroups(),
                                                                                         blockId))
 
             # If there are no free this won't loop
@@ -645,9 +646,9 @@ class Cell():
 
                 # Test for Clashes with other blocks
                 if self.checkMove(idxBlock) and self.processBonds() > 0:
-                    self.logger.info("Capped block {0} endGroup {1}".format(blockId, endGroup))
+                    LOGGER.info("Capped block {0} endGroup {1}".format(blockId, endGroup))
                 else:
-                    self.logger.critical("Failed to cap block {0} endGroup {1}".format(blockId, endGroup))
+                    LOGGER.critical("Failed to cap block {0} endGroup {1}".format(blockId, endGroup))
                     # Unsuccessful so remove the block from cell
                     self.delBlock(idxBlock)
 
@@ -667,7 +668,7 @@ class Cell():
         # if close: print "GOT {0} CLOSE ATOMS ".format( len(close) )
 
         if not close:
-            self.logger.debug("_checkMove no close contacts")
+            LOGGER.debug("_checkMove no close contacts")
             return 0
 
         # Get the block1
@@ -706,18 +707,18 @@ class Cell():
 
         # Nothing so return True
         if not len(self._possibleBonds) and not len(clashAtoms):
-            self.logger.debug("NO BONDS AND NO ATOMS")
+            LOGGER.debug("NO BONDS AND NO ATOMS")
             return 0
 
         # no bonds but a clash - return False
         if not len(self._possibleBonds) and len(clashAtoms):
-            self.logger.debug("No bonds and clashing atoms {0}".format(clashAtoms))
+            LOGGER.debug("No bonds and clashing atoms {0}".format(clashAtoms))
             return len(clashAtoms)
 
         s = ""
         for b in self._possibleBonds:
             s += str(b) + " | "
-        self.logger.debug("Bonds {0} and clashing atoms {1}".format(s, clashAtoms))
+        LOGGER.debug("Bonds {0} and clashing atoms {1}".format(s, clashAtoms))
 
         addBlock = None
         staticBlock = None
@@ -743,18 +744,18 @@ class Cell():
 
             toGo = []  # Need to remember indices as we can't remove from a list while we cycle through it
             for i, (cellBlock, idxCellAtom, addBlock, idxAddAtom) in enumerate(clashAtoms):
-                # self.logger.debug("CHECKING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
+                # LOGGER.debug("CHECKING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                 # Remove any clashes with the cap atoms
                 if (b1Block == cellBlock and idxCellAtom == b1Cap) or \
                    (b2Block == addBlock  and idxAddAtom == b2Cap):
-                    # self.logger.debug("REMOVING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
+                    # LOGGER.debug("REMOVING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     toGo.append(i)
                     continue
 
                 # remove any clashes with directly bonded atoms
                 if (b1Block == cellBlock and idxCellAtom == b1EndGroup and idxAddAtom  in b2BondAtoms) or \
                    (b2Block == b2Block   and idxAddAtom == b2EndGroup and idxCellAtom in b1BondAtoms):
-                    # self.logger.info( "REMOVING BOND ATOMS FROM CLASH TEST" )
+                    # LOGGER.info( "REMOVING BOND ATOMS FROM CLASH TEST" )
                     toGo.append(i)
 
             # End of loop so now remove the items
@@ -764,11 +765,11 @@ class Cell():
 
         # If there are any clashing atoms remaining this move failed
         if len(clashAtoms):
-            self.logger.debug("Got clash atoms {0}".format(clashAtoms))
+            LOGGER.debug("Got clash atoms {0}".format(clashAtoms))
             return len(clashAtoms)
 
         # Got bonds and no clashes
-        self.logger.debug("Checkmove no clashes")
+        LOGGER.debug("Checkmove no clashes")
         return 0
     
     def clear(self):
@@ -846,7 +847,7 @@ class Cell():
         #
         endGroupTypes2Block = self.endGroupTypes2Block()
         if len(endGroupTypes2Block.keys()) == 0:
-            self.logger.critical("cellEndGroupPair: No available endGroups for: {0}".format(cellEndGroups))
+            LOGGER.critical("cellEndGroupPair: No available endGroups for: {0}".format(cellEndGroups))
             return None, None
         #
         # If the user supplied a list of cellEndGroups we use this to determine what can bond -
@@ -881,11 +882,11 @@ class Cell():
                     cell2cell[ eg ] = ceg
 
         if len(cell2cell.keys()) == 0:
-            self.logger.critical("cellEndGroupPair: No endGroups of types {0} are available to bond from {1}".format(cellEndGroups, allTypes))
+            LOGGER.critical("cellEndGroupPair: No endGroups of types {0} are available to bond from {1}".format(cellEndGroups, allTypes))
             return None, None
 
         # At this point we assume we can definitely bond at least 2 blocks
-        self.logger.debug("cellEndGroupPair got cell/library endGroups: {0}".format(cell2cell))
+        LOGGER.debug("cellEndGroupPair got cell/library endGroups: {0}".format(cell2cell))
 
         # Select a random block/endGroup from the list
         eg1Type = _random.choice(cell2cell.keys())
@@ -904,11 +905,11 @@ class Cell():
             block2 = _random.choice(list(endGroupTypes2Block[ eg2Type ].difference(set([block1]))))
             # This will trigger an IndexError if there isn't a free block of the given type
         except IndexError:
-            self.logger.critical("cellEndGroupPair: No 2nd block available for cellEndGroups".format(cellEndGroups))
+            LOGGER.critical("cellEndGroupPair: No 2nd block available for cellEndGroups".format(cellEndGroups))
             return None, None
         endGroup2 = block2.selectEndGroup(endGroupTypes=[eg2Type])
 
-        self.logger.debug("cellEndGroupPair returning: {0} {1}".format(endGroup1.type(), endGroup2.type()))
+        LOGGER.debug("cellEndGroupPair returning: {0} {1}".format(endGroup1.type(), endGroup2.type()))
         return endGroup1, endGroup2
 
     def dataDict(self, rigidBody=True, periodic=True, center=False, fragmentType=None):
@@ -1113,7 +1114,7 @@ class Cell():
         for blockId in toRemove:
             self.delBlock(blockId)
         count = len(toRemove)
-        self.logger.info("deleteBlocksIndices deleted {0} blocks. Cell now contains {1} blocks.".format(count,len(self.blocks)))
+        LOGGER.info("deleteBlocksIndices deleted {0} blocks. Cell now contains {1} blocks.".format(count,len(self.blocks)))
         return count
 
     def deleteBlocksType(self, numBlocks, fragmentType, multiple=False):
@@ -1143,8 +1144,8 @@ class Cell():
                 blist.append(blockId)
 
         if not len(blist):
-            # self.logger.critical("Delete could not find any single-fragment blocks of type: {0}".format(fragmentType))
-            self.logger.critical("Delete could not find any blocks containing fragments of type: {0}".format(fragmentType))
+            # LOGGER.critical("Delete could not find any single-fragment blocks of type: {0}".format(fragmentType))
+            LOGGER.critical("Delete could not find any blocks containing fragments of type: {0}".format(fragmentType))
             return 0
 
         # We have a list of valid block ids
@@ -1154,12 +1155,12 @@ class Cell():
             self.delBlock(blockId)
             blist.remove(blockId)
 
-        self.logger.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(i + 1, len(self.blocks)))
+        LOGGER.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(i + 1, len(self.blocks)))
 
         return i + 1
     
     def deleteFragment(self, frag, block=None):
-        self.logger.info("Deleting fragment: {0}".format(frag.fragmentType))
+        LOGGER.info("Deleting fragment: {0}".format(frag.fragmentType))
         if block is None:
             # Find the fekker
             for b in self.blocks.itervalues():
@@ -1176,10 +1177,10 @@ class Cell():
         self.delBlock(block.id)
         blocks = block.deleteFragment(frag)
         if len(blocks):
-            self.logger.info("Deleting fragment resulted in {0} blocks.".format(len(blocks)))
+            LOGGER.info("Deleting fragment resulted in {0} blocks.".format(len(blocks)))
             for b in blocks: self.addBlock(b)
         else:
-            self.logger.info("Deleting fragment deleted a block")
+            LOGGER.info("Deleting fragment deleted a block")
             # Nothing to do here as we've already removed the block from the cell
         return
 
@@ -1273,7 +1274,7 @@ class Cell():
         else:
             self.rCut = o.rCut
 
-        self.logger.info("Running fragMaxEnergy")
+        LOGGER.info("Running fragMaxEnergy")
 
         maxe, idxBlock, idxFragment = o.fragMaxEnergy(data,
                                                     xmlFilename,
@@ -1419,10 +1420,10 @@ class Cell():
         dihedral: the dihedral angle about the bond (3rd column in csv file)
         maxTries: number of attempts to make before giving up
         """
-        self.logger.info("Growing {0} new blocks".format(toGrow))
+        LOGGER.info("Growing {0} new blocks".format(toGrow))
         assert len(self.blocks), "Need to seed blocks before growing!"
         if endGroupType:
-            self.logger.warn('endGroupType is deprecated! Use cellEndGroups/libraryEndGroups instead')
+            LOGGER.warn('endGroupType is deprecated! Use cellEndGroups/libraryEndGroups instead')
             assert not cellEndGroups or libraryEndGroups
             libraryEndGroups = endGroupType
 
@@ -1431,10 +1432,10 @@ class Cell():
         tries = 0
         while added < toGrow:
             if tries >= maxTries:
-                self.logger.critical("growBlocks - exceeded maxtries {0} when joining blocks!".format(maxTries))
+                LOGGER.critical("growBlocks - exceeded maxtries {0} when joining blocks!".format(maxTries))
                 return added
             if self.numFreeEndGroups() == 0:
-                self.logger.critical("growBlocks got no free endGroups!")
+                LOGGER.critical("growBlocks got no free endGroups!")
                 return added
 
             # Select two random blocks that can be bonded
@@ -1444,7 +1445,7 @@ class Cell():
                                                                          libraryEndGroups=libraryEndGroups,
                                                                          random=random)
             except RuntimeError, e:
-                self.logger.critical("growBlocks cannot grow more blocks: {0}".format(e))
+                LOGGER.critical("growBlocks cannot grow more blocks: {0}".format(e))
                 return added
             # Apply random rotation in 3 axes to randomise the orientation before we align
             libraryBlock = libraryEndGroup.block()
@@ -1454,7 +1455,7 @@ class Cell():
             ok = self.attachBlock(libraryEndGroup, cellEndGroup, dihedral=dihedral)
             if ok:
                 added += 1
-                self.logger.info("growBlocks added block {0} after {1} tries.".format(added, tries))
+                LOGGER.info("growBlocks added block {0} after {1} tries.".format(added, tries))
                 self.analyse.stop('grow', d={'num_tries':tries})
                 # print "GOT BLOCK ",[ b  for b in self.blocks.itervalues() ][0]
                 tries = 0
@@ -1462,7 +1463,7 @@ class Cell():
                 # del initBlock?
                 tries += 1
 
-        self.logger.info("After growBlocks numBlocks: {0}".format(len(self.blocks)))
+        LOGGER.info("After growBlocks numBlocks: {0}".format(len(self.blocks)))
         return added
 
     def haloCells(self, key):
@@ -1476,7 +1477,7 @@ class Cell():
         if not p:
             raise RuntimeError, "car file needs to have PBC=ON and a PBC line defining the cell!"
         
-        self.logger.info("Read cell parameters A={0}, B={1}, C={2} from car file: {3}".format(p['A'],
+        LOGGER.info("Read cell parameters A={0}, B={1}, C={2} from car file: {3}".format(p['A'],
                                                                                               p['B'],
                                                                                               p['C'],
                                                                                               filePath))
@@ -1504,7 +1505,7 @@ class Cell():
         if self.processBonds() > 0:
             raise RuntimeError, "Problem adding static block-we made bonds!"
             
-        self.logger.info("Added static block to cell")
+        LOGGER.info("Added static block to cell")
 
         return
     def _intersectedCells(self, p1, p2, endPointCells=True):
@@ -1647,7 +1648,7 @@ class Cell():
         maxTries - the maximum number of moves to try when joining
         """
 
-        self.logger.info("Joining {0} new blocks".format(toJoin))
+        LOGGER.info("Joining {0} new blocks".format(toJoin))
 
         if dihedral:
             # Convert dihedral to radians
@@ -1658,21 +1659,21 @@ class Cell():
         while added < toJoin:
 
             if len (self.blocks) == 1:
-                self.logger.info("joinBlocks Hooray! - no more blocks to join!")
+                LOGGER.info("joinBlocks Hooray! - no more blocks to join!")
                 return added
 
             if tries > maxTries:
-                self.logger.critical("joinBlocks - exceeded maxtries when joining blocks!")
+                LOGGER.critical("joinBlocks - exceeded maxtries when joining blocks!")
                 return added
 
             if self.numFreeEndGroups() == 0:
-                self.logger.critical("joinBlocks got no free endGroups!")
+                LOGGER.critical("joinBlocks got no free endGroups!")
                 return added
 
             # Select 2 random blocks that can be joined
             moveEndGroup, staticEndGroup = self.cellEndGroupPair(cellEndGroups=cellEndGroups)
             if moveEndGroup == None or staticEndGroup == None:
-                self.logger.critical("joinBlocks cannot join any more blocks")
+                LOGGER.critical("joinBlocks cannot join any more blocks")
                 return added
 
             # Copy the original block so we can replace it if the join fails
@@ -1683,20 +1684,20 @@ class Cell():
             # Remove from cell so we don't check against itself and pick a different out
             self.delBlock(idxMoveBlock)
 
-            self.logger.debug("joinBlocks calling attachBlock: {0} {1}".format(moveEndGroup, staticEndGroup))
+            LOGGER.debug("joinBlocks calling attachBlock: {0} {1}".format(moveEndGroup, staticEndGroup))
 
             # now attach it
             ok = self.attachBlock(moveEndGroup, staticEndGroup, dihedral=dihedral)
             if ok:
                 added += 1
-                self.logger.info("joinBlocks joined block {0} after {1} tries.".format(added, tries))
+                LOGGER.info("joinBlocks joined block {0} after {1} tries.".format(added, tries))
                 tries = 0
             else:
                 # Put the original block back in the cell
                 self.addBlock(blockCopy)
                 tries += 1
 
-        self.logger.info("After joinBlocks numBlocks: {0}".format(len(self.blocks)))
+        LOGGER.info("After joinBlocks numBlocks: {0}".format(len(self.blocks)))
 
         return added
 
@@ -1789,7 +1790,7 @@ class Cell():
         cell2Library = self._getCell2Library(endGroupTypes2Block,
                                              cellEndGroups=cellEndGroups,
                                              libraryEndGroups=libraryEndGroups)
-        self.logger.debug("libraryEndGroupPair got cell/library endGroups: {0}".format(cell2Library))
+        LOGGER.debug("libraryEndGroupPair got cell/library endGroups: {0}".format(cell2Library))
         if random:
             # Now we can pick a random endGroup from the cell, get the corresponding library group
             cellEgT = _random.choice(cell2Library.keys())
@@ -1826,7 +1827,7 @@ class Cell():
             self._deterministicState += 1
 
         # Return them both - phew!
-        self.logger.debug("libraryEndGroupPair returning: {0} {1}".format(cellEndGroup.type(), libraryEndGroup.type()))
+        LOGGER.debug("libraryEndGroupPair returning: {0} {1}".format(cellEndGroup.type(), libraryEndGroup.type()))
         return cellEndGroup, libraryEndGroup
 
     def numBlocks(self):
@@ -1867,7 +1868,7 @@ class Cell():
         ALL OTHER ARGUMENTS ACCEPTED BY mode_minimize_rigid_fire ARE PASSED TO IT
         """
 
-        self.logger.info("Running optimisation")
+        LOGGER.info("Running optimisation")
 
         # HACK
         minCell = False
@@ -1895,11 +1896,11 @@ class Cell():
         self.analyse.stop('optimiseGeometry', d)
 
         if ok:
-            self.logger.info("Optimisation succeeded")
+            LOGGER.info("Optimisation succeeded")
             self.fromHoomdblueSystem(optimiser.system)
             return True
         else:
-            self.logger.critical("Optimisation Failed")
+            LOGGER.critical("Optimisation Failed")
             return False
 
     def positionInCell(self, block):
@@ -1923,7 +1924,7 @@ class Cell():
 
         block.translateCentroid(coord)
 
-        self.logger.debug("positionInCell block moved to: {0}".format(block.centroid()))
+        LOGGER.debug("positionInCell block moved to: {0}".format(block.centroid()))
 
         return
 
@@ -1936,14 +1937,14 @@ class Cell():
         """
 
         if not len(self._possibleBonds):
-            self.logger.debug("processBonds got no bonds")
+            LOGGER.debug("processBonds got no bonds")
             return 0
 
-        # self.logger.debug = lambda x: sys.stdout.write(x + "\n")
+        # LOGGER.debug = lambda x: sys.stdout.write(x + "\n")
 
         # Here no atoms clash and we have a list of possible bonds - so bond'em!
-        self.logger.debug("processBonds got bonds: {0}".format(self._possibleBonds))
-        self.logger.debug("processBonds blocks are: {0}".format(sorted(self.blocks)))
+        LOGGER.debug("processBonds got bonds: {0}".format(self._possibleBonds))
+        LOGGER.debug("processBonds blocks are: {0}".format(sorted(self.blocks)))
 
         bondsMade = 0
         for count, bond in enumerate(self._possibleBonds):
@@ -1951,9 +1952,9 @@ class Cell():
             # are involved in bonds so we need to make sure they are free before we do
             if bond.endGroup1.free() and bond.endGroup2.free():
                 self.bondBlock(bond)
-                self.logger.debug("Added bond: {0}".format(self._possibleBonds[count]))
+                LOGGER.debug("Added bond: {0}".format(self._possibleBonds[count]))
                 bondsMade += 1
-                # self.logger.debug( "process bonds after bond self.blocks is  ",sorted(self.blocks) )
+                # LOGGER.debug( "process bonds after bond self.blocks is  ",sorted(self.blocks) )
 
         # Clear any other possible bonds
         self._possibleBonds = []
@@ -2035,7 +2036,7 @@ class Cell():
         self.clear()
 
         if len(blocks):
-            self.logger.debug("repopulateCells, adding blocks into new cells")
+            LOGGER.debug("repopulateCells, adding blocks into new cells")
             for idxBlock, block in blocks.iteritems():
                 if boxShift: block.translate(boxShift)  # Need to move if box has been resizes
                 self.addBlock(block, idxBlock=idxBlock)
@@ -2127,7 +2128,7 @@ class Cell():
                                         **kw)
 
         if ok:
-            self.logger.info("runMDAndOptimise succeeded")
+            LOGGER.info("runMDAndOptimise succeeded")
 
 
         self.analyse.stop('runMDAndOptimise', d)
@@ -2192,10 +2193,10 @@ class Cell():
         if not len(self._fragmentLibrary):
             raise RuntimeError, "Must have set an initBlock before seeding."
 
-        self.logger.info("seed adding {0} block of type {1}".format(nblocks, fragmentType))
+        LOGGER.info("seed adding {0} block of type {1}".format(nblocks, fragmentType))
         if save:
             savedBlocks = self.saveBlocks(save)
-            self.logger.info("saveBlocks removed {0} blocks from cell".format(len(savedBlocks)))
+            LOGGER.info("saveBlocks removed {0} blocks from cell".format(len(savedBlocks)))
 
         numBlocksAdded = 0
         # Loop through the nblocks adding the blocks to the cell
@@ -2205,7 +2206,7 @@ class Cell():
             while True:
                 # quit on maxTries
                 if tries >= maxTries:
-                    self.logger.critical("Exceeded maxtries when seeding after adding {0}".format(numBlocksAdded))
+                    LOGGER.critical("Exceeded maxtries when seeding after adding {0}".format(numBlocksAdded))
                     self.analyse.stop('seed', d={'num_tries':tries})
                     return numBlocksAdded
 
@@ -2223,8 +2224,8 @@ class Cell():
                 # Test for Clashes with other molecules
                 if self.checkMove(idxBlock):
                     if self.processBonds() > 0:
-                        self.logger.info("Added bond in seed!")
-                    self.logger.debug("seed added block {0} after {1} tries.".format(seedCount + 1, tries))
+                        LOGGER.info("Added bond in seed!")
+                    LOGGER.debug("seed added block {0} after {1} tries.".format(seedCount + 1, tries))
                     self.analyse.stop('seed', d={'num_tries':tries})
                     numBlocksAdded += 1
                     break
@@ -2234,17 +2235,17 @@ class Cell():
 
                 # If seed fails with center need to bail on first one.
                 if center and seedCount == 0 and tries == 0:
-                    self.logger.warn("Seed with center failed to place first block in center!")
+                    LOGGER.warn("Seed with center failed to place first block in center!")
 
                 tries += 1 # increment tries counter
 
             # End Clash loop
         # End of loop to seed cell
-        self.logger.info("Seed added {0} blocks. Cell now contains {1} blocks".format(numBlocksAdded,
+        LOGGER.info("Seed added {0} blocks. Cell now contains {1} blocks".format(numBlocksAdded,
                                                                                        len(self.blocks)))
         if save:
             added = self.addBlocks(savedBlocks)
-            self.logger.info("Seed re-added {0} blocks. Cell now contains {1} blocks".format(added,
+            LOGGER.info("Seed re-added {0} blocks. Cell now contains {1} blocks".format(added,
                                                                                               len(self.blocks)))
 
         return numBlocksAdded
@@ -2354,7 +2355,7 @@ class Cell():
         # add fl to logger
         logger.addHandler(cl)
 
-        self.logger = logger
+        LOGGER = logger
         return
 
     def updateFromBlock(self, block):
@@ -2391,7 +2392,7 @@ class Cell():
         self.numBoxes[1] = int(math.ceil(self.dim[1] / self.boxSize))
         self.numBoxes[2] = int(math.ceil(self.dim[2] / self.boxSize))
 
-        self.logger.debug("updateCellSize: boxSize {0} nboxes: {1} maxR {2} margin {3}".format(self.boxSize,
+        LOGGER.debug("updateCellSize: boxSize {0} nboxes: {1} maxR {2} margin {3}".format(self.boxSize,
                                                                                       self.numBoxes,
                                                                                      self.maxAtomRadius,
                                                                                      self.boxMargin)
@@ -2420,7 +2421,7 @@ class Cell():
         """Pickle ourselves"""
 
         # Need to close all open filehandles and the logger handlers
-        # for l in self.logger.handlers:
+        # for l in LOGGER.handlers:
         #    print "GOT HANDLER1 ",l
 
         # No idea why I can't get the log to close and then reopen with append mode
@@ -2428,8 +2429,8 @@ class Cell():
         if False:
             self._clLogHandler.close()
             self._flLogHandler.close()
-            self.logger.removeHandler(self._clLogHandler)
-            self.logger.removeHandler(self._flLogHandler)
+            LOGGER.removeHandler(self._clLogHandler)
+            LOGGER.removeHandler(self._flLogHandler)
             del self._clLogHandler
             del self._flLogHandler
 
@@ -2440,7 +2441,7 @@ class Cell():
 
         # Restart logging with append mode
         # self.setupLogging( mode='a' )
-        self.logger.info("Wrote pickle file: {0}".format(fileName))
+        LOGGER.info("Wrote pickle file: {0}".format(fileName))
         return
 
     def writeCar(self, ofile="ambuild.car", data=None, periodic=True, skipDummy=False):
@@ -2486,7 +2487,7 @@ class Cell():
             fpath = os.path.abspath(f.name)
             f.writelines(car)
 
-        self.logger.info("Wrote car file: {0}".format(fpath))
+        LOGGER.info("Wrote car file: {0}".format(fpath))
         return
 
     def writeCml(self, cmlFilename, data=None, rigidBody=True, periodic=True, pruneBonds=False):
@@ -2521,7 +2522,7 @@ class Cell():
                                     cell=cell,
                                     pruneBonds=pruneBonds)
 
-        self.logger.info("Wrote cml file: {0}".format(cmlFilename))
+        LOGGER.info("Wrote cml file: {0}".format(cmlFilename))
         return
 
     def writeXyz(self, ofile, data=None, periodic=False, atomTypes=False):
@@ -2542,7 +2543,7 @@ class Cell():
             else:
                 fpath = util.writeXyz(ofile, d.coords, d.symbols)
 
-        self.logger.info("Wrote cell file: {0}".format(fpath))
+        LOGGER.info("Wrote cell file: {0}".format(fpath))
         return
 
     def zipBlocks(self,
@@ -2565,7 +2566,7 @@ class Cell():
                      see the atom.
         selfBond  - boolean to specify if zip will allow a block to bond to itself (True) or not (False) [default: True]
         """
-        self.logger.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin))
+        LOGGER.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin))
 
         # Convert to radians
         bondAngleMargin = math.radians(bondAngleMargin)
@@ -2593,7 +2594,7 @@ class Cell():
                     endGroups.append((block, endGroup.endGroupIdx()))
 
         if not len(endGroups) > 0:
-            self.logger.warn("zipBlocks found no free endGroups!")
+            LOGGER.warn("zipBlocks found no free endGroups!")
             return 0
 
         # Add all (block, idxEndGroup) tuples to the cells
@@ -2669,7 +2670,7 @@ class Cell():
                         c2.append(block2.coord(idxEndGroup2))
 
         if not len(egPairs) > 0:
-            self.logger.info("zipBlocks: no endGroups close enough to bond")
+            LOGGER.info("zipBlocks: no endGroups close enough to bond")
             return 0
 
         # Calculate distances between all pairs
@@ -2690,21 +2691,21 @@ class Cell():
 
         # Process any bonds
         if len(self._possibleBonds) == 0:
-            self.logger.info("zipBlocks: no acceptable bonds found")
+            LOGGER.info("zipBlocks: no acceptable bonds found")
             return 0
 
         # Check the bonds don't clash with anything
         if clashCheck:
-            self.logger.info("zipBlocks: checking for clashes with bonds...")
+            LOGGER.info("zipBlocks: checking for clashes with bonds...")
             toRemove = [bond for bond in self._possibleBonds if self.bondClash(bond=bond, clashDist=clashDist)]
             if len(toRemove):
-                self.logger.info("zipBlocks: {0} bonds not accepted due to clashes".format(len(toRemove)))
+                LOGGER.info("zipBlocks: {0} bonds not accepted due to clashes".format(len(toRemove)))
                 for b in toRemove: self._possibleBonds.remove(b)
                 if not len(self._possibleBonds):
-                    self.logger.info("zipBlocks: No bonds remaining after clash checks")
+                    LOGGER.info("zipBlocks: No bonds remaining after clash checks")
                     return 0
 
-        self.logger.info("zipBlocks: found {0} additional bonds".format(len(self._possibleBonds)))
+        LOGGER.info("zipBlocks: found {0} additional bonds".format(len(self._possibleBonds)))
 #         for b in self._possibleBonds:
 #             print "Attempting to bond: {0} {1} {2} -> {3} {4} {5}".format( b.block1.id(),
 #                                                                    b.endGroup1.blockEndGroupIdx,
@@ -2716,7 +2717,7 @@ class Cell():
 #
         todo=len(self._possibleBonds)
         bondsMade = self.processBonds()
-        if bondsMade != todo: self.logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(todo,bondsMade))
+        if bondsMade != todo: LOGGER.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(todo,bondsMade))
         self.analyse.stop('zip')
         return bondsMade
     
@@ -2741,7 +2742,7 @@ class Cell():
 
         # Return everything bar our logger
         d = dict(self.__dict__)
-        del d['logger']
+        #del d['logger']
         d['analyseLogfile'] = d['analyse'].logfile
         del d['analyse']
         return d
