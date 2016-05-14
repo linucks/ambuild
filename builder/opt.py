@@ -278,55 +278,8 @@ class FFIELD(object):
 class DLPOLY(FFIELD):
     """
     write out CONFIG file
-
     write out FIELD file
-
-
     """
-
-#     def writeCONFIG(self,
-#                     cell,
-#                     fileName="CONFIG",
-#                     periodic=True,
-#                     center=True,
-#                     ):
-#         """Write out DLPOLY CONFIG file
-#
-#         DLPOLY assumes a centered cell.
-#         """
-#
-#         with open(fileName,'w') as f:
-#
-#             # header
-#             f.write("Ambuild CONFIG file\n")
-#
-#             # levcfg (0=just coordinates) imcon (1=cubic bounduary conditions)
-#             f.write("0    1\n")
-#
-#             # Now cell
-#             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(cell.A,0.0,0.0))
-#             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,cell.B,0.0))
-#             f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(0.0,0.0,cell.C))
-#
-#             count=1 # FORTRAN COUNTING
-#             for block in cell.blocks.itervalues():
-#                 if hasattr(block,'_fragments'):
-#                     fragments=block._fragments
-#                 else:
-#                     fragments=block.fragments
-#                 for frag in fragments:
-#                     for i,coord in enumerate(frag.iterCoord()):
-#                         f.write("{0}    {1}\n".format(frag.type(i),count))
-#                         if periodic:
-#                             x, ix = util.wrapCoord( coord[0], cell.A, center=center )
-#                             y, iy = util.wrapCoord( coord[1], cell.B, center=center )
-#                             z, iz = util.wrapCoord( coord[2], cell.C, center=center )
-#                         else:
-#                             x,y,z=coord
-#                         f.write("{0:0< 15}    {1:0< 15}    {2:0< 15}\n".format(x,y,z))
-#                         count+=1
-#         return
-
 
     def _writeCONFIG(self,
                     cell,
@@ -363,6 +316,28 @@ class DLPOLY(FFIELD):
                 x, y, z = coord
                 f.write("{0: > 20.6F}{1: > 20.6F}{2: > 20.6F}\n".format(x, y, z))
                 count += 1
+        return
+    
+    def writeCONTROL(self):
+        txt = """simulation NPT
+temperature           zero
+pressure              0.001
+ensemble npt hoover   0.1 1.0
+steps                 3
+equilibration         2
+print                 1
+stats                 1
+timestep              1.00E-4
+cutoff                10.0
+delr width            2.00E-01
+rvdw cutoff           10.0
+ewald precision       1.0E-06
+job time              1.0E+04
+close time            1.0E+02
+finish
+"""
+        with open('CONTROL', 'w') as w:
+            w.write(txt)
         return
 
     def writeFIELDandCONFIG(self,
@@ -1219,7 +1194,7 @@ class HoomdOptimiser(FFIELD):
 
         return optimised
 
-    def _runMD(self, mdCycles=100000, rigidBody=True, T=1.0, tau=0.5, dt=0.0005, dump=False, **kw):
+    def _runMD(self, mdCycles=100000, rigidBody=True, T=1.0, tau=0.5, dt=0.0005, dump=False, dumpPeriod=100, **kw):
 
         # Added **kw arguments so that we don't get confused by arguments intended for the optimise
         # when MD and optimiser run together
@@ -1238,10 +1213,8 @@ class HoomdOptimiser(FFIELD):
             nvt = hoomdblue.integrate.nvt(group=self.groupActive, T=T, tau=tau)
 
         if dump:
-            xmld = hoomdblue.dump.xml(filename="runmd.xml",
-                                      vis=True)
             dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
-                                      period=1,
+                                      period=dumpPeriod,
                                       unwrap_full=True,
                                       overwrite=True)
 #             mol2 = hoomdblue.dump.mol2(filename="runmd",
@@ -1251,15 +1224,11 @@ class HoomdOptimiser(FFIELD):
         hoomdblue.run(mdCycles)
 
         nvt.disable()
-        if dump and False:
-            xmld.disable()
+        if dump:
             dcdd.disable()
-            del xmld
             del dcdd
-
         del nvt
         del integrator_mode
-
         return
 
     def setAngle(self, anglePotential):

@@ -547,9 +547,10 @@ class Test(unittest.TestCase):
         d = opt.DLPOLY()
 
         # data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
-        # d.writeCONFIG(mycell)
+        d.writeCONTROL()
         d.writeFIELDandCONFIG(mycell)
 
+        os.unlink('CONTROL')
         os.unlink('CONFIG')
         os.unlink('FIELD')
 

@@ -854,7 +854,7 @@ def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
     import opt
 
     d = opt.DLPOLY()
-    # d.writeCONFIG(mycell)
+    d.writeCONTROL()
     d.writeFIELDandCONFIG(mycell, rigidBody=rigidBody, skipDihedrals=skipDihedrals)
     return
 
