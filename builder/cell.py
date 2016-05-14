@@ -229,6 +229,9 @@ class Cell():
         
         # Holds possible bond after checkMove is run
         self._possibleBonds = []
+        
+        # a list of blocks that are not part of the cell but are being kept for later re-additon
+        self.savedBlocks = []
 
         # Logging functions
         self.setupLogging(doLog=doLog)
@@ -1072,7 +1075,6 @@ class Cell():
         Remove the block with the given index from the cell
         """
 
-        # print "Deleting block: {} from {}".format(blockId,self.blocks.keys())
         block = self.blocks[ blockId ]
 
         # Remove each atom from the list
@@ -1100,7 +1102,7 @@ class Cell():
         # del block # Don't want to delete the block as we might be saving it
         return
     
-    def deleteBlocksIndices(self, indices):
+    def deleteBlocksIndices(self, indices, save=False):
         """Delete the index-th(s) block from the cell"""
         if type(indices) is float:
             indices = [indices]
@@ -1111,55 +1113,63 @@ class Cell():
         for i, idx in enumerate(indices):
             if not (type(idx) is int and (0 <= idx < len(self.blocks))):
                 raise RuntimeError("Bad value for index {0} : {1}".format(i,idx))
-            
-        toRemove = [ blockId for i, blockId in enumerate(self.blocks.iterkeys())  if i in indices ]
-        for blockId in toRemove:
+        
+        toRemove = [ (blockId, block) for i, (blockId, block) in enumerate(self.blocks.iteritems())  if i in indices ]
+        for blockId, block in toRemove:
             self.delBlock(blockId)
+            if save: self.savedBlocks.append(block)
         count = len(toRemove)
         LOGGER.info("deleteBlocksIndices deleted {0} blocks. Cell now contains {1} blocks.".format(count,len(self.blocks)))
         return count
 
-    def deleteBlocksType(self, numBlocks, fragmentType, multiple=False):
+    def deleteBlocksType(self, fragmentTypes, numBlocks=0, multiple=False, save=False):
         """Remove numBlocks of fragmentType from the cell.
-        If multiple remove blocks that contain multiple fragments of the given type.
         
         Arguments:
-        numBlocks: the number of blocks to remove
-        fragmentType: the fragmentType of the blocks to remove
-        multiple: boolean that specifies whether (True) to remove blocks that contain more than one fragment (default: False)
+        fragmentType: the fragmentType, or list of fragmentTypes of the blocks to remove
+        numBlocks: optional - the number of blocks to remove, otherwise all blocks of the specified types will be removed
+        multiple: if True remove blocks that contain > 1 fragment, else only single-fragment blocks
         """
-        assert numBlocks > 0, "delete cannot remove zero blocks!"
+        if type(fragmentTypes) is str: fragmentTypes = [fragmentTypes] 
+        
+        allBlocks = set()
+        for fragmentType in fragmentTypes:
+            # First get a list of all the blocks that contain single fragments that match the fragment type
+            blist = set()
+            for blockId, block in self.blocks.iteritems():
+    
+                # Check if is multiple or not
+                if not multiple and len(block.fragments) != 1:
+                    continue
+    
+                # Check if all fragments in this block are of the given type
+                if any([True for f in block.fragments if f.fragmentType == fragmentType]):
+                    blist.add((blockId,block))
+    
+            if not len(blist):
+                LOGGER.critical("Delete could not find any blocks containing fragments of type: {0}".format(fragmentType))
+            allBlocks.update(blist)
 
-        # First get a list of all the blocks that contain single fragments that match the fragment type
-        blist = []
-        for blockId, block in self.blocks.iteritems():
-
-            # Check if is multiple or not
-            if not multiple and len(block.fragments) != 1:
-                continue
-
-            # Check if all fragments in this block are of the given type
-            # if not any([True for f in block.fragments if f.fragmentType!=fragmentType]):
-            #    blist.append(idxBlock)
-            # Don't bother with this any more - we delete any block that contains a fragment of the given type
-            if any([True for f in block.fragments if f.fragmentType == fragmentType]):
-                blist.append(blockId)
-
-        if not len(blist):
-            # LOGGER.critical("Delete could not find any single-fragment blocks of type: {0}".format(fragmentType))
-            LOGGER.critical("Delete could not find any blocks containing fragments of type: {0}".format(fragmentType))
-            return 0
-
-        # We have a list of valid block ids
-        toRemove = min(numBlocks, len(blist))
-        for i in range(toRemove):
-            blockId = _random.choice(blist)
-            self.delBlock(blockId)
-            blist.remove(blockId)
-
-        LOGGER.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(i + 1, len(self.blocks)))
-
-        return i + 1
+        # We have a list of valid blocks, we now randomly remove them - randomly in case we aren't deleting all of them
+        if numBlocks > 0:
+            toRemove = min(numBlocks, len(allBlocks))
+        else:
+            toRemove = len(allBlocks)
+        
+        if toRemove > 0:
+            allBlocks = list(allBlocks)
+            for i in range(toRemove):
+                blockId, block = _random.choice(allBlocks)
+                self.delBlock(blockId)
+                allBlocks.remove((blockId,block))
+                if save: self.savedBlocks.append(block)
+            removed = i + 1
+            LOGGER.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(removed, len(self.blocks)))
+        else:
+            removed = 0
+            LOGGER.info("Could not remove any blocks of type(s) {0}".format(fragmentTypes))
+        
+        return removed
     
     def deleteBondType(self, bondType):
         """Remove the given bondType from the list of acceptable bonds"""
@@ -2054,6 +2064,15 @@ class Cell():
             del blocks
         return
     
+    def restoreBlocks(self):
+        if not len(self.savedBlocks):
+            LOGGER.critical('No saved blocks available for restoration.')
+            return 0
+        added = self.addBlocks(self.savedBlocks)
+        self.savedBlocks = []
+        LOGGER.info("restoreBlocks re-added {0} blocks to the cell".format(added))
+        return added
+    
     def runMD(self,
               xmlFilename="hoomdMD.xml",
               rigidBody=True,
@@ -2150,7 +2169,7 @@ class Cell():
     
     def saveBlocks(self, saveList):
         """Delete all block of type in saveList from cell and return a list of those blocks"""
-        assert type(saveList) is list, "saveBlocks needs a list of blocks!"
+        assert type(saveList) is list, "saveBlocks needs a list of fragmentTypes!"
 
         # Get a list of the blocks we want to save
         idxList = []
@@ -2172,7 +2191,6 @@ class Cell():
              fragmentType=None,
              maxTries=500,
              center=False,
-             save=None,
              point=None,
              radius=None,
              zone=None,
@@ -2185,8 +2203,6 @@ class Cell():
                        chosen type will be added.
         maxTries - the number of attempts to make when adding a block before the seed step is fails and returns.
         center - True/False - if True, place the first block in the center of the cell.
-        save - a list of (single-fragment) fragmentTypes that will be deleted from the cell, but saved and then
-               re-added after seeding.
         point - a list of three floats defiting a point around which the centroids of the blocks will be seeded
                 (requires the radius argument).
         radius - a single float specifying the radius of a sphere around point, within which the centroids of 
@@ -2205,9 +2221,6 @@ class Cell():
             raise RuntimeError, "Must have set an initBlock before seeding."
 
         LOGGER.info("seed adding {0} block of type {1}".format(nblocks, fragmentType))
-        if save:
-            savedBlocks = self.saveBlocks(save)
-            LOGGER.info("saveBlocks removed {0} blocks from cell".format(len(savedBlocks)))
 
         numBlocksAdded = 0
         # Loop through the nblocks adding the blocks to the cell
@@ -2252,13 +2265,7 @@ class Cell():
 
             # End Clash loop
         # End of loop to seed cell
-        LOGGER.info("Seed added {0} blocks. Cell now contains {1} blocks".format(numBlocksAdded,
-                                                                                       len(self.blocks)))
-        if save:
-            added = self.addBlocks(savedBlocks)
-            LOGGER.info("Seed re-added {0} blocks. Cell now contains {1} blocks".format(added,
-                                                                                              len(self.blocks)))
-
+        LOGGER.info("Seed added {0} blocks. Cell now contains {1} blocks".format(numBlocksAdded, len(self.blocks)))
         return numBlocksAdded
 
     def setBoxSize(self, boxDim):
