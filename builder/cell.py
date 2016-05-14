@@ -27,6 +27,9 @@ import util
 
 LOGGER = logging.getLogger(__name__)
 
+BONDTYPESEP = "-"  # Character for separating bonds
+ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
+
 class Analyse():
     def __init__(self, cell, logfile="ambuild.csv"):
 
@@ -152,8 +155,7 @@ class Cell():
     classdocs
     '''
 
-    BONDTYPESEP = "-"  # Character for separating bonds
-    ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
+
 
     def __init__(self,
                  boxDim=None,
@@ -310,12 +312,12 @@ class Cell():
 
         Args:
         bondType - a string specifying the two endGroups separated by a "{1}"
-        """.format(self.ENDGROUPSEP,self.BONDTYPESEP)
+        """.format(ENDGROUPSEP,BONDTYPESEP)
 
         try:
-            b1EndGroupType, b2EndGroupType = bondType.split(self.BONDTYPESEP)
-            b1FragmentType = b1EndGroupType.split(self.ENDGROUPSEP)[0]
-            b2FragmentType = b2EndGroupType.split(self.ENDGROUPSEP)[0]
+            b1EndGroupType, b2EndGroupType = bondType.split(BONDTYPESEP)
+            b1FragmentType = b1EndGroupType.split(ENDGROUPSEP)[0]
+            b2FragmentType = b2EndGroupType.split(ENDGROUPSEP)[0]
         except ValueError:
             raise RuntimeError, "Error adding BondType {0} - string needs to be of form 'A:a-B:b'".format(bondType)
 
@@ -1159,6 +1161,15 @@ class Cell():
 
         return i + 1
     
+    def deleteBondType(self, bondType):
+        """Remove the given bondType from the list of acceptable bonds"""
+        b1EndGroupType, b2EndGroupType = bondType.split(BONDTYPESEP)
+        bt = (b1EndGroupType, b2EndGroupType)
+        assert bt in self.bondTypes,"{0} is not in the list of acceptable bonds {1}".format(bondType,self.bondTypes)
+        self.bondTypes.remove(bt)
+        self._updateBondTable()
+        return
+    
     def deleteFragment(self, frag, block=None):
         LOGGER.info("Deleting fragment: {0}".format(frag.fragmentType))
         if block is None:
@@ -1718,8 +1729,8 @@ class Cell():
         # assert not len(self.blocks),"Cannot add library fragments with populated cell!"
 
         # Make sure the type is valid
-        if self.BONDTYPESEP in fragmentType or self.ENDGROUPSEP in fragmentType:
-            raise RuntimeError, "fragmentType cannot containing {0} or {1} characters!".format(self.BONDTYPESEP, self.ENDGROUPSEP)
+        if BONDTYPESEP in fragmentType or ENDGROUPSEP in fragmentType:
+            raise RuntimeError, "fragmentType cannot containing {0} or {1} characters!".format(BONDTYPESEP, ENDGROUPSEP)
 
         # Create fragment
         f = fragment.Fragment(filename, fragmentType, solvent=solvent)
