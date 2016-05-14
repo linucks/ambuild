@@ -355,7 +355,9 @@ class DLPOLY(FFIELD):
             # Loop through coordinates
             count = 1  # FORTRAN COUNTING
             for i, coord in enumerate(coords):
-                f.write("{0}    {1}\n".format(types[i], count))
+                # Remove atom index so we can be used by earlier DL-POLY versions
+                #f.write("{0}    {1}\n".format(types[i], count))
+                f.write("{0}\n".format(types[i]))
                 x, y, z = coord
                 f.write("{0: > 20.6F}{1: > 20.6F}{2: > 20.6F}\n".format(x, y, z))
                 count += 1
