@@ -226,6 +226,22 @@ zipBlocks is called thus:
 
 zipBlocks(bondMargin=5, bondAngleMargin=30, clashTest=True, clashDist=1.6)
 
+Deleting Blocks
+---------------
+Blocks can be removed from the cell with two commands:
+
+deleteBlocksIndices
+- this takes a single argument which is a single integer, or list of integers, which is/are the indices of 
+the blocks in the overall list of blocks to be removed.
+
+deleteBlocksTypes
+delete numBlocks of blocks of the secified fragment type
+
+Arguments:
+numBlocks: the number of blocks to remove
+fragmentType: the fragmentType of the blocks to remove
+multiple: boolean that specifies whether (True) to remove blocks that contain more than one fragment (default: False)
+
 Optimising the geometry of the blocks in the cell and running molecular dynamics simulations
 ============================================================================================
 
