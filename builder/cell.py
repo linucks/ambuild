@@ -2172,25 +2172,6 @@ class Cell():
         self.fromHoomdblueSystem(optimiser.system)
 
         return ok
-    
-    def saveBlocks(self, saveList):
-        """Delete all block of type in saveList from cell and return a list of those blocks"""
-        assert type(saveList) is list, "saveBlocks needs a list of fragmentTypes!"
-
-        # Get a list of the blocks we want to save
-        idxList = []
-        for idxBlock, block in self.blocks.iteritems():
-            # Only allow single-fragment blocks
-            if len(block.fragments) is 1 and block.fragments[0].fragmentType in saveList:
-                idxList.append(idxBlock)
-        
-        # Delete them from the cell, but save them for readding after
-        blockList = []
-        for idxBlock, block in self.blocks.iteritems():
-            if idxBlock in idxList:
-                blockList.append(block)
-                self.delBlock(idxBlock)        
-        return blockList        
         
     def seed(self,
              nblocks,
