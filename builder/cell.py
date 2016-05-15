@@ -4,7 +4,7 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 
-VERSION = "812579e5493f"
+VERSION = "9c810f37613f"
 
 import collections
 import copy
@@ -1103,7 +1103,12 @@ class Cell():
         return
     
     def deleteBlocksIndices(self, indices, save=False):
-        """Delete the index-th(s) block from the cell"""
+        """Delete the index-th(s) block from the cell
+        
+        Arguments:
+        indices: list of indices of the blocks to be deleted
+        save: save all deleted blocks so they can be readded with the restoreBlocks command
+        """
         if type(indices) is float:
             indices = [indices]
         elif type(indices) is list:
