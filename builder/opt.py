@@ -1194,7 +1194,16 @@ class HoomdOptimiser(FFIELD):
 
         return optimised
 
-    def _runMD(self, mdCycles=100000, rigidBody=True, T=1.0, tau=0.5, dt=0.0005, dump=False, dumpPeriod=100, **kw):
+    def _runMD(self, mdCycles=100000,
+               rigidBody=True,
+               integrator='nvt',
+               T=1.0,
+               tau=0.5,
+               P=1,
+               tauP=0.5,
+               dt=0.0005,
+               dump=False,
+               dumpPeriod=100, **kw):
 
         # Added **kw arguments so that we don't get confused by arguments intended for the optimise
         # when MD and optimiser run together
@@ -1206,28 +1215,34 @@ class HoomdOptimiser(FFIELD):
         T = self.fromStandardUnits(T)
         integrator_mode = hoomdblue.integrate.mode_standard(dt=dt)
 
-        if rigidBody:
-            # nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
-            nvt = hoomdblue.integrate.nvt_rigid(group=self.groupActive, T=T, tau=tau)
+        if integrator == 'nvt':
+            if rigidBody:
+                # nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
+                integ = hoomdblue.integrate.nvt_rigid(group=self.groupActive, T=T, tau=tau)
+            else:
+                integ = hoomdblue.integrate.nvt(group=self.groupActive, T=T, tau=tau)
+        elif integrator == 'npt':
+            if rigidBody:
+                integ = hoomdblue.integrate.npt_rigid(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
+            else:
+                integ = hoomdblue.integrate.npt(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
         else:
-            nvt = hoomdblue.integrate.nvt(group=self.groupActive, T=T, tau=tau)
+            raise RuntimeError("Unrecognised integrator: {0}".format(integrator))
 
         if dump:
             dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
                                       period=dumpPeriod,
                                       unwrap_full=True,
                                       overwrite=True)
-#             mol2 = hoomdblue.dump.mol2(filename="runmd",
-#                                       period=1)
 
         # run mdCycles time steps
         hoomdblue.run(mdCycles)
 
-        nvt.disable()
+        integ.disable()
         if dump:
             dcdd.disable()
             del dcdd
-        del nvt
+        del integ
         del integrator_mode
         return
 

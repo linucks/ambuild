@@ -281,20 +281,29 @@ http://codeblue.umich.edu/hoomd-blue/doc/classhoomd__script_1_1integrate_1_1mode
 Molecular Dynamics
 ------------------
 
-MD runs are run using the nvt_rigid integrator within hoomdblue. The documentation for the nvt_rigid integrator is here:
+MD runs are run using the nvt, nvt_rigid, npt, or npt_rigid integrators within hoomdblue.
 
-http://codeblue.umich.edu/hoomd-blue/doc/classhoomd__script_1_1integrate_1_1nvt__rigid.html
+The documentation for the integrators is here:
+
+http://codeblue.umich.edu/hoomd-blue/doc/page_command_list.html#sec_index_integration
 
 To run MD, a call like the following can be used:
 
-mycell.runMD( doDihedral=True,
-              quiet=True,
-              rCut=5.0,
-              mdCycles=100,
-              T=1.0,
-              tau=0.5,
-              dt=0.0005,
+mycell.runMD(doDihedral=True,
+             quiet=False,
+             rCut=5.0,
+             mdCycles=100,
+             T=1.0,
+             tau=0.5,
+             P=1.0,
+             tauP=0.5,
+             dt=0.0005,
+             dump=True,
+             dumpPeriod=20,
+             integrator='npt',
             )
+
+The integrator option can either by 'npt' or 'nvt'.
 
 MD and Geometry optimisation combined
 -------------------------------------

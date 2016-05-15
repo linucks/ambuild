@@ -1050,6 +1050,28 @@ class Test(unittest.TestCase):
         self.assertFalse(self.clashes(mycell))
         os.unlink("hoomdMD.xml")
         return
+    
+    def testRunMdNpt(self):
+        """
+        """
+        mycell = self.createTestCell()
+        mycell.runMD(doDihedral=True,
+                     quiet=False,
+                     rCut=5.0,
+                     mdCycles=100,
+                     T=1.0,
+                     tau=0.5,
+                     P=1.0,
+                     tauP=0.5,
+                     dt=0.0005,
+                     dump=True,
+                     dumpPeriod=20,
+                     integrator='npt',
+                    )
+        self.assertFalse(self.clashes(mycell))
+        os.unlink("hoomdMD.xml")
+        #os.unlink("runmd.dcd")
+        return
 
     def testRunMDAndOptimise(self):
         """
