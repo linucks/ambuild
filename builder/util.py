@@ -649,7 +649,7 @@ def closeAtoms(coords, symbols, cellDim=None, maxAtomRadius=None, boxMargin=1.0)
 
     # Work out which box each atom is in and the surrounding boxes
     for idxAtom1, coord in enumerate(coords):
-        key = getCell(coord, boxSize, cellDim=cellDim)
+        key = getCell(coord, boxSize, dim=cellDim)
         atomCells.append(key)
         if cells.has_key(key):
             cells[ key ].append(idxAtom1)
@@ -673,13 +673,13 @@ def closeAtoms(coords, symbols, cellDim=None, maxAtomRadius=None, boxMargin=1.0)
                     _closeAtoms.append((idxAtom1, idxAtom2))
     return _closeAtoms
 
-def getCell(coord, boxSize, cellDim=None):
+def getCell(coord, boxSize, dim=None):
     """Return the cell that the coord is in under periodic boundaries"""
     # Periodic Boundaries
-    if cellDim is not None:
-        x = coord[0] % cellDim[0]
-        y = coord[1] % cellDim[1]
-        z = coord[2] % cellDim[2]
+    if dim is not None:
+        x = coord[0] if dim[0] == 0 else coord[0] % dim[0]
+        y = coord[1] if dim[1] == 0 else coord[1] % dim[1]
+        z = coord[2] if dim[2] == 0 else coord[2] % dim[2]
     else:
         x, y, z = coord[0], coord[1], coord[2]
 
@@ -701,19 +701,23 @@ def cellFromPickle(pickleFile):
 def dihedral(p1, p2, p3, p4, cell=None):
     """ From the CCP1GUI
     """
-    if cell is not None:
-        # We need to fix all distances between vectors for PBC
-        dimensions = numpy.array(cell)
-        vec_ij = numpy.remainder(p1 - p2, dimensions)
-        vec_kl = numpy.remainder(p3 - p4, dimensions)
-        vec_kj = numpy.remainder(p3 - p2, dimensions)
-        vec_ij = numpy.where(numpy.abs(vec_ij) > 0.5 * dimensions, vec_ij - numpy.copysign(dimensions, vec_ij), vec_ij)
-        vec_kj = numpy.where(numpy.abs(vec_kj) > 0.5 * dimensions, vec_kj - numpy.copysign(dimensions, vec_kj), vec_kj)
-        vec_kl = numpy.where(numpy.abs(vec_kl) > 0.5 * dimensions, vec_kl - numpy.copysign(dimensions, vec_kl), vec_kl)
-    else:
-        vec_ij = p1 - p2
-        vec_kj = p3 - p2
-        vec_kl = p3 - p4
+#     if cell is not None:
+#         # We need to fix all distances between vectors for PBC
+#         dimensions = numpy.array(cell)
+#         vec_ij = numpy.remainder(p1 - p2, dimensions)
+#         vec_kl = numpy.remainder(p3 - p4, dimensions)
+#         vec_kj = numpy.remainder(p3 - p2, dimensions)
+#         vec_ij = numpy.where(numpy.abs(vec_ij) > 0.5 * dimensions, vec_ij - numpy.copysign(dimensions, vec_ij), vec_ij)
+#         vec_kj = numpy.where(numpy.abs(vec_kj) > 0.5 * dimensions, vec_kj - numpy.copysign(dimensions, vec_kj), vec_kj)
+#         vec_kl = numpy.where(numpy.abs(vec_kl) > 0.5 * dimensions, vec_kl - numpy.copysign(dimensions, vec_kl), vec_kl)
+#     else:
+#         vec_ij = p1 - p2
+#         vec_kj = p3 - p2
+#         vec_kl = p3 - p4
+    
+    vec_ij = vecDiff(p1, p2, cell=cell)
+    vec_kj = vecDiff(p3, p2, cell=cell)
+    vec_kl = vecDiff(p3, p4, cell=cell)
 
     # vec1 is the normal to the plane defined by atoms i, j, and k
     vec1 = numpy.cross(vec_ij, vec_kj)
@@ -735,10 +739,8 @@ def dihedral(p1, p2, p3, p4, cell=None):
     # print magvec1, magvec2
     # print type(magvec1), type(magvec2)
     fac = dotprod / math.sqrt(magvec1 * magvec2)
-    if(fac > 1.0):
-        fac = 1.0
-    if(fac < -1.0):
-        fac = -1.0
+    fac = min(fac, 1.0)
+    fac = max(fac, -1.0)
     # dihed = 180.0 - math.degrees( math.acos(fac ) )
     dihed = math.pi - math.acos(fac)
 
@@ -761,25 +763,6 @@ def distance(v1, v2, cell=None):
     Changed so that it can cope with distances across more than one cell
     """
     return numpy.sqrt((vecDiff(v1, v2, cell) ** 2).sum(axis=-1))
-
-def vecDiff(v1, v2, cell=None):
-    """Difference between vectors with numpy taking PBC into account
-    This works either with 2 points or a vector of any number of points
-    Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
-    Changed so that it can cope with distances across more than one cell
-    """
-    assert len(v1) > 0 and len(v2) > 0, "vecDiff needs vectors!"
-    delta = numpy.array(v1) - numpy.array(v2)
-    if cell is not None:
-        # dimensions = numpy.array( cell )
-        dimensions = cell
-        # is basically modulus - returns what's left when divided by dim
-        delta = numpy.remainder(delta, dimensions)
-        # Set all where it's > half the cell to subtract the cell dimension
-        delta = numpy.where(numpy.abs(delta) > 0.5 * dimensions,
-                            delta - numpy.copysign(dimensions, delta),
-                            delta)
-    return delta
 
 def XdistanceP(self, v1, v2):
     """
@@ -858,10 +841,11 @@ def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
     d.writeFIELDandCONFIG(mycell, rigidBody=rigidBody, skipDihedrals=skipDihedrals)
     return
 
-def haloCells(key, boxNum=None):
+def haloCells(key, boxNum=None, wall=[1,1,1]):
     """Returns the list of cells surrounding a cell
     boxNum is the number of boxes in each dimension of the containing cell if we
     are under PBC
+    wall is an array with 0 where there is a wall along that axis
     """
     a, b, c = key
     # cells = set()
@@ -874,17 +858,17 @@ def haloCells(key, boxNum=None):
                 ck = c + k
                 if boxNum:
                     # Impose periodic boundaries 
-                    if ai < 0:
+                    if ai < 0 and wall[0] > 0:
                         ai = boxNum[0] - 1
-                    elif ai > boxNum[0] - 1:
+                    elif ai > boxNum[0] - 1 and wall[0] > 0:
                         ai = 0
-                    if bj < 0:
+                    if bj < 0 and wall[1] > 0:
                         bj = boxNum[1] - 1
-                    elif bj > boxNum[1] - 1:
+                    elif bj > boxNum[1] - 1 and wall[1] > 0:
                         bj = 0
-                    if ck < 0:
+                    if ck < 0 and wall[2] > 0:
                         ck = boxNum[2] - 1
-                    elif ck > boxNum[2] - 1:
+                    elif ck > boxNum[2] - 1 and wall[2] > 0:
                         ck = 0
                 skey = (ai, bj, ck)
                 # print "sKey ({},{},{})->({})".format(a,b,c,skey)
@@ -1005,6 +989,37 @@ def rotation_matrix(axis, angle):
     return numpy.array([[a * a + b * b - c * c - d * d, 2 * (b * c - a * d), 2 * (b * d + a * c)],
                      [2 * (b * c + a * d), a * a + c * c - b * b - d * d, 2 * (c * d - a * b)],
                      [2 * (b * d - a * c), 2 * (c * d + a * b), a * a + d * d - b * b - c * c]])
+
+def vecDiff(v1, v2, cell=None):
+    """Difference between vectors with numpy taking PBC into account
+    This works either with 2 points or a vector of any number of points
+    Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
+    Changed so that it can cope with distances across more than one cell
+    If one of the cell parameters is zero, it indicates the presence of a wall along that axis
+    """
+    assert len(v1) > 0 and len(v2) > 0, "vecDiff needs vectors!"
+    delta = numpy.array(v1) - numpy.array(v2)
+    if cell is not None:
+        # dimensions = numpy.array( cell )
+        dimensions = cell
+        
+        # We need to suppress the warnings about divide by zero as we currently use this to
+        # decide when a wall is present. Probably need to think of another way to do this.
+        old_settings = numpy.seterr(invalid='ignore')
+        
+        # is basically modulus - returns what's left when divided by dim
+        delta1 = numpy.remainder(delta, dimensions)
+        
+        numpy.seterr(**old_settings)
+        
+        # jmht addition to deal with zeros on cell (indicating a wall) giving nans
+        delta = numpy.where(numpy.isnan(delta1), delta, delta1)
+        
+        # Set all where it's > half the cell to subtract the cell dimension
+        delta = numpy.where(numpy.abs(delta) > 0.5 * dimensions,
+                            delta - numpy.copysign(dimensions, delta),
+                            delta)
+    return delta
 
 def vectorAngle(v1, v2):
     """ Calculate the angle between two vectors
@@ -1325,14 +1340,56 @@ class Test(unittest.TestCase):
     
     def testVecDiff(self):
         v1 = numpy.array([0, 0, 0])
-        v2 = numpy.array([1, 0, 0])
-        v3 = numpy.array([0, 1, 0])
-        v4 = numpy.array([0, 0, 1])
+        v2 = numpy.array([2.5, 2.5, 2.5])
+        v3 = numpy.array([10, 10, 10])
+        v4 = numpy.array([7.5, 7.5, 7.5])
         
-        print numpy.array([v1,v2]) - numpy.array([v3,v4])
+        # Test without cell
+        ref = [[ -10.0, -10.0,  -10.0], [-5.0, - 5.0, -5.0]]
+        result = vecDiff([v1,v2], [v3,v4], cell=None)
+        self.assertTrue(numpy.allclose(ref, result),
+                         msg="Incorrect with no cell: {0}".format(result))
         
-        #diff = vecDiff(v1, v2, cell=None)
+        # Test with cell
+        cell = numpy.array([10.0, 10.0, 10.0])
+        ref = [[ 0.0, 0.0,  0.0], [5.0, 5.0, 5.0]]
+        result = vecDiff([v1,v2], [v3,v4], cell=cell)
+        self.assertTrue(numpy.allclose(ref, result),
+                         msg="Incorrect with cell: {0}".format(result))
         
+        # Test with only some conditions having PBC
+        cell = numpy.array([0.0, 10.0, 10.0])
+        ref = [[ -10.0, 0.0,  0.0], [-5.0, 5.0, 5.0]]
+        result = vecDiff([v1,v2], [v3,v4], cell=cell)
+        self.assertTrue(numpy.allclose(ref, result),
+                         msg="Incorrect with partial cell: {0}".format(result))
+        return
+    
+    def testDistance(self):
+        v1 = numpy.array([0, 0, 0])
+        v2 = numpy.array([2.5, 2.5, 2.5])
+        v3 = numpy.array([10, 10, 10])
+        v4 = numpy.array([7.5, 7.5, 7.5])
+        
+        # Test without cell
+        ref = [17.32050808, 8.66025404]
+        result = distance([v1,v2], [v3,v4], cell=None)
+        self.assertTrue(numpy.allclose(ref, result),
+                         msg="Incorrect with no cell: {0}".format(result))
+        
+        # Test with cell
+        cell = numpy.array([10.0, 10.0, 10.0])
+        ref = [0, 8.66025404]
+        result = distance([v1,v2], [v3,v4], cell=cell)
+        self.assertTrue(numpy.allclose(ref, result),
+                         msg="Incorrect with cell: {0}".format(result))
+        
+        # Test with only some conditions having PBC
+        cell = numpy.array([0.0, 10.0, 10.0])
+        ref = [10.0, 8.66025404]
+        result = distance([v1,v2], [v3,v4], cell=cell)
+        self.assertTrue(numpy.allclose(ref,result ),
+                         msg="Incorrect with partial cell: {0}".format(result))
         return
 
 if __name__ == '__main__':

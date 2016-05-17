@@ -283,37 +283,6 @@ class Test(unittest.TestCase):
 
         return
 
-    def testCloseAtoms1(self):
-
-        mycell = Cell([2.1, 2.1, 2.1], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15)
-        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
-        mycell.addBondType('A:a-A:a')
-        block1 = mycell.getInitBlock('A')
-
-        natoms = block1.numAtoms()
-
-        # block radius is 1.8
-        block1.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-        block1Idx = mycell.addBlock(block1)
-
-        # Alone in cell but in center
-        self.assertFalse(mycell.closeAtoms(block1Idx))
-
-        # Add second block overlapping first but in other image
-        block2 = mycell.getInitBlock('A')
-        block2.translateCentroid([ mycell.dim[0] / 2 + mycell.dim[0],
-                                   mycell.dim[1] / 2 + mycell.dim[1],
-                                   mycell.dim[2] / 2 + mycell.dim[2] ])
-        block2Idx = mycell.addBlock(block2)
-
-        # Make sure every atom overlaps with ever other
-        self.assertEquals(natoms * natoms, len(mycell.closeAtoms(block1Idx)))
-
-        # See we have enough clashing atoms - NOT CHECKED THIS NUMBER
-        self.assertEquals(15, mycell._checkMove(block2Idx))
-
-        return
-
     def testCloseAtoms(self):
 
         mycell = Cell([30, 30, 30], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15)
@@ -327,7 +296,10 @@ class Test(unittest.TestCase):
         block2.translateCentroid([ 2.2, 2.2, 2.2 ])
         block2_id = mycell.addBlock(block2)
 
-        closeList = mycell.closeAtoms(block1_id)
+        closeList, wallClash = mycell.closeAtoms(block1_id)
+        
+        self.assertFalse(wallClash,"Got clash with wall")
+        
         # Updated refPairs as now have
         refPairs = [ (0, 3), (1, 3), (2, 3) ]  # Also used to check PBC
         closePairs = []
@@ -346,7 +318,8 @@ class Test(unittest.TestCase):
         block2.translateCentroid([10, 10, 10])
         block2_id = mycell.addBlock(block2)
 
-        close = mycell.closeAtoms(block1_id)
+        close, wallClash = mycell.closeAtoms(block1_id)
+        self.assertFalse(wallClash, "Wallclash")
         self.assertFalse(close, "No contacts: ".format(close))
 
         # Now check across periodic boundary
@@ -361,12 +334,50 @@ class Test(unittest.TestCase):
 
         # mycell.writeXyz("close2.xyz", label=False)
 
-        closeList = mycell.closeAtoms(block1_id)
+        closeList, wallClash = mycell.closeAtoms(block1_id)
+        self.assertFalse(wallClash, "Wallclash")
         closePairs = []
         for iatom, block, ioatom, distance in closeList:
             closePairs.append((iatom, ioatom))
 
         self.assertEqual(closePairs, refPairs, "Periodic boundary: {}".format(closePairs))
+
+        return
+
+    def testCloseAtoms2(self):
+
+        mycell = Cell([2.1, 2.1, 2.1], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.addBondType('A:a-A:a')
+        block1 = mycell.getInitBlock('A')
+
+        natoms = block1.numAtoms()
+
+        # block radius is 1.8
+        block1.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
+        block1Idx = mycell.addBlock(block1)
+
+        # Alone in cell but in center
+        close, wallClash = mycell.closeAtoms(block1Idx)
+        self.assertFalse(close)
+        self.assertFalse(wallClash)
+
+        # Add second block overlapping first but in other image
+        block2 = mycell.getInitBlock('A')
+        block2.translateCentroid([ mycell.dim[0] / 2 + mycell.dim[0],
+                                   mycell.dim[1] / 2 + mycell.dim[1],
+                                   mycell.dim[2] / 2 + mycell.dim[2] ])
+        block2Idx = mycell.addBlock(block2)
+
+        # Make sure every atom overlaps with ever other
+        close, wallClash = mycell.closeAtoms(block1Idx)
+        self.assertFalse(wallClash)
+        self.assertEquals(natoms * natoms, len(close))
+        
+        # See we have enough clashing atoms - NOT CHECKED THIS NUMBER
+        close, wallClash = mycell.closeAtoms(block2Idx)
+        self.assertFalse(wallClash)
+        self.assertEquals(natoms * natoms, len(close))
 
         return
 
@@ -606,7 +617,7 @@ class Test(unittest.TestCase):
         p4 = numpy.array([ 20.0, 10.0, 10.0 ])
 
         ref = util.dihedral(p1, p2, p3, p4)
-
+        
         self.assertEqual(ref, mycell.dihedral(p1, p2, p3, p4))
 
         # Move by a full cell along x-axis - result should be the same
@@ -728,7 +739,7 @@ class Test(unittest.TestCase):
     def testGrowBlocks(self):
         """Test we can add blocks correctly"""
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim, doLog=True)
+        mycell = Cell(boxDim, doLog=False)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         # mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
@@ -1325,6 +1336,33 @@ class Test(unittest.TestCase):
         (0, 1, 1), (4, 0, 0), (4, 0, 4), (4, 0, 1), (4, 4, 0), (4, 4, 4), (4, 4, 1), (4, 1, 0), (4, 1, 4),
          (4, 1, 1), (1, 0, 0), (1, 0, 4), (1, 0, 1), (1, 4, 0), (1, 4, 4), (1, 4, 1), (1, 1, 0), (1, 1, 4), (1, 1, 1)])
         self.assertEqual(s, sb , "periodic: {0}".format(sb))
+        return
+    
+        
+    def testWall(self):
+        """Test that we can implement a wall correctly"""
+        
+        boxDim = [10, 10, 10]
+        mycell = Cell(boxDim)
+
+        mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
+        #mycell.addBondType('A:a-A:a')
+        
+        # Create the wall
+        mycell.setWall(XOY=True, XOZ=False, YOZ=False)
+
+        # first add a block in the center
+        nblocks = 1
+        added = mycell.seed(nblocks, center=True)
+        self.assertEqual(added, nblocks, "Failed to add central block")
+        
+        # Now add a block against the XOY / a wall and confirm it fails
+        nblocks = 1
+        added = mycell.seed(nblocks, point=[0.0, 5.0, 5.0 ], maxTries=1)
+        self.assertEqual(added, 0, "Added block at wall")
+        
+        mycell.dump()
+        
         return
 
     def testZipBlocks(self):

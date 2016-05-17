@@ -183,7 +183,11 @@ class Cell():
         # For time being origin always 0,0,0
         self.origin = numpy.array([0, 0, 0], dtype=numpy.float64)
         
+        # The cell dimensions
         self.dim = None
+        
+        # Where there are walls in the cell
+        self.wall = None
 
         # additional distance to add on to the characteristic bond length
         # when checking whether 2 atoms are close enough to bond
@@ -364,8 +368,9 @@ class Cell():
 
     def angle(self, c1, c2, c3):
         """Return the angle in radians c1---c2---c3
-        where c are the coordinates in a numpy array"""
-        return util.angle(c1, c2, c3, cell=numpy.array(self.dim))
+        where c are the coordinates in a numpy array
+        """
+        return util.angle(c1, c2, c3, cell=numpy.array(self.wall))
 
     def attachBlock(self, growEndGroup, staticEndGroup, dihedral=None):
         """
@@ -669,10 +674,14 @@ class Cell():
         get pairs of close atoms
 
         """
-        close = self.closeAtoms(idxAddBlock) # Get a list of the close atoms
+        close, wallClashes = self.closeAtoms(idxAddBlock, wall=self.wall) # Get a list of the close atoms
         # if close: print "GOT {0} CLOSE ATOMS ".format( len(close) )
 
-        if not close:
+        if wallClashes:
+            LOGGER.debug("_checkMove got clash with wall")
+            return 1
+        
+        if len(close) is 0:
             LOGGER.debug("_checkMove no close contacts")
             return 0
 
@@ -785,7 +794,7 @@ class Cell():
         self.blocks.clear()  # Delete block list
         return
 
-    def closeAtoms(self, idxBlock1):
+    def closeAtoms(self, idxBlock1, wall=None):
         """
         Find all atoms that are close to the atoms in the given block.
 
@@ -796,7 +805,10 @@ class Cell():
         idxBlock1: index of the block in self.blocks
 
         Returns:
-        a list of tuples: (thisAtomIndex, otherBlockIndex, otherAtomIndex, distance) or None if there we no close contacts
+        A tuple with:
+        * a list of tuples: (thisAtomIndex, otherBlockIndex, otherAtomIndex, distance) or None if there we no close contacts
+          or a clash with the wall
+        * True/False if there is a clash with the wall
         """
 
         # Build up list of the coordinates and an initial contacts array
@@ -807,6 +819,15 @@ class Cell():
         count = 0
         block1 = self.blocks[ idxBlock1 ]
         for idxAtom1, coord1 in enumerate(block1.iterCoord()):
+            
+            # First check if the atom is close to a wall
+            if wall is not None:
+                radius = block1.radius(idxAtom1) + self.atomMargin
+                if wall[0] == 0 and (coord1[0] < radius or coord1[0] > self.dim[0] - radius) or \
+                   wall[1] == 0 and (coord1[1] < radius or coord1[1] > self.dim[1] - radius) or \
+                   wall[2] == 0 and (coord1[2] < radius or coord1[2] > self.dim[2] - radius):
+                    # Got a clash with a wall, so we can stop all other checks
+                    return None, True
 
             # Get the box this atom is in
             key = block1.atomCell[ idxAtom1 ]
@@ -836,13 +857,13 @@ class Cell():
 
         # Have list so now calculate distances
         if count == 0:
-            return []
+            return [], False
 
         # Calculate array of distances for all coordinates
         distances = self.distance(c1, c2)
 
         # prune contacts array according to distances
-        return [ (c[0], c[1], c[2], distances[i]) for i, c in enumerate(allContacts) if distances[i] < self.boxSize ]
+        return [ (c[0], c[1], c[2], distances[i]) for i, c in enumerate(allContacts) if distances[i] < self.boxSize ], False
 
     def cellEndGroupPair(self, cellEndGroups=None):
         """Return two free endGroups from two different blocks in the cell"""
@@ -1217,15 +1238,15 @@ class Cell():
         return d * (10 / 6.022)
 
     def dihedral(self, p1, p2, p3, p4):
-        return util.dihedral(p1, p2, p3, p4, cell=self.dim)
+        return util.dihedral(p1, p2, p3, p4, cell=numpy.array(self.wall))
 
-    def distance(self, v1, v2, cell=None):
+    def distance(self, v1, v2):
         """Distance with numpy taking PBC into account
         This works either with 2 points or a vector of any number of points
         Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
         Changed so that it can cope with distances across more than one cell
         """
-        return util.distance(v1, v2, cell=numpy.array(self.dim))
+        return util.distance(v1, v2, cell=numpy.array(self.wall))
 
     def dump(self, prefix="step", addCount=True):
         """Write out our current state"""
@@ -1402,7 +1423,7 @@ class Cell():
 
     def _getBox(self, coord):
         """Return the box that the coord is in under periodic boundaries"""
-        return util.getCell(coord, self.boxSize, cellDim=self.dim)
+        return util.getCell(coord, self.boxSize, dim=self.wall)
 
     def getInitBlock(self, fragmentType=None, random=True):
         """Return an initBlock"""
@@ -1494,7 +1515,7 @@ class Cell():
         return added
 
     def haloCells(self, key):
-        return util.haloCells(key, self.numBoxes)
+        return util.haloCells(key, self.numBoxes, wall=self.wall)
     
     def initFromFile(self, filePath):
         # Create fragment
@@ -1549,12 +1570,15 @@ class Cell():
         TMAXMAX = max(self.dim[0], self.dim[1], self.dim[2])  # Not 100% sure - just needs to be bigger than any possible value in the cell
         
         # Wrap into a single cell
-        p1[0] = p1[0] % self.dim[0]
-        p1[1] = p1[1] % self.dim[1]
-        p1[2] = p1[2] % self.dim[2]
-        p2[0] = p2[0] % self.dim[0]
-        p2[1] = p2[1] % self.dim[1]
-        p2[2] = p2[2] % self.dim[2]
+        if self.wall[0] > 0:
+            p1[0] % self.dim[0]
+            p2[0] % self.dim[0]
+        if self.wall[1] > 0:
+            p1[1] % self.dim[1]
+            p2[1] % self.dim[1]
+        if self.wall[2] > 0:
+            p1[2] % self.dim[2]
+            p2[2] % self.dim[2]
         
         X, Y, Z = self._getBox(p1)  # The cell p1 is in
         outX, outY, outZ = self._getBox(p2)  # The cell p2 is in
@@ -1596,12 +1620,10 @@ class Cell():
             tDeltaZ = self.boxSize / dz
             tMaxZ = tDeltaZ * (1.0 - math.modf(p1[2] / self.boxSize)[0])
             
-        
         # print "dx ",dx,dy,dz
         # print "IN ",X,Y,Z
         # print "OUT ",outX,outY,outZ
         # print "stepX ",stepX
-            
         cells = [(X, Y, Z)]  # Start with this cell
         while True:
             # Stop when we've reached the cell with p2
@@ -1610,10 +1632,11 @@ class Cell():
                 if tMaxX < tMaxZ:
                     # PBC
                     X = X + stepX
-                    if X < 0:
-                        X = self.numBoxes[0] - 1
-                    elif X > self.numBoxes[0] - 1:
-                        X = 0
+                    if self.wall[0] > 0:
+                        if X < 0:
+                            X = self.numBoxes[0] - 1
+                        elif X > self.numBoxes[0] - 1:
+                            X = 0
                     cells.append((X, Y, Z))
                     if X == outX:
                         tMaxX = TMAXMAX
@@ -1622,10 +1645,11 @@ class Cell():
                 else:
                     Z = Z + stepZ
                     # PBC
-                    if Z < 0:
-                        Z = self.numBoxes[2] - 1
-                    elif Z > self.numBoxes[2] - 1:
-                        Z = 0    
+                    if self.wall[2] > 0:
+                        if Z < 0:
+                            Z = self.numBoxes[2] - 1
+                        elif Z > self.numBoxes[2] - 1:
+                            Z = 0    
                     cells.append((X, Y, Z))
                     if Z == outZ:
                         tMaxZ = TMAXMAX
@@ -1635,10 +1659,11 @@ class Cell():
                 if tMaxY < tMaxZ:
                     # PBC
                     Y = Y + stepY
-                    if Y < 0:
-                        Y = self.numBoxes[1] - 1
-                    elif Y > self.numBoxes[1] - 1:
-                        Y = 0 
+                    if self.wall[1] > 0:
+                        if Y < 0:
+                            Y = self.numBoxes[1] - 1
+                        elif Y > self.numBoxes[1] - 1:
+                            Y = 0 
                     cells.append((X, Y, Z))
                     if Y == outY:
                         tMaxY = TMAXMAX
@@ -1647,10 +1672,11 @@ class Cell():
                 else:
                     Z = Z + stepZ
                     # PBC
-                    if Z < 0:
-                        Z = self.numBoxes[2] - 1
-                    elif Z > self.numBoxes[2] - 1:
-                        Z = 0 
+                    if self.wall[2] > 0:
+                        if Z < 0:
+                            Z = self.numBoxes[2] - 1
+                        elif Z > self.numBoxes[2] - 1:
+                            Z = 0 
                     cells.append((X, Y, Z))
                     if Z == outZ:
                         tMaxZ = TMAXMAX
@@ -2282,7 +2308,8 @@ class Cell():
                         ]
         
         self.updateCellSize(boxShift=boxShift)
-   
+        
+        self.wall = self.dim
         return
 
     def setMaxBond(self, bondType, count):
@@ -2299,6 +2326,15 @@ class Cell():
         # Now get the library fragment to set it's maxBond parameter
         fragment = self._fragmentLibrary[ fragmentType ]
         return fragment.setMaxBond(bondType, count)
+    
+    def setWall(self, XOY=False, XOZ=False, YOZ=False):
+        """Create walls along the specified sides.
+        """
+        a = 0.0 if XOY else self.dim[0]
+        b = 0.0 if XOZ else self.dim[1]
+        c = 0.0 if YOZ else self.dim[2]
+        self.wall = numpy.array([a, b, c])
+        return
 
     def _setupAnalyse(self, logfile='ambuild.csv'):
         self.analyse = Analyse(self, logfile=logfile)
@@ -2412,7 +2448,7 @@ class Cell():
 
         atomCount = 0  # Global count in cell
         bodyCount = -1
-        for idxBlock, block in cell.blocks.iteritems():
+        for idxBlock, block in self.blocks.iteritems():
             for idxFrag, frag in enumerate(block.fragments):  # need index of fragment in block
                 bodyCount += frag.numBodies()
                 atomCount += frag.lenData()
@@ -2607,9 +2643,9 @@ class Cell():
             coord = block.coord(idxEndGroup)
 
             # Periodic Boundaries
-            x = coord[0] % self.dim[0]
-            y = coord[1] % self.dim[1]
-            z = coord[2] % self.dim[2]
+            x = coord[0] if self.wall[0] == 0 else coord[0] % self.dim[0]
+            y = coord[1] if self.wall[1] == 0 else coord[1] % self.dim[1]
+            z = coord[2] if self.wall[2] == 0 else coord[2] % self.dim[2]
 
             # Calculate which cell the atom is in
             a = int(math.floor(x / boxSize))
@@ -2625,7 +2661,7 @@ class Cell():
                 # Add the cell to the list and then add the atom
                 cell1[ key ] = [ (block, idxEndGroup) ]
                 # Map the cells surrounding this one
-                cell3[ key ] = util.haloCells(key, numBoxes)
+                cell3[ key ] = util.haloCells(key, numBoxes, wall=self.wall)
 
         # Loop through all the end groups and run canBond
         egPairs = []
