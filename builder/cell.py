@@ -2587,8 +2587,8 @@ class Cell():
         return
 
     def zipBlocks(self,
-                  bondMargin=None,
-                  bondAngleMargin=None,
+                  bondMargin=0.5,
+                  bondAngleMargin=15,
                   clashCheck=False,
                   clashDist=1.6,
                   selfBond=True):
