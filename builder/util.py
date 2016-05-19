@@ -526,13 +526,13 @@ ELEMENT_TYPE_BOND_LENGTHS['SE'] = { 'SE' : 2.33 }
 ELEMENT_TYPE_BOND_LENGTHS['SI'] = { 'SI' : 2.33 }
 
 
-def angle(c1, c2, c3, cell=None):
+def angle(c1, c2, c3, dim=None, pbc=None):
     """Return the angle in radians c1---c2---c3
     where c are the coordinates in a numpy array
     """
-    r1 = distance(c2, c1, cell=cell)
-    r2 = distance(c3, c2, cell=cell)
-    r3 = distance(c3, c1, cell=cell)
+    r1 = distance(c2, c1, dim=dim, pbc=pbc)
+    r2 = distance(c3, c2, dim=dim, pbc=pbc)
+    r3 = distance(c3, c1, dim=dim, pbc=pbc)
     x = (r1 * r1 + r2 * r2 - r3 * r3) / (2.0 * r1 * r2)
     assert not numpy.isnan(x)
     # print "r1: {0}, r2: {1}, r3: {2}, x: {3}".format( r1, r2, r3, x )
@@ -592,29 +592,27 @@ def calcBondsHACK(coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin
                 bond_length = 4.31
             else:
                 bond_length = bondLength(symbol1, symbol2)
-
             # print "GOT ",symbol1,symbol2,bond_length, dist
-
             if  bond_length - bondMargin < dist < bond_length + bondMargin:
                 # print "BONDING"
                 bonds.append((i, j))
     return bonds
 
-def calcBonds(coords, symbols, cellDim=None, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0):
+def calcBonds(coords, symbols, dim=None, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0):
     """Calculate the bonds for the fragments. This is done at the start when the only coordinates
     are those in the fragment.
     symbols can be chemical elements or atomTypes
     If supplied cell is a list/numpy array with the dimensions of the simulation cell, in which case
     PBC will be applied
     """
-    close = closeAtoms(coords, symbols, cellDim, maxAtomRadius, boxMargin)
+    close = closeAtoms(coords, symbols, dim, maxAtomRadius, boxMargin)
     v1 = []
     v2 = []
     for idxAtom1, idxAtom2 in close:
         v1.append(coords[idxAtom1])
         v2.append(coords[idxAtom2])
         
-    distances = distance(v1, v2, cellDim)
+    distances = distance(v1, v2, dim=dim)
     bonds = []
     
     for i, (idxAtom1, idxAtom2) in enumerate(close):
@@ -625,7 +623,7 @@ def calcBonds(coords, symbols, cellDim=None, maxAtomRadius=None, bondMargin=0.2,
             bonds.append((idxAtom1, idxAtom2))
     return bonds
 
-def closeAtoms(coords, symbols, cellDim=None, maxAtomRadius=None, boxMargin=1.0):
+def closeAtoms(coords, symbols, dim=None, maxAtomRadius=None, boxMargin=1.0):
     """Return a list of which atoms in the cell are close to each other.
     Close is defined by the maxAtomRadius and boxMargin"""
     if maxAtomRadius is None:
@@ -635,12 +633,12 @@ def closeAtoms(coords, symbols, cellDim=None, maxAtomRadius=None, boxMargin=1.0)
     boxSize = (maxAtomRadius * 2) + boxMargin
     # If we are under PBC calculate the number of boxes in each dimenson
     boxNum = None
-    if cellDim is not None:
-        if type(cellDim) is list:
-            cellDim = numpy.array(cellDim)
-        boxNum = [ int(math.ceil(cellDim[0] / boxSize)),
-                 int(math.ceil(cellDim[1] / boxSize)),
-                 int(math.ceil(cellDim[2] / boxSize))]
+    if dim is not None:
+        if type(dim) is list:
+            dim = numpy.array(dim)
+        boxNum = [ int(math.ceil(dim[0] / boxSize)),
+                 int(math.ceil(dim[1] / boxSize)),
+                 int(math.ceil(dim[2] / boxSize))]
 
     atomCells = []  # List of which cell each atom is in - matches coords array
     # For cells and hCells, the key is a triple of the indices of the cell position (a,b,c)
@@ -649,7 +647,7 @@ def closeAtoms(coords, symbols, cellDim=None, maxAtomRadius=None, boxMargin=1.0)
 
     # Work out which box each atom is in and the surrounding boxes
     for idxAtom1, coord in enumerate(coords):
-        key = getCell(coord, boxSize, dim=cellDim)
+        key = getCell(coord, boxSize, dim=dim)
         atomCells.append(key)
         if cells.has_key(key):
             cells[ key ].append(idxAtom1)
@@ -673,13 +671,13 @@ def closeAtoms(coords, symbols, cellDim=None, maxAtomRadius=None, boxMargin=1.0)
                     _closeAtoms.append((idxAtom1, idxAtom2))
     return _closeAtoms
 
-def getCell(coord, boxSize, dim=None):
+def getCell(coord, boxSize, dim=None, pbc=[True, True, True]):
     """Return the cell that the coord is in under periodic boundaries"""
     # Periodic Boundaries
     if dim is not None:
-        x = coord[0] if dim[0] == 0 else coord[0] % dim[0]
-        y = coord[1] if dim[1] == 0 else coord[1] % dim[1]
-        z = coord[2] if dim[2] == 0 else coord[2] % dim[2]
+        x = coord[0] % dim[0] if pbc[0] else coord[0]
+        y = coord[1] % dim[1] if pbc[1] else coord[1]
+        z = coord[2] % dim[2] if pbc[2] else coord[2]
     else:
         x, y, z = coord[0], coord[1], coord[2]
 
@@ -698,7 +696,7 @@ def cellFromPickle(pickleFile):
         myCell.numBoxes = [myCell.numBoxA, myCell.numBoxB, myCell.numBoxC]
     return myCell
 
-def dihedral(p1, p2, p3, p4, cell=None):
+def dihedral(p1, p2, p3, p4, dim=None, pbc=None):
     """ From the CCP1GUI
     """
 #     if cell is not None:
@@ -715,9 +713,9 @@ def dihedral(p1, p2, p3, p4, cell=None):
 #         vec_kj = p3 - p2
 #         vec_kl = p3 - p4
     
-    vec_ij = vecDiff(p1, p2, cell=cell)
-    vec_kj = vecDiff(p3, p2, cell=cell)
-    vec_kl = vecDiff(p3, p4, cell=cell)
+    vec_ij = vecDiff(p1, p2, dim=dim, pbc=pbc)
+    vec_kj = vecDiff(p3, p2, dim=dim, pbc=pbc)
+    vec_kl = vecDiff(p3, p4, dim=dim, pbc=pbc)
 
     # vec1 is the normal to the plane defined by atoms i, j, and k
     vec1 = numpy.cross(vec_ij, vec_kj)
@@ -734,11 +732,13 @@ def dihedral(p1, p2, p3, p4, cell=None):
     # the factor of pi (180.0) is present since when we defined the
     # vectors vec1 and vec2, one used the right hand rule while the
     # other used the left hand rule
-
     dotprod = numpy.dot(vec1, vec2)
-    # print magvec1, magvec2
     # print type(magvec1), type(magvec2)
     fac = dotprod / math.sqrt(magvec1 * magvec2)
+    # We get a nan when all the atoms are in line - for these we return zero
+    if numpy.isnan(fac):
+        #raise RuntimeError("Nan in dihedral!")
+        return 0.0
     fac = min(fac, 1.0)
     fac = max(fac, -1.0)
     # dihed = 180.0 - math.degrees( math.acos(fac ) )
@@ -753,16 +753,15 @@ def dihedral(p1, p2, p3, p4, cell=None):
     sign_check = numpy.dot(vec_ij, vec2)
     if(sign_check > 0.0):
         dihed = dihed * -1.0
-
     return dihed
 
-def distance(v1, v2, cell=None):
+def distance(v1, v2, dim=None, pbc=[True,True,True]):
     """Distance with numpy taking PBC into account
     This works either with 2 points or a vector of any number of points
     Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
     Changed so that it can cope with distances across more than one cell
     """
-    return numpy.sqrt((vecDiff(v1, v2, cell) ** 2).sum(axis=-1))
+    return numpy.sqrt((vecDiff(v1, v2, dim=dim, pbc=pbc) ** 2).sum(axis=-1))
 
 def XdistanceP(self, v1, v2):
     """
@@ -841,7 +840,7 @@ def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
     d.writeFIELDandCONFIG(mycell, rigidBody=rigidBody, skipDihedrals=skipDihedrals)
     return
 
-def haloCells(key, boxNum=None, wall=[1,1,1]):
+def haloCells(key, boxNum=None, pbc=[True, True, True]):
     """Returns the list of cells surrounding a cell
     boxNum is the number of boxes in each dimension of the containing cell if we
     are under PBC
@@ -858,17 +857,17 @@ def haloCells(key, boxNum=None, wall=[1,1,1]):
                 ck = c + k
                 if boxNum:
                     # Impose periodic boundaries 
-                    if ai < 0 and wall[0] > 0:
+                    if ai < 0 and pbc[0]:
                         ai = boxNum[0] - 1
-                    elif ai > boxNum[0] - 1 and wall[0] > 0:
+                    elif ai > boxNum[0] - 1 and pbc[0]:
                         ai = 0
-                    if bj < 0 and wall[1] > 0:
+                    if bj < 0 and pbc[1]:
                         bj = boxNum[1] - 1
-                    elif bj > boxNum[1] - 1 and wall[1] > 0:
+                    elif bj > boxNum[1] - 1 and pbc[1]:
                         bj = 0
-                    if ck < 0 and wall[2] > 0:
+                    if ck < 0 and pbc[2]:
                         ck = boxNum[2] - 1
-                    elif ck > boxNum[2] - 1 and wall[2] > 0:
+                    elif ck > boxNum[2] - 1 and pbc[2]:
                         ck = 0
                 skey = (ai, bj, ck)
                 # print "sKey ({},{},{})->({})".format(a,b,c,skey)
@@ -990,35 +989,31 @@ def rotation_matrix(axis, angle):
                      [2 * (b * c + a * d), a * a + c * c - b * b - d * d, 2 * (c * d - a * b)],
                      [2 * (b * d - a * c), 2 * (c * d + a * b), a * a + d * d - b * b - c * c]])
 
-def vecDiff(v1, v2, cell=None):
+def vecDiff(v1, v2, dim=None, pbc=[True,True,True]):
     """Difference between vectors with numpy taking PBC into account
     This works either with 2 points or a vector of any number of points
     Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
     Changed so that it can cope with distances across more than one cell
-    If one of the cell parameters is zero, it indicates the presence of a wall along that axis
+   Args:
+   dim - 3 element array with dimensions of unit cell
+   pbc - 3 element boolean array indicating if this dimension has periodic boundaries
     """
     assert len(v1) > 0 and len(v2) > 0, "vecDiff needs vectors!"
+    # Need to convert to numpy array as could be list of numpy arrays or just a single numpy array
     delta = numpy.array(v1) - numpy.array(v2)
-    if cell is not None:
-        # dimensions = numpy.array( cell )
-        dimensions = cell
-        
-        # We need to suppress the warnings about divide by zero as we currently use this to
-        # decide when a wall is present. Probably need to think of another way to do this.
-        old_settings = numpy.seterr(invalid='ignore')
-        
-        # is basically modulus - returns what's left when divided by dim
-        delta1 = numpy.remainder(delta, dimensions)
-        
-        numpy.seterr(**old_settings)
-        
-        # jmht addition to deal with zeros on cell (indicating a wall) giving nans
-        delta = numpy.where(numpy.isnan(delta1), delta, delta1)
-        
-        # Set all where it's > half the cell to subtract the cell dimension
-        delta = numpy.where(numpy.abs(delta) > 0.5 * dimensions,
-                            delta - numpy.copysign(dimensions, delta),
-                            delta)
+    if dim is not None:
+        for idx in [0,1,2]:
+            if pbc[idx]:
+                if delta.ndim == 1:
+                    delta[idx] = numpy.remainder(delta[idx], dim[idx])
+                    delta[idx] = numpy.where(numpy.abs(delta[idx]) > 0.5 * dim[idx],
+                                    delta[idx] - numpy.copysign(dim[idx], delta[idx]),
+                                    delta[idx])
+                else:
+                    delta[:,idx] = numpy.remainder(delta[:,idx], dim[idx])
+                    delta[:,idx] = numpy.where(numpy.abs(delta[:,idx]) > 0.5 * dim[idx],
+                                    delta[:,idx] - numpy.copysign(dim[idx], delta[:,idx]),
+                                    delta[:,idx])
     return delta
 
 def vectorAngle(v1, v2):
@@ -1344,23 +1339,23 @@ class Test(unittest.TestCase):
         v3 = numpy.array([10, 10, 10])
         v4 = numpy.array([7.5, 7.5, 7.5])
         
+        dim = numpy.array([10.0, 10.0, 10.0])
+        
         # Test without cell
         ref = [[ -10.0, -10.0,  -10.0], [-5.0, - 5.0, -5.0]]
-        result = vecDiff([v1,v2], [v3,v4], cell=None)
+        result = vecDiff([v1,v2], [v3,v4], dim=dim, pbc=[False,False,False])
         self.assertTrue(numpy.allclose(ref, result),
                          msg="Incorrect with no cell: {0}".format(result))
         
         # Test with cell
-        cell = numpy.array([10.0, 10.0, 10.0])
         ref = [[ 0.0, 0.0,  0.0], [5.0, 5.0, 5.0]]
-        result = vecDiff([v1,v2], [v3,v4], cell=cell)
+        result = vecDiff([v1,v2], [v3,v4], dim=dim, pbc=[True,True,True])
         self.assertTrue(numpy.allclose(ref, result),
                          msg="Incorrect with cell: {0}".format(result))
         
         # Test with only some conditions having PBC
-        cell = numpy.array([0.0, 10.0, 10.0])
         ref = [[ -10.0, 0.0,  0.0], [-5.0, 5.0, 5.0]]
-        result = vecDiff([v1,v2], [v3,v4], cell=cell)
+        result = vecDiff([v1,v2], [v3,v4], dim=dim, pbc=[False,True,True])
         self.assertTrue(numpy.allclose(ref, result),
                          msg="Incorrect with partial cell: {0}".format(result))
         return

@@ -186,8 +186,11 @@ class Cell():
         # The cell dimensions
         self.dim = None
         
-        # Where there are walls in the cell
-        self.wall = None
+        # Whether there are periodic boundaries in this axis
+        self.pbc = [True, True, True]
+        
+        # Whether there is a wall along the axis
+        self.wall = [False, False, False]
 
         # additional distance to add on to the characteristic bond length
         # when checking whether 2 atoms are close enough to bond
@@ -370,7 +373,7 @@ class Cell():
         """Return the angle in radians c1---c2---c3
         where c are the coordinates in a numpy array
         """
-        return util.angle(c1, c2, c3, cell=numpy.array(self.wall))
+        return util.angle(c1, c2, c3, dim=self.dim, pbc=self.pbc)
 
     def attachBlock(self, growEndGroup, staticEndGroup, dihedral=None):
         """
@@ -385,7 +388,7 @@ class Cell():
         growBlock = growEndGroup.block()
         staticBlock = staticEndGroup.block()
         idxStaticBlock = staticBlock.id
-
+        
         staticBlock.positionGrowBlock(staticEndGroup, growEndGroup, dihedral=dihedral)
 
         # Now add growBlock to the cell so we can check for clashes
@@ -823,9 +826,9 @@ class Cell():
             # First check if the atom is close to a wall
             if wall is not None:
                 radius = block1.radius(idxAtom1) + self.atomMargin
-                if wall[0] == 0 and (coord1[0] < radius or coord1[0] > self.dim[0] - radius) or \
-                   wall[1] == 0 and (coord1[1] < radius or coord1[1] > self.dim[1] - radius) or \
-                   wall[2] == 0 and (coord1[2] < radius or coord1[2] > self.dim[2] - radius):
+                if wall[0] and (coord1[0] < radius or coord1[0] > self.dim[0] - radius) or \
+                   wall[1] and (coord1[1] < radius or coord1[1] > self.dim[1] - radius) or \
+                   wall[2] and (coord1[2] < radius or coord1[2] > self.dim[2] - radius):
                     # Got a clash with a wall, so we can stop all other checks
                     return None, True
 
@@ -1238,7 +1241,7 @@ class Cell():
         return d * (10 / 6.022)
 
     def dihedral(self, p1, p2, p3, p4):
-        return util.dihedral(p1, p2, p3, p4, cell=numpy.array(self.wall))
+        return util.dihedral(p1, p2, p3, p4, dim=self.dim, pbc=self.pbc)
 
     def distance(self, v1, v2):
         """Distance with numpy taking PBC into account
@@ -1246,7 +1249,7 @@ class Cell():
         Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
         Changed so that it can cope with distances across more than one cell
         """
-        return util.distance(v1, v2, cell=numpy.array(self.wall))
+        return util.distance(v1, v2, dim=self.dim, pbc=self.pbc)
 
     def dump(self, prefix="step", addCount=True):
         """Write out our current state"""
@@ -1423,7 +1426,7 @@ class Cell():
 
     def _getBox(self, coord):
         """Return the box that the coord is in under periodic boundaries"""
-        return util.getCell(coord, self.boxSize, dim=self.wall)
+        return util.getCell(coord, self.boxSize, dim=self.dim, pbc=self.pbc)
 
     def getInitBlock(self, fragmentType=None, random=True):
         """Return an initBlock"""
@@ -1515,7 +1518,7 @@ class Cell():
         return added
 
     def haloCells(self, key):
-        return util.haloCells(key, self.numBoxes, wall=self.wall)
+        return util.haloCells(key, self.numBoxes, pbc=self.pbc)
     
     def initFromFile(self, filePath):
         # Create fragment
@@ -1570,20 +1573,19 @@ class Cell():
         TMAXMAX = max(self.dim[0], self.dim[1], self.dim[2])  # Not 100% sure - just needs to be bigger than any possible value in the cell
         
         # Wrap into a single cell
-        if self.wall[0] > 0:
+        if self.pbc[0]:
             p1[0] % self.dim[0]
             p2[0] % self.dim[0]
-        if self.wall[1] > 0:
+        if self.pbc[1]:
             p1[1] % self.dim[1]
             p2[1] % self.dim[1]
-        if self.wall[2] > 0:
+        if self.pbc[2]:
             p1[2] % self.dim[2]
             p2[2] % self.dim[2]
         
         X, Y, Z = self._getBox(p1)  # The cell p1 is in
         outX, outY, outZ = self._getBox(p2)  # The cell p2 is in
         dx, dy, dz = self.vecDiff(p2, p1)  # length components of line
-        
         #
         # X
         #
@@ -1632,7 +1634,7 @@ class Cell():
                 if tMaxX < tMaxZ:
                     # PBC
                     X = X + stepX
-                    if self.wall[0] > 0:
+                    if self.pbc[0]:
                         if X < 0:
                             X = self.numBoxes[0] - 1
                         elif X > self.numBoxes[0] - 1:
@@ -1645,7 +1647,7 @@ class Cell():
                 else:
                     Z = Z + stepZ
                     # PBC
-                    if self.wall[2] > 0:
+                    if self.pbc[2]:
                         if Z < 0:
                             Z = self.numBoxes[2] - 1
                         elif Z > self.numBoxes[2] - 1:
@@ -1659,7 +1661,7 @@ class Cell():
                 if tMaxY < tMaxZ:
                     # PBC
                     Y = Y + stepY
-                    if self.wall[1] > 0:
+                    if self.pbc[1]:
                         if Y < 0:
                             Y = self.numBoxes[1] - 1
                         elif Y > self.numBoxes[1] - 1:
@@ -1672,7 +1674,7 @@ class Cell():
                 else:
                     Z = Z + stepZ
                     # PBC
-                    if self.wall[2] > 0:
+                    if self.pbc[2]:
                         if Z < 0:
                             Z = self.numBoxes[2] - 1
                         elif Z > self.numBoxes[2] - 1:
@@ -2222,6 +2224,7 @@ class Cell():
                  the blocks will be seeded (requires point argument).
         zone - a list of 6 floats specifying a box within the cell within which the centroids of the blocks will
                be seeded.
+        random - randomly rotate the blocks on seeding
         Returns:
         the number of blocks added
         """
@@ -2308,8 +2311,6 @@ class Cell():
                         ]
         
         self.updateCellSize(boxShift=boxShift)
-        
-        self.wall = self.dim
         return
 
     def setMaxBond(self, bondType, count):
@@ -2330,10 +2331,8 @@ class Cell():
     def setWall(self, XOY=False, XOZ=False, YOZ=False):
         """Create walls along the specified sides.
         """
-        a = 0.0 if XOY else self.dim[0]
-        b = 0.0 if XOZ else self.dim[1]
-        c = 0.0 if YOZ else self.dim[2]
-        self.wall = numpy.array([a, b, c])
+        self.wall = [XOY, XOZ, YOZ]
+        self.pbc = [ not b for b in self.wall ]
         return
 
     def _setupAnalyse(self, logfile='ambuild.csv'):
@@ -2455,7 +2454,7 @@ class Cell():
         return
     
     def vecDiff(self, p1, p2):
-        return util.vecDiff(p1, p2, cell=numpy.array(self.dim))
+        return util.vecDiff(p1, p2, dim=self.dim, pbc=self.pbc)
 
     def writePickle(self, fileName="cell.pkl"):
         """Pickle ourselves"""
@@ -2606,6 +2605,8 @@ class Cell():
                      see the atom.
         selfBond  - boolean to specify if zip will allow a block to bond to itself (True) or not (False) [default: True]
         """
+        if bondMargin > max(self.dim): raise RuntimeError("bondMargin is greater then the cell")
+        
         LOGGER.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin))
 
         # Convert to radians
@@ -2643,9 +2644,9 @@ class Cell():
             coord = block.coord(idxEndGroup)
 
             # Periodic Boundaries
-            x = coord[0] if self.wall[0] == 0 else coord[0] % self.dim[0]
-            y = coord[1] if self.wall[1] == 0 else coord[1] % self.dim[1]
-            z = coord[2] if self.wall[2] == 0 else coord[2] % self.dim[2]
+            x = coord[0] % self.dim[0] if self.pbc[0] else coord[0]
+            y = coord[1] % self.dim[1] if self.pbc[1] else coord[1]
+            z = coord[1] % self.dim[2] if self.pbc[2] else coord[2]
 
             # Calculate which cell the atom is in
             a = int(math.floor(x / boxSize))
@@ -2661,14 +2662,14 @@ class Cell():
                 # Add the cell to the list and then add the atom
                 cell1[ key ] = [ (block, idxEndGroup) ]
                 # Map the cells surrounding this one
-                cell3[ key ] = util.haloCells(key, numBoxes, wall=self.wall)
+                cell3[ key ] = util.haloCells(key, numBoxes, pbc=self.pbc)
 
         # Loop through all the end groups and run canBond
         egPairs = []
         c1 = []
         c2 = []
         for block1, idxEndGroup1 in endGroups:
-
+            
             # Get the box this atom is in
             key = block1.zipCell[ idxEndGroup1 ]
 

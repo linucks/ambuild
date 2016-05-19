@@ -677,14 +677,14 @@ class Fragment(object):
         self.fillData()
         
         # If under PBC we need to change how we calculate the bonds
-        cell = None
+        dim = None
         if self._cellParameters and self.static:
-            cell = numpy.array([self._cellParameters['A'], self._cellParameters['B'], self._cellParameters['C']])
+            dim = numpy.array([self._cellParameters['A'], self._cellParameters['B'], self._cellParameters['C']])
 
         # Specify internal bonds - bond margin probably too big...
         self._bonds = util.calcBonds(coords,
                                      types,
-                                     cellDim=cell,
+                                     dim=dim,
                                      maxAtomRadius=self.maxAtomRadius(),
                                      bondMargin=0.25)
 
