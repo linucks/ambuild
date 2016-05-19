@@ -750,18 +750,17 @@ class Block(object):
         # We need to rotate to adhere to the specified dihedral angle
         if dihedral is not None:
             assert 0 <= dihedral < math.pi * 2
+            assert endGroup.blockDihedralIdx != -1 and growEndGroup.blockDihedralIdx != -1, \
+            "Need to have specified dihedrals as 3rd column in ambi file first!"
             # Get current angle
             current = util.dihedral(self.coord(endGroup.blockDihedralIdx),
                                      self.coord(endGroup.blockEndGroupIdx),
                                      growBlock.coord(growEndGroup.blockEndGroupIdx),
                                      growBlock.coord(growEndGroup.blockDihedralIdx))
 
-            assert endGroup.blockDihedralIdx != -1 and growEndGroup.blockDihedralIdx != -1, \
-            "Need to have specified dihedrals as 3rd column in ambi file first!"
-
             # Find how much we need to rotate by
             angle = dihedral - current
-            if angle != 0:
+            if not (numpy.allclose(angle, 0.0, rtol=1e-05) or numpy.allclose(angle, math.pi*2, rtol=1e-05)):
                 # Need to rotate so get the axis to rotate about
                 axis = self.coord(endGroup.blockEndGroupIdx) - growBlock.coord(growEndGroup.blockEndGroupIdx)
                 growBlock.rotate(axis, angle, center=self.coord(endGroup.blockEndGroupIdx))
