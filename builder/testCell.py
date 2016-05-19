@@ -44,7 +44,7 @@ class Test(unittest.TestCase):
         mycell.growBlocks(8)
         return mycell
     
-    def clashes(self, mycell, minDist=1.0):
+    def clashes(self, mycell, minDist=1.0, pbc=[True, True, True]):
         """Return True of if any atoms are < minDist apart"""
         # coords=[ c for b in cell.blocks.itervalues() for i, c in enumerate(b.iterCoord())]
         symbols = []
@@ -53,102 +53,15 @@ class Test(unittest.TestCase):
             for i, c in enumerate(b.iterCoord()):
                 coords.append(c)
                 symbols.append(b.symbol(i))
-        cellDim = numpy.array([mycell.dim[0], mycell.dim[1], mycell.dim[2]])
-        close = util.closeAtoms(coords, symbols, cellDim=cellDim, boxMargin=1.0)
+        dim = numpy.array([mycell.dim[0], mycell.dim[1], mycell.dim[2]])
+        close = util.closeAtoms(coords, symbols, dim=dim, boxMargin=1.0)
         v1 = []
         v2 = []
         for idxAtom1, idxAtom2 in close:
             v1.append(coords[idxAtom1])
             v2.append(coords[idxAtom2])
-        distances = util.distance(v1, v2, cellDim)
+        distances = util.distance(v1, v2, dim=dim, pbc=pbc)
         return any(map(lambda x: x < minDist, distances))
-        
-    def testGetBox(self):
-        mycell = Cell([10, 10, 10])   
-        boxSize = 1
-        mycell.boxSize = boxSize
-        mycell.numBoxes = [int(math.ceil(mycell.dim[0] / boxSize)),
-                         int(math.ceil(mycell.dim[1] / boxSize)),
-                         int(math.ceil(mycell.dim[2] / boxSize)) ]
-        
-        p1 = numpy.array([0, 0, 0])
-        self.assertEqual(mycell._getBox(p1), (0, 0, 0))
-        
-        p1 = numpy.array([5.5, 5.5, 5.5])
-        self.assertEqual(mycell._getBox(p1), (5, 5, 5))
-        
-        p1 = numpy.array([-5.5, -5.5, -5.5])
-        self.assertEqual(mycell._getBox(p1), (4, 4, 4))
-        
-        p1 = numpy.array([10.5, 10.5, 10.5])
-        self.assertEqual(mycell._getBox(p1), (0, 0, 0))
-        
-        p1 = numpy.array([100.5, 100.5, 100.5])
-        self.assertEqual(mycell._getBox(p1), (0, 0, 0))
-        
-        p1 = numpy.array([-100.5, -100.5, -100.5])
-        self.assertEqual(mycell._getBox(p1), (9, 9, 9))
-        
-        p1 = numpy.array([-3, 0, 0])
-        self.assertEqual(mycell._getBox(p1), (7, 0, 0))
-        
-        return    
-    
-    def testIntersectedCells(self):
-        
-        mycell = Cell([10, 10, 10])   
-        boxSize = 1
-        mycell.boxSize = boxSize
-        mycell.numBoxes = [int(math.ceil(mycell.dim[0] / boxSize)),
-                         int(math.ceil(mycell.dim[1] / boxSize)),
-                         int(math.ceil(mycell.dim[2] / boxSize)) ]
-         
-        p1 = numpy.array([0.5, 0.5, 0.5])
-        p2 = numpy.array([8.5, 8.5, 8.5])
-        ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8), (9, 8, 8), (8, 8, 8)]
-        self.assertEqual(mycell._intersectedCells(p1, p2), ref)
-         
-         
-        p1 = numpy.array([0.5, 0.5, 0.5])
-        p2 = numpy.array([0.5, 8.5, 8.5])
-        ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8)]
-        self.assertEqual(mycell._intersectedCells(p1, p2), ref)
-         
-        p1 = numpy.array([0.5, 0.5, 0.5])
-        p2 = numpy.array([0.6, 8.5, 8.5])
-        ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8)]
-        self.assertEqual(mycell._intersectedCells(p1, p2), ref)
-         
-        p1 = numpy.array([0.5, 0.5, 0.5])
-        p2 = numpy.array([0.5, 0.5, 8.5])
-        ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8)]
-        self.assertEqual(mycell._intersectedCells(p1, p2), ref)
- 
-        p1 = numpy.array([-2.5, -2.5, -2.5])
-        p2 = numpy.array([8.5, 8.5, 8.5])
-        ref = [(7, 7, 7), (7, 7, 8), (7, 8, 8), (8, 8, 8)]
-        self.assertEqual(mycell._intersectedCells(p1, p2), ref)
-     
-        p1 = numpy.array([5, 0, 0])
-        p2 = numpy.array([-3, 0, 0])
-        self.assertEqual(mycell._intersectedCells(p1, p2), [(5, 0, 0), (6, 0, 0), (7, 0, 0)])
-         
-        p1 = numpy.array([9, 9, 9])
-        p2 = numpy.array([1, 1, 1])
-        self.assertEqual(mycell._intersectedCells(p1, p2), [(9, 9, 9), (9, 9, 0), (9, 0, 0),
-                                                          (0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)])
-
-
-        mycell = Cell([25, 25, 25])   
-        mycell.boxSize = 1.91761148234
-        mycell.numBoxes = [14, 14, 14]
-
-        p1 = numpy.array([ -3.46529620e+00, 7.99752596e-03, 1.86788673e-03])
-        p2 = numpy.array([  3.45583501e+00, 7.99752596e-03, 1.86788673e-03])
-        self.assertEqual(mycell._intersectedCells(p1, p2), [(11, 0, 0), (12, 0, 0), (13, 0, 0),
-                                                          (0, 0, 0), (1, 0, 0)])
-
-        return
 
     def testCX4(self):
         """First pass"""
@@ -762,6 +675,37 @@ class Test(unittest.TestCase):
         self.assertTrue(numpy.allclose(block.centroid(), [ 12.91963557,  17.39975016,  11.65120767]))
         self.assertFalse(self.clashes(mycell))
         return
+    
+    def testGetBox(self):
+        mycell = Cell([10, 10, 10])   
+        boxSize = 1
+        mycell.boxSize = boxSize
+        mycell.numBoxes = [int(math.ceil(mycell.dim[0] / boxSize)),
+                         int(math.ceil(mycell.dim[1] / boxSize)),
+                         int(math.ceil(mycell.dim[2] / boxSize)) ]
+        
+        p1 = numpy.array([0, 0, 0])
+        self.assertEqual(mycell._getBox(p1), (0, 0, 0))
+        
+        p1 = numpy.array([5.5, 5.5, 5.5])
+        self.assertEqual(mycell._getBox(p1), (5, 5, 5))
+        
+        p1 = numpy.array([-5.5, -5.5, -5.5])
+        self.assertEqual(mycell._getBox(p1), (4, 4, 4))
+        
+        p1 = numpy.array([10.5, 10.5, 10.5])
+        self.assertEqual(mycell._getBox(p1), (0, 0, 0))
+        
+        p1 = numpy.array([100.5, 100.5, 100.5])
+        self.assertEqual(mycell._getBox(p1), (0, 0, 0))
+        
+        p1 = numpy.array([-100.5, -100.5, -100.5])
+        self.assertEqual(mycell._getBox(p1), (9, 9, 9))
+        
+        p1 = numpy.array([-3, 0, 0])
+        self.assertEqual(mycell._getBox(p1), (7, 0, 0))
+        
+        return
 
     def testGrowLimited(self):
         """Test we can add blocks correctly"""
@@ -866,7 +810,61 @@ class Test(unittest.TestCase):
         self.assertFalse(self.clashes(mycell))
 
         return
+    
+    def testIntersectedCells(self):
+        
+        mycell = Cell([10, 10, 10])   
+        boxSize = 1
+        mycell.boxSize = boxSize
+        mycell.numBoxes = [int(math.ceil(mycell.dim[0] / boxSize)),
+                         int(math.ceil(mycell.dim[1] / boxSize)),
+                         int(math.ceil(mycell.dim[2] / boxSize)) ]
+         
+#         p1 = numpy.array([0.5, 0.5, 0.5])
+#         p2 = numpy.array([8.5, 8.5, 8.5])
+#         ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8), (9, 8, 8), (8, 8, 8)]
+#         self.assertEqual(mycell._intersectedCells(p1, p2), ref)
+#          
+#         p1 = numpy.array([0.5, 0.5, 0.5])
+#         p2 = numpy.array([0.5, 8.5, 8.5])
+#         ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8)]
+#         self.assertEqual(mycell._intersectedCells(p1, p2), ref)
+#          
+#         p1 = numpy.array([0.5, 0.5, 0.5])
+#         p2 = numpy.array([0.6, 8.5, 8.5])
+#         ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8)]
+#         self.assertEqual(mycell._intersectedCells(p1, p2), ref)
+#          
+#         p1 = numpy.array([0.5, 0.5, 0.5])
+#         p2 = numpy.array([0.5, 0.5, 8.5])
+#         ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8)]
+#         self.assertEqual(mycell._intersectedCells(p1, p2), ref)
+#  
+#         p1 = numpy.array([-2.5, -2.5, -2.5])
+#         p2 = numpy.array([8.5, 8.5, 8.5])
+#         ref = [(7, 7, 7), (7, 7, 8), (7, 8, 8), (8, 8, 8)]
+#         self.assertEqual(mycell._intersectedCells(p1, p2), ref)
+#      
+#         p1 = numpy.array([5., 0., 0.])
+#         p2 = numpy.array([-3., 0., 0.])
+#         self.assertEqual(mycell._intersectedCells(p1, p2), [(5, 0, 0), (6, 0, 0), (7, 0, 0)])
+         
+        p1 = numpy.array([9., 9., 9.])
+        p2 = numpy.array([1., 1., 1.])
+        self.assertEqual(mycell._intersectedCells(p1, p2), [(9, 9, 9), (9, 9, 0), (9, 0, 0),
+                                                          (0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)])
 
+
+        mycell = Cell([25, 25, 25])   
+        mycell.boxSize = 1.91761148234
+        mycell.numBoxes = [14, 14, 14]
+
+        p1 = numpy.array([ -3.46529620e+00, 7.99752596e-03, 1.86788673e-03])
+        p2 = numpy.array([  3.45583501e+00, 7.99752596e-03, 1.86788673e-03])
+        self.assertEqual(mycell._intersectedCells(p1, p2), [(11, 0, 0), (12, 0, 0), (13, 0, 0),
+                                                          (0, 0, 0), (1, 0, 0)])
+
+        return
 
     def testJoinBlocks(self):
         """Test we can add a block correctly"""
@@ -1361,7 +1359,7 @@ class Test(unittest.TestCase):
         added = mycell.seed(nblocks, point=[0.0, 5.0, 5.0 ], maxTries=1)
         self.assertEqual(added, 0, "Added block at wall")
         
-        mycell.dump()
+        #mycell.dump()
         
         return
 
