@@ -1002,39 +1002,25 @@ def vecDiff(v1, v2, dim=None, pbc=[True,True,True]):
     # Need to convert to numpy array as could be list of numpy arrays or just a single numpy array
     delta = numpy.array(v1) - numpy.array(v2)
     if dim is not None:
-        if False:
-            # Put zeros where there are no pbc else just use the original
-            dim = [dim[i] if pbc[i] else 0 for i in range(len(dim))]
-            
-            # We need to suppress the warnings about divide by zero as we currently use this to
-            # decide when a wall is present. Probably need to think of another way to do this.
-            old_settings = numpy.seterr(invalid='ignore')
-    
-            # is basically modulus - returns what's left when divided by dim
-            delta1 = numpy.remainder(delta, dim)
-    
-            numpy.seterr(**old_settings)
-    
-            # jmht addition to deal with zeros on cell (indicating a wall) giving nans
-            delta = numpy.where(numpy.isnan(delta1), delta, delta1)
-    
-            # Set all where it's > half the cell to subtract the cell dimension
-            delta = numpy.where(numpy.abs(delta) > 0.5 * dim,
-                                delta - numpy.copysign(dim, delta),
-                                delta)
+        assert type(dim) is numpy.ndarray
         
-        for idx in [0,1,2]:
-            if pbc[idx]:
-                if delta.ndim == 1:
-                    delta[idx] = numpy.remainder(delta[idx], dim[idx])
-                    delta[idx] = numpy.where(numpy.abs(delta[idx]) > 0.5 * dim[idx],
-                                    delta[idx] - numpy.copysign(dim[idx], delta[idx]),
-                                    delta[idx])
-                else:
-                    delta[:,idx] = numpy.remainder(delta[:,idx], dim[idx])
-                    delta[:,idx] = numpy.where(numpy.abs(delta[:,idx]) > 0.5 * dim[idx],
-                                    delta[:,idx] - numpy.copysign(dim[idx], delta[:,idx]),
-                                    delta[:,idx])
+        # Account for multiple cells
+        if delta.ndim == 1:
+            if pbc[0]: delta[0] = numpy.remainder(delta[0], dim[0])
+            if pbc[1]: delta[1] = numpy.remainder(delta[1], dim[1])
+            if pbc[2]: delta[2] = numpy.remainder(delta[2], dim[2])
+        else:
+            if pbc[0]: delta[:,0] = numpy.remainder(delta[:,0], dim[0])
+            if pbc[1]: delta[:,1] = numpy.remainder(delta[:,1], dim[1])
+            if pbc[2]: delta[:,2] = numpy.remainder(delta[:,2], dim[2])
+        # Could use below as we don't really need a true cell in that direction - change if slow 
+        #delta = numpy.remainder(delta, dim)
+            
+        # Wherever the distance is > half the cell length we subtract the cell length
+        # we multiply by the pbc array to only make change where we have pbc
+        delta = numpy.where(numpy.abs(delta) > 0.5 * dim,
+                            delta - (numpy.copysign(dim, delta) * pbc),
+                            delta)
     return delta
 
 def vectorAngle(v1, v2):
@@ -1110,7 +1096,7 @@ def writeCml(cmlFilename,
 
     assert len(coords) == len(symbols)
     if pruneBonds:
-        assert cell
+        assert cell is not None
         pcoords = []  # need to save periodic coordinates
 
     root = ET.Element('molecule')
@@ -1169,16 +1155,16 @@ def writeCml(cmlFilename,
         atomNode = ET.SubElement(atomArrayNode, "atom")
         atomNode.attrib['id'] = "a{0}".format(i)
         atomNode.attrib['elementType'] = symbols[i]
-        if cell:
+        if cell is None:
+            x = coord[0]
+            y = coord[1]
+            z = coord[2]
+        else:
             x, ix = wrapCoord(coord[0], cell[0], center=False)
             y, iy = wrapCoord(coord[1], cell[1], center=False)
             z, iz = wrapCoord(coord[2], cell[2], center=False)
             if pruneBonds:
                 pcoords.append(numpy.array([x, y, z]))
-        else:
-            x = coord[0]
-            y = coord[1]
-            z = coord[2]
 
         atomNode.attrib['x3'] = str(x)
         atomNode.attrib['y3'] = str(y)
@@ -1220,21 +1206,21 @@ def writeXyz(fileName, coords, symbols, cell=None):
     if cell is a list of 3 floats, write out a periodic cell using the 3 floats as the cell parameters
     """
 
-    if cell: assert len(cell) == 3
+    if cell is not None: assert len(cell) == 3
 
     xyz = "{}\n".format(len(coords))
-    if cell:
-        xyz += "ambuld xyz file. Axes:{}:{}:{}\n".format(cell[0], cell[1], cell[2])
-    else:
+    if cell is None:
         xyz += "ambuld xyz file\n"
+    else:
+        xyz += "ambuld xyz file. Axes:{}:{}:{}\n".format(cell[0], cell[1], cell[2])
 
     for i, coord in enumerate(coords):
-        if cell:
+        if cell is None:
+            x, y, z = coord
+        else:
             x, ix = wrapCoord(coord[0], cell[0], center=False)
             y, iy = wrapCoord(coord[1], cell[1], center=False)
             z, iz = wrapCoord(coord[2], cell[2], center=False)
-        else:
-            x, y, z = coord
 
         xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(symbols[i], x, y, z)
 
@@ -1359,6 +1345,7 @@ class Test(unittest.TestCase):
         v2 = numpy.array([2.5, 2.5, 2.5])
         v3 = numpy.array([10, 10, 10])
         v4 = numpy.array([7.5, 7.5, 7.5])
+        v5 = numpy.array([27.5, 27.5, 27.5])
         
         dim = numpy.array([10.0, 10.0, 10.0])
         
@@ -1367,25 +1354,32 @@ class Test(unittest.TestCase):
         result = vecDiff([v1,v2], [v3,v4], dim=dim, pbc=[False,False,False])
         self.assertTrue(numpy.allclose(ref, result),
                          msg="Incorrect with no cell: {0}".format(result))
-        
+         
         # Test with single vectors in cell
         ref = [[ 0.0, 0.0,  0.0]]
         result = vecDiff(v1, v3, dim=dim, pbc=[True,True,True])
         self.assertTrue(numpy.allclose(ref, result),
-                         msg="Incorrect with cell: {0}".format(result))
-        
-        
+                         msg="Incorrect with cell single: {0}".format(result))
+         
         # Test with cell
-        ref = [[ 0.0, 0.0,  0.0], [5.0, 5.0, 5.0]]
+        ref = [[ -0.0, -0.0,  -0.0], [5.0, 5.0, 5.0]]
         result = vecDiff([v1,v2], [v3,v4], dim=dim, pbc=[True,True,True])
         self.assertTrue(numpy.allclose(ref, result),
                          msg="Incorrect with cell: {0}".format(result))
-        
+         
         # Test with only some conditions having PBC
-        ref = [[ -10.0, 0.0,  0.0], [-5.0, 5.0, 5.0]]
+        ref = [[ -10.0, -0.0,  -0.0], [-5.0, 5.0, 5.0]]
         result = vecDiff([v1,v2], [v3,v4], dim=dim, pbc=[False,True,True])
         self.assertTrue(numpy.allclose(ref, result),
                          msg="Incorrect with partial cell: {0}".format(result))
+        
+        # Test with only some conditions having PBC across multiple cells
+        ref = [-25.0, 5.0, 5.0]
+        result = vecDiff(v2, v5, dim=dim, pbc=[False,True,True])
+        self.assertTrue(numpy.allclose(ref, result),
+                         msg="Incorrect with partial cell: {0}".format(result))
+        
+        
         return
     
     def testDistance(self):
@@ -1432,7 +1426,7 @@ if __name__ == '__main__':
     rigid = True
     nonPeriodic = False
     skipDihedrals = False
-
+    
     if args.split_fragments:
         split='fragments'
     elif args.split_blocks:

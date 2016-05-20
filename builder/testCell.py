@@ -208,33 +208,33 @@ class Test(unittest.TestCase):
         block2 = mycell.getInitBlock('A')
         block2.translateCentroid([ 2.2, 2.2, 2.2 ])
         block2_id = mycell.addBlock(block2)
-
+ 
         closeList, wallClash = mycell.closeAtoms(block1_id)
-        
+         
         self.assertFalse(wallClash,"Got clash with wall")
-        
+         
         # Updated refPairs as now have
         refPairs = [ (0, 3), (1, 3), (2, 3) ]  # Also used to check PBC
         closePairs = []
         for iatom, _, ioatom, _ in closeList:
             closePairs.append((iatom, ioatom))
-
+ 
         # mycell.writeXyz("close1.xyz", label=False)
-
+ 
         self.assertEqual(closePairs,
                         refPairs,
                          "Many contacts: {0}".format(closePairs))
-
+ 
         # Too far for any contacts
         mycell.delBlock(block2_id)
         block2 = mycell.getInitBlock('A')
         block2.translateCentroid([10, 10, 10])
         block2_id = mycell.addBlock(block2)
-
+ 
         close, wallClash = mycell.closeAtoms(block1_id)
         self.assertFalse(wallClash, "Wallclash")
         self.assertFalse(close, "No contacts: ".format(close))
-
+ 
         # Now check across periodic boundary
         mycell.delBlock(block2_id)
         block2 = mycell.getInitBlock('A')

@@ -2291,13 +2291,13 @@ class Cell():
             raise RuntimeError("setBoxSize needs list of 3 numbers setting the cell dimensions!")
         
         old_dim = None
-        if self.dim: old_dim = self.dim
+        if self.dim is not None: old_dim = self.dim
 
-        self.dim = [float(boxDim[0]), float(boxDim[1]), float(boxDim[2])]
+        self.dim = numpy.array([float(boxDim[0]), float(boxDim[1]), float(boxDim[2])])
         assert self.dim[0] > 0 and self.dim[1] > 0 and self.dim[2] > 0, "Invalid box dimensions: {0}".format(self.dim)
         
         boxShift = None
-        if old_dim:
+        if old_dim is not None:
             if not (self.dim[0] > old_dim[0] and \
                 self.dim[1] > old_dim[1] and 
                 self.dim[2] > old_dim[2]):
