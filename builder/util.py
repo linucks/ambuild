@@ -1002,6 +1002,27 @@ def vecDiff(v1, v2, dim=None, pbc=[True,True,True]):
     # Need to convert to numpy array as could be list of numpy arrays or just a single numpy array
     delta = numpy.array(v1) - numpy.array(v2)
     if dim is not None:
+        if False:
+            # Put zeros where there are no pbc else just use the original
+            dim = [dim[i] if pbc[i] else 0 for i in range(len(dim))]
+            
+            # We need to suppress the warnings about divide by zero as we currently use this to
+            # decide when a wall is present. Probably need to think of another way to do this.
+            old_settings = numpy.seterr(invalid='ignore')
+    
+            # is basically modulus - returns what's left when divided by dim
+            delta1 = numpy.remainder(delta, dim)
+    
+            numpy.seterr(**old_settings)
+    
+            # jmht addition to deal with zeros on cell (indicating a wall) giving nans
+            delta = numpy.where(numpy.isnan(delta1), delta, delta1)
+    
+            # Set all where it's > half the cell to subtract the cell dimension
+            delta = numpy.where(numpy.abs(delta) > 0.5 * dim,
+                                delta - numpy.copysign(dim, delta),
+                                delta)
+        
         for idx in [0,1,2]:
             if pbc[idx]:
                 if delta.ndim == 1:
@@ -1346,6 +1367,13 @@ class Test(unittest.TestCase):
         result = vecDiff([v1,v2], [v3,v4], dim=dim, pbc=[False,False,False])
         self.assertTrue(numpy.allclose(ref, result),
                          msg="Incorrect with no cell: {0}".format(result))
+        
+        # Test with single vectors in cell
+        ref = [[ 0.0, 0.0,  0.0]]
+        result = vecDiff(v1, v3, dim=dim, pbc=[True,True,True])
+        self.assertTrue(numpy.allclose(ref, result),
+                         msg="Incorrect with cell: {0}".format(result))
+        
         
         # Test with cell
         ref = [[ 0.0, 0.0,  0.0], [5.0, 5.0, 5.0]]
