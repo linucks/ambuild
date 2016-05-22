@@ -1522,12 +1522,11 @@ class HoomdOptimiser(FFIELD):
                         param = self.ffield.pairParameter(atype, wallAtomType)
                         lj.force_coeff.set(atype, epsilon=param['epsilon'], sigma=param['sigma'])
                 
-                for facing in ('front', 'back'):
-                    # Add wall on one side facing in
-                    if facing is 'front':
-                        wallstructure.add_plane(origin=originFront, normal=normal, inside=True)
-                    elif facing is 'back':
-                        wallstructure.add_plane(origin=originBack, normal=normal, inside=False)
+                # Add the two walls
+                # Front
+                wallstructure.add_plane(origin=originFront, normal=normal, inside=True)
+                # Back
+                wallstructure.add_plane(origin=originBack, normal=normal, inside=False)
         return
 
     def toStandardUnits(self, value):
