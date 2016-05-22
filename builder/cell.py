@@ -190,7 +190,7 @@ class Cell():
         self.pbc = [True, True, True]
         
         # Whether there is a wall along the axis
-        self.wall = [False, False, False]
+        self.walls = [False, False, False]
 
         # additional distance to add on to the characteristic bond length
         # when checking whether 2 atoms are close enough to bond
@@ -677,7 +677,7 @@ class Cell():
         get pairs of close atoms
 
         """
-        close, wallClashes = self.closeAtoms(idxAddBlock, wall=self.wall) # Get a list of the close atoms
+        close, wallClashes = self.closeAtoms(idxAddBlock, walls=self.walls) # Get a list of the close atoms
         # if close: print "GOT {0} CLOSE ATOMS ".format( len(close) )
 
         if wallClashes:
@@ -797,7 +797,7 @@ class Cell():
         self.blocks.clear()  # Delete block list
         return
 
-    def closeAtoms(self, idxBlock1, wall=None):
+    def closeAtoms(self, idxBlock1, walls=None):
         """
         Find all atoms that are close to the atoms in the given block.
 
@@ -824,11 +824,11 @@ class Cell():
         for idxAtom1, coord1 in enumerate(block1.iterCoord()):
             
             # First check if the atom is close to a wall
-            if wall is not None:
+            if walls is not None:
                 radius = block1.radius(idxAtom1) + self.atomMargin
-                if wall[0] and (coord1[0] < radius or coord1[0] > self.dim[0] - radius) or \
-                   wall[1] and (coord1[1] < radius or coord1[1] > self.dim[1] - radius) or \
-                   wall[2] and (coord1[2] < radius or coord1[2] > self.dim[2] - radius):
+                if walls[0] and (coord1[0] < radius or coord1[0] > self.dim[0] - radius) or \
+                   walls[1] and (coord1[1] < radius or coord1[1] > self.dim[1] - radius) or \
+                   walls[2] and (coord1[2] < radius or coord1[2] > self.dim[2] - radius):
                     # Got a clash with a wall, so we can stop all other checks
                     return None, True
 
@@ -1947,6 +1947,7 @@ class Cell():
                                          doImproper=doImproper,
                                          doCharges=doCharges,
                                          d=d,
+                                         walls=self.walls,
                                          **kw)
         self.analyse.stop('optimiseGeometry', d)
 
@@ -2147,6 +2148,7 @@ class Cell():
                              doImproper=doImproper,
                              doCharges=doCharges,
                              d=d,
+                             walls=self.walls,
                              **kw)
 
         self.analyse.stop('runMD', d)
@@ -2189,6 +2191,7 @@ class Cell():
                                         doImproper=doImproper,
                                         doCharges=doCharges,
                                         d=d,
+                                        walls=self.walls,
                                         **kw)
 
         if ok:
@@ -2331,8 +2334,8 @@ class Cell():
     def setWall(self, XOY=False, XOZ=False, YOZ=False):
         """Create walls along the specified sides.
         """
-        self.wall = [XOY, XOZ, YOZ]
-        self.pbc = [ not b for b in self.wall ]
+        self.walls = [XOY, XOZ, YOZ]
+        self.pbc = [ not b for b in self.walls ]
         return
 
     def _setupAnalyse(self, logfile='ambuild.csv'):

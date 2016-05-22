@@ -24,11 +24,14 @@ pe = logger.query('potential_energy')
 """
 import collections
 import csv
+import logging
 import math
 import os
 import sys
 import time
 import xml.etree.ElementTree as ET
+
+LOGGER = logging.getLogger(__name__)
 
 PARAM_SEP=','
 
@@ -70,8 +73,8 @@ class FfieldParameters(object):
             try: 
                 bonds[(p.A, p.B)] = {'k' : float(p.k), 'r0' : float(p.r0)}
             except Exception as e:
-                print "Error reading angle parameters from file: {0}".format(bond_file)
-                print "Error occured with parameter {0}".format(p)
+                LOGGER.critical("Error reading angle parameters from file: {0}".format(bond_file))
+                LOGGER.critical("Error occured with parameter {0}".format(p))
                 raise e
         return bonds
     
@@ -92,8 +95,8 @@ class FfieldParameters(object):
                     t0 = math.radians(float(row[2]))
                     angles[angle] = {'k' : k, 't0' : t0}
                 except Exception as e:
-                    print "Error reading angle parameters from file: {0}".format(angle_file)
-                    print "Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row))
+                    LOGGER.critical("Error reading angle parameters from file: {0}".format(angle_file))
+                    LOGGER.critical("Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row)))
                     raise e
         return angles
 
@@ -114,8 +117,8 @@ class FfieldParameters(object):
                     n = int(row[3])
                     dihedrals[dihedral] = {'k' : k, 'd' : d, 'n' : n}
                 except Exception as e:
-                    print "Error reading dihedral parameters from file: {0}".format(dihedral_file)
-                    print "Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row))
+                    LOGGER.critical("Error reading dihedral parameters from file: {0}".format(dihedral_file))
+                    LOGGER.critical("Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row)))
                     raise e
         return dihedrals
     
@@ -135,8 +138,8 @@ class FfieldParameters(object):
                     chi = float(row[2])
                     impropers[improper] = {'k' : k, 'chi' : chi}
                 except Exception as e:
-                    print "Error reading improper parameters from file: {0}".format(improper_file)
-                    print "Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row))
+                    LOGGER.critical("Error reading improper parameters from file: {0}".format(improper_file))
+                    LOGGER.critical("Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row)))
                     raise e
         return impropers
     
@@ -157,8 +160,8 @@ class FfieldParameters(object):
                     sigma = float(row[3])
                     pairs[(atom1, atom2)] = {'epsilon' : epsilon, 'sigma' : sigma}
                 except Exception as e:
-                    print "Error reading pair parameters from file: {0}".format(pairs_file)
-                    print "Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row))
+                    LOGGER.critical("Error reading pair parameters from file: {0}".format(pairs_file))
+                    LOGGER.critical("Error occured on line {0}: {1}".format(i+1,PARAM_SEP.join(row)))
                     raise e
         return pairs
     
@@ -975,6 +978,7 @@ class HoomdOptimiser(FFIELD):
                           doCharges=True,
                           rCut=None,
                           quiet=None,
+                          walls=[False,False,False],
                           **kw):
 
         if rCut is not None:
@@ -989,7 +993,8 @@ class HoomdOptimiser(FFIELD):
                                        doDihedral=doDihedral,
                                        doImproper=doImproper,
                                        rCut=self.rCut,
-                                       quiet=quiet)
+                                       quiet=quiet,
+                                       walls=walls)
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
         self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
@@ -1099,6 +1104,7 @@ class HoomdOptimiser(FFIELD):
               rigidBody=True,
               rCut=None,
               quiet=None,
+              walls=[False,False,False],
               **kw):
 
         if rCut is not None:
@@ -1113,7 +1119,8 @@ class HoomdOptimiser(FFIELD):
                                        doDihedral=doDihedral,
                                        doImproper=doImproper,
                                        rCut=self.rCut,
-                                       quiet=quiet)
+                                       quiet=quiet,
+                                       walls=walls)
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
         hlog = hoomdblue.analyze.log(filename='mylog.log',
@@ -1147,6 +1154,7 @@ class HoomdOptimiser(FFIELD):
                          doCharges=True,
                          rCut=None,
                          quiet=None,
+                         walls=[False,False,False],
                          **kw):
 
         if rCut is not None:
@@ -1230,6 +1238,7 @@ class HoomdOptimiser(FFIELD):
             raise RuntimeError("Unrecognised integrator: {0}".format(integrator))
 
         if dump:
+            xmld = hoomdblue.dump.xml(filename="runmd.xml", vis=True)
             dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
                                       period=dumpPeriod,
                                       unwrap_full=True,
@@ -1240,7 +1249,9 @@ class HoomdOptimiser(FFIELD):
 
         integ.disable()
         if dump:
+            #xmld.disable()
             dcdd.disable()
+            del xmld
             del dcdd
         del integ
         del integrator_mode
@@ -1250,7 +1261,7 @@ class HoomdOptimiser(FFIELD):
         for angle in self.angles:
             param = self.ffield.angleParameter(angle)
             if self.debug:
-                print "DEBUG: angle set_coeff( '{0}',  k={1}, t0={2} )".format(angle, param['k'], param['t0'])
+                LOGGER.info("DEBUG: angle set_coeff( '{0}',  k={1}, t0={2} )".format(angle, param['k'], param['t0']))
             anglePotential.set_coeff(angle, k=param['k'], t0=param['t0'])
         return
 
@@ -1258,7 +1269,7 @@ class HoomdOptimiser(FFIELD):
         for bond in self.bonds:
             param = self.ffield.bondParameter(bond)
             if self.debug:
-                print "DEBUG: bond_coeff.set( '{0}',  k={1}, r0={2} )".format(bond, param['k'], param['r0'])
+                LOGGER.info("DEBUG: bond_coeff.set( '{0}',  k={1}, r0={2} )".format(bond, param['k'], param['r0']))
             bondPotential.bond_coeff.set(bond, k=param['k'], r0=param['r0'])
         return
 
@@ -1266,7 +1277,7 @@ class HoomdOptimiser(FFIELD):
         for dihedral in self.dihedrals:
             param = self.ffield.dihedralParameter(dihedral)
             if self.debug:
-                print "DEBUG: dihedral set_coeff.('{0}',  k={1}, d={2}, n={3})".format(dihedral, param['k'], param['d'], param['n'])
+                LOGGER.info("DEBUG: dihedral set_coeff.('{0}',  k={1}, d={2}, n={3})".format(dihedral, param['k'], param['d'], param['n']))
             dihedralPotential.set_coeff(dihedral, k=param['k'], d=param['d'], n=param['n'])
         return
 
@@ -1288,12 +1299,12 @@ class HoomdOptimiser(FFIELD):
                                                       sigma=0.0,
                                                       rcut=0.0)
                         if self.debug:
-                            print "DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3}, rcut={4} )".format(atype, btype, 0.0, 0.0, 0.0)
+                            LOGGER.info("DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3}, rcut={4} )".format(atype, btype, 0.0, 0.0, 0.0))
 
                     else:
                         param = self.ffield.pairParameter(atype, btype)
                         if self.debug:
-                            print "DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype, btype, param['epsilon'], param['sigma'])
+                            LOGGER.info("DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype, btype, param['epsilon'], param['sigma']))
                         pairPotential.pair_coeff.set(atype, btype, epsilon=param['epsilon'], sigma=param['sigma'])
         return
 
@@ -1373,7 +1384,6 @@ class HoomdOptimiser(FFIELD):
                                                         b=self.groupStatic)
         else:
             self.groupActive = self.groupAll
-            
         return
 
     def setupSystem(self,
@@ -1386,6 +1396,7 @@ class HoomdOptimiser(FFIELD):
                     rCut=None,
                     quiet=False,
                     maxE=False,
+                    walls=False,
                      ):
 
         self.writeXml(data,
@@ -1407,7 +1418,7 @@ class HoomdOptimiser(FFIELD):
 
         # Below disables pretty much all output
         if quiet:
-            print "Disabling HOOMD-Blue output!"
+            LOGGER.info("Disabling HOOMD-Blue output!")
             hoomdblue.globals.msg.setNoticeLevel(0)
 
         # Set the parameters
@@ -1434,6 +1445,9 @@ class HoomdOptimiser(FFIELD):
         
         # Specify the groups
         self.setupGroups(data)
+        
+        # Add any walls
+        self.setupWalls(walls, system, rCut)
 
         if rigidBody:
             hoomdblue.globals.neighbor_list.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
@@ -1460,6 +1474,48 @@ class HoomdOptimiser(FFIELD):
 #         del lj
 
         return system
+    
+    def setupWalls(self, walls, system, rCut):
+        """Set up walls for the simulation
+        
+        I think that we require two walls. One on the front side with the potential facing in,
+        the other on the back wall with the potential facing back towards the other potential.
+        The origin of the wall is the centre of plane but then back half a cell along the axis 
+        that isn't part of the wall.
+        """
+        assert len(walls) is 3 # array of three booleans - one per wall
+        if not any(walls): return
+        wtypes = ['XOY', 'XOZ', 'YOZ'] # Oroder of walls
+        for do, wtype in zip(walls, wtypes):
+            if do:
+                LOGGER.info('Setting wall in HOOMDBLUE for {0}'.format(wtype))
+                if wtype is 'XOY':
+                    originFront = (0, 0, -system.box.Lz/2)
+                    originBack  = (0, 0,  system.box.Lz/2)
+                    normal = (0, 0, 1)
+                elif wtype is 'XOZ':
+                    originFront = (0, -system.box.Ly/2, 0)
+                    originBack  = (0,  system.box.Ly/2, 0)
+                    normal = (0, 1, 0)
+                elif wtype is 'YOZ':
+                    originFront = (-system.box.Lx/2, 0, 0)
+                    originBack  = ( system.box.Lx/2, 0, 0)
+                    normal = (1, 0, 0)
+                else:
+                    raise RuntimeError("Unrecognised Wall Type! {0}".format(wtype))
+                
+                for facing in ('front', 'back'):
+                    # Add wall on one side facing in
+                    wallstructure = hoomdblue.wall.group()
+                    if facing is 'front':
+                        wallstructure.add_plane(origin=originFront, normal=normal, inside=True)
+                    elif facing is 'back':
+                        wallstructure.add_plane(origin=originBack, normal=normal, inside=False)
+
+                    lj = hoomdblue.wall.lj(wallstructure, r_cut=rCut)
+                    for atype in self.atomTypes:
+                        lj.force_coeff.set(atype, epsilon=0.05, sigma=4 )
+        return
 
     def toStandardUnits(self, value):
         # return float(value) / self.CONVERSIONFACTOR

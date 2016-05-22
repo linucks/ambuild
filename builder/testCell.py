@@ -1362,6 +1362,27 @@ class Test(unittest.TestCase):
         #mycell.dump()
         
         return
+    
+    def XtestWallMd(self):
+        """Test that we can implement a wall correctly"""
+        
+        boxDim = [20, 20, 20]
+        mycell = Cell(boxDim)
+
+        mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
+        #mycell.addBondType('A:a-A:a')
+        
+        # Create the wall
+        mycell.setWall(XOY=True, XOZ=True, YOZ=True)
+
+        # first add a block in the center
+        nblocks = 15
+        added = mycell.seed(nblocks)
+        self.assertEqual(added, nblocks, "Failed to add initial blocks")
+        
+        mycell.runMD(dump=False, rCut=5.0)
+
+        return
 
     def testZipBlocks(self):
 
