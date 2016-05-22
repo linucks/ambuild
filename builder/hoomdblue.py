@@ -20,4 +20,6 @@ else:
 
 from hoomd_script import *
 
+context.initialize()
+
 
