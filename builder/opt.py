@@ -1486,6 +1486,7 @@ class HoomdOptimiser(FFIELD):
         assert len(walls) is 3 # array of three booleans - one per wall
         if not any(walls): return
         wtypes = ['XOY', 'XOZ', 'YOZ'] # Oroder of walls
+        wallstructure = None
         for do, wtype in zip(walls, wtypes):
             if do:
                 LOGGER.info('Setting wall in HOOMDBLUE for {0}'.format(wtype))
@@ -1503,18 +1504,21 @@ class HoomdOptimiser(FFIELD):
                     normal = (1, 0, 0)
                 else:
                     raise RuntimeError("Unrecognised Wall Type! {0}".format(wtype))
+            
+                if not wallstructure:
+                    # We only create the wall and the LJ potentials once as they are used
+                    # by all subsequent walls in the group
+                    wallstructure = hoomdblue.wall.group()
+                    lj = hoomdblue.wall.lj(wallstructure, r_cut=rCut)
+                    for atype in self.atomTypes:
+                        lj.force_coeff.set(atype, epsilon=0.05, sigma=4 )
                 
                 for facing in ('front', 'back'):
                     # Add wall on one side facing in
-                    wallstructure = hoomdblue.wall.group()
                     if facing is 'front':
                         wallstructure.add_plane(origin=originFront, normal=normal, inside=True)
                     elif facing is 'back':
                         wallstructure.add_plane(origin=originBack, normal=normal, inside=False)
-
-                    lj = hoomdblue.wall.lj(wallstructure, r_cut=rCut)
-                    for atype in self.atomTypes:
-                        lj.force_coeff.set(atype, epsilon=0.05, sigma=4 )
         return
 
     def toStandardUnits(self, value):
