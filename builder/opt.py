@@ -1105,6 +1105,7 @@ class HoomdOptimiser(FFIELD):
               rCut=None,
               quiet=None,
               walls=[False,False,False],
+              wallAtomType='c',
               **kw):
 
         if rCut is not None:
@@ -1120,7 +1121,9 @@ class HoomdOptimiser(FFIELD):
                                        doImproper=doImproper,
                                        rCut=self.rCut,
                                        quiet=quiet,
-                                       walls=walls)
+                                       walls=walls,
+                                       wallAtomType=wallAtomType,
+                                       )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
         hlog = hoomdblue.analyze.log(filename='mylog.log',
@@ -1155,6 +1158,7 @@ class HoomdOptimiser(FFIELD):
                          rCut=None,
                          quiet=None,
                          walls=[False,False,False],
+                         wallAtomType='c',
                          **kw):
 
         if rCut is not None:
@@ -1169,7 +1173,10 @@ class HoomdOptimiser(FFIELD):
                                        doDihedral=doDihedral,
                                        doImproper=doImproper,
                                        rCut=self.rCut,
-                                       quiet=quiet)
+                                       quiet=quiet,
+                                       walls=walls,
+                                       wallAtomType=wallAtomType,
+                                       )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
         self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
@@ -1397,6 +1404,7 @@ class HoomdOptimiser(FFIELD):
                     quiet=False,
                     maxE=False,
                     walls=False,
+                    wallAtomType=None,
                      ):
 
         self.writeXml(data,
@@ -1447,7 +1455,7 @@ class HoomdOptimiser(FFIELD):
         self.setupGroups(data)
         
         # Add any walls
-        self.setupWalls(walls, system, rCut)
+        self.setupWalls(walls, system, wallAtomType, rCut)
 
         if rigidBody:
             hoomdblue.globals.neighbor_list.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
@@ -1475,7 +1483,7 @@ class HoomdOptimiser(FFIELD):
 
         return system
     
-    def setupWalls(self, walls, system, rCut):
+    def setupWalls(self, walls, system, wallAtomType, rCut):
         """Set up walls for the simulation
         
         I think that we require two walls. One on the front side with the potential facing in,
@@ -1489,7 +1497,7 @@ class HoomdOptimiser(FFIELD):
         wallstructure = None
         for do, wtype in zip(walls, wtypes):
             if do:
-                LOGGER.info('Setting wall in HOOMDBLUE for {0}'.format(wtype))
+                LOGGER.info('Setting wall in HOOMDBLUE for {0} of atomType {1}'.format(wtype, wallAtomType))
                 if wtype is 'XOY':
                     originFront = (0, 0, -system.box.Lz/2)
                     originBack  = (0, 0,  system.box.Lz/2)
@@ -1511,7 +1519,8 @@ class HoomdOptimiser(FFIELD):
                     wallstructure = hoomdblue.wall.group()
                     lj = hoomdblue.wall.lj(wallstructure, r_cut=rCut)
                     for atype in self.atomTypes:
-                        lj.force_coeff.set(atype, epsilon=0.05, sigma=4 )
+                        param = self.ffield.pairParameter(atype, wallAtomType)
+                        lj.force_coeff.set(atype, epsilon=param['epsilon'], sigma=param['sigma'])
                 
                 for facing in ('front', 'back'):
                     # Add wall on one side facing in

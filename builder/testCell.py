@@ -1363,7 +1363,7 @@ class Test(unittest.TestCase):
         
         return
     
-    def XtestWallMd(self):
+    def testWallMd(self):
         """Test that we can implement a wall correctly"""
         
         boxDim = [20, 20, 20]
@@ -1380,7 +1380,7 @@ class Test(unittest.TestCase):
         added = mycell.seed(nblocks)
         self.assertEqual(added, nblocks, "Failed to add initial blocks")
         
-        mycell.runMD(dump=False, rCut=5.0)
+        mycell.runMD(dump=True, rCut=5.0)
 
         return
 

@@ -183,7 +183,7 @@ class Fragment(object):
             'static'           : False,
             '_symbols'         : [],  # ordered array of symbols (in upper case)
             '_totalMass'       :-1,
-            '_types'            : [],
+            '_atomTypes'            : [],
             '_individualAttrs' : None,
             '_sharedAttrs'     : None,
             }
@@ -519,7 +519,7 @@ class Fragment(object):
         self.setData(coords=coords,
                      labels=labels,
                      symbols=symbols,
-                     types=atomTypes,
+                     atomTypes=atomTypes,
                      charges=charges,
                      endGroupTypes=endGroupTypes,
                      endGroups=endGroups,
@@ -658,7 +658,7 @@ class Fragment(object):
                 coords=None,
                 labels=None,
                 symbols=None,
-                types=None,
+                atomTypes=None,
                 charges=None,
                 endGroupTypes=None,
                 endGroups=None,
@@ -671,7 +671,7 @@ class Fragment(object):
         self._coords = coords
         self._labels = labels
         self._symbols = symbols
-        self._types = types
+        self._atomTypes = atomTypes
         
         # Calculate anything we haven't been given
         self.fillData()
@@ -683,7 +683,7 @@ class Fragment(object):
 
         # Specify internal bonds - bond margin probably too big...
         self._bonds = util.calcBonds(coords,
-                                     types,
+                                     atomTypes,
                                      dim=dim,
                                      maxAtomRadius=self.maxAtomRadius(),
                                      bondMargin=0.25)
@@ -758,7 +758,7 @@ class Fragment(object):
         return
 
     def type(self, idxAtom):
-        return self._types[self._ext2int[idxAtom]]
+        return self._atomTypes[self._ext2int[idxAtom]]
 
     def update(self):
 

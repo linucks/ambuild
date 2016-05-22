@@ -191,6 +191,12 @@ class Cell():
         
         # Whether there is a wall along the axis
         self.walls = [False, False, False]
+        
+        # the atomType of the atom that constitutes the wall
+        self.wallAtomType = None
+        
+        # The radius of the wall (determind from the covalent radius of the wallAtomType)
+        self.wallRadius = None
 
         # additional distance to add on to the characteristic bond length
         # when checking whether 2 atoms are close enough to bond
@@ -825,7 +831,7 @@ class Cell():
             
             # First check if the atom is close to a wall
             if walls is not None:
-                radius = block1.radius(idxAtom1) + self.atomMargin
+                radius = block1.radius(idxAtom1) + self.wallRadius + self.atomMargin
                 if walls[0] and (coord1[0] < radius or coord1[0] > self.dim[0] - radius) or \
                    walls[1] and (coord1[1] < radius or coord1[1] > self.dim[1] - radius) or \
                    walls[2] and (coord1[2] < radius or coord1[2] > self.dim[2] - radius):
@@ -1948,6 +1954,7 @@ class Cell():
                                          doCharges=doCharges,
                                          d=d,
                                          walls=self.walls,
+                                         wallAtomType=self.wallAtomType,
                                          **kw)
         self.analyse.stop('optimiseGeometry', d)
 
@@ -2149,6 +2156,7 @@ class Cell():
                              doCharges=doCharges,
                              d=d,
                              walls=self.walls,
+                             wallAtomType=self.wallAtomType,
                              **kw)
 
         self.analyse.stop('runMD', d)
@@ -2192,6 +2200,7 @@ class Cell():
                                         doCharges=doCharges,
                                         d=d,
                                         walls=self.walls,
+                                        wallAtomType=self.wallAtomType,
                                         **kw)
 
         if ok:
@@ -2331,11 +2340,16 @@ class Cell():
         fragment = self._fragmentLibrary[ fragmentType ]
         return fragment.setMaxBond(bondType, count)
     
-    def setWall(self, XOY=False, XOZ=False, YOZ=False):
+    def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType='c'):
         """Create walls along the specified sides.
         """
         self.walls = [XOY, XOZ, YOZ]
         self.pbc = [ not b for b in self.walls ]
+        
+        self.wallAtomType = wallAtomType
+        z = util.SYMBOL_TO_NUMBER[ wallAtomType.upper() ]
+        r = util.COVALENT_RADII[z] * util.BOHR2ANGSTROM
+        self.wallRadius = r
         return
 
     def _setupAnalyse(self, logfile='ambuild.csv'):
