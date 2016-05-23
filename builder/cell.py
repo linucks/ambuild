@@ -827,10 +827,11 @@ class Cell():
 
         count = 0
         block1 = self.blocks[ idxBlock1 ]
+        wallCheck = any(walls)
         for idxAtom1, coord1 in enumerate(block1.iterCoord()):
             
             # First check if the atom is close to a wall
-            if walls is not None:
+            if wallCheck:
                 radius = block1.radius(idxAtom1) + self.wallRadius + self.atomMargin
                 if walls[0] and (coord1[0] < radius or coord1[0] > self.dim[0] - radius) or \
                    walls[1] and (coord1[1] < radius or coord1[1] > self.dim[1] - radius) or \
