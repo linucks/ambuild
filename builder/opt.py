@@ -900,7 +900,7 @@ class HoomdOptimiser(FFIELD):
         self.groupActive = None
         self.groupAll = None
         self.groupStatic = None
-
+        
         self.debug = True
 
         # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
@@ -978,7 +978,8 @@ class HoomdOptimiser(FFIELD):
                           doCharges=True,
                           rCut=None,
                           quiet=None,
-                          walls=[False,False,False],
+                          walls=None,
+                          wallAtomType=None,
                           **kw):
 
         if rCut is not None:
@@ -994,7 +995,9 @@ class HoomdOptimiser(FFIELD):
                                        doImproper=doImproper,
                                        rCut=self.rCut,
                                        quiet=quiet,
-                                       walls=walls)
+                                       walls=walls,
+                                       wallAtomType=wallAtomType,
+                                       )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
         self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
@@ -1104,8 +1107,8 @@ class HoomdOptimiser(FFIELD):
               rigidBody=True,
               rCut=None,
               quiet=None,
-              walls=[False,False,False],
-              wallAtomType='c',
+              walls=None,
+              wallAtomType=None,
               **kw):
 
         if rCut is not None:
@@ -1157,8 +1160,8 @@ class HoomdOptimiser(FFIELD):
                          doCharges=True,
                          rCut=None,
                          quiet=None,
-                         walls=[False,False,False],
-                         wallAtomType='c',
+                         walls=None,
+                         wallAtomType=None,
                          **kw):
 
         if rCut is not None:
@@ -1403,7 +1406,7 @@ class HoomdOptimiser(FFIELD):
                     rCut=None,
                     quiet=False,
                     maxE=False,
-                    walls=False,
+                    walls=None,
                     wallAtomType=None,
                      ):
 
@@ -1491,8 +1494,10 @@ class HoomdOptimiser(FFIELD):
         The origin of the wall is the centre of plane but then back half a cell along the axis 
         that isn't part of the wall.
         """
+        if walls is None: return
         assert len(walls) is 3 # array of three booleans - one per wall
         if not any(walls): return
+        assert wallAtomType is not None,"Need to set a wallAtomType!"
         wtypes = ['XOY', 'XOZ', 'YOZ'] # Oroder of walls
         wallstructure = None
         for do, wtype in zip(walls, wtypes):

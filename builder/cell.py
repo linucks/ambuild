@@ -827,7 +827,7 @@ class Cell():
 
         count = 0
         block1 = self.blocks[ idxBlock1 ]
-        wallCheck = any(walls)
+        wallCheck = False if walls is None else any(walls)
         for idxAtom1, coord1 in enumerate(block1.iterCoord()):
             
             # First check if the atom is close to a wall
