@@ -22,6 +22,11 @@ from hoomd_script import *
 
 # Later versions of hoomd-blue have a context that needs to be updated
 if 'context' in locals().keys():
+    # Context parses the command-line, so we need to make sure there
+    # are no arguments or else we lose the ability to display our own help
+    _argv = sys.argv
+    sys.argv = [sys.argv[0]]
     context.initialize()
+    sys.argv = _argv
 
 
