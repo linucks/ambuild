@@ -2348,7 +2348,10 @@ class Cell():
         self.pbc = [ not b for b in self.walls ]
         
         self.wallAtomType = wallAtomType
-        z = util.SYMBOL_TO_NUMBER[ wallAtomType.upper() ]
+        symbol = wallAtomType.upper()
+        if symbol not in util.SYMBOL_TO_NUMBER:
+            raise RuntimeError("Data for atomType {0} not available. Supported atomTypes are: {1}".format(wallAtomType,sorted(util.SYMBOL_TO_NUMBER.keys())))
+        z = util.SYMBOL_TO_NUMBER[ symbol ]
         r = util.COVALENT_RADII[z] * util.BOHR2ANGSTROM
         self.wallRadius = r
         return

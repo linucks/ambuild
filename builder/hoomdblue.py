@@ -20,6 +20,8 @@ else:
 
 from hoomd_script import *
 
-context.initialize()
+# Later versions of hoomd-blue have a context that needs to be updated
+if 'context' in locals().keys():
+    context.initialize()
 
 
