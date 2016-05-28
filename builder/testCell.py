@@ -1202,6 +1202,31 @@ class Test(unittest.TestCase):
                                     msg="{0} {1}".format(z, coords[ i ][ 2 ]))
         os.unlink(filename)
         return
+    
+    def testRestoreBlocks(self):
+        boxDim = [50, 50, 50]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
+        #mycell.addBondType('A:a-A:a')
+        #mycell.addBondType('A:a-B:a')
+
+        # See if we can delete single blocks
+        toSeed = 10
+        mycell.seed(toSeed, fragmentType='A')
+        mycell.seed(toSeed, fragmentType='B')
+        deleted = mycell.deleteBlocksType('A', save=True)
+        self.assertEqual(deleted, toSeed)
+        deleted = mycell.deleteBlocksType('B', save=True)
+        self.assertEqual(deleted, toSeed)
+        
+        self.assertEqual(len(mycell.blocks), 0)
+        added = mycell.restoreBlocks(fragmentTypes='A')
+        self.assertEqual(added, toSeed)
+        added = mycell.restoreBlocks(fragmentTypes='B')
+        self.assertEqual(added, toSeed)
+        
+        return
         
     def testSeed(self):
         """Test we can seed correctly"""

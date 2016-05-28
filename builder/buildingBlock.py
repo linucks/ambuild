@@ -27,6 +27,7 @@ import numpy
 # local imports
 import fragment
 import util
+import new
 
 LOGGER = logging.getLogger(__name__)
 
@@ -647,6 +648,9 @@ class Block(object):
     def fragmentTypeDict(self):
         """A dictionary with the number of the different types of fragment we contain"""
         return self._fragmentTypeDict
+    
+    def fragmentTypes(self):
+        return self._fragmentTypeDict.keys()
 
     def freeEndGroups(self):
         # http://stackoverflow.com/questions/952914/making-a-flat-list-out-of-list-of-lists-in-python

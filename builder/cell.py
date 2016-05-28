@@ -1167,26 +1167,20 @@ class Cell():
         multiple: if True remove blocks that contain > 1 fragment, else only single-fragment blocks
         save: save all deleted blocks so they can be readded with the restoreBlocks command
         """
-        if type(fragmentTypes) is str: fragmentTypes = [fragmentTypes] 
+        if type(fragmentTypes) is str: fragmentTypes = [fragmentTypes]
+        fragmentTypes = set(fragmentTypes)
         
-        allBlocks = set()
-        for fragmentType in fragmentTypes:
-            # First get a list of all the blocks that contain single fragments that match the fragment type
-            blist = set()
-            for blockId, block in self.blocks.iteritems():
-    
-                # Check if is multiple or not
-                if not multiple and len(block.fragments) != 1:
-                    continue
-    
-                # Check if all fragments in this block are of the given type
-                if any([True for f in block.fragments if f.fragmentType == fragmentType]):
-                    blist.add((blockId,block))
-    
-            if not len(blist):
-                LOGGER.critical("Delete could not find any blocks containing fragments of type: {0}".format(fragmentType))
-            allBlocks.update(blist)
+        allBlocks = []
+        # First get a list of all the blocks that contain fragments that match the fragment type
+        for blockId, block in self.blocks.iteritems():
 
+            # Check if is multiple or not
+            if not multiple and len(block.fragments) != 1:
+                continue
+            # Add this block if it contains any of the fragmentTypes
+            if set(block.fragmentTypes()).intersection(fragmentTypes):
+                allBlocks.append((blockId,block))
+    
         # We have a list of valid blocks, we now randomly remove them - randomly in case we aren't deleting all of them
         if numBlocks > 0:
             toRemove = min(numBlocks, len(allBlocks))
@@ -1194,7 +1188,6 @@ class Cell():
             toRemove = len(allBlocks)
         
         if toRemove > 0:
-            allBlocks = list(allBlocks)
             for i in range(toRemove):
                 blockId, block = _random.choice(allBlocks)
                 self.delBlock(blockId)
@@ -2107,12 +2100,26 @@ class Cell():
             del blocks
         return
     
-    def restoreBlocks(self):
+    def restoreBlocks(self, fragmentTypes=None):
         if not len(self.savedBlocks):
             LOGGER.critical('No saved blocks available for restoration.')
             return 0
-        added = self.addBlocks(self.savedBlocks)
-        self.savedBlocks = []
+        
+        added = 0
+        if fragmentTypes is not None:
+            if type(fragmentTypes) is str: fragmentTypes = [fragmentTypes] 
+            toAdd = []
+            fragmentTypes = set(fragmentTypes)
+            for block in self.savedBlocks:
+                if fragmentTypes.intersection(set(block.fragmentTypes())):
+                    toAdd.append(block) #if any of the fragments are within the blocks remove this block
+            # Remove the blocks
+            if len(toAdd):
+                for block in toAdd:
+                    self.savedBlocks.remove(block)
+                added = self.addBlocks(toAdd)
+        else:
+            added = self.addBlocks(self.savedBlocks)
         LOGGER.info("restoreBlocks re-added {0} blocks to the cell".format(added))
         return added
     
