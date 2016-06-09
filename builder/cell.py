@@ -552,6 +552,22 @@ class Cell():
                     # Totally abitrary number - a wee bit longer than a C-C bond
                     if dist < clashDist: return True
         return False
+    
+    def buildPolymer(self,fragments, bonds, ratio, length, random=False):
+        """
+        
+        getBlockEndGroup - return the block in the cell and the endGroup of the next bond to be made
+        getNextFragment - based on the bonding rules
+        joinBlocks
+        
+        need to keep track of how many endGroups are available under the bonding rules
+        
+        fragments = ['A','B']
+        bonds = [(0,1)] # we could have branched polymers
+        ratio = '1:2' # order must match fragments
+        
+        """
+        return
 
     def canBond(self,
                  staticBlock,
@@ -1367,7 +1383,7 @@ class Cell():
             Lx = system.box[0]
             Ly = system.box[1]
             Lz = system.box[2]
-
+        
         if self.minCell:
             # Need to take unwrapped coords and put back into
             # the original cell
@@ -1418,6 +1434,13 @@ class Cell():
 
         if atomCount != len(system.particles):
             raise RuntimeError, "Read {0} positions but there were {1} particles!".format(atomCount, len(system.particles))
+        
+        # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update 
+        # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks
+        dim = numpy.array([Lx,Ly,Lz])
+        if not numpy.allclose(dim, self.dim):
+            LOGGER.info("Changing cell dimensions after HOOMD-blue simulation from: {0} to: {1}".format(self.dim,dim))
+            self.dim = dim
 
         # Now have the new coordinates, so we need to put the atoms in their new cells
         self.repopulateCells()
@@ -2425,16 +2448,16 @@ class Cell():
         LOGGER = logger
         return
 
-    def updateFromBlock(self, block):
-        """Update cell parameters from the block"""
-        if block.maxAtomRadius <= 0: raise RuntimeError, "Error updating cell from block"
-
-        if block.maxAtomRadius() > self.maxAtomRadius:
-            # What happens to already added blocks if we call this after we've added them?
-            # Not sure so being safe...
-            if len(self.blocks) > 0: raise RuntimeError, "Adding initblock after blocks have been added - not sure what to do!"
-            self.updateCellSize(maxAtomRadius=block.maxAtomRadius())
-        return
+#     def updateFromBlock(self, block):
+#         """Update cell parameters from the block"""
+#         if block.maxAtomRadius <= 0: raise RuntimeError, "Error updating cell from block"
+# 
+#         if block.maxAtomRadius() > self.maxAtomRadius:
+#             # What happens to already added blocks if we call this after we've added them?
+#             # Not sure so being safe...
+#             if len(self.blocks) > 0: raise RuntimeError, "Adding initblock after blocks have been added - not sure what to do!"
+#             self.updateCellSize(maxAtomRadius=block.maxAtomRadius())
+#         return
 
     def updateCellSize(self, boxMargin=None, maxAtomRadius=None, MARGIN=0.01, boxShift=None):
         """The cell size is the vdw radius of the largest atom plus the largest of atom or bondMargin
