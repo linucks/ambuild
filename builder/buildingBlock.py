@@ -652,18 +652,21 @@ class Block(object):
     def fragmentTypes(self):
         return self._fragmentTypeDict.keys()
 
-    def freeEndGroups(self):
-        # http://stackoverflow.com/questions/952914/making-a-flat-list-out-of-list-of-lists-in-python
-        return  [item for sublist in self._freeEndGroups.values() for item in sublist]
-
-    def freeEndGroupsFromTypes(self, endGroupTypes):
-        # Make sure we have a list to check against
-        if isinstance(endGroupTypes, str):
-            endGroupTypes = [ endGroupTypes ]
-        endGroups = []
-        for t in endGroupTypes:
-            endGroups += self._endGroupType2EndGroups[ t ]
-        return endGroups
+    def freeEndGroups(self, endGroupTypes=None):
+        """Return the list of free endGroups.
+        Args:
+        endGroupTypes: only return the free endGroups that are of the given endGroupTypes
+        """
+        if endGroupTypes is None:
+            # http://stackoverflow.com/questions/952914/making-a-flat-list-out-of-list-of-lists-in-python
+            return  [item for sublist in self._freeEndGroups.values() for item in sublist]
+        else:
+            if isinstance(endGroupTypes, str): endGroupTypes = [ endGroupTypes ]
+            endGroups = []
+            for t in endGroupTypes:
+                if t in self._endGroupType2EndGroups:
+                    endGroups += self._endGroupType2EndGroups[ t ]
+            return endGroups
 
     def freeEndGroupTypes(self):
         """Return a list of the fragmentTypes for the available endGroups"""
@@ -837,12 +840,12 @@ class Block(object):
             # We can definitely return something so pick a random fragment type and get a random endGroup
             if random:
                 ftype = _random.choice(list(common))
-                endGroup = _random.choice(self.freeEndGroupsFromTypes(endGroupTypes=[ ftype ]))
+                endGroup = _random.choice(self.freeEndGroups(endGroupTypes=[ ftype ]))
             else:
                 i = self._deterministicState % len(common)
                 ftype = sorted(common)[i]
-                i = self._deterministicState % len(self.freeEndGroupsFromTypes(endGroupTypes=[ ftype ]))
-                endGroup = self.freeEndGroupsFromTypes(endGroupTypes=[ ftype ])[i]
+                i = self._deterministicState % len(self.freeEndGroups(endGroupTypes=[ ftype ]))
+                endGroup = self.freeEndGroups(endGroupTypes=[ ftype ])[i]
         
         if not random: self._deterministicState += 1
         return endGroup
