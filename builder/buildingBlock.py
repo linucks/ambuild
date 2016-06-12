@@ -652,21 +652,25 @@ class Block(object):
     def fragmentTypes(self):
         return self._fragmentTypeDict.keys()
 
-    def freeEndGroups(self, endGroupTypes=None):
+    def freeEndGroups(self, endGroupTypes=None, fragment=None):
         """Return the list of free endGroups.
         Args:
         endGroupTypes: only return the free endGroups that are of the given endGroupTypes
+        fragment: only return the endGroups that are part of fragment
         """
-        if endGroupTypes is None:
-            # http://stackoverflow.com/questions/952914/making-a-flat-list-out-of-list-of-lists-in-python
-            return  [item for sublist in self._freeEndGroups.values() for item in sublist]
-        else:
+        if endGroupTypes is not None:
             if isinstance(endGroupTypes, str): endGroupTypes = [ endGroupTypes ]
             endGroups = []
-            for t in endGroupTypes:
-                if t in self._endGroupType2EndGroups:
-                    endGroups += self._endGroupType2EndGroups[ t ]
-            return endGroups
+            for eType in endGroupTypes:
+                if eType in self._endGroupType2EndGroups:
+                    endGroups += self._endGroupType2EndGroups[ eType ]
+        else:
+            # http://stackoverflow.com/questions/952914/making-a-flat-list-out-of-list-of-lists-in-python
+            endGroups = [endGroup for endGroupList in self._freeEndGroups.values() for endGroup in endGroupList]
+        
+        if fragment is not None:
+            endGroups = [endGroup for endGroup in endGroups if endGroup.fragment is fragment]
+        return endGroups
 
     def freeEndGroupTypes(self):
         """Return a list of the fragmentTypes for the available endGroups"""
