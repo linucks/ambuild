@@ -7,7 +7,7 @@ import unittest
 
 import numpy
 
-from cell import Cell
+from cell import Cell, subUnit
 import buildingBlock
 import opt
 from paths import AMBUILD_DIR, BLOCKS_DIR
@@ -89,7 +89,7 @@ class Test(unittest.TestCase):
 #         b = mycell.blocks[ idxb ]
 #         be = b.freeEndGroups()[0]
 #
-#         i =  mycell.getInitBlock()
+#         i =  mycell.getLibraryBlock()
 #         ie = i.freeEndGroups()[0]
 #
 #         def run():
@@ -125,10 +125,10 @@ class Test(unittest.TestCase):
         mycell.libraryAddFragment(fragmentType=fragmentType, filename=self.benzeneCar)
         mycell.addBondType('A:a-A:a')
 
-        centralBlock = mycell.getInitBlock(fragmentType=fragmentType)
+        centralBlock = mycell.getLibraryBlock(fragmentType=fragmentType)
 
-        block1 = mycell.getInitBlock(fragmentType=fragmentType)
-        block2 = mycell.getInitBlock(fragmentType=fragmentType)
+        block1 = mycell.getLibraryBlock(fragmentType=fragmentType)
+        block2 = mycell.getLibraryBlock(fragmentType=fragmentType)
 
         centralBlock.positionGrowBlock(centralBlock.freeEndGroups()[ 0 ], block1.freeEndGroups()[ 0 ])
         centralBlock.positionGrowBlock(centralBlock.freeEndGroups()[ 1 ], block2.freeEndGroups()[ 0 ])
@@ -166,6 +166,42 @@ class Test(unittest.TestCase):
         grew = mycell.growBlocks(toGrow, endGroupType=None, maxTries=5)
         self.assertEqual(toGrow, grew, "testBlockTypes not ok")
         return
+        
+    def testBuildPolymer(self):
+        boxDim = [15, 15, 15]
+        mycell = Cell(boxDim, doLog=True)
+
+        mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
+        mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
+        mycell.addBondType('A:a-B:a')
+
+        mycell.buildPolymer(monomers=['A','B'],
+                            ratio=[1,1],
+                            length=24,
+                            random=False)
+        self.assertEqual(mycell.polymerTally,[12,12])
+        return
+    
+    def testBuildPolymerRandom(self):
+        boxDim = [20, 20, 20]
+        mycell = Cell(boxDim, doLog=True)
+
+        mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
+        mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
+        mycell.addBondType('A:a-B:a')
+        mycell.addBondType('A:a-A:a')
+        mycell.addBondType('B:a-B:a')
+
+        ratio = [1,1]
+        mycell.buildPolymer(monomers=['A','B'],
+                            ratio=ratio,
+                            length=50,
+                            random=True)
+        
+        idealRatio = [ float(r)/float(sum(ratio)) for r in ratio  ]
+        actualRatio = [ float(r)/float(sum(mycell.polymerTally)) for r in  mycell.polymerTally ]
+        self.assertTrue(all([ abs(ideal - actual)  < 0.1 for ideal, actual in zip(idealRatio,actualRatio)]))
+        return
 
     def XtestCapBlocks(self):
         mycell = self.createTestCell()
@@ -201,11 +237,11 @@ class Test(unittest.TestCase):
         mycell = Cell([30, 30, 30], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-        block1 = mycell.getInitBlock('A')
+        block1 = mycell.getLibraryBlock('A')
 
         block1.translateCentroid([ 1, 1, 1 ])
         block1_id = mycell.addBlock(block1)
-        block2 = mycell.getInitBlock('A')
+        block2 = mycell.getLibraryBlock('A')
         block2.translateCentroid([ 2.2, 2.2, 2.2 ])
         block2_id = mycell.addBlock(block2)
  
@@ -227,7 +263,7 @@ class Test(unittest.TestCase):
  
         # Too far for any contacts
         mycell.delBlock(block2_id)
-        block2 = mycell.getInitBlock('A')
+        block2 = mycell.getLibraryBlock('A')
         block2.translateCentroid([10, 10, 10])
         block2_id = mycell.addBlock(block2)
  
@@ -237,7 +273,7 @@ class Test(unittest.TestCase):
  
         # Now check across periodic boundary
         mycell.delBlock(block2_id)
-        block2 = mycell.getInitBlock('A')
+        block2 = mycell.getLibraryBlock('A')
         x = 2.2 + 2 * mycell.dim[0]
         y = 2.2 + 2 * mycell.dim[1]
         z = 2.2 + 2 * mycell.dim[2]
@@ -262,7 +298,7 @@ class Test(unittest.TestCase):
         mycell = Cell([2.1, 2.1, 2.1], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-        block1 = mycell.getInitBlock('A')
+        block1 = mycell.getLibraryBlock('A')
 
         natoms = block1.numAtoms()
 
@@ -276,7 +312,7 @@ class Test(unittest.TestCase):
         self.assertFalse(wallClash)
 
         # Add second block overlapping first but in other image
-        block2 = mycell.getInitBlock('A')
+        block2 = mycell.getLibraryBlock('A')
         block2.translateCentroid([ mycell.dim[0] / 2 + mycell.dim[0],
                                    mycell.dim[1] / 2 + mycell.dim[1],
                                    mycell.dim[2] / 2 + mycell.dim[2] ])
@@ -304,14 +340,14 @@ class Test(unittest.TestCase):
         # block1 = mycell.initBlock.copy()
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-        block1 = mycell.getInitBlock('A')
+        block1 = mycell.getLibraryBlock('A')
 
         b1 = numpy.array([2, 2, 2], dtype=numpy.float64)
         block1.translateCentroid(b1)
         block1_id = mycell.addBlock(block1)
 
         # block2=mycell.initBlock.copy()
-        block2 = mycell.getInitBlock('A')
+        block2 = mycell.getLibraryBlock('A')
         b2 = numpy.array([3, 3, 3], dtype=numpy.float64)
         block2.translateCentroid(b2)
         block2_id = mycell.addBlock(block2)
@@ -745,7 +781,7 @@ class Test(unittest.TestCase):
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
 
-        block1 = mycell.getInitBlock('A')
+        block1 = mycell.getLibraryBlock('A')
 
         # Position block so that it's aligned along x-axis
         # - use two opposing C-atoms 0 & 3
@@ -1292,7 +1328,7 @@ class Test(unittest.TestCase):
         mycell.addBondType('A:a-A:a')
 
         # Create blocks manually
-        b1 = mycell.getInitBlock(fragmentType='A')
+        b1 = mycell.getLibraryBlock(fragmentType='A')
 
         # Align bond along x-axis
         b1.alignAtoms(0, 3, [ 0, 0, 1 ])
@@ -1305,7 +1341,7 @@ class Test(unittest.TestCase):
         b1.translateCentroid([ (mycell.dim[0] / 2) - 5, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
         
         # Get b2 from library and set up so that it's in the middle
-        b2 = mycell.getInitBlock(fragmentType='B')
+        b2 = mycell.getLibraryBlock(fragmentType='B')
         
         b2.alignAtoms(0, 3, [ 0, 0, 1 ])
         b2.alignAtoms(0, 3, [ 0, 1, 0 ])
@@ -1332,6 +1368,37 @@ class Test(unittest.TestCase):
         self.assertEqual(made,1)
 
         pass
+
+    def testSubunit(self):
+        
+        b1 = buildingBlock.Block(filePath=self.ch4Car, fragmentType='A')
+        fragment = b1.fragments[0]
+        
+        monomers = ['A','B','C']
+        ratio = [1,3,1]
+        # Handle zero totalTally
+        u = subUnit(monomers=monomers, ratio=ratio, fragment=fragment, totalTally=[0,0,0], direction=1, random=True)
+        self.assertIn(u.randomEndGroupType(),monomers)
+        
+        # Make sure we can upweight a low one
+        u = subUnit(monomers=monomers, ratio=ratio, fragment=fragment, totalTally=[100,300,1], direction=1, random=True)
+        self.assertEqual(u.randomEndGroupType(),'C')
+        
+        
+        # See if the overall ratio approaches the ideal
+        u = subUnit(monomers=monomers, ratio=ratio, fragment=fragment, totalTally=[100,300,100], direction=1, random=True)
+        from collections import Counter
+        s = ''
+        for _ in xrange(10000): s += u.randomEndGroupType()
+        c = Counter(s)
+        count = [ c[m] for m in monomers ]
+        sumall = sum(count)
+        current = [float(c)/float(sumall) for c in count ]
+        
+        wratio = [float(r)/float(sum(ratio)) for r in ratio]
+        self.assertTrue(numpy.allclose(numpy.array(wratio), numpy.array(current), rtol=0.05))
+        
+        return
 
     def testSurroundBoxes(self):
         """

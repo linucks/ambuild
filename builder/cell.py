@@ -3,7 +3,6 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 '''
-
 VERSION = "9c810f37613f"
 
 import collections
@@ -25,10 +24,11 @@ import fragment
 import opt
 import util
 
-LOGGER = logging.getLogger(__name__)
-
 BONDTYPESEP = "-"  # Character for separating bonds
 ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
+
+LOGGER = logging.getLogger(__name__)
+
 
 class Analyse():
     def __init__(self, cell, logfile="ambuild.csv"):
@@ -150,12 +150,137 @@ class CellData(object):
         self.tagIndices = []
         return
 
+class subUnit(object):
+    # These are referenced by all endPoints
+    monomoers = None
+    ratio = None
+    totalTally = None # Keeps track of overall tally in polymer
+    
+    def __init__(self, monomers, ratio, fragment, totalTally, direction=1, random=False):
+        self.monomers = monomers
+        self.ratio = ratio
+        self.direction = direction
+        if direction > 0:
+            self.index = 0
+        else:
+            self.index = len(monomers) - 1
+        self.tally = [0] * len(monomers) # Tracks how many monomers are present in this subunit
+        self.totalTally = totalTally # Tracks how many monomers are present in the overall polymer
+        self.random = random
+        self.block = fragment.block
+        # We have added a fragment so increment things
+        self.incrementMonomer(fragment)
+        return
+    
+    def incrementMonomer(self, fragment):
+        """Add the next monomer and update the data structures"""
+        
+        # Update the overall tally
+        if self.random:
+            # For random we don't use the index, we have to infer where we are from the fragmentType
+            self.index = self.monomers.index(fragment.fragmentType)
+        self.totalTally[self.index] += 1
+        
+        if not self.random:
+            # Add one to the tally at this position
+            self.tally[self.index] += 1
+            assert self.tally[self.index] <= self.ratio[self.index],\
+            "Exceeded permissible monomers at position: {0}".format(self.index)
+            
+            # See if we have added enough monomers of this type
+            if self.tally[self.index] == self.ratio[self.index]:
+                # Need to move along to the next one
+                if self.direction > 0:
+                    if self.index == len(self.tally) - 1:
+                        self.index = 0
+                        # Reset tally
+                        self.tally = [0] * len(self.monomers)
+                    else:
+                        self.index += 1
+                        
+                elif self.direction < 0:
+                    if self.index == 0:
+                        self.index = len(self.tally) - 1
+                        # Reset tally
+                        self.tally = [0] * len(self.monomers)
+                    else:
+                        self.index -= 1
+        
+        # Now need to update the fragment we are pointing at
+        self.fragment = fragment
+        return
+
+    def nextMonomerType(self):
+        """Return the next endGroupType required to continue this subUnit"""
+        if self.random:
+            return self.randomMonomerType()
+        else:
+            return self.monomers[self.index]
+    
+    def randomMonomerType(self):
+        """Determine a random MonomerType to return
+        
+        We use an interval of length one, binned by the relative sizes of ratios
+        At the start the bins are the same size as the ratios. As the totalTally 
+        is updated, we multiply the ideal ratios by the difference between them and 
+        the current ratio from the totalTally. If a particular monomer is over-represented
+        then the bin of that monomer will be decreased and there will be less chance of selection
+        that monomer.
+        
+        """
+        
+        # Calculate the ideal weights based on the ratios
+        rTotal = sum(self.ratio)
+        idealWeights = [ float(r)/float(rTotal) for r in self.ratio ]
+        
+        # If we don't have any of monomers in the polymer yet, we use the ideal
+        # weights for everything
+        if 0 in self.totalTally:
+            weights = idealWeights
+        else:
+            # Calculate the current ratios
+            tTotal = sum(self.totalTally)
+            currentWeights = []
+            for r in self.totalTally:
+                if r > 0:
+                    w = float(r)/float(tTotal)
+                else:
+                    w = 0.0
+                currentWeights.append(w) 
+            
+            # By dividing the ideal weight by the current weight, if the current weight is smaller than the ideal
+            # the result of the division is > 1, so by multiplying by the result, we increase the weight for that monomer
+            weights = []
+            for wi, wc in zip(idealWeights,currentWeights):
+                if wc == 0.0:
+                    w = wi
+                else:
+                    w = wi* wi/wc 
+                weights.append(w)
+            
+            # We need to divide each by the sum to bring back onto a common scale
+            wsum = sum(weights)
+            weights = [ w/wsum for w in weights]
+            
+        # Pick a point in the interval
+        pin = _random.uniform(0,1)
+        
+        # See which bin the pin landed in
+        high = 0.0
+        index = None
+        for i, w in enumerate(weights):
+            high += w
+            if pin <= high:
+                index = i
+                break
+        assert index is not None, "Didn't catch value!"
+        
+        return self.monomers[index]
+
 class Cell():
     '''
     classdocs
     '''
-
-
 
     def __init__(self,
                  boxDim=None,
@@ -240,6 +365,9 @@ class Cell():
         # as we add and remove blocks and need to keep track of them
         self.blocks = collections.OrderedDict()
         
+        # Tracks the id of the last block added to the cell
+        self.lastAdded = None
+        
         # Holds possible bond after checkMove is run
         self._possibleBonds = []
         
@@ -297,6 +425,8 @@ class Cell():
                 self.box1[ key ] = [ (idxBlock, idxCoord) ]
                 # Map the cells surrounding this one
                 self.box3[ key ] = self.haloCells(key)
+                
+        self.lastAdded = idxBlock
 
         return idxBlock
     
@@ -361,6 +491,34 @@ class Cell():
         self._updateBondTable()
         
         return
+    
+    def addMonomer(self, polymer, subunit):
+        # Start working from endPoint1 going forward
+        # First get free endGroups from the endPoint of the polymer we are working on
+        polymerEndGroups = polymer.freeEndGroups(fragment=subunit.fragment)
+        
+        # Now determine the next endGroupType required by the endPoint
+        monomer = subunit.nextMonomerType()
+            
+        # Get a fragment/endGroup of this type from the library
+        #fragmentType = fragmentEndGroup.split(ENDGROUPSEP)[0]
+        newBlock = self.getLibraryBlock(fragmentType=monomer)
+        monomerEndGroups = newBlock.freeEndGroups()
+        
+        got = False
+        for polymerEndGroup in polymerEndGroups:
+            if got: break
+            for monomerEndGroup in monomerEndGroups:
+                #print "GOT POLYMER ENDGROUP ", polymerEndGroup
+                #print "GOT MONOMER ENDGROUP ",monomerEndGroup
+                ok = self.attachBlock(monomerEndGroup, polymerEndGroup, dihedral=None)
+                if ok:
+                    # Update the subunit with the added monomer - this needs to update the fragment
+                    subunit.incrementMonomer(monomerEndGroup.fragment)
+                    got = True
+                    break
+        return got
+    ################################################
 
     def _updateBondTable(self):
         """Recalculate the dicionary of what endGroups can bond to which"""
@@ -552,21 +710,60 @@ class Cell():
                     # Totally abitrary number - a wee bit longer than a C-C bond
                     if dist < clashDist: return True
         return False
-    
-    def buildPolymer(self,fragments, bonds, ratio, length, random=False):
+        
+    def buildPolymer(self, monomers, ratio, length, bonds = None, random=False, center=False):
         """
         
-        getBlockEndGroup - return the block in the cell and the endGroup of the next bond to be made
-        getNextFragment - based on the bonding rules
-        joinBlocks
+        The fragment and ratio lists define the construction of the subunit. E.g.:
+        monomers = ['A','B']
+        ratio = [1,2]
+        gives: [ABB]
         
-        need to keep track of how many endGroups are available under the bonding rules
+        We could even have:
+        monomers = ['A','B', 'A','B']
+        ratio = [1,2,3,1]
+        gives: [ABBAAAB]
         
-        fragments = ['A','B']
-        bonds = [(0,1)] # we could have branched polymers
-        ratio = '1:2' # order must match fragments
+        """ 
         
-        """
+        LOGGER.info("buildPolymer, building polymer with monomers: {0}, ratio: {1}, length: {2}, random={3}".format(monomers,
+                                                                                                                    ratio,
+                                                                                                                    length,
+                                                                                                                    random))
+
+        totalTally = [0] * len(monomers) # Trakcs the overall number of fragments in the polymer
+
+        # Determine the first endGroup type
+        if random:
+            monomer = _random.choice(monomers)
+        else:
+            monomer = monomers[0]
+        
+        # Seed the first block
+        self.seed(nblocks=1, fragmentType=monomer, center=center)
+        
+        # Get the polymer block
+        idxPolymer = self.lastAdded
+        polymer = self.blocks[idxPolymer]
+        fragment = polymer.fragments[0]
+        
+        # Create subunit going forward
+        subunit = subUnit(monomers=monomers, ratio=ratio, fragment=fragment, totalTally=totalTally, direction=1, random=random)
+        
+        switched = False
+        for _ in range(length-1):
+            if not self.addMonomer(polymer, subunit):
+                if switched:
+                    LOGGER.critical("Failed to complete polymer!")
+                    break
+                LOGGER.debug("Failed to add Monomer to intial endPoint - switching end")
+                # Switch to other end of the chain -set switched flag so we know wev've done this
+                subunit = subUnit(monomers=monomers, ratio=ratio, fragment=fragment, totalTally=totalTally, direction=-1, random=random)
+                switched = True
+        LOGGER.info("buildPolymer finalTally ({0} % {1}): {2}".format(ratio, length, subunit.totalTally))
+        
+        # Bit of a hack - currently just so we can test the results
+        self.polymerTally = subunit.totalTally
         return
 
     def canBond(self,
@@ -671,7 +868,7 @@ class Cell():
                                                                                         blockId))
 
             # If there are no free this won't loop
-            for endGroup in block.freeEndGroupsFromTypes([ fragmentType ]):
+            for endGroup in block.freeEndGroups(endGroupTypes=[fragmentType]):
 
                 cblock = capBlock.copy()
                 # print "ADDING CAPBLOCK ",id(cblock)
@@ -1451,7 +1648,7 @@ class Cell():
         """Return the box that the coord is in under periodic boundaries"""
         return util.getCell(coord, self.boxSize, dim=self.dim, pbc=self.pbc)
 
-    def getInitBlock(self, fragmentType=None, random=True):
+    def getLibraryBlock(self, fragmentType=None, random=True):
         """Return an initBlock"""
 
         if fragmentType is None:
@@ -1886,7 +2083,7 @@ class Cell():
     
             # Now determine the fragmentType and create the block and fragment
             fragmentType = self._endGroup2LibraryFragment[ libEgT ]
-            libraryBlock = self.getInitBlock(fragmentType=fragmentType, random=random)
+            libraryBlock = self.getLibraryBlock(fragmentType=fragmentType, random=random)
     
             # now get the endGroup
             libraryEndGroup = libraryBlock.selectEndGroup(endGroupTypes=[libEgT])
@@ -1900,7 +2097,7 @@ class Cell():
             i = self._deterministicState % len(cell2Library[cellEgT])
             libEgT = sorted(list(cell2Library[cellEgT]))[i]
             fragmentType = self._endGroup2LibraryFragment[ libEgT ]
-            libraryBlock = self.getInitBlock(fragmentType=fragmentType, random=random)
+            libraryBlock = self.getLibraryBlock(fragmentType=fragmentType, random=random)
             libraryEndGroup = libraryBlock.selectEndGroup(endGroupTypes=[libEgT], random=random)
             self._deterministicState += 1
 
@@ -2284,7 +2481,7 @@ class Cell():
         numBlocksAdded = 0
         # Loop through the nblocks adding the blocks to the cell
         for seedCount in range(nblocks):
-            newblock = self.getInitBlock(fragmentType=fragmentType) # Create new block
+            newblock = self.getLibraryBlock(fragmentType=fragmentType) # Create new block
             tries = 0
             while True:
                 # quit on maxTries
