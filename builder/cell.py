@@ -712,15 +712,25 @@ class Cell():
         return False
         
     def buildPolymer(self, monomers, ratio, length, bonds = None, random=False, center=False):
-        """
+        """Create a linear polymer.
+        
+        Arguments:
+        monomers - list of ambuild fragmentTypes (as specified when adding the fragment to the cell with libraryAddFragment)
+                   that will be joined to create a subunit
+        ratio - list of integers specifying the number of monomers of each type (needs to be the same length as monomers) in
+                the subunit
+        length - the number of subumits that will be created
+        random - True/False - whether to build up the polymer deterministically (as per monomers/ratio) or stochastically, but
+               - where the final ratio of fragments will approach that specified in ratio.
+        center - place the first monomer polymer in the center of the cell (if possible)
         
         The fragment and ratio lists define the construction of the subunit. E.g.:
-        monomers = ['A','B']
+        monomers = ['A', 'B']
         ratio = [1,2]
         gives: [ABB]
         
         We could even have:
-        monomers = ['A','B', 'A','B']
+        monomers = ['A', 'B', 'A', 'B']
         ratio = [1,2,3,1]
         gives: [ABBAAAB]
         
