@@ -1521,7 +1521,10 @@ class HoomdOptimiser(FFIELD):
                 if not wallstructure:
                     # We only create the wall and the LJ potentials once as they are used
                     # by all subsequent walls in the group
-                    wallstructure = hoomdblue.wall.group()
+                    try: 
+                        wallstructure = hoomdblue.wall.group()
+                    except AttributeError:
+                        raise RuntimeError('HOOMD-blue wall does not have a group attribute. You may need to update your version of HOOMD-Blue in order to use walls')
                     lj = hoomdblue.wall.lj(wallstructure, r_cut=rCut)
                     for atype in self.atomTypes:
                         param = self.ffield.pairParameter(atype, wallAtomType)
