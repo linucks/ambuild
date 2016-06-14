@@ -3,7 +3,7 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 '''
-VERSION = "067fb87b4819"
+VERSION = "c3a48fe2232c"
 
 import collections
 import copy
@@ -557,7 +557,7 @@ class Cell():
                     if dist < clashDist: return True
         return False
         
-    def buildPolymer(self, monomers, ratio, length, random=False, center=False):
+    def growPolymer(self, monomers, ratio, length, random=False, center=False):
         """Create a linear polymer.
         
         Arguments:
@@ -582,7 +582,7 @@ class Cell():
         
         """ 
         
-        LOGGER.info("buildPolymer, building polymer with monomers: {0}, ratio: {1}, length: {2}, random={3}".format(monomers,
+        LOGGER.info("growPolymer, building polymer with monomers: {0}, ratio: {1}, length: {2}, random={3}".format(monomers,
                                                                                                                     ratio,
                                                                                                                     length,
                                                                                                                     random))
@@ -616,7 +616,7 @@ class Cell():
                 # Switch to other end of the chain -set switched flag so we know wev've done this
                 subunit = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer=polymer, totalTally=totalTally, direction=-1, random=random)
                 switched = True
-        LOGGER.info("buildPolymer finalTally ({0} % {1}): {2}".format(ratio, length, subunit.totalTally))
+        LOGGER.info("growPolymer finalTally ({0} % {1}): {2}".format(ratio, length, subunit.totalTally))
         
         # Bit of a hack - currently just so we can test the results
         self.polymerTally = subunit.totalTally

@@ -167,56 +167,6 @@ class Test(unittest.TestCase):
         grew = mycell.growBlocks(toGrow, endGroupType=None, maxTries=5)
         self.assertEqual(toGrow, grew, "testBlockTypes not ok")
         return
-        
-    def testBuildPolymer(self):
-        boxDim = [15, 15, 15]
-        mycell = Cell(boxDim, doLog=False)
-
-        mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
-        mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
-        mycell.addBondType('A:a-B:a')
-
-        mycell.buildPolymer(monomers=['A','B'],
-                            ratio=[1,1],
-                            length=24,
-                            random=False)
-        self.assertEqual(mycell.polymerTally,[12,12])
-        return
-    
-    def testBuildPolymerFail(self):
-        """Make sure we only have a single monomer if we don't allow any bonds"""
-        boxDim = [15, 15, 15]
-        mycell = Cell(boxDim, doLog=False)
-
-        mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
-        mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
-        mycell.buildPolymer(monomers=['A','B'],
-                            ratio=[1,1],
-                            length=2,
-                            random=False)
-        self.assertEqual(mycell.polymerTally,[1,0])
-        return
-    
-    def testBuildPolymerRandom(self):
-        boxDim = [20, 20, 20]
-        mycell = Cell(boxDim, doLog=False)
-
-        mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
-        mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
-        mycell.addBondType('A:a-B:a')
-        mycell.addBondType('A:a-A:a')
-        mycell.addBondType('B:a-B:a')
-
-        ratio = [1,1]
-        mycell.buildPolymer(monomers=['A','B'],
-                            ratio=ratio,
-                            length=50,
-                            random=True)
-        
-        idealRatio = [ float(r)/float(sum(ratio)) for r in ratio  ]
-        actualRatio = [ float(r)/float(sum(mycell.polymerTally)) for r in  mycell.polymerTally ]
-        self.assertTrue(all([ abs(ideal - actual)  < 0.1 for ideal, actual in zip(idealRatio,actualRatio)]))
-        return
 
     def XtestCapBlocks(self):
         mycell = self.createTestCell()
@@ -861,7 +811,57 @@ class Test(unittest.TestCase):
         self.assertFalse(self.clashes(mycell))
 
         return
+        
+    def testGrowPolymer(self):
+        boxDim = [15, 15, 15]
+        mycell = Cell(boxDim, doLog=False)
+
+        mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
+        mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
+        mycell.addBondType('A:a-B:a')
+
+        mycell.growPolymer(monomers=['A','B'],
+                            ratio=[1,1],
+                            length=24,
+                            random=False)
+        self.assertEqual(mycell.polymerTally,[12,12])
+        return
     
+    def testGrowPolymerFail(self):
+        """Make sure we only have a single monomer if we don't allow any bonds"""
+        boxDim = [15, 15, 15]
+        mycell = Cell(boxDim, doLog=False)
+
+        mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
+        mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
+        mycell.growPolymer(monomers=['A','B'],
+                            ratio=[1,1],
+                            length=2,
+                            random=False)
+        self.assertEqual(mycell.polymerTally,[1,0])
+        return
+    
+    def testGrowPolymerRandom(self):
+        boxDim = [20, 20, 20]
+        mycell = Cell(boxDim, doLog=False)
+
+        mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
+        mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
+        mycell.addBondType('A:a-B:a')
+        mycell.addBondType('A:a-A:a')
+        mycell.addBondType('B:a-B:a')
+
+        ratio = [1,1]
+        mycell.growPolymer(monomers=['A','B'],
+                            ratio=ratio,
+                            length=50,
+                            random=True)
+        
+        idealRatio = [ float(r)/float(sum(ratio)) for r in ratio  ]
+        actualRatio = [ float(r)/float(sum(mycell.polymerTally)) for r in  mycell.polymerTally ]
+        self.assertTrue(all([ abs(ideal - actual)  < 0.1 for ideal, actual in zip(idealRatio,actualRatio)]))
+        return
+
     def testIntersectedCells(self):
         
         mycell = Cell([10, 10, 10])   

@@ -143,7 +143,7 @@ Creating a polymer
 This is the simplest and most automatic way to create a structure:
 
 
-buildPolymer(monomers=['A','B;], ratio=[1,1], length=10, random=False, center=False):
+growPolymer(monomers=['A','B;], ratio=[1,1], length=10, random=False, center=False):
 
 Ths will create a linear polymer.
 
