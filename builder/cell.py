@@ -1557,6 +1557,7 @@ class Cell():
         if dihedral: dihedral = math.radians(dihedral)
         added = 0
         tries = 0
+        attemptedPairs = set()
         while added < toGrow:
             if tries >= maxTries:
                 LOGGER.critical("growBlocks - exceeded maxtries {0} when joining blocks!".format(maxTries))
@@ -1568,12 +1569,24 @@ class Cell():
             # Select two random blocks that can be bonded
             # initBlock, newEG, idxStaticBlock, staticEG = self.randomInitAttachments( endGroupType=endGroupType )
             try:
-                cellEndGroup, libraryEndGroup = self.libraryEndGroupPair(cellEndGroups=cellEndGroups,
+                endGroupPair = self.libraryEndGroupPair(cellEndGroups=cellEndGroups,
                                                                          libraryEndGroups=libraryEndGroups,
                                                                          random=random)
             except RuntimeError, e:
                 LOGGER.critical("growBlocks cannot grow more blocks: {0}".format(e))
                 return added
+            
+            # See if we've seen this pair before
+            if endGroupPair in attemptedPairs:
+                LOGGER.debug("growBlocks got endGroupPair again")
+                tries += 1
+                continue
+            else:
+                attemptedPairs.add(endGroupPair)
+            
+            # Unpack the endGroups
+            cellEndGroup, libraryEndGroup = endGroupPair
+            
             # Apply random rotation in 3 axes to randomise the orientation before we align
             libraryBlock = libraryEndGroup.block()
             if random: libraryBlock.randomRotate(origin=self.origin)
@@ -1959,7 +1972,7 @@ class Cell():
 
         # Return them both - phew!
         LOGGER.debug("libraryEndGroupPair returning: {0} {1}".format(cellEndGroup.type(), libraryEndGroup.type()))
-        return cellEndGroup, libraryEndGroup
+        return (cellEndGroup, libraryEndGroup)
 
     def numBlocks(self):
         return len(self.blocks)
