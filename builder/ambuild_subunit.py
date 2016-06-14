@@ -64,9 +64,6 @@ class subUnit(object):
         """Add the next monomer and update the data structures"""
         
         # Update the overall tally
-        if self.random:
-            # For random we don't use the index, we have to infer where we are from the fragmentType
-            self.index = self.monomers.index(fragment.fragmentType)
         self.totalTally[self.index] += 1
         
         if not self.random:
@@ -167,5 +164,8 @@ class subUnit(object):
                 break
         assert index is not None, "Didn't catch value!"
         
-        return self.monomers[index]
+        # Set index so that we know which monomer we added
+        self.index = index
+        
+        return self.monomers[self.index]
 

@@ -3,7 +3,7 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 '''
-VERSION = "c3a48fe2232c"
+VERSION = "ccbe2a9dc328"
 
 import collections
 import copy
