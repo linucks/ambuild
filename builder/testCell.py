@@ -7,10 +7,11 @@ import unittest
 
 import numpy
 
-from cell import Cell, subUnit
+from cell import Cell
 import buildingBlock
 import opt
 from paths import AMBUILD_DIR, BLOCKS_DIR
+import ambuild_subunit
 import util
 
 class Test(unittest.TestCase):
@@ -169,7 +170,7 @@ class Test(unittest.TestCase):
         
     def testBuildPolymer(self):
         boxDim = [15, 15, 15]
-        mycell = Cell(boxDim, doLog=True)
+        mycell = Cell(boxDim, doLog=False)
 
         mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
         mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
@@ -182,9 +183,23 @@ class Test(unittest.TestCase):
         self.assertEqual(mycell.polymerTally,[12,12])
         return
     
+    def testBuildPolymerFail(self):
+        """Make sure we only have a single monomer if we don't allow any bonds"""
+        boxDim = [15, 15, 15]
+        mycell = Cell(boxDim, doLog=False)
+
+        mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
+        mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
+        mycell.buildPolymer(monomers=['A','B'],
+                            ratio=[1,1],
+                            length=2,
+                            random=False)
+        self.assertEqual(mycell.polymerTally,[1,0])
+        return
+    
     def testBuildPolymerRandom(self):
         boxDim = [20, 20, 20]
-        mycell = Cell(boxDim, doLog=True)
+        mycell = Cell(boxDim, doLog=False)
 
         mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
         mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
@@ -1377,19 +1392,19 @@ class Test(unittest.TestCase):
         monomers = ['A','B','C']
         ratio = [1,3,1]
         # Handle zero totalTally
-        u = subUnit(monomers=monomers, ratio=ratio, fragment=fragment, totalTally=[0,0,0], direction=1, random=True)
-        self.assertIn(u.randomEndGroupType(),monomers)
+        u = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[0,0,0], direction=1, random=True)
+        self.assertIn(u.randomMonomerType(),monomers)
         
         # Make sure we can upweight a low one
-        u = subUnit(monomers=monomers, ratio=ratio, fragment=fragment, totalTally=[100,300,1], direction=1, random=True)
-        self.assertEqual(u.randomEndGroupType(),'C')
+        u = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[100,300,1], direction=1, random=True)
+        self.assertEqual(u.randomMonomerType(),'C')
         
         
         # See if the overall ratio approaches the ideal
-        u = subUnit(monomers=monomers, ratio=ratio, fragment=fragment, totalTally=[100,300,100], direction=1, random=True)
+        u = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[100,300,100], direction=1, random=True)
         from collections import Counter
         s = ''
-        for _ in xrange(10000): s += u.randomEndGroupType()
+        for _ in xrange(10000): s += u.randomMonomerType()
         c = Counter(s)
         count = [ c[m] for m in monomers ]
         sumall = sum(count)
