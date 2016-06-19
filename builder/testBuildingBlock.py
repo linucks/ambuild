@@ -458,6 +458,74 @@ class Test(unittest.TestCase):
         self.assertEqual(dihedrals, ref, "all dihedrals:\n{}\n{}".format(ref, dihedrals))
 
         return
+    
+    def testMaxBond(self):
+        carfile = os.path.join(BLOCKS_DIR, "DCX.car")
+        f = fragment.Fragment(filePath=carfile, fragmentType='A')
+        f.setMaxBond('A:CH', 1)
+        block1 = Block(initFragment=f)
+        
+        block2 = Block(filePath=self.ch4Car, fragmentType='B')
+        
+        # Check we have 6 free endGroups at the start
+        self.assertEqual(len(block1.freeEndGroups()),6)
+        self.assertEqual(len(block2.freeEndGroups()),4)
+        
+        # Create a bond to the maxBonded type
+        eg1 = block1.freeEndGroups(endGroupTypes='A:CH')[0]
+        eg2 = block2.freeEndGroups()[0]
+        bond = Bond(eg1, eg2)
+        block1.bondBlock(bond)
+        
+        # Now see if the other three are blocked - we need to include the three from the second block
+        self.assertEqual(len(block1.freeEndGroups()),5)
+        return
+    
+    def testBondingFunction(self):
+        carfile = os.path.join(BLOCKS_DIR, "benzene6.car")
+        f = fragment.Fragment(filePath=carfile, fragmentType='A')
+        def x(endGroup):
+            fragment = endGroup.fragment
+            egt = endGroup.type()
+            for eg in fragment.endGroups():
+                if egt == 'A:a':
+                    if not eg.bonded and eg.type() in ['A:c', 'A:e']:
+                        eg.blocked = True
+                elif egt == 'A:b':
+                    if not eg.bonded and eg.type() in ['A:d', 'A:f']:
+                        eg.blocked = True
+                elif egt == 'A:c':
+                    if not eg.bonded and eg.type() in ['A:a', 'A:e']:
+                        eg.blocked = True
+                elif egt == 'A:d':
+                    if not eg.bonded and eg.type() in ['A:b', 'A:f']:
+                        eg.blocked = True
+                elif egt == 'A:e':
+                    if not eg.bonded and eg.type() in ['A:a', 'A:c']:
+                        eg.blocked = True
+                elif egt == 'A:f':
+                    if not eg.bonded and eg.type() in ['A:b', 'A:d']:
+                        eg.blocked = True
+            return
+        
+        f.onbondFunction = x
+        block1 = Block(initFragment=f)
+        
+        block2 = Block(filePath=self.ch4Car, fragmentType='B')
+        
+        # Check we have 6 free endGroups at the start
+        self.assertEqual(len(block1.freeEndGroups()),6)
+        self.assertEqual(len(block2.freeEndGroups()),4)
+        
+        # Create a bond to the first endGroup
+        eg1 = block1.freeEndGroups(endGroupTypes='A:a')[0]
+        eg2 = block2.freeEndGroups()[0]
+        bond = Bond(eg1, eg2)
+        block1.bondBlock(bond)
+        
+        # Now see if the other two are blocked - we need to include the three from the second block
+        self.assertEqual(len(block1.freeEndGroups()),6)
+        return
 
     def testMultiEndGroups(self):
         """Test we can move correctly"""

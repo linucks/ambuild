@@ -2437,6 +2437,11 @@ class Cell():
         fragment = self._fragmentLibrary[ fragmentType ]
         return fragment.setMaxBond(bondType, count)
     
+    def setBondingFunction(self, fragmentType, onbondFunction):
+        fragment = self._fragmentLibrary[ fragmentType ]
+        fragment.onbondFunction = onbondFunction
+        return
+    
     def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType='c'):
         """Create walls along the specified sides.
         """

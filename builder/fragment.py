@@ -24,7 +24,8 @@ class EndGroup(object):
 
     def __init__(self):
 
-        self._isBonded = False
+        self.blocked = False # Used for indicating that this endGroup is unbonded but not free
+        self.bonded = False
 
         self._endGroupType = None
 
@@ -62,28 +63,26 @@ class EndGroup(object):
     def fragmentType(self):
         return self.fragment.fragmentType
 
-    def isBonded(self):
-        return self._isBonded
-
     def free(self):
-        return not self.isBonded() and not self.saturated()
+        return not self.bonded and not self.blocked
 
-    def saturated(self):
-        return self.fragment.endGroupSaturated(self.type())
+#     def saturated(self):
+#         return self.fragment.endGroupSaturated(self.type())
 
     def setBonded(self):
-        self._isBonded = True
-        self.fragment.addBond(self.type())
-        # Mask fragment cap and uw atoms now
-        self.fragment.masked[ self.fragmentCapIdx ] = True
-        if self.fragmentUwIdx != -1:
-            self.fragment.masked[ self.fragmentUwIdx ] = True
-
-        self.fragment.update()
+        self.bonded = True
+        self.fragment.addBond(self)
+#         self.bonded = True
+#         self.fragment.addBond(self.type())
+#         # Mask fragment cap and uw atoms now
+#         self.fragment.masked[ self.fragmentCapIdx ] = True
+#         if self.fragmentUwIdx != -1:
+#             self.fragment.masked[ self.fragmentUwIdx ] = True
+#         self.fragment.update()
         return
 
     def unBond(self):
-        self._isBonded = False
+        self.bonded = False
         self.fragment.delBond(self.type())
         # Unmask cap and set the coordinate to the coordinate of the last block atom
         self.fragment.masked[ self.fragmentCapIdx ] = False
@@ -101,7 +100,7 @@ class EndGroup(object):
         """The block has been updated so we need to update our block indices based on where the
         fragment starts in the block"""
         if self.fragment.masked[self.fragmentCapIdx]:
-            assert self.isBonded()
+            assert self.bonded
             # If this endGroup is involved in a bond, we want to get the block index of the
             # opposite endGroup as this has now become our cap atom
             self.blockCapIdx = cap2endGroup[(self.fragment, self.fragmentCapIdx)]
@@ -176,6 +175,7 @@ class Fragment(object):
             'fragmentType'     : fragmentType,
             '_labels'          : [],
             '_masses'          : [],
+            'onbondFunction' : None,  # A function to be called when we bond an endGroup 
             '_radii'           : [],
             '_maxBonds'        : {},
             '_radius'          :-1,
@@ -228,8 +228,27 @@ class Fragment(object):
 
         return
 
-    def addBond(self, endGroupType):
-        self._endGroupBonded[ endGroupType ] += 1
+    def addBond(self, endGroup):
+        # Mask fragment cap and uw atoms now
+        self.masked[ endGroup.fragmentCapIdx ] = True
+        if endGroup.fragmentUwIdx != -1:
+            self.masked[ endGroup.fragmentUwIdx ] = True
+        self._endGroupBonded[ endGroup.type() ] += 1
+
+        # Handle maxBonds here
+        #if self._maxBonds[ endGroupType ] is not None and \
+        #self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]
+        if self._maxBonds[ endGroup.type() ] is not None:
+            if self._endGroupBonded[ endGroup.type() ] >= self._maxBonds[ endGroup.type() ]:
+                # We have exceeded the bonding limit for these endGroupTypes, so we set any free ones
+                # of this type to blocked
+                for eg in self._endGroups:
+                    if not eg.bonded and eg.type() == endGroup.type():
+                        eg.blocked = True
+        
+        # The user may have supplied a custom bonding function, so we call that here
+        if self.onbondFunction: self.onbondFunction(endGroup)
+        self.update()
         return
 
     def delBond(self, endGroupType):
@@ -238,7 +257,7 @@ class Fragment(object):
 
     def body(self, idxAtom):
         return self._bodies[self._ext2int[idxAtom]]
-
+    
     def bonds(self):
         """Return a list of bonds
         We exclude masked atoms"""
@@ -365,11 +384,11 @@ class Fragment(object):
         # return [ eg for eg in self._endGroups ]
         return self._endGroups
 
-    def endGroupSaturated(self, endGroupType):
-        if self._maxBonds[ endGroupType ] is not None and \
-        self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]:
-            return True
-        return False
+    #     def endGroupSaturated(self, endGroupType):
+    #         if self._maxBonds[ endGroupType ] is not None and \
+    #         self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]:
+    #             return True
+    #         return False
 
     def endGroupTypes(self):
         """Return a list of the endGroupTypes in this fragment"""
@@ -400,8 +419,8 @@ class Fragment(object):
 
         return
 
-    def freeEndGroups(self):
-        return [ eg for eg in self._endGroups if eg.free() ]
+#     def freeEndGroups(self):
+#         return [ eg for eg in self._endGroups if eg.free() ]
 
     def fromCarFile(self, carFile):
         """"Abbie did this.
@@ -653,6 +672,10 @@ class Fragment(object):
 
         self._changed = True
         return
+    
+    def setBondingFunction(self, bondingFunction):
+        self.bondingFunction = bondingFunction
+        return
 
     def setData(self,
                 coords=None,
@@ -761,7 +784,7 @@ class Fragment(object):
         return self._atomTypes[self._ext2int[idxAtom]]
 
     def update(self):
-
+        """Update the mapping between the internal and external indices"""
         self._int2ext = collections.OrderedDict()
         self._ext2int = collections.OrderedDict()
         ecount = 0
@@ -797,8 +820,8 @@ class TestFragment(unittest.TestCase):
         
         f = Fragment(filePath=graphite, fragmentType='A', static=True)
         self.assertEqual(len(f.bonds()), 1792)
-        
         return
+    
     
 if __name__ == '__main__':
     """

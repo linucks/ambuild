@@ -27,7 +27,6 @@ import numpy
 # local imports
 import fragment
 import util
-import new
 
 LOGGER = logging.getLogger(__name__)
 
@@ -301,10 +300,6 @@ class Block(object):
         assert bond.endGroup1.block() == self
         assert bond.endGroup1.free()
         assert bond.endGroup2.free()
-        assert not bond.endGroup1.isBonded()
-        assert not bond.endGroup2.isBonded()
-        assert not bond.endGroup1.saturated()
-        assert not bond.endGroup2.saturated()
         assert not bond.endGroup1.fragment == bond.endGroup2.fragment
 
         # Mark both endGroups as used
@@ -933,7 +928,7 @@ class Block(object):
                     if endGroup.type() not in self._endGroupType2EndGroups:
                         self._endGroupType2EndGroups[ endGroup.type() ] = []
                     self._endGroupType2EndGroups[ endGroup.type() ].append(endGroup)
-
+        
         # Now need to create the list of all bonds throughout the block
         self._bonds = []
         self._bondsByFragmentType = []
