@@ -939,7 +939,7 @@ class Cell():
             return [], False
 
         # Calculate array of distances for all coordinates
-        distances = self.distance(c1, c2)
+        distances = self.distance(numpy.array(c1), numpy.array(c2))
 
         # prune contacts array according to distances
         return [ (c[0], c[1], c[2], distances[i]) for i, c in enumerate(allContacts) if distances[i] < self.boxSize ], False
@@ -2831,14 +2831,14 @@ class Cell():
                         egPairs.append(p1)
                         c1.append(block1.coord(idxEndGroup1))
                         c2.append(block2.coord(idxEndGroup2))
-
+        
         if not len(egPairs) > 0:
             LOGGER.info("zipBlocks: no endGroups close enough to bond")
             return 0
 
         # Calculate distances between all pairs
         # distances = util.distance(c1, c2)
-        distances = self.distance(c1, c2)
+        distances = self.distance(numpy.array(c1), numpy.array(c2))
 
         # Now check for bonds
         self._possibleBonds = []

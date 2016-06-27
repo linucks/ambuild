@@ -611,8 +611,8 @@ def calcBonds(coords, symbols, dim=None, maxAtomRadius=None, bondMargin=0.2, box
     for idxAtom1, idxAtom2 in close:
         v1.append(coords[idxAtom1])
         v2.append(coords[idxAtom2])
-        
-    distances = distance(v1, v2, dim=dim)
+    
+    distances = distance(numpy.array(v1), numpy.array(v2), dim=dim)
     bonds = []
     
     for i, (idxAtom1, idxAtom2) in enumerate(close):
@@ -998,9 +998,10 @@ def vecDiff(v1, v2, dim=None, pbc=[True,True,True]):
    dim - 3 element array with dimensions of unit cell
    pbc - 3 element boolean array indicating if this dimension has periodic boundaries
     """
-    assert len(v1) > 0 and len(v2) > 0, "vecDiff needs vectors!"
+    #assert len(v1) > 0 and len(v2) > 0, "vecDiff needs vectors!"
     # Need to convert to numpy array as could be list of numpy arrays or just a single numpy array
-    delta = numpy.array(v1) - numpy.array(v2)
+    #delta = numpy.array(v1) - numpy.array(v2)
+    delta = v1 - v2
     if dim is not None:
         assert type(dim) is numpy.ndarray
         

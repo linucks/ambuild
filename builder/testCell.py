@@ -61,7 +61,7 @@ class Test(unittest.TestCase):
         for idxAtom1, idxAtom2 in close:
             v1.append(coords[idxAtom1])
             v2.append(coords[idxAtom2])
-        distances = util.distance(v1, v2, dim=dim, pbc=pbc)
+        distances = util.distance(numpy.array(v1), numpy.array(v2), dim=dim, pbc=pbc)
         return any(map(lambda x: x < minDist, distances))
 
     def testCX4(self):

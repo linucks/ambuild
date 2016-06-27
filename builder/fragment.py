@@ -284,19 +284,10 @@ class Fragment(object):
     def _calcCenters(self):
         """Calculate the center of mass and geometry for this fragment
         """
-        sumG = numpy.zeros(3)
-        sumM = numpy.zeros(3)
-
-        self._totalMass = 0.0  # Not sure if it sensible to calculate each time - prob irrelevant
-        for i, coord in enumerate(self._coords):
-            mass = self._masses[i]
-            self._totalMass += mass
-            sumG += coord
-            sumM += mass * coord
-
-        self._centroid = sumG / len(self._coords)
-        self._centerOfMass = sumM / self._totalMass
-
+        self._centroid = numpy.sum(self._coords, axis=0) / numpy.size(self._coords, axis=0)
+        self._totalMass = numpy.sum(self._masses)
+        # Centre of mass is sum of the products of the individual coordinates multiplied by the mass, divded by the total mass
+        self._centerOfMass = numpy.sum(self._coords * self._masses[:,numpy.newaxis], axis=0) / self._totalMass
         return
 
     def _calcRadius(self):
@@ -312,7 +303,6 @@ class Fragment(object):
         Should move to use scipy as detailed here:
         http://stackoverflow.com/questions/6430091/efficient-distance-calculation-between-n-points-and-a-reference-in-numpy-scipy
         """
-
         distances = [util.distance(self._centroid, coord) for coord in self._coords]
         imax = numpy.argmax(distances)
         dist = distances[ imax ]
@@ -384,12 +374,6 @@ class Fragment(object):
         # return [ eg for eg in self._endGroups ]
         return self._endGroups
 
-    #     def endGroupSaturated(self, endGroupType):
-    #         if self._maxBonds[ endGroupType ] is not None and \
-    #         self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]:
-    #             return True
-    #         return False
-
     def endGroupTypes(self):
         """Return a list of the endGroupTypes in this fragment"""
         return set(self._endGroupBonded.keys())
@@ -398,25 +382,11 @@ class Fragment(object):
         """ Fill the data arrays from the label """
 
         self.masked = [ False ] * len(self._coords)
-        self._totalMass = 0.0
-        self._maxAtomRadius = 0.0
-        for i in range(len(self._coords)):
-
-            symbol = self._symbols[ i ]
-
-            # Masses
-            mass = util.ATOMIC_MASS[ symbol ]
-            self._masses.append(mass)
-            self._totalMass += mass
-
-            # Radii
-            z = util.SYMBOL_TO_NUMBER[ symbol.upper() ]
-            r = util.COVALENT_RADII[z] * util.BOHR2ANGSTROM
-            self._radii.append(r)
-
-            # Remember the largest
-            self._maxAtomRadius = max(r, self._maxAtomRadius)
-
+        self._masses = numpy.array([ util.ATOMIC_MASS[ symbol ] for symbol in self._symbols ])
+        self._totalMass = numpy.sum(self._masses)
+        self._radii = numpy.array([ util.COVALENT_RADII[util.SYMBOL_TO_NUMBER[s.upper()]] * util.BOHR2ANGSTROM \
+                                   for s in self._symbols])
+        self._maxAtomRadius = numpy.max(self._radii)
         return
 
 #     def freeEndGroups(self):
@@ -573,7 +543,6 @@ class Fragment(object):
 
     def totalMass(self):
         """Return the total mass for this block"""
-
         assert self._totalMass > 0
         return self._totalMass
 
@@ -661,15 +630,12 @@ class Fragment(object):
     def rotate(self, rotationMatrix, center):
         """ Rotate the molecule about the given axis by the angle in radians
         """
-
-        # loop through all _blocks and change all coords
-        # Need to check that the center bit is the best way of doing this-
-        # am almost certainly doing more ops than needed
-        for i, coord in enumerate(self._coords):
-            coord = coord - center
-            coord = numpy.dot(rotationMatrix, coord)
-            self._coords[i] = coord + center
-
+        self._coords = self._coords - center
+        #self._coords = numpy.array([ numpy.dot(rotationMatrix, c) for c in self._coords ])
+        # I don't actually undestand why this works at all...
+        # From: http://stackoverflow.com/questions/12148351/efficiently-rotate-a-set-of-points-with-a-rotation-matrix-in-numpy
+        self._coords = numpy.dot(self._coords, rotationMatrix.T)
+        self._coords = self._coords  + center
         self._changed = True
         return
     
@@ -690,8 +656,8 @@ class Fragment(object):
                 uwAtoms=None
                 ):
 
-        self._charges = charges
-        self._coords = coords
+        self._charges = numpy.array([ c for c in charges])
+        self._coords = numpy.array([ c for c in coords])
         self._labels = labels
         self._symbols = symbols
         self._atomTypes = atomTypes
@@ -705,7 +671,7 @@ class Fragment(object):
             dim = numpy.array([self._cellParameters['A'], self._cellParameters['B'], self._cellParameters['C']])
 
         # Specify internal bonds - bond margin probably too big...
-        self._bonds = util.calcBonds(coords,
+        self._bonds = util.calcBonds(self._coords,
                                      atomTypes,
                                      dim=dim,
                                      maxAtomRadius=self.maxAtomRadius(),
@@ -769,14 +735,7 @@ class Fragment(object):
 
     def translate(self, tvector):
         """ translate the molecule by the given vector"""
-
-        # FIX!!
-        # assert isinstance( tvector, numpy.array )
-
-        # Use len as we don't need to return the coords
-        for i in range(len (self._coords)):
-            self._coords[i] += tvector
-
+        self._coords += tvector
         self._changed = True
         return
 

@@ -400,11 +400,13 @@ class Test(unittest.TestCase):
         Test calculation of Center of Geometry
         """
 
-        correct = numpy.array([  0.000000, 0.000000, 0.000000 ])
         ch4 = Block(filePath=self.ch4Car, fragmentType='A')
+        # We need to move so that all values are not the same or allclose will succeed with a single number
+        ch4.translate(numpy.array([1.0,2.0,3.0]))
         cog = ch4.centroid()
+        correct = numpy.array([  1.000000, 2.000000, 3.000000 ])
         self.assertTrue(numpy.allclose(correct, cog, rtol=1e-9, atol=1e-6),
-                         msg="testCentroid incorrect COM.".format(cog))
+                         msg="testCentroid incorrect: {0} -> {1}.".format(correct, cog))
 
         return
 
@@ -412,10 +414,10 @@ class Test(unittest.TestCase):
         """
         Test calculation of Center of Mass
         """
-
-        correct = numpy.array([  0.000000, 0.000000, 0.000000 ])
         ch4 = Block(filePath=self.ch4Car, fragmentType='A')
+        ch4.translate(numpy.array([1.0,2.0,3.0]))
         com = ch4.centerOfMass()
+        correct = numpy.array([  1.000000, 2.000000, 3.000000 ])
         self.assertTrue(numpy.allclose(correct, com, rtol=1e-6, atol=1e-6),
                          msg="testCenterOfMass incorrect COM: {0}".format(com))
         return
@@ -675,9 +677,7 @@ class Test(unittest.TestCase):
 
         ch4 = Block(filePath=self.ch4Car, fragmentType='A')
         r = ch4.blockRadius()
-        # jmht - check...- old was: 1.78900031214
-        # or maybe: 1.45942438719
-        self.assertAlmostEqual(r, 1.79280605406, 7, "Incorrect radius: {}".format(str(r)))
+        self.assertAlmostEqual(r, 1.792806, 6, "Incorrect radius: {}".format(str(r)))
         return
 
     def XtestMaxAtomRadius(self):
