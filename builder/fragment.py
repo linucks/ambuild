@@ -639,10 +639,6 @@ class Fragment(object):
         self._changed = True
         return
     
-    def setBondingFunction(self, bondingFunction):
-        self.bondingFunction = bondingFunction
-        return
-
     def setData(self,
                 coords=None,
                 labels=None,
