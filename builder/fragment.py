@@ -736,7 +736,11 @@ class Fragment(object):
         return
 
     def type(self, idxAtom):
-        return self._atomTypes[self._ext2int[idxAtom]]
+        # Fix for old pkl files - _atomTypes used to be called _types
+        if hasattr(self,'_atomTypes'):
+            return self._atomTypes[self._ext2int[idxAtom]]
+        else:
+            return self._types[self._ext2int[idxAtom]]
 
     def update(self):
         """Update the mapping between the internal and external indices"""

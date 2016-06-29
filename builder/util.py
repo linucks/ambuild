@@ -998,10 +998,12 @@ def vecDiff(v1, v2, dim=None, pbc=[True,True,True]):
    dim - 3 element array with dimensions of unit cell
    pbc - 3 element boolean array indicating if this dimension has periodic boundaries
     """
-    #assert len(v1) > 0 and len(v2) > 0, "vecDiff needs vectors!"
-    # Need to convert to numpy array as could be list of numpy arrays or just a single numpy array
-    #delta = numpy.array(v1) - numpy.array(v2)
-    delta = v1 - v2
+    # Currently (e.g. cell.dataDict return a list of coordinates rather than a numpy array, so we need to check if we have been given a list
+    # or numpy array and convert accordingly
+    if type(v1) is list:
+        delta = numpy.array(v1) - numpy.array(v2)
+    else:
+        delta = v1 - v2
     if dim is not None:
         assert type(dim) is numpy.ndarray
         
