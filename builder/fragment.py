@@ -66,19 +66,9 @@ class EndGroup(object):
     def free(self):
         return not self.bonded and not self.blocked
 
-#     def saturated(self):
-#         return self.fragment.endGroupSaturated(self.type())
-
     def setBonded(self):
         self.bonded = True
         self.fragment.addBond(self)
-#         self.bonded = True
-#         self.fragment.addBond(self.type())
-#         # Mask fragment cap and uw atoms now
-#         self.fragment.masked[ self.fragmentCapIdx ] = True
-#         if self.fragmentUwIdx != -1:
-#             self.fragment.masked[ self.fragmentUwIdx ] = True
-#         self.fragment.update()
         return
 
     def unBond(self):
@@ -358,10 +348,10 @@ class Fragment(object):
             elif a in self._individualAttrs.keys():
                 setattr(f, a, copy.deepcopy(getattr(self, a)))
             else:
-                # raise RuntimeError,"MISSING ATTRIBUTE {0}".format(a)
-                # HACK FOR WHEN DEALING WITH OLD FILES
-                _logger.critical("MISSING ATTRIBUTE {0}".format(a))
-                setattr(f, a, copy.deepcopy(getattr(self, a)))
+                # HACKS FOR DEALING WITH OLD FILES
+                msg = "Missing attribute in fragment copy: {0}".format(a)
+                _logger.critical(msg)
+                raise RuntimeError(msg)
 
             # Update fragment references in the endGroups
             for e in f._endGroups:

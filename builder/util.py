@@ -688,12 +688,53 @@ def getCell(coord, boxSize, dim=None, pbc=[True, True, True]):
     return (a, b, c)
 
 def cellFromPickle(pickleFile):
+    """Recreate a cell from a pickled file and apply any hacks so that we can work with older versions"""
+    def fixFragment(fragment):
+        # Need to make sure coords and masses are numpy arrays
+        if type(fragment._coords) is list:
+            fragment._coords = numpy.array(fragment._coords)
+            fragment._masses = numpy.array(fragment._masses)
+    
+        if not hasattr(fragment,'_atomTypes'):
+            fragment._atomTypes = fragment._types
+            fragment._sharedAttrs['_atomTypes'] = fragment._atomTypes
+        if not hasattr(fragment,'solvent'):
+            # Solvent is a new attribute so we set to false
+            fragment.solvent = False
+            fragment._sharedAttrs['solvent'] = fragment.solvent
+        if not hasattr(fragment,'onbondFunction'):
+            # Solvent is a new attribute so we set to false
+            fragment.onbondFunction = None
+            fragment._sharedAttrs['onbondFunction'] = fragment.onbondFunction
+    
+        for e in fragment._endGroups:
+            # More horrible hacks for old versions
+            if hasattr(e,'_isBonded'):
+                e.bonded = e._isBonded
+            if not hasattr(e,'blocked'): e.blocked = False
+        return
+        
     with open(pickleFile) as f:
         myCell = cPickle.load(f)
+        
     # Need to hack to work with older versions
     if not hasattr(myCell, 'dim'):
-        myCell.dim = [myCell.A, myCell.B, myCell.C]
+        myCell.dim = numpy.array([myCell.A, myCell.B, myCell.C])
         myCell.numBoxes = [myCell.numBoxA, myCell.numBoxB, myCell.numBoxC]
+    if not type(myCell.dim) is numpy.ndarray:
+        myCell.dim = numpy.array(myCell.dim)
+    if not hasattr(myCell, 'pbc'):
+        myCell.pbc = [True, True, True]
+        myCell.walls = [False, False, False]
+    
+    # Fix all the fragments
+    for fragment in myCell._fragmentLibrary.values():
+        fixFragment(fragment)
+        
+    for block in myCell.blocks.values():
+        for fragment in block.fragments:
+            fixFragment(fragment)
+        
     return myCell
 
 def dihedral(p1, p2, p3, p4, dim=None, pbc=None):
