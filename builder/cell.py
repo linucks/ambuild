@@ -557,71 +557,6 @@ class Cell():
                     if dist < clashDist: return True
         return False
         
-    def growPolymer(self, monomers, ratio, length, random=False, center=False):
-        """Create a linear polymer.
-        
-        Arguments:
-        monomers - list of ambuild fragmentTypes (as specified when adding the fragment to the cell with libraryAddFragment)
-                   that will be joined to create a subunit
-        ratio - list of integers specifying the number of monomers of each type (needs to be the same length as monomers) in
-                the subunit
-        length - the number of subumits that will be created
-        random - True/False - whether to build up the polymer deterministically (as per monomers/ratio) or stochastically, but
-               - where the final ratio of fragments will approach that specified in ratio.
-        center - place the first monomer polymer in the center of the cell (if possible)
-        
-        The fragment and ratio lists define the construction of the subunit. E.g.:
-        monomers = ['A', 'B']
-        ratio = [1,2]
-        gives: [ABB]
-        
-        We could even have:
-        monomers = ['A', 'B', 'A', 'B']
-        ratio = [1,2,3,1]
-        gives: [ABBAAAB]
-        
-        """ 
-        
-        LOGGER.info("growPolymer, building polymer with monomers: {0}, ratio: {1}, length: {2}, random={3}".format(monomers,
-                                                                                                                    ratio,
-                                                                                                                    length,
-                                                                                                                    random))
-
-        totalTally = [0] * len(monomers) # Trakcs the overall number of fragments in the polymer
-
-        # Determine the first endGroup type
-        if random:
-            monomer = _random.choice(monomers)
-        else:
-            monomer = monomers[0]
-        
-        # Seed the first block
-        self.seed(nblocks=1, fragmentType=monomer, center=center)
-        
-        # Get the polymer block
-        idxPolymer = self.lastAdded
-        polymer = self.blocks[idxPolymer]
-        fragment = polymer.fragments[0]
-        
-        # Create subunit going forward
-        subunit = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer=polymer, totalTally=totalTally, direction=1, fragment=fragment, random=random)
-        
-        switched = False
-        for _ in range(length-1):
-            if not subunit.addMonomer(self):
-                if switched:
-                    LOGGER.critical("Failed to complete polymer!")
-                    break
-                LOGGER.debug("Failed to add Monomer to intial endPoint - switching end")
-                # Switch to other end of the chain -set switched flag so we know wev've done this
-                subunit = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer=polymer, totalTally=totalTally, direction=-1, random=random)
-                switched = True
-        LOGGER.info("growPolymer finalTally ({0} % {1}): {2}".format(ratio, length, subunit.totalTally))
-        
-        # Bit of a hack - currently just so we can test the results
-        self.polymerTally = subunit.totalTally
-        return
-
     def canBond(self,
                  staticBlock,
                  idxStaticAtom,
@@ -1605,6 +1540,71 @@ class Cell():
 
         LOGGER.info("After growBlocks numBlocks: {0}".format(len(self.blocks)))
         return added
+
+    def growPolymer(self, monomers, ratio, length, random=False, center=False):
+        """Create a linear polymer.
+        
+        Arguments:
+        monomers - list of ambuild fragmentTypes (as specified when adding the fragment to the cell with libraryAddFragment)
+                   that will be joined to create a subunit
+        ratio - list of integers specifying the number of monomers of each type (needs to be the same length as monomers) in
+                the subunit
+        length - the number of subumits that will be created
+        random - True/False - whether to build up the polymer deterministically (as per monomers/ratio) or stochastically, but
+               - where the final ratio of fragments will approach that specified in ratio.
+        center - place the first monomer polymer in the center of the cell (if possible)
+        
+        The fragment and ratio lists define the construction of the subunit. E.g.:
+        monomers = ['A', 'B']
+        ratio = [1,2]
+        gives: [ABB]
+        
+        We could even have:
+        monomers = ['A', 'B', 'A', 'B']
+        ratio = [1,2,3,1]
+        gives: [ABBAAAB]
+        
+        """ 
+        
+        LOGGER.info("growPolymer, building polymer with monomers: {0}, ratio: {1}, length: {2}, random={3}".format(monomers,
+                                                                                                                    ratio,
+                                                                                                                    length,
+                                                                                                                    random))
+
+        totalTally = [0] * len(monomers) # Trakcs the overall number of fragments in the polymer
+
+        # Determine the first endGroup type
+        if random:
+            monomer = _random.choice(monomers)
+        else:
+            monomer = monomers[0]
+        
+        # Seed the first block
+        self.seed(nblocks=1, fragmentType=monomer, center=center)
+        
+        # Get the polymer block
+        idxPolymer = self.lastAdded
+        polymer = self.blocks[idxPolymer]
+        fragment = polymer.fragments[0]
+        
+        # Create subunit going forward
+        subunit = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer=polymer, totalTally=totalTally, direction=1, fragment=fragment, random=random)
+        
+        switched = False
+        for _ in range(length-1):
+            if not subunit.addMonomer(self):
+                if switched:
+                    LOGGER.critical("Failed to complete polymer!")
+                    break
+                LOGGER.debug("Failed to add Monomer to intial endPoint - switching end")
+                # Switch to other end of the chain -set switched flag so we know wev've done this
+                subunit = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer=polymer, totalTally=totalTally, direction=-1, random=random)
+                switched = True
+        LOGGER.info("growPolymer finalTally ({0} % {1}): {2}".format(ratio, length, subunit.totalTally))
+        
+        # Bit of a hack - currently just so we can test the results
+        self.polymerTally = subunit.totalTally
+        return
 
     def haloCells(self, key):
         return util.haloCells(key, self.numBoxes, pbc=self.pbc)
