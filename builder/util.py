@@ -459,6 +459,7 @@ ELEMENT_TYPE_BOND_LENGTHS['C'] = { 'C' : 1.53,
                                   'S' : 1.82,
                                   'SE': 1.95,
                                   'SI': 1.87,
+				  'NI': 2.75,
                                   'SN': 2.14 }
 
 ELEMENT_TYPE_BOND_LENGTHS['CL'] = { 'CL' : 1.99,
@@ -501,6 +502,7 @@ ELEMENT_TYPE_BOND_LENGTHS['H'] = { 'H' : 0.74,
                                   'SE': 1.47,
                                   'SI': 1.48,
                                   'SN': 1.71,
+				  'NI': 2.75,
                                   'TE': 1.66 }
 
 ELEMENT_TYPE_BOND_LENGTHS['I'] = { 'I'  : 2.67,
