@@ -1,46 +1,232 @@
 dihedral,k,d,n,comments
-h1-c1-cp-np,70,1,1,
-o_1-c_0-c_0-nb,30,-1,2,
-cpa-nb-c_0-c_0,30,-1,2,
-nb-c_0-c_0-nb,30,-1,2,
-cpa-cp-cpa-nb,30,-1,2,
-cp-cpa-nb-c_0,30,-1,2,
-c_0-nb-cpa-cp,30,-1,2,
-nb-cpa-cp-hc,3,-1,2,
-c2-cp-cp-cp,70,1,1,
-nb-c_0-c_0-c_0,30,-1,2,
-cpa-cp-cpa-cpa,30,-1,2,
-cp-cpa-cpa-nb,30,-1,2,
-hc-c2-cp-cp,3,-1,3,
-c_0-c_0-c_0-c_0,30,-1,2,
-cpa-cpa-cp-cpa,30,-1,2,
-cpp-cpp-cp-cp,30,-1,2,
-cp-c1-cp-np,70,1,1,
-nb-cpa-cpa-nb,30,-1,2,
-o_1-c_0-c_0-o_1,30,-1,2,
-hc-cpa-cpa-nb,30,-1,2,
-c_0-nb-cpa-cpa,70,-1,2,
-c_0-c_0-c_0-o_1,30,-1,2,
-c_0-c_0-c_0-nb,30,-1,2,
-c2-cp-cp-c2,70,-1,1,
-c-cp-cp-c,500,-1,1,
-cp-cpa-nb-hn,3,-1,2,
-cp-cp-cp-hc,30,-1,2,
-cp-cp-c2-hc,3,-1,3,
-np-cp-c1-h1,70,1,1,
-cpa-cpa-cp-hc,3,-1,2,
-cp-cp-cp-cp,30,-1,2,
-h-c-c-h,70,1,1,
-cp-c2-cp-cp,70,-1,1,
-cp-cpa-cpa-cp,30,-1,2,
-cp-cpp-cpp-cp,30,-1,2,
-nb-c_0-c_0-o_1,30,-1,2,
-c_0-c_0-nb-cpa,30,-1,2,
-cpa-cpa-nb-hn,3,-1,2,
-c1-cp-np-cp,70,1,1,
-cpp-cpp-cp-hc,30,-1,2,
-cp-cp-c2-cp,70,-1,1,
-np-cp-c1-cp,70,1,1,
-c2-cp-cp-hc,70,-1,1,
-cpp-cpp-cp-cpp,30,-1,2,
-cpa-cpa-nb-c_0,30,-1,2,
+cp-cp-cp-cp,7,-1,2,benzene-fda-acid gaff
+cp-cp-cp-hc,7,-1,2,benzene-fda-acid gaff
+hc-cp-cp-hc,7,-1,2,benzene-fda-acid gaff
+cl-c2-c2-cl,1,-1,1,dce gaff
+cl-c2-c2-hc,1,1,1,dce gaff
+hc-c2-c2-hc,1,1,1,dce gaff
+coh-cp-cp-cp,7,-1,2,benzene-fda-acid gaff
+coh-cp-cp-hc,7,-1,2,benzene-fda-acid gaff
+o-coh-cp-cp,0,1,2,benzene-fda-acid gaff
+hc-coh-cp-cp,0,1,2,benzene-fda-acid gaff
+cp-cp-cp-coh,7,-1,2,benzene-fda-acid gaff
+cp-cp-coh-hc,0,1,2,benzene-fda-acid gaff
+cp-cp-coh-oh,0,1,2,benzene-fda-acid gaff
+cp-coh-oh-c3,1,1,3,benzene-fda-acid gaff
+cp-cp-cp-sf,7,1,2,benzene-fda-acid gaff
+cp-cp-sf-oh,2,-1,2,benzene-fda-acid gaff
+cp-cp-sf-o=,2,-1,2,benzene-fda-acid gaff
+cp-sf-oh-ho,19,-1,1,benzene-fda-acid gaff
+hc-cp-cp-coh,7,-1,2,benzene-fda-acid gaff
+hc-cp-cp-sf,7,-1,2,benzene-fda-acid gaff
+coh-oh-c3-hc,1,0,3,benzene-fda-acid gaff
+hc-coh-oh-c3,1,0,3,benzene-fda-acid gaff
+o=-sf-oh-ho,19,-1,1,benzene-fda-acid gaff
+cp-cp-coh-o,0,0,2,benzene-fda-acid gaff
+sf-cp-cp-cp,7,-1,2,benzene-fda-acid gaff
+sf-cp-cp-hc,7,-1,2,benzene-fda-acid gaff
+oh-coh-cp-cp,0,1,2,benzene-fda-acid gaff
+cp-cp-coh-cp,0,1,2,benzene2-2fda
+cp-coh-cp-cp,0,1,2,benzene2-2fda
+o-coh-oh-c3,3,-1,1,FDA gaff
+cg-cg-cg-cg,100,-1,2,graphite sheet strong almost rigid
+o1=-c3-n3m-c4,5,-1,2,dmf gaff
+c3-n3m-c4-h1,0,1,2,dmf gaff
+h1-c3-n3m-c4,5,-1,2,dmf gaff
+c4-n3m-c4-h1,0,1,2,dmf gaff
+h1-c4-n3m-c4,0,1,2,dmf gaff
+c-cp-cp-cp,7,-1,2,paf-br gaff
+c-cp-cp-hc,7,-1,2,paf-br gaff
+cp-c-cp-cp,0,1,2,paf-br gaff
+cp-cp-c-cp,0,1,2,paf-br gaff
+cp-cp-cp-br,7,-1,2,paf-br gaff
+br-cp-cp-hc,7,-1,2,paf-br gaff
+br-cp-cp-cp,7,-1,2,paf-br gaff
+npc-c5-c5-np,7,-1,2,link1 gaff
+npc-c5-c5-cp,7,-1,2,link1 gaff
+npc-c5-cp-cp,7,-1,2,link1 gaff
+npc-c5-cp-br,7,-1,2,link1 gaff
+npc-c5-np-c5,10,-1,2,link1 gaff
+c5-npc-c5-np,3,-1,2,link1 gaff
+c5-npc-c5-hc,3,-1,2,link1 gaff
+c5-npc-c3-hc,0,1,2,link1 gaff
+c5-c5-np-c5,10,-1,2,link1 gaff
+c5-c5-cp-cp,7,-1,2,link1 gaff
+c5-c5-cp-br,7,-1,2,link1 gaff
+c5-cp-cp-cp,7,-1,2,link1 gaff
+c5-cp-cp-hc,7,-1,2,link1 gaff
+c5-c5-npc-c5,1,-1,2,link1 gaff
+c5-c5-npc-c3,1,-1,2,link1 gaff
+c5-np-c5-hc,10,-1,2,link1 gaff
+np-c5-c5-cp,7,-1,2,link1 gaff
+np-c5-cp-cp,7,-1,2,link1 gaff
+np-c5-cp-br,7,-1,2,link1 gaff
+np-c5-npc-c3,3,-1,2,link1 gaff
+c5-npc-c5-cp,1,-1,2,link1 gaff
+c5-np-c5-cp,10,-1,2,link1 gaff
+cp-c5-npc-c3,1,-1,2,link1 gaff
+cp-c5-c5-cp,7,-1,2,link1 gaff
+c3-npc-c5-hc,3,-1,2,link1 gaff
+hc-cp-cp-cp,7,-1,2,link1 gaff
+cp-cp-c5-npc,7,-1,2,link1 gaff
+cp-cp-c5-c5,7,-1,2,link1 gaff
+cp-cp-cp-c5,7,-1,2,link1 gaff
+cp-c5-c5-npc,7,-1,2,link1 gaff
+cp-c5-np-c5,10,-1,2,link1 gaff
+c5-c5-npc-c2,1,-1,2,link2 gaff
+c5-np-c5-npc,10,-1,2,link1 gaff
+c5-npc-c2-c_1,0,0,2,link2 gaff
+c5-npc-c2-hc,0,0,2,link2 gaff
+cp-c5-c5-np,7,-1,2,link1 gaff
+cp-c5-npc-c5,1,-1,2,link2 gaff
+cp-c5-npc-c2,1,-1,2,link2 gaff
+cp-cp-c5-np,7,-1,2,link1 gaff
+np-c5-c5-npc,7,-1,2,link1 gaff
+np-c5-npc-c2,3,-1,2,link2 gaff
+npc-c2-c_1-o_2,0,-1,2,link2 gaff
+npc-c2-c_1-o_1,0,-1,2,link2 gaff
+c2-npc-c5-hc,3,-1,2,link2 gaff
+c2-c_1-o_2-ho2,5,-1,2,link2 gaff
+hc-c2-c_1-o_2,0,-1,2,link2 gaff
+hc-c2-c_1-o_1,2,1,1,link2 gaff
+o_1-c_1-o_2-ho2,4,1,1,link2 gaff
+c5-c5-nh-c5,1,-1,2,link3 gaff
+c5-c5-nh-hn,1,-1,2,link3 gaff
+c5-np-c5-nh,10,-1,2,link3 gaff
+c5-nh-c5-np,3,-1,2,link3 gaff
+c5-nh-c5-hc,3,-1,2,link3 gaff
+cp-c5-nh-c5,1,-1,2,link3 gaff
+cp-c5-nh-hn,1,-1,2,link3 gaff
+cp-cp-c5-nh,7,-1,2,link3 gaff
+cp-c5-c5-nh,7,-1,2,link3 gaff
+br-cp-c5-nh,7,-1,2,link3 gaff
+hc-cp-cp-br,7,-1,2,link3 gaff
+np-c5-c5-nh,7,-1,2,link3 gaff
+np-c5-nh-hn,3,-1,2,link3 gaff
+hn-nh-c5-hc,3,-1,2,link3 gaff
+nh-c5-cp-cp,7,-1,2,link3 gaff
+c2-c_1-o_2-c2,5,-1,2,link4 gaff
+c_1-o_2-c2-c3,2,-1,2,link4 gaff
+c_1-o_2-c2-hc,1,1,3,link4 gaff
+o_1-c_1-c2-hc,1,1,1,link4 gaff
+o_1-c_1-o_2-c2,5,-1,2,link4 gaff
+o_2-c_1-c2-hc,0,-1,2,link4 gaff
+o_2-c2-c3-hc,1,1,1,link4 gaff
+hc-c2-c3-hc,1,1,3,link4 gaff
+c5-npc-c2-cp,0,1,2,link5 gaff
+npc-c2-cp-cp,0,1,2,link5 gaff
+c2-cp-cp-cp,7,-1,2,link5 gaff
+c2-cp-cp-hc,7,-1,2,link5 gaff
+hc-c2-cp-cp,0,1,2,link5 gaff
+coh-cp-cp-coh,7,-1,2,benzene2-2fda
+c_0-nb-cpa-cp,30,-1,2,aza
+c_0-nb-cpa-cpa,70,-1,2,aza
+cpa-nb-c_0-c_0,30,-1,2,aza
+nb-c_0-c_0-nb,30,-1,2,aza
+nb-c_0-c_0-o_1,30,-1,2,aza
+c_0-c_0-nb-cpa,30,-1,2,aza
+nb-c_0-c_0-c_0,30,-1,2,aza
+o_1-c_0-c_0-nb,30,-1,2,aza
+cpa-cpa-cp-hc,3,-1,2,aza
+cpa-cp-cpa-nb,30,-1,2,aza
+cp-cpa-nb-c_0,30,-1,2,aza
+nb-cpa-cp-hc,3,-1,2,aza
+cpa-cp-cpa-cpa,30,-1,2,aza
+cp-cpa-cpa-nb,30,-1,2,aza
+c_0-c_0-c_0-c_0,30,-1,2,aza
+cp-cpa-cpa-cp,30,-1,2,aza
+nb-cpa-cpa-nb,30,-1,2,aza
+cpa-cpa-nb-hn,3,-1,2,aza
+o_1-c_0-c_0-o_1,30,-1,2,aza
+c_0-c_0-c_0-nb,30,-1,2,aza
+cpa-cpa-cp-cpa,30,-1,2,aza
+c_0-c_0-c_0-o_1,30,-1,2,aza
+cp-cpa-nb-hn,3,-1,2,aza
+cpa-cpa-nb-c_0,30,-1,2,aza
+cpm-cpm-cpm-cpm,30,-1,2,aza
+cpa-cpa-cpa-cpa,30,-1,2,aza
+cpp-cpp-cpp-cpp,30,-1,2,aza
+ct-cp-cp-cp,7,1,2,CMP1 gaff
+ct-cp-cp-hc,7,1,2,CMP1 gaff
+ct-cp-cp-hc,7,-1,2,CMP1 gaff
+cp-cp-cp-i,7,-1,2,UNIT-I
+i-cp-cp-hc,7,-1,2,UNIT-I
+hc-cp-cp-i,7,-1,2,UNIT-I
+ct-cp-cp-hc,7,1,2,CMP1 gaff
+ct-cp-cp-hc,7,-1,2,CMP1 gaff
+cp-ct-ct-cp,0,-1,2,CMP1 gaff
+cp-cp-ct-ct,0,-1,2,CMP1 gaff
+ct-ct-cp-cp,0,-1,2,CMP1 gaff
+cp-ct-ct-br,0,-1,2,CMP1 gaff
+ct-cp-cp-cp,0,-1,2,CMP1 gaff
+cp-cp-cp-ct,0,-1,2,CMP1 gaff
+hc-cp-cp-ct,0,-1,2,CMP1 gaff
+cp-ct-ct-hc,0,-1,2,triethynylbenzene
+hc-c3-c2-hc,1,1,3,triethylamine
+cp-cp-cp-c=2,7.24,-1,2,cyano-c2
+cp-c=2-c=2-cp,13.3,-1,2,cyano-c2
+cp-c=2-c=2-ct,13.3,-1,2,cyano-c2
+cp-cp-c=2-c=2,13.3,-1,2,cyano-c2
+cp-cp-c=2-hc,13.3,-1,2,cyano-c2
+c=2-cp-cp-hc,7.24,-1,2,cyano-c2
+c=2-c=2-cp-cp,13.3,-1,2,cyano-c2
+c=2-c=2-ct-nt,0,-1,2,cyano-c2
+hc-cp-cp-c=2,7.24,-1,2,cyano-c2
+c=2-cp-cp-cp,7.24,-1,2,cyano-c2
+ct-c=2-c=2-hc,13.3,-1,2,cyano-c2
+ct-c=2-cp-cp,13.3,-1,2,cyano-c2
+cp-c=2-c=2-hc,13.3,-1,2,cyano-c2
+cp-c=2-ct-nt,0,-1,2,cyano-c2
+cp-cp-cp-c=1,7.25,-1,2,cyano-c3
+cp-c=1-c=-hc,13.3,-1,2,cyano-c3
+cp-c=1-ct-nt,0,-1,2,cyano-c3
+cp-cp-c=1-c=,13.3,-1,2,cyano-c3
+cp-cp-c=1-ct,13.3,-1,2,cyano-c3
+c=1-cp-cp-hc,7.25,-1,2,cyano-c3
+hc-cp-cp-c=1,7.25,-1,2,cyano-c3
+c=-c=1-ct-nt,0,-1,2,cyano-c3
+hc-c=-c=1-ct,13.3,-1,2,cyano-c3
+ct-c=1-c=-hc,13.3,-1,2,cyano-c3
+cp-c=1-c=-cp,13.3,-1,2,cyano-c3
+ct-c=1-c=-cp,1.4,-1,2,cyano-c3
+c=1-c=-cp-cp,1.4,-1,2,cyano-c3
+cp-cp-c=-c=1,1.4,-1,2,cyano-c3
+c=-cp-cp-cp,7.25,-1,2,cyano-c3
+c=-cp-cp-hc,7.25,-1,2,cyano-c3
+hc-c=-cp-cp,1.4,-1,2,cyano-c3
+cp-cp-c=-hc,1.4,-1,2,cyano-c3
+cp-c=-c=1-cp,13.3,-1,2,cyano-c3
+cp-c=-c=1-ct,1.4,-1,2,cyano-c3
+oc-c2-c2-c2,0.3,1,3,thf
+oc-c2-c2-hc,0.5,1,1,thf
+c2-oc-c2-c2,0.77,1,3,thf
+c2-oc-c2-c2,0.2,-1,2,thf
+c2-oc-c2-hc,0.77,1,3,thf
+c2-c2-c2-c2,0.3,1,3,thf
+c2-c2-c2-hc,0.5,1,1,thf
+c2-c2-oc-c2,0.2,-1,2,thf
+hc-c2-oc-c2,0.77,1,3,thf
+hc-c2-c2-c2,0.5,1,1,thf
+c2-c2-c2-oh,0.31,1,3,butoh
+c3-c2-c2-c2,0.4,-1,1,butoh
+c3-c2-c2-hc,0.32,1,3,butoh
+c2-c2-c3-hc,0.32,1,3,butoh
+c2-c2-oh-ho,0.5,1,1,butoh
+oh-c2-c2-hc,0.5,1,1,butoh
+ho-oh-c2-hc,0.32,1,3,butoh
+cp-cp-cp-c=,7.25,-1,2,cyano-c3
+hc-cp-cp-c=,7.25,-1,2,cyano-c3
+c3o-cp-cp-hc,7.25,-1,2,cyano-c3
+c3o-cp-cp-cp,7.25,-1,2,cyano-c3
+cp-cp-c3o-o1=,2,-1,2,cyano-c3
+cp-cp-c3o-h1,2,-1,2,cyano-c3
+cp-cp-cp-c3o,7.25,-1,2,cyano-c3
+hc-cp-cp-c3o,7.25,-1,2,cyano-c3
+cp-Ni-c=-c=,10,-1,1,
+cp-Ni-c=-hc,10,-1,1,
+cp-Ni-c=-c2,10,-1,1,
+cp-Ni-hc-c=,10,-1,1,
+Ni-cp-cp-hc,10,-1,1,
+Ni-cp-cp-cp,10,-1,1,
+c=-Ni-cp-cp,10,-1,1,
+hc-Ni-cp-cp,10,-1,1,
