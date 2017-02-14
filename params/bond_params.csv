@@ -1,24 +1,74 @@
 A,B,k,r0,comments
-cp,cp,1550.0,1.384,
-cpp,cpp,3000.0,1.384,
-o,s,1550.0,1.384,
-c1,cp,970.0,1.501,
-cp,cpa,1550.0,1.384,
-cpa,hc,1400.0,1.079,
-nb,c_0,1200.0,1.32,
-c_0,o_1,970.0,1.196,
-cp,h,1400.0,1.079,
-s,o,1550.0,1.384,
-c,h,1400.0,1.01,
-cp,hc,1400.0,1.079,
-c,c,930.0,1.536,
-nb,hn,1200.0,1.015,
-cp,hx,1400.0,1.079,
-cpa,cp,1550.0,1.384,
-cp,c1,970.0,1.501,
-hn,nb,1200.0,1.015,
-c_0,nb,1200.0,1.32,
-cpa,cpa,1550.0,1.384,
-cpa,nb,1200.0,1.416,
-c_0,c_0,970.0,1.56,
-c2,cp,2000.0,1.524,
+c,cp,647,1.513,paf-br gaff
+c_0,nb,1200,1.32,aza
+c_0,c_0,970,1.56,aza
+c_0,o_1,970,1.196,aza
+c_1,o_2,932.8,1.306,link-2 gaff
+c_1,o_1,1296,1.214,link-2 gaff
+c=,hc,688.6,1.087,cyano-c3
+c=,cp,732,1.472,cyano-c3
+c=1,c=,1121,1.339,cyano-c3
+c=1,ct,831.2,1.431,cyano-c3
+c=2,hc,683,1.089,cyano-c2
+c=2,c=2,1124.8,1.338,cyano-c2
+c=2,ct,831.2,1.431,cyano-c2
+c=2,cp,732,1.472,cyano-c2
+c2,c2,606.2,1.535,dce gaff
+c2,cl,558,1.786,dce gaff
+c2,hc,671.8,1.093,dce gaff
+c2,c_1,656.6,1.508,link-2 gaff
+c2,c3,606.2,1.535,link-4 gaff
+c2,cp,647,1.513,link-5 gaff
+c2,oh,628.2,1.426,butoh
+c3,hc,671.8,1.093,benzene-fda-acid gaff
+c3,oh,603,1.439,benzene-fda-acid gaff
+c3,h1,638.8,1.1053,dmf gaff
+c3,n3m,956.4,1.345,dmf gaff
+c3o,h1,621,1.1123,cyano-c3
+c3o,o1=,1296,1.214,cyano-c3
+c4,h1,671.8,1.093,dmf gaff
+c5,cp,956.8,1.387,link-1 gaff
+c5,c5,956.8,1.387,link-1 gaff
+c5,np,985.8,1.336,link-1 gaff
+c5,hc,712,1.079,link-1 gaff
+c5,nh,940.6,1.35,link-3 gaff
+cg,cg,3000,1.387,graphite sheet strong almost rigid
+coh,hc,671.8,1.093,fda gaff
+coh,cp,647,1.513,benzene-fda-acid gaff
+coh,oh,603,1.439,benzene-fda-acid gaff
+cp,cp,956.8,1.387,triphenyl gaff
+cp,hc,688.6,1.087,triphenyl gaff
+cp,sf,495.4,1.784,acid triphenyl gaff
+cp,br,539.2,1.897,paf-br gaff
+cp,cpa,1550,1.384,aza
+cp,i,504.8,2.095,UNIT-I
+cp,c=2,732,1.472,cyano-c2
+cp,c=1,732,1.472,cyano-c3
+cp,c3o,699.4,1.487,cyano-c3
+cpa,nb,1200,1.416,aza
+cpa,cp,1550,1.384,aza
+cpa,cpa,1550,1.384,aza
+cpm,cpm,1550,1.384,aza
+cpp,cpp,3000,1.384,aza
+ct,cp,813.2,1.438,CMP-1 gaff
+ct,hc,751.8,1.066,triethynylbenzene
+ct,ct,1691.6,1.222,CMP-1 gaff
+ct,nt,1989.4,1.143,cyano-c2
+n3m,c4,661.2,1.46,dmf gaff
+nb,c_0,1200,1.32,aza
+nb,hn,1200,1.015,aza
+nh,hn,813.2,1.011,link-3 gaff
+Ni,cp,750,1.55,
+np,c5,985.8,1.336,link-1 gaff
+npc,c3,669.4,1.456,link-1 gaff
+npc,c5,940.6,1.35,link-1 gaff
+npc,c2,669.4,1.456,link-2 gaff
+o,coh,628.2,1.426,fda gaff
+o_2,ho2,739.2,0.974,link-2 gaff
+o_2,c2,603,1.439,link-4 gaff
+o1=,c3,1296,1.214,dmf gaff
+oc,c2,603,1.439,thf
+oh,ho,739.2,0.974,acid gaff
+s,o,1550,1.384,aza
+sf,o=,986,1.466,acid gaff
+sf,oh,580.8,1.649,acid gaff
