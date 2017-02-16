@@ -622,7 +622,8 @@ class Block(object):
         for f in self.fragments:
             if f.fragmentType == fragmentType:
                 # calculate number of bonded endGroups
-                c.append(len(f.endGroups()) - len(f.freeEndGroups()))
+                #c.append(len(f.endGroups()) - len(f.freeEndGroups()))
+                c.append(f.numBondedEndGroups())
         if len(c):
             return ":".join([str(n) for n in c])
         else:

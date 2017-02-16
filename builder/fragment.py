@@ -538,6 +538,10 @@ class Fragment(object):
 
     def numAtoms(self):
         return len(self._ext2int)
+    
+    def numBondedEndGroups(self):
+        """Return the total number of bonded endGroups in this fragment"""
+        return sum([nbonded for nbonded in self._endGroupBonded.values() ])
 
     def parseEndgroupFile(self, filePath):
 
