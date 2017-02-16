@@ -9,6 +9,7 @@ c_1-o_2-c2,127.26,115.14,link4 gaff
 c_1-o_2-ho2,102.38,107.37,link2 gaff
 c-c-h,330,109,
 c-cp-cp,200,0,
+c-cp-cp,127.68,120.63,paf-br gaff
 c=-c=1-ct,133.36,121.58,cyano-c3
 c=-cp-cp,129.76,120.66,cyano-c3
 c=-Ni-cp,120,62.5,
@@ -30,6 +31,7 @@ c2-c2-hc,92.72,110.07, dce gaff
 c2-c2-oh,135.44,109.43,butoh
 c2-c3-hc,92.74,110.05,link4 gaff
 c2-cp-cp,2500,120,
+c2-cp-cp,127.68,120.63,link5 gaff
 c2-oc-c2,124.78,112.45,thf
 c2-oh-ho,94.18,108.16,butoh
 c3-c2-c2,126.42,110.63,butoh
@@ -59,14 +61,17 @@ cp-c=-c=1,128.1,127.44,cyano-c3
 cp-c=-hc,94.12,115.21,cyano-c3
 cp-c=1-c=,130.32,123.08,cyano-c3
 cp-c=1-ct,129.31,118.16,cyano-c3
+cp-c=1-ct,129.312,118.16,cyano-c3
 cp-c=2-c=2,128.18,127.3,cyano-c2
 cp-c=2-ct,130.43,116.14,cyano-c2
+cp-c=2-ct,130.434,116.14,cyano-c2
 cp-c=2-hc,94.16,115.12,cyano-c2
 cp-c1-cp,2500,109,
 cp-c1-h1,330,120,
 cp-c1-o_1,700,109,
 cp-c2-cp,2500,109,
 cp-c2-hc,330,109,
+cp-c2-hc,93.56,110.95,link5 gaff
 cp-c3o-h1,93.04,115.14,cyano-c3
 cp-c3o-o1=,137.34,123.44,cyano-c3
 cp-c5-c5,134.36,119.97,link2 gaff
@@ -88,7 +93,9 @@ cp-cp-c3o,129.28,120.14,cyano-c3
 cp-cp-c5,134.36,119.97,link1 gaff
 cp-cp-coh,127.68,120.63,benzene-fda-acid gaff
 cp-cp-cp,300,120,
+cp-cp-cp,134.36,120,benzene-fda-acid gaff
 cp-cp-ct,700,120,
+cp-cp-ct,131.8,120,CMP-1 gaff
 cp-cp-hc,96.92,120,benzene-fda-acid gaff
 cp-cp-i,117,120,UNIT-I
 cp-cp-sf,156.04,119.89,benzene-fda-acid gaff
@@ -96,6 +103,7 @@ cp-cpa-cpa,800,120,
 cp-cpa-nb,800,120,
 cp-cpp-cpp,300,120,
 cp-ct-ct,700,180,
+cp-ct-ct,113,179.46,CMP-1 gaff
 cp-ct-nt,700,180,
 cp-Ni-cp,120,62.5,
 cp-sf-o=,82.4,108.73,benzene-fda-acid gaff
@@ -111,10 +119,15 @@ cpa-nb-hc,800,112,
 cpa-nb-hn,800,112,
 cpm-cpm-cpm,800,120,aza
 cpp-cpp-cp,300,120,
+cpp-cpp-cp,800,120,aza
 cpp-cpp-cpp,800,120,aza
+ct-c=2-c=2,132.3,123.63,cyano-c2
 ct-c=2-cp,130.43,116.14,cyano-c2
+ct-c=2-cp,130.434,116.14,cyano-c2
 ct-cp-cp,700,120,
+ct-cp-cp,131.8,120,CMP-1 gaff
 ct-ct-cp,700,180,
+ct-ct-cp,113,179.46,CMP-1 gaff
 ct-ct-hc,87.96,180,triethynylbenzene
 h-c-c,330,109,
 h1-c1-cp,330,109,
