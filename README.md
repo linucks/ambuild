@@ -1,7 +1,5 @@
 # Amorphous Builder (Ambuild)
-
 Ambuild is a python program for creating polymeric molecular structures.
-
 
 ## Concepts
 Ambuild works with fragments, blocks, endGroups and cells. The cell is a cubic volume of space that will be filled
@@ -13,7 +11,6 @@ endGroups can bond to which, the dihedral angle around the bond that the fragmen
 may need to be removed on bonding.
 
 ### Specifying fragments and endGroups
-
 The first stage is to specify the molecular fragments. This is done with two files:
 
 * a ".car" file that contains the coordinates, atom-types etc.
@@ -26,7 +23,9 @@ The .csv file should be named identically to the .car file, but with a .csv suff
 file is a standard comma-separated file that can be created and edited with any spreadsheet program. The first
 line is a header that names the columns (case isn't important, but the field names must be correct):
 
+```
 Type,EndGroup,CapAtom,Dihedral,DelAtom
+```
 
 Each subsequent line defines an endGroup, with the columns separated by a comma. The first three columns are
 required, the other two are optional.
@@ -36,21 +35,21 @@ NB: all indexes in the file start from 0 - this means that the first atom has an
 
 The meanings of the columns are:
 
-* Type: this is just a string (starting with a letter) that names the endGroup and is used to specify bonding rules
+* **Type:** this is just a string (starting with a letter) that names the endGroup and is used to specify bonding rules
   and to control which endGroups in which building blocks are bonded in Grow or Join steps (see later).
 
-* EndGroup: this is the index of the atom in the .car file that is to be the endGroup. The endGroups are the atoms
+* **EndGroup:** this is the index of the atom in the .car file that is to be the endGroup. The endGroups are the atoms
   that bond the fragments together. The indexing starts from 0, so if the first atom in the car file is to be the
   endGroup, the endGroup column should be zero. If it was the 6th atom, the column should have 5 in it.
 
-* CapAtom: this is the atom that caps the endGroup and defines the vector that the bond will be be made along. The
+* **CapAtom:** this is the atom that caps the endGroup and defines the vector that the bond will be be made along. The
   capAtom is removed when the bond is formed and the corresponding endGroup in the other block will replace the capAtom,
   although the other endGroup will probably not be in the same position, as length of the bond will be dependent on
   the types of the two endGroups.
 
-* Dihedral: this is an optional column that specifies the atom that defines the dihedral angle around the bond between
+* **Dihedral:** this is an optional column that specifies the atom that defines the dihedral angle around the bond between
   two endGroups. This can be used to specify the orientation of molecules when they are attached with a Grow step.
-* DelAtom: this is an optional column that specifies an atom that will be removed when the endGroup forms a bond this
+* **DelAtom:** this is an optional column that specifies an atom that will be removed when the endGroup forms a bond this
   can be used to unsaturate an atom on bonding. So for example, if the endGroup is the N of an NH2, then one of the H
   atoms could be the capAtom and the other the delatom, so that the on bonding to another NH2 endGroup a N=N bond would
   be formed.
@@ -58,32 +57,26 @@ The meanings of the columns are:
 The following sections describe the various operations that can be performed by ambuild. For an annotated example script,
 see the builder.py file in the builder directory.
 
-
 ### Setting up the system
-
 Ambuild creates its structures in a cubic cell. The first step is to create an empty cell object. This is done with
-a line like the following:
+code like the following:
 
 ```
-boxDim=[20,20,20]
-mycell = cell.Cell( boxDim, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False )
+boxDim = [20,20,20]
+mycell = cell.Cell(boxDim, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, doLog=False)
 ```
 
 This creates an empty cell object called mycell (we call it mycell so it doesn't clash with cell, which is the name
 we import the Cell code module with). The boxDim argument sets the size of the A,B and C cell axes.
 
 The arguments to cell are:
-boxDim - a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms)
-         Dimensions are from 0 - A, B or C
-filePath - a (.car) file with the cell dimensions and the coordinates of molecules that will be kept
-           static throught the simulation.
-atomMargin - the additional distance that will be added on to the VdW radii of two atoms
-             to determine if they are close enough to clash.
-bondMargin - two atoms are considered close enough to bond if they are within the bond length
-             defined for the two atoms +/- the bondMargin.
-bondAngleMargin - the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
-doLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
-        and slows the program.
+Name | Description
+boxDim | a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms). Dimensions are from 0 - A, B or C
+filePath | a (.car) file with the cell dimensions and the coordinates of molecules that will be kept static throught the simulation.
+atomMargin | the additional distance that will be added on to the VdW radii of two atoms to determine if they are close enough to clash.
+bondMargin | two atoms are considered close enough to bond if they are within the bond length defined for the two atoms +/- the bondMargin.
+bondAngleMargin | the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
+doLog | True/False - specifies if a log will be created - not recommended as it generates lots of data and slows the program.
                 
 Alternatively, the cell can be read from a .car file using the filePath argument instead of the boxDim argument. In
 this case, the cell dimensions will be taken from the .car file PBC line, e.g.:
