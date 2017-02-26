@@ -71,6 +71,7 @@ we import the Cell code module with). The boxDim argument sets the size of the A
 
 The arguments to cell are:
 Name | Description
+---- | -----------
 boxDim | a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms). Dimensions are from 0 - A, B or C
 filePath | a (.car) file with the cell dimensions and the coordinates of molecules that will be kept static throught the simulation.
 atomMargin | the additional distance that will be added on to the VdW radii of two atoms to determine if they are close enough to clash.
