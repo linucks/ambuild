@@ -73,12 +73,12 @@ The arguments to cell are:
 
 Name | Description
 ---- | -----------
-boxDim | a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms). Dimensions are from 0 - A, B or C
-filePath | a (.car) file with the cell dimensions and the coordinates of molecules that will be kept static throught the simulation.
-atomMargin | the additional distance that will be added on to the VdW radii of two atoms to determine if they are close enough to clash.
-bondMargin | two atoms are considered close enough to bond if they are within the bond length defined for the two atoms +/- the bondMargin.
-bondAngleMargin | the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
-doLog | True/False - specifies if a log will be created - not recommended as it generates lots of data and slows the program.
+**boxDim** | a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms). Dimensions are from 0 - A, B or C
+**filePath** | a (.car) file with the cell dimensions and the coordinates of molecules that will be kept static throught the simulation.
+**atomMargin** | the additional distance that will be added on to the VdW radii of two atoms to determine if they are close enough to clash.
+**bondMargin** | two atoms are considered close enough to bond if they are within the bond length defined for the two atoms +/- the bondMargin.
+**bondAngleMargin** | the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
+**doLog** | True/False - specifies if a log will be created - not recommended as it generates lots of data and slows the program.
                 
 Alternatively, the cell can be read from a .car file using the filePath argument instead of the boxDim argument. In
 this case, the cell dimensions will be taken from the .car file PBC line, e.g.:
@@ -97,10 +97,11 @@ for use. This is done with the following command:
 mycell.libraryAddFragment( filename=fragA, fragmentType='A' )
 ```
 
-filename - the path to the .car file. There will need to be a corresponding .csv file that defines
-         - the endGroups, capAtoms etc.
-fragmentType - a name that will be used to identify the fragment - cannot contain the ":" or "-" characters
-solvent - specify that this fragmentType is solvent and so won't be clash-checked in Zip steps
+Name | Description
+---- | -----------
+**filenam**e | the path to the .car file. There will need to be a corresponding .csv file that defines the endGroups, capAtoms etc.
+**fragmentType** | a name that will be used to identify the fragment - cannot contain the ":" or "-" characters
+**solvent** | specify that this fragmentType is solvent and so won't be clash-checked in Zip steps
 
 As many fragments can be added as desired, the only requirement is that they are named differently.
 
@@ -137,9 +138,10 @@ mycell.addBondType( bondType='A:a-B:a', count=1 )
 
 The arguments are:
 
-bondType - the bondType (FRAGMENT1:ENDGROUP1-FRAGMENT2:ENDGROUP2) as was specified with the call
-           to addBondType
-count - the maximum number of permissible bonds for a single fragment.
+Name | Description
+---- | -----------
+**bondType** | the bondType (FRAGMENT1:ENDGROUP1-FRAGMENT2:ENDGROUP2) as was specified with the call to addBondType
+**count** | the maximum number of permissible bonds for a single fragment.
 
 This defines the system. We can then go about filling it with blocks in the following section.
 
@@ -153,14 +155,14 @@ growPolymer(monomers=['A','B;], ratio=[1,1], length=10, random=False, center=Fal
 Ths will create a linear polymer.
 
 Arguments:
-monomers - list of ambuild fragmentTypes (as specified when adding the fragment to the cell with libraryAddFragment)
-           that will be joined to create a subunit
-ratio - list of integers specifying the number of monomers of each type (needs to be the same length as monomers) in
-        the subunit
-length - the number of subumits that will be created
-random - True/False - whether to build up the polymer deterministically (as per monomers/ratio) or stochastically, but
-       - where the final ratio of fragments will approach that specified in ratio.
-center - place the first monomer polymer in the center of the cell (if possible)
+
+Name | Description
+---- | -----------
+**monomers** | list of ambuild fragmentTypes (as specified when adding the fragment to the cell with libraryAddFragment) that will be joined to create a subunit
+**ratio** | list of integers specifying the number of monomers of each type (needs to be the same length as monomers) in the subunit
+**length** | the number of subumits that will be created
+**random** | True/False - whether to build up the polymer deterministically (as per monomers/ratio) or stochastically, but  where the final ratio of fragments will approach that specified in ratio.
+**cente**r | place the first monomer polymer in the center of the cell (if possible)
 
 The fragment and ratio lists define the construction of the subunit. E.g.:
 ```
@@ -186,17 +188,15 @@ seed(100, fragmentType='A', maxTries=500, center=False )
 
 The arguments to seed are:
 
-nblocks - the number of blocks to add.
-fragmentType - the type of fragments to add. If fragment is None, or omitted, then fragments will be randomly
-               chosen from the library.
-maxTries - the number of attempts to make when adding a block before the seed step is fails and returns.
-center - True/False - if True, place the first block in the center of the cell.
-point - a list of three floats defiting a point around which the centroids of the blocks will be seeded
-        (requires the radius argument).
-radius - a single float specifying the radius of a sphere around point, within which the centroids of 
-         the blocks will be seeded (requires point argument).
-zone - a list of 6 floats specifying a box within the cell within which the centroids of the blocks will
-       be seeded.
+Name | Description
+---- | -----------
+**nblocks** | the number of blocks to add.
+**fragmentType** | the type of fragments to add. If fragment is None, or omitted, then fragments will be randomly chosen from the library.
+**maxTries** | the number of attempts to make when adding a block before the seed step is fails and returns.
+**center** | True/False - if True, place the first block in the center of the cell.
+**point** | a list of three floats defiting a point around which the centroids of the blocks will be seeded (requires the radius argument).
+**radius** | a single float specifying the radius of a sphere around point, within which the centroids of the blocks will be seeded (requires point argument).
+**zone** | a list of 6 floats specifying a box within the cell within which the centroids of the blocks will be seeded.
 
 Once the system is seeded, Grow or Join steps are used either add new blocks to the system, or join existing blocks
 together.
@@ -209,15 +209,13 @@ mycell.growBlocks( 10, cellEndGroups=['A:a'], libraryEndGroups=['B:a'], dihedral
 
 The arguments to growBlocks are:
 
-toGrow: number of blocks to add
-cellEndGroups: a list of the endGroup types in the cell that the new blocks will be bonded to.
-              If more than one endGroup type is supplied, the endGroup will be randomly chosen from
-              that list.
-libraryEndGroups: a list of the endGroup types from the library that will be used form the bonds.
-              If more than one endGroup type is supplied, the endGroup will be randomly chosen from
-              that list.
-dihedral: the dihedral angle about the bond (3rd column in csv file)
-maxTries: number of attempts to make before giving up
+Name | Description
+---- | -----------
+**toGrow** | number of blocks to add
+**cellEndGroups** | a list of the endGroup types in the cell that the new blocks will be bonded to. If more than one endGroup type is supplied, the endGroup will be randomly chosen from that list.
+**libraryEndGroups** | a list of the endGroup types from the library that will be used form the bonds. If more than one endGroup type is supplied, the endGroup will be randomly chosen from that list.
+**dihedral** | the dihedral angle about the bond (3rd column in csv file)
+**maxTries** | number of attempts to make before giving up
 
 
 ### Joining blocks in the cell together
@@ -237,11 +235,12 @@ If the bond fails (due to clashes etc), the second block will be returned to its
 
 The arguments to joinBlocks are:
 
-toJoin - number of blocks to join
-cellEndGroups - a list of the different endGroupTypes that should be bonded. If this is None
-                randomly chosen endGroups will be used.
-dihedral: the dihedral angle about the bond (3rd column in csv file)
-maxTries - the maximum number of moves to try when joining
+Name | Description
+---- | -----------
+**toJoin** | number of blocks to join
+**cellEndGroups** | a list of the different endGroupTypes that should be bonded. If this is None randomly chosen endGroups will be used.
+**dihedral** | the dihedral angle about the bond (3rd column in csv file)
+**maxTries** | the maximum number of moves to try when joining
 
 #### zipBlocks
 Join existing blocks in the cell by changing the bondMargin and bondAngleMargin parameters that were
@@ -249,14 +248,14 @@ specified when the cell was created, and then looping over all the free endGroup
 with the new parameters. The blocks are not moved in this step.
 
 The arguments to zipBlock are:
-bondMargin - the new bondMargin [degrees]
-bondAngleMargin - the new bondAngleMargin [degrees] 
-clashCheck - True/False check for clashes between the bond and any atoms that fall within a cylinder
-             of radius clashDist (default=1.6A) centered on the bond axis.
-clashDist  - a float specifying the perpendicular distance from the bond axis that determines if an atom 
-             is clashing with the bond. clashDist needs to be < the the cell box size as otherwise we won't
-             see the atom.
-selfBond  - boolean to specify if zip will allow a block to bond to itself (True) or not (False) [default: True]
+
+Name | Description
+---- | -----------
+**bondMargin** | the new bondMargin [degrees]
+**bondAngleMargin** | the new bondAngleMargin [degrees] 
+**clashCheck** | True/False check for clashes between the bond and any atoms that fall within a cylinder of radius clashDist (default=1.6A) centered on the bond axis.
+**clashDist**  | a float specifying the perpendicular distance from the bond axis that determines if an atom  is clashing with the bond. clashDist needs to be < the the cell box size as otherwise we won't  see the atom.
+**selfBond**  | boolean to specify if zip will allow a block to bond to itself (True) or not (False) [default: True]
 
 zipBlocks is called thus:
 
@@ -269,17 +268,17 @@ Blocks can be removed from the cell with two commands:
 
 deleteBlocksIndices
 Arguments:
-indices: list of indices of the blocks to be deleted
-save: save all deleted blocks so they can be readded with the restoreBlocks command
+**indices** list of indices of the blocks to be deleted
+**save** save all deleted blocks so they can be readded with the restoreBlocks command
 
 deleteBlocksTypes
 delete numBlocks of blocks of the specified fragment type
 
 Arguments:
-fragmentType: the fragmentType, or list of fragmentTypes of the blocks to remove
-numBlocks: optional - the number of blocks to remove, otherwise all blocks of the specified types will be removed
-multiple: if True remove blocks that contain > 1 fragment, else only single-fragment blocks
-save: save all deleted blocks so they can be readded with the restoreBlocks command
+**fragmentType** the fragmentType, or list of fragmentTypes of the blocks to remove
+**numBlocks** optional - the number of blocks to remove, otherwise all blocks of the specified types will be removed
+**multiple** if True remove blocks that contain > 1 fragment, else only single-fragment blocks
+**save** save all deleted blocks so they can be readded with the restoreBlocks command
 
 ### Optimising the geometry of the blocks in the cell and running molecular dynamics simulations
 Once the cell has been filled with blocks, it is possible to either optimise the geometry or run a molecular dynamics
@@ -304,12 +303,14 @@ mycell.optimiseGeometry( rigidBody=True,
 
 The arguments accepted by optimiseGeometry are:
 
-rigidBody - True/False - do rigid body or all-atom optimisation
-doDihderal - True/False - include dihedral terms
-doImproper - True/False - include improper terms
-rCut - the VdW cutoff to use [angstroms]
-optCycles - the number of hoomdblue optimisation cycles to run.
-quiet - True/False - don't print out the normal hoomdblue runtime output to the screen.
+Name | Description
+---- | -----------
+**rigidBody** | True/False - do rigid body or all-atom optimisation
+**doDihderal** | True/False - include dihedral terms
+**doImproper** | True/False - include improper terms
+**rCut** | the VdW cutoff to use [angstroms]
+**optCycles** | the number of hoomdblue optimisation cycles to run.
+**quiet** | True/False - don't print out the normal hoomdblue runtime output to the screen.
 
 All other arguments accepted by the mode_minimize_rigid_fire are passed through, so for example, you can set fdec, alpha_start
 etc. in the call to optimiseGeometry. The arguments accepted by mode_minimize_rigid_fire are listed in the hoomdblue [documentation](http://codeblue.umich.edu/hoomd-blue/doc/classhoomd__script_1_1integrate_1_1mode__minimize__rigid__fire.html)
