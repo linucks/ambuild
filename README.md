@@ -70,6 +70,7 @@ This creates an empty cell object called mycell (we call it mycell so it doesn't
 we import the Cell code module with). The boxDim argument sets the size of the A,B and C cell axes.
 
 The arguments to cell are:
+
 Name | Description
 ---- | -----------
 boxDim | a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms). Dimensions are from 0 - A, B or C
