@@ -29,7 +29,7 @@ def unbondCat(mycell):
     if not mycell.lastAdded: return False
     lblock = mycell.blocks[mycell.lastAdded]
     
-    if not len(lblock._blockBonds): False
+    if not lblock._blockBonds or not len(lblock._blockBonds): return False
     # Last added bond is always last in the list
     bond = lblock._blockBonds[-1]
 
