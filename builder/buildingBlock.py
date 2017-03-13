@@ -439,7 +439,7 @@ class Block(object):
         # Sets of which fragments can be reached from each fragment
         f1set = set()
         f2set = set()
-
+        
         def addFragments(startf, f1set):
             # Trundle through the bond topology for f1 and set True for all fragments we reach
             for f in bondedToFragment[startf]:
@@ -509,7 +509,7 @@ class Block(object):
         if len(f1set): self.fragments += list(f1set)
         self._blockBonds = list(f1bonds)
         self._update()
-
+        
         return newBlock
     
     def deleteFragment(self, frag):
@@ -665,7 +665,7 @@ class Block(object):
             endGroups = [endGroup for endGroupList in self._freeEndGroups.values() for endGroup in endGroupList]
         
         if fragment is not None:
-            endGroups = [endGroup for endGroup in endGroups if endGroup.fragment is fragment]
+            endGroups = [endGroup for endGroup in endGroups if endGroup.fragment == fragment]
         return endGroups
 
     def freeEndGroupTypes(self):
