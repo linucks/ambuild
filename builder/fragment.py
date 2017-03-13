@@ -18,6 +18,8 @@ import numpy
 from paths import BLOCKS_DIR
 import util
 
+ENDGROUPBONDED = '*'
+
 _logger = logging.getLogger()
 
 class EndGroup(object):
@@ -213,31 +215,48 @@ class Fragment(object):
         self._sharedAttrs = sharedAttrs
 
         # Create from the file
-        if filePath:
-            self.fromFile(filePath)
+        if filePath: self.fromFile(filePath)
+        return
 
+    def onbondCat(self, endGroup):
+        """Append * to all endGroups that match"""
+        if not endGroup.type() == 'cat:a': return
+        _logger.critical("ONBOND CAT")
+        frag = endGroup.fragment
+        for eg in frag.endGroups():
+            assert not eg._endGroupType.endswith(ENDGROUPBONDED),"Already got bonded endGroup"
+            eg._endGroupType += ENDGROUPBONDED
+        #print "GOT ",[eg.type() for eg in frag.endGroups()]
         return
 
     def addBond(self, endGroup):
+        endGroupType = endGroup.type()
+        
         # Mask fragment cap and uw atoms now
         self.masked[ endGroup.fragmentCapIdx ] = True
         if endGroup.fragmentUwIdx != -1:
             self.masked[ endGroup.fragmentUwIdx ] = True
-        self._endGroupBonded[ endGroup.type() ] += 1
-
-        # Handle maxBonds here
-        #if self._maxBonds[ endGroupType ] is not None and \
-        #self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]
-        if self._maxBonds[ endGroup.type() ] is not None:
-            if self._endGroupBonded[ endGroup.type() ] >= self._maxBonds[ endGroup.type() ]:
-                # We have exceeded the bonding limit for these endGroupTypes, so we set any free ones
-                # of this type to blocked
-                for eg in self._endGroups:
-                    if not eg.bonded and eg.type() == endGroup.type():
-                        eg.blocked = True
+            
+        # Hack for starred endGroups
+        if not endGroupType.endswith(ENDGROUPBONDED):
+            self._endGroupBonded[ endGroupType] += 1
+    
+            # Handle maxBonds here
+            #if self._maxBonds[ endGroupType ] is not None and \
+            #self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]
+            if self._maxBonds[ endGroupType ] is not None:
+                if self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]:
+                    # We have exceeded the bonding limit for these endGroupTypes, so we set any free ones
+                    # of this type to blocked
+                    for eg in self._endGroups:
+                        if not eg.bonded and eg.type() == endGroupType:
+                            eg.blocked = True
         
         # The user may have supplied a custom bonding function, so we call that here
         if self.onbondFunction: self.onbondFunction(endGroup)
+        
+        if self.fragmentType == 'cat':
+            self.onbondCat(endGroup)
         self.update()
         return
 
@@ -758,6 +777,22 @@ class Fragment(object):
                 me[slot] = attr
 
         return "{0} : {1}".format(self.__repr__(), str(me))
+
+#     def __getstate__(self):
+#         """Called on pickling
+#         
+#         CAN'T DO THIS AS DEEPCOPY USES SOME PICKLING CODE AND SO __getstate__ IS CALLED
+#         AND THIS DELETES onbondFunction WHENEVER A FRAGMENT IS COPIED. NEED TO FIX BY CHANGING
+#         TO A CLASS FACTORY AND NOT DOING OUR OWN MANUAL COPYING OF FRAGMENTS.
+#         
+#         We need to delete the onbondFunction because otherwise it can't be pickled as it will
+#         have been defined in the calling script and hence not available to the util module on 
+#         unpickling.
+#         """
+#         assert False
+#         d = self.__dict__
+#         d['onbondFunction'] = None
+#         return d
 
 class TestFragment(unittest.TestCase):
 
