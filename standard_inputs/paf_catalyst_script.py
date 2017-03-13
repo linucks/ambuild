@@ -43,33 +43,47 @@ import util
 boxDim=[40,40,40]
 
 #Create Cell and seed it with the blocks
-mycell = cell.Cell(boxDim, atomMargin=0.1, bondMargin=0.5, bondAngleMargin=5, doLog=False )
+mycell = cell.Cell(boxDim, atomMargin=0.1, bondMargin=0.5, bondAngleMargin=5, doLog=True )
 
 #import the two fragment files if you have 2 different building blocks
-mycell.libraryAddFragment( filename='/opt/ambuild/blocks/PAF.car', fragmentType='PAF' )
-mycell.libraryAddFragment( filename='pafh2.car', fragmentType='cat' )
-#mycell.libraryAddFragment( filename='/opt/ambuild/blocks/ch4.car', fragmentType='cat' )
+#mycell.libraryAddFragment( filename='/opt/ambuild/blocks/PAF.car', fragmentType='PAF' )
+mycell.libraryAddFragment( filename='/opt/ambuild/blocks/ch4.car', fragmentType='PAF' )
+#mycell.libraryAddFragment( filename='pafh2.car', fragmentType='cat' )
+mycell.libraryAddFragment( filename='/opt/ambuild/blocks/ch4.car', fragmentType='cat' )
+
 mycell.addBondType( 'PAF:a-cat:a' )
+mycell.addBondType( 'cat:a*-cat:a*' )
 
-def onbond(endGroup):
-    """Append * to all endGroups that match"""
-    if not endGroup.type() == 'cat:a': return
-    frag = endGroup.fragment
-    for eg in frag.endGroups():
-        assert not eg._endGroupType.endswith('*'),"Already got bonded endGroup"
-        eg._endGroupType += '*'
-    return
-
-# Use for changing endGroup type
-mycell.setBondingFunction('cat', onbond)
-
+# Add a cat block and bond it to a PAF block
 mycell.seed( 1, fragmentType='cat', center=True)
-mycell.growBlocks(toGrow=1, cellEndGroups=None, libraryEndGroups='PAF:a', maxTries=500)
-if mycell.unbondCat():
-    print "unbondCat1"
-mycell.growBlocks(toGrow=1, cellEndGroups=None, libraryEndGroups='PAF:a', maxTries=500)
+mycell.growBlocks(toGrow=1, cellEndGroups='cat:a', libraryEndGroups='PAF:a', maxTries=500)
+
+# copy the block and get the two endGroups that we will use to position the two catalysts so they can bond
+#newblock = self.getLibraryBlock(fragmentType=fragmentType) # Create new block
+b1 = mycell.blocks.values()[0]
+
+# Make copy of first block
+b2 = b1.copy()
+
+# Get the two cat* endGroups
+endGroup1 = b1.freeEndGroups(endGroupTypes='cat:a*')[0]
+endGroup2 = b2.freeEndGroups(endGroupTypes='cat:a*')[0]
+
+# Position so they can bond
+b1.positionGrowBlock(endGroup1, endGroup2)
+
+# Put b2 in the cell
+mycell.addBlock(b2)
+
+mycell.checkMove(b2.id)
+mycell.processBonds()
 mycell.dump()
-if mycell.unbondCat():
-    print "unbondCat2"
+
+mycell.unbondCat()
+
 mycell.dump()
+
+
+# if mycell.unbondCat():
+#     print "unbondCat2"
 
