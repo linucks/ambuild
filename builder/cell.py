@@ -574,6 +574,7 @@ class Cell():
                 ):
 
         # The check should have been made before this is called on whether the two atoms are endGroup
+        LOGGER.critical("CANBOND")
 
         # Check length
         bond_length = util.bondLength(addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom))
@@ -710,15 +711,13 @@ class Cell():
         clashAtoms = []
         self._possibleBonds = []
         for (idxAddAtom, staticBlock, idxStaticAtom, distance) in close:
-
-#             print "CHECKING  ATOMS {}:{} {} -> {}:{} {}= {}".format( idxAddBlock,
-#                                                               idxAddAtom,
-#                                                               addSymbol,
-#                                                               idxStaticBlock,
-#                                                               idxStaticAtom,
-#                                                               staticBlock.atomSymbol( idxStaticAtom ),
-#                                                               distance )
-
+            LOGGER.debug("CHECKING  ATOMS {}:{} {} -> {}:{} {}= {}".format( idxAddBlock,
+                                                              idxAddAtom,
+                                                              addBlock.symbol(idxAddAtom),
+                                                              staticBlock.id,
+                                                              idxStaticAtom,
+                                                              staticBlock.symbol( idxStaticAtom ),
+                                                              distance ))
             if not (addBlock.isEndGroup(idxAddAtom) and \
                      staticBlock.isEndGroup(idxStaticAtom) and \
                      self.canBond(staticBlock,
@@ -2527,77 +2526,89 @@ class Cell():
         LOGGER = logger
         return
     
-    def _unbondCatORIG(self, bond):
-        """Function to unbond a Ni-catalyst bonded to two PAF groups"""
+    def cat1Paf2(self, bond):
+        
         # See if either of the blocks connected is the cat
-        t1 = bond.endGroup1.type()
-        t2 = bond.endGroup2.type()
         cfrag = None
-        if t1 == 'cat:a':
+        if bond.endGroup1.type() == 'cat:a':
             cfrag = bond.endGroup1.fragment
-        elif t2 == 'cat:a':
+        elif bond.endGroup2.type() == 'cat:a':
             cfrag = bond.endGroup2.fragment
         else: return False # Nothing to do
         
         # The block has multiple fragments, but we are only interested in this cat fragment
         # and if this has two bonds made to it.
         # For time being assume only two allowed bonds to cat
-        
         endGroups = cfrag.endGroups()
         if not all([ eg.bonded for eg in endGroups ]): return False
-        assert len(endGroups) == 2, "Assumption is cat only has 2 endGroups!"
-        eg1, eg2 = endGroups
+        assert len(endGroups) == 2, "Assumption is CAT only has 2 endGroups!"
+        catEG1, catEG2 = endGroups
     
-        # Both are bonded so we now need to go through each bond in the block in turn and unbond the blocks
-        # Get the block
-        lblock = eg1.block()
-        assert lblock == eg2.block(),"block identifiers of the two endGroups are different!"
-    
-        # Get two bonds in this block that bond it to PAF and also the two paf endgroups
-        b1 = None
-        b2 = None
-        paf1Eg = None
-        paf2Eg = None
-        for bond in lblock._blockBonds:
-            #if bond.endGroup1 == eg1 or bond.endGroup2 == eg1 or bond.endGroup1 == eg2 or bond.endGroup2 == eg2:
-            if bond.endGroup1 in [eg1, eg2]:
-                assert not (b1 and b2), "More than 2 bonds linked to cat"
-                if b1:
-                    b2 = bond
-                    paf2Eg = bond.endGroup2
-                else:
-                    b1 = bond
-                    paf1Eg = bond.endGroup2
-            elif bond.endGroup2 in [eg1, eg2]:
-                assert not (b1 and b2), "More than 2 bonds linked to cat"
-                if b1:
-                    b2 = bond
-                    paf2Eg = bond.endGroup1
-                else:
-                    b1 = bond
-                    paf1Eg = bond.endGroup1
-    
-        assert b1 and b2,"Could not find both bonds"
+        # Get the block and the PAF endGroups
+        block = catEG1.block()
+        
+        # CAT can only have 2 bonds
+        assert len(block._blockBonds) == 2,"CAT can only have two bonds"
+        
+        bond1 = block._blockBonds[0]
+        bond2 = block._blockBonds[1]
+        
+        # Get the endGroups for the bond
+        if bond1.endGroup1 in [catEG1, catEG2]:
+            assert bond1.endGroup2.type() == 'PAF:a'
+            paf1EG = bond1.endGroup2
+        elif bond1.endGroup2 in [catEG1, catEG2]:
+            assert bond1.endGroup1.type() == 'PAF:a'
+            paf1EG = bond1.endGroup2
+            
+        if bond2.endGroup1 in [catEG1, catEG2]:
+            assert bond2.endGroup2.type() == 'PAF:a'
+            paf2EG = bond2.endGroup2
+        elif bond2.endGroup2 in [catEG1, catEG2]:
+            assert bond2.endGroup1.type() == 'PAF:a'
+            paf2EG = bond2.endGroup2
+
+        return self._cat1Paf2(catEG1, catEG2, paf1EG, paf2EG)
+        
+    def _cat1Paf2(self, catEG1, catEG2, paf1EG, paf2EG):
+        """Given a cat bonded to two PAF groups, break the PAF bonds and form a PAF-PAF bond
+        
+        """
+        # Get the bonds and the block
+        catBlock = catEG1.block()
+        
+        # Get the two bonds
+        assert len(catBlock._blockBonds) == 2,"CAT can only have two bonds"
+        bond1 = catBlock._blockBonds[0]
+        bond2 = catBlock._blockBonds[1]
+        
+        assert bond1.endGroup1 in [catEG1, catEG2, paf1EG, paf2EG]
+        assert bond1.endGroup2 in [catEG1, catEG2, paf1EG, paf2EG]
+        assert bond2.endGroup1 in [catEG1, catEG2, paf1EG, paf2EG]
+        assert bond2.endGroup2 in [catEG1, catEG2, paf1EG, paf2EG]
         
         # Remove the block from the cell
-        self.delBlock(lblock.id)
+        self.delBlock(catBlock.id)
     
         # Break the two bonds
-        paf1 = lblock.deleteBond(b1)
+        paf1 = catBlock.deleteBond(bond1)
         #print "DELETED PAF1 ",paf1.id
      
-        paf2 = lblock.deleteBond(b2)
+        paf2 = catBlock.deleteBond(bond2)
         #print "DELETED PAF2 ",paf2.id
     
         # Add the unbonded blocks back to the cell
-        self.addBlock(lblock)
+        self.addBlock(catBlock)
         self.addBlock(paf1)
         self.addBlock(paf2)
     
         # We now need to bond the two PAF groups
-        assert paf1Eg.free() and paf2Eg.free(),"PAF endgroups aren't free!"
-        bond = buildingBlock.Bond(paf1Eg, paf2Eg)
+        assert paf1EG.free() and paf2EG.free(),"PAF endgroups aren't free!"
+        bond = buildingBlock.Bond(paf1EG, paf2EG)
         self.bondBlock(bond)
+        
+        # Now optimise the geometry
+        self.optimiseGeometry(rigidBody=True, quiet=False, dt=0.0001)
         return True
 
     def _unbondCat(self, bond):
@@ -2619,9 +2630,7 @@ class Cell():
         
         select that PAF
         
-        
         unbond the PAF unit from the cat
-        
         
         bond the PAF to the bound cat
         
@@ -2631,12 +2640,11 @@ class Cell():
         # See if this bond is a made between two catalysts which both have PAF bonded to them
         catEG1 = bond.endGroup1
         catEG2 = bond.endGroup2
-        t1 = catEG1.type()
-        t2 = catEG2.type()
-        if not (t1 == 'cat:a' + fragment.ENDGROUPBONDED and t2 == 'cat:a' + fragment.ENDGROUPBONDED):
+        LOGGER.critical("_unbondCat %s %s" % (bond.endGroup1, bond.endGroup2))
+        if not (catEG1.type() == 'cat:a' + fragment.ENDGROUPBONDED and catEG2.type() == 'cat:a' + fragment.ENDGROUPBONDED):
             return False # Nothing to do
         
-        # Get the two cat fragments
+        # Reset the bonding flags - this should probably be done in a more logical place
         for eg in catEG1.fragment.endGroups():
             assert eg._endGroupType.endswith(fragment.ENDGROUPBONDED),"Not bonded endGroup!"
             eg._endGroupType = eg._endGroupType.rstrip(fragment.ENDGROUPBONDED)
@@ -2648,116 +2656,65 @@ class Cell():
         # the bond to the other cat
         cat1 = catEG1.block()
         
-        # Break the cat-cat bond that we just made
-        # Assume the cat-cat bond is the last one
-        bond = cat1._blockBonds[-1]
-
         # Remove the block from the cell
         self.delBlock(cat1.id)
     
         # Break the two bonds
         cat2 = cat1.deleteBond(bond)
+        assert len(cat1._blockBonds) == 1,"Cat1 doesn't have a single bond to it!"
+        assert len(cat2._blockBonds) == 1,"Cat2 doesn't have a single bond to it!"
         
         # Randomise the order
         l = [(cat1,catEG1), (cat2,catEG2)]
         _random.shuffle(l) 
         (cat1,catEG1), (cat2,catEG2) = l
         
-        # Get the PAF from the cat and unbond it - cat only has one bond to it
-        assert len(cat1._blockBonds) == 1,"Cat doesn't have a single bond to it!"
-        
-        # Need to get the PAF endGroup involved in the bond as we use this to make the bond to the other cat
-        bond = cat1._blockBonds[0]
-        if bond.endGroup1.fragment.fragmentType == 'PAF':
-            pafEG = bond.endGroup1
+        # Need to get the two PAF endGroups as these are the ones we will be manipulating
+        bond1 = cat1._blockBonds[0]
+        if bond1.endGroup1.fragment.fragmentType == 'PAF':
+            paf1EG = bond1.endGroup1
+        elif bond1.endGroup2fragment.fragmentType == 'PAF':
+            paf1EG = bond1.endGroup2
         else:
-            pafEG = bond.endGroup2
-        assert pafEG.fragment.fragmentType == 'PAF','Wrong type" {}'.format(pafEG.pafEG.fragment.fragmentType)
-            
-        paf1 = cat1.deleteBond(bond)
+            'Cannot find PAF endGroup1"{}'.format(bond1)
+        
+        # At this point we also get the other PAF endGroup
+        bond2 = cat2._blockBonds[0]
+        if bond2.endGroup1.fragment.fragmentType == 'PAF':
+            paf2EG = bond2.endGroup1
+        elif bond2.endGroup2fragment.fragmentType == 'PAF':
+            paf2EG = bond.endGroup2
+        else:
+            'Cannot find PAF endGroup2 {}'.format(bond2)
+        
+        # Break the bond between the first CAT and its PAF    
+        paf1 = cat1.deleteBond(bond1)        
         assert len(cat1.fragments) == 1 and cat1.fragments[0].fragmentType == 'cat','Problem splitting off cat'
         
         # Put the unbonded cat back in the cell
         self.addBlock(cat1)
         
-        # Now bond the PAF to the remaining catalyst we use the original PAF endGroup that was used for the bond
+        # Now bond the PAF to the second catalyst; we use the original PAF endGroup that was used for the bond
         # and the cat endGroup that was used to bond to the other catalyst
-        bond = buildingBlock.Bond(catEG2,pafEG)
-        cat2.bondBlock(bond)
+        bond = buildingBlock.Bond(catEG2,paf1EG)
+        cat2.bondBlock(bond1)
         
         # Put the unbonded cat back in the cell
         self.addBlock(cat2)
         
-        print "YES"
-        return True
-    
-    
-        # The block has multiple fragments, but we are only interested in this cat fragment
-        # and if this has two bonds made to it.
-        # For time being assume only two allowed bonds to cat
+        # Run optimisation to move CAT away
+        self.optimiseGeometry(rigidBody=True, quiet=False, dt=0.0001)
         
-        endGroups = cfrag.endGroups()
-        if not all([ eg.bonded for eg in endGroups ]): return False
-        assert len(endGroups) == 2, "Assumption is cat only has 2 endGroups!"
-        eg1, eg2 = endGroups
-    
-        # Both are bonded so we now need to go through each bond in the block in turn and unbond the blocks
-        # Get the block
-        lblock = eg1.block()
-        assert lblock == eg2.block(),"block identifiers of the two endGroups are different!"
-    
-        # Get two bonds in this block that bond it to PAF and also the two paf endgroups
-        b1 = None
-        b2 = None
-        paf1Eg = None
-        paf2Eg = None
-        for bond in lblock._blockBonds:
-            #if bond.endGroup1 == eg1 or bond.endGroup2 == eg1 or bond.endGroup1 == eg2 or bond.endGroup2 == eg2:
-            if bond.endGroup1 in [eg1, eg2]:
-                assert not (b1 and b2), "More than 2 bonds linked to cat"
-                if b1:
-                    b2 = bond
-                    paf2Eg = bond.endGroup2
-                else:
-                    b1 = bond
-                    paf1Eg = bond.endGroup2
-            elif bond.endGroup2 in [eg1, eg2]:
-                assert not (b1 and b2), "More than 2 bonds linked to cat"
-                if b1:
-                    b2 = bond
-                    paf2Eg = bond.endGroup1
-                else:
-                    b1 = bond
-                    paf1Eg = bond.endGroup1
-    
-        assert b1 and b2,"Could not find both bonds"
-        
-        # Remove the block from the cell
-        self.delBlock(lblock.id)
-    
-        # Break the two bonds
-        paf1 = lblock.deleteBond(b1)
-        #print "DELETED PAF1 ",paf1.id
-     
-        paf2 = lblock.deleteBond(b2)
-        #print "DELETED PAF2 ",paf2.id
-    
-        # Add the unbonded blocks back to the cell
-        self.addBlock(lblock)
-        self.addBlock(paf1)
-        self.addBlock(paf2)
-    
-        # We now need to bond the two PAF groups
-        assert paf1Eg.free() and paf2Eg.free(),"PAF endgroups aren't free!"
-        bond = buildingBlock.Bond(paf1Eg, paf2Eg)
-        self.bondBlock(bond)
-        return True
+        # Now dealing with a CAT bonded to two PAF groups
+        # We need the two CAT endGroups and the two corresponding PAF endGroups that make the bond
+        return self._cat1Paf2(catEG1, catEG2, paf1EG, paf2EG)
 
     def unbondCat(self):
         """Function to unbond a Ni-catalyst bonded to two PAF groups
         
         """
         if not len(self.newBonds): return False
+        LOGGER.critical("GOT BONDS %s" % [str(b) for b in self.newBonds ])
         return any([self._unbondCat(b) for b in self.newBonds]) 
 
     def updateCellSize(self, boxMargin=None, maxAtomRadius=None, MARGIN=0.01, boxShift=None):
