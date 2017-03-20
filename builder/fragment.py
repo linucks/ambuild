@@ -133,9 +133,10 @@ class EndGroup(object):
 #             t.append( str( ( k, me[k] ) ) )
 #
 #         return "{0} : {1}".format(self.__repr__(), ",".join( t ) )
-
-        s = "{0} {1}:{2}:{3} {4}->{5} {6}->{7}".format(self.type(), self.block().id, id(self.fragment), id(self),
-                                                    self.fragmentEndGroupIdx, self.fragmentCapIdx,
+        #EndGroup:
+        s = "{0} {1}:{2} {3}({4})->{5}({6}) {7}->{8}".format(self.type(), id(self.fragment), id(self),
+                                                    self.fragmentEndGroupIdx, self.fragment._symbols[self.fragmentEndGroupIdx],
+                                                    self.fragmentCapIdx,self.fragment._symbols[self.fragmentCapIdx],
                                                     self.blockEndGroupIdx, self.blockCapIdx)
 
         return s
@@ -531,7 +532,7 @@ class Fragment(object):
         self.update()
 
         self._calcProperties()
-
+        
         return
 
     def iterCoord(self):
@@ -726,7 +727,7 @@ class Fragment(object):
             "uwAtom {0} is not bonded to endGroup {1}".format(eg.fragmentUwIdx, eg.fragmentEndGroupIdx)
 
             self._endGroups.append(eg)
-
+            
         # sanity check - make sure no endGroup is the cap Atom for another endGroup
         eg = set([ e.fragmentEndGroupIdx for e in self._endGroups ])
         caps = set([ e.fragmentCapIdx for e in self._endGroups ])
@@ -769,14 +770,16 @@ class Fragment(object):
 
     def __str__(self):
         """List the data attributes of this object"""
-        me = {}
-        for slot in dir(self):
-            attr = getattr(self, slot)
-            if not slot.startswith("__") and not (isinstance(attr, types.MethodType) or
-              isinstance(attr, types.FunctionType)):
-                me[slot] = attr
-
-        return "{0} : {1}".format(self.__repr__(), str(me))
+#         me = {}
+#         for slot in dir(self):
+#             attr = getattr(self, slot)
+#             if not slot.startswith("__") and not (isinstance(attr, types.MethodType) or
+#               isinstance(attr, types.FunctionType)):
+#                 me[slot] = attr
+        me = "Fragment {0}\n".format(self.fragmentType)
+        for i, c in enumerate(self._coords):
+            me += "{0}  {1:5} {2:0< 15} {3:0< 15} {4:0< 15} \n".format(i, self._labels[i], c[0], c[1], c[2])
+        return "{0} : {1}".format(self.__repr__(), me)
 
 #     def __getstate__(self):
 #         """Called on pickling
