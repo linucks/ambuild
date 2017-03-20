@@ -429,7 +429,8 @@ class Block(object):
 #                 bond=b
                 bondedToFragment[b.endGroup1.fragment].add(b.endGroup2.fragment)
                 bondedToFragment[b.endGroup2.fragment].add(b.endGroup1.fragment)
-
+            
+        
         # Take the two fragments on either side of the bond
         f1 = bond.endGroup1.fragment
         f2 = bond.endGroup2.fragment
@@ -451,6 +452,11 @@ class Block(object):
         f1set = addFragments(f1, f1set)
         f2set = addFragments(f2, f2set)
         
+        # HACK - NEED TO ADD THE ROOT FRAGMENT IF IT'S NOT ALREADY IN THERE
+        # ALGORITHM NEEDS MORE WORK!
+        f1set.add(f1)
+        f2set.add(f2)
+        
         if bool(f1set.intersection(f2set)):
             # Fragments in common with both, so just delete the bond
             #print "Block remains contiguous"
@@ -463,7 +469,7 @@ class Block(object):
             self._update()
             return None
         
-        # Breaking the bond splits the block in two, so we separate the two fragments, keeep the largest
+        # Breaking the bond splits the block in two, so we separate the two fragments, keep the largest
         # for ourselves and return the new block. We set f1 and f1set to be the biggest
         if root:
             if root == f2:
@@ -482,7 +488,7 @@ class Block(object):
                 tmp = f1
                 f1 = f2
                 f2 = tmp
-            
+        
         # How to partition the bonds?
         f1bonds = set()
         f2bonds = set()
@@ -499,14 +505,16 @@ class Block(object):
         
         # Create a new block with the smaller fragments
         newBlock = Block()
-        newBlock.fragments = [f2]
-        if len(f2set): newBlock.fragments += list(f2set)
+#         newBlock.fragments = [f2]
+#         if len(f2set): newBlock.fragments += list(f2set)
+        newBlock.fragments = list(f2set)
         newBlock._blockBonds = list(f2bonds)
         newBlock._update()
         
         # Update our list of bonds 
-        self.fragments = [f1]
-        if len(f1set): self.fragments += list(f1set)
+        #self.fragments = [f1]
+        #if len(f1set): self.fragments += list(f1set)
+        self.fragments = list(f1set)
         self._blockBonds = list(f1bonds)
         self._update()
         
