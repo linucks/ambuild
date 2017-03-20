@@ -75,6 +75,11 @@ class EndGroup(object):
 
     def unBond(self):
         self.bonded = False
+        # HACK WE REMOVE ALL SUFFIXES
+        _logger.debug("unBond ENDGROUPBONDED")
+        for eg in self.fragment.endGroups():
+            if eg._endGroupType.endswith(ENDGROUPBONDED):
+                eg._endGroupType = eg._endGroupType.rstrip(ENDGROUPBONDED)
         self.fragment.delBond(self.type())
         # Unmask cap and set the coordinate to the coordinate of the last block atom
         self.fragment.masked[ self.fragmentCapIdx ] = False
