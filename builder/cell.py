@@ -2526,7 +2526,8 @@ class Cell():
         LOGGER = logger
         return
     
-    def cat1Paf2(self, bond):
+    def _cat1Paf2(self, bond):
+        """A CAT bonded to two PAF goups"""
         
         # See if either of the blocks connected is the cat
         cfrag = None
@@ -2568,50 +2569,9 @@ class Cell():
             assert bond2.endGroup1.type() == 'PAF:a'
             paf2EG = bond2.endGroup2
 
-        return self._cat1Paf2(catEG1, catEG2, paf1EG, paf2EG)
-        
-    def _cat1Paf2(self, catEG1, catEG2, paf1EG, paf2EG):
-        """Given a cat bonded to two PAF groups, break the PAF bonds and form a PAF-PAF bond
-        
-        """
-        # Get the bonds and the block
-        catBlock = catEG1.block()
-        
-        # Get the two bonds
-        assert len(catBlock._blockBonds) == 2,"CAT can only have two bonds"
-        bond1 = catBlock._blockBonds[0]
-        bond2 = catBlock._blockBonds[1]
-        
-        assert bond1.endGroup1 in [catEG1, catEG2, paf1EG, paf2EG]
-        assert bond1.endGroup2 in [catEG1, catEG2, paf1EG, paf2EG]
-        assert bond2.endGroup1 in [catEG1, catEG2, paf1EG, paf2EG]
-        assert bond2.endGroup2 in [catEG1, catEG2, paf1EG, paf2EG]
-        
-        # Remove the block from the cell
-        self.delBlock(catBlock.id)
-    
-        # Break the two bonds
-        paf1 = catBlock.deleteBond(bond1)
-        #print "DELETED PAF1 ",paf1.id
-     
-        paf2 = catBlock.deleteBond(bond2)
-        #print "DELETED PAF2 ",paf2.id
-    
-        # Add the unbonded blocks back to the cell
-        self.addBlock(catBlock)
-        self.addBlock(paf1)
-        self.addBlock(paf2)
-    
-        # We now need to bond the two PAF groups
-        assert paf1EG.free() and paf2EG.free(),"PAF endgroups aren't free!"
-        bond = buildingBlock.Bond(paf1EG, paf2EG)
-        self.bondBlock(bond)
-        
-        # Now optimise the geometry
-        self.optimiseGeometry(rigidBody=True, quiet=False, dt=0.0001)
-        return True
+        return self._joinPaf(catEG2, paf1EG, paf2EG)
 
-    def _unbondCat(self, bond):
+    def _cat2Paf2(self, bond):
         """Function to unbond a Ni-catalyst bonded to two PAF groups
         
         check if have made a cat:a*-cat:a* bond
@@ -2644,17 +2604,17 @@ class Cell():
         if not (catEG1.type() == 'cat:a' + fragment.ENDGROUPBONDED and catEG2.type() == 'cat:a' + fragment.ENDGROUPBONDED):
             return False # Nothing to do
         
-        # Reset the bonding flags - this should probably be done in a more logical place
-        for eg in catEG1.fragment.endGroups():
-            assert eg._endGroupType.endswith(fragment.ENDGROUPBONDED),"Not bonded endGroup!"
-            eg._endGroupType = eg._endGroupType.rstrip(fragment.ENDGROUPBONDED)
-        for eg in catEG2.fragment.endGroups():
-            assert eg._endGroupType.endswith(fragment.ENDGROUPBONDED),"Not bonded endGroup!"
-            eg._endGroupType = eg._endGroupType.rstrip(fragment.ENDGROUPBONDED)
-        
+#         # Reset the bonding flags - this should probably be done in a more logical place
+#         for eg in catEG1.fragment.endGroups():
+#             assert eg._endGroupType.endswith(fragment.ENDGROUPBONDED),"Not bonded endGroup!"
+#             eg._endGroupType = eg._endGroupType.rstrip(fragment.ENDGROUPBONDED)
+#         for eg in catEG2.fragment.endGroups():
+#             assert eg._endGroupType.endswith(fragment.ENDGROUPBONDED),"Not bonded endGroup!"
+#             eg._endGroupType = eg._endGroupType.rstrip(fragment.ENDGROUPBONDED)
+
         # Select the block that contains all the fragments - we call it cat1 as we're going to break
         # the bond to the other cat
-        cat1 = catEG1.block()
+        cat1 = catEG1.block()    
         
         # Remove the block from the cell
         self.delBlock(cat1.id)
@@ -2673,7 +2633,7 @@ class Cell():
         bond1 = cat1._blockBonds[0]
         if bond1.endGroup1.fragment.fragmentType == 'PAF':
             paf1EG = bond1.endGroup1
-        elif bond1.endGroup2fragment.fragmentType == 'PAF':
+        elif bond1.endGroup2.fragment.fragmentType == 'PAF':
             paf1EG = bond1.endGroup2
         else:
             'Cannot find PAF endGroup1"{}'.format(bond1)
@@ -2682,40 +2642,92 @@ class Cell():
         bond2 = cat2._blockBonds[0]
         if bond2.endGroup1.fragment.fragmentType == 'PAF':
             paf2EG = bond2.endGroup1
-        elif bond2.endGroup2fragment.fragmentType == 'PAF':
-            paf2EG = bond.endGroup2
+        elif bond2.endGroup2.fragment.fragmentType == 'PAF':
+            paf2EG = bond2.endGroup2
         else:
             'Cannot find PAF endGroup2 {}'.format(bond2)
         
         # Break the bond between the first CAT and its PAF    
-        paf1 = cat1.deleteBond(bond1)        
+        _ = cat1.deleteBond(bond1)        
         assert len(cat1.fragments) == 1 and cat1.fragments[0].fragmentType == 'cat','Problem splitting off cat'
+        assert len(cat1._blockBonds) == 0,"CAT still has bonds!"
         
         # Put the unbonded cat back in the cell
         self.addBlock(cat1)
         
         # Now bond the PAF to the second catalyst; we use the original PAF endGroup that was used for the bond
         # and the cat endGroup that was used to bond to the other catalyst
-        bond = buildingBlock.Bond(catEG2,paf1EG)
-        cat2.bondBlock(bond1)
         
+        bond = buildingBlock.Bond(catEG2,paf1EG)
+        #THIS RESETS THE ENDGROUPBONDED FLAG
+        cat2.bondBlock(bond)
+
         # Put the unbonded cat back in the cell
         self.addBlock(cat2)
-        
+                
         # Run optimisation to move CAT away
         self.optimiseGeometry(rigidBody=True, quiet=False, dt=0.0001)
-        
+        self.dump()
+
         # Now dealing with a CAT bonded to two PAF groups
         # We need the two CAT endGroups and the two corresponding PAF endGroups that make the bond
-        return self._cat1Paf2(catEG1, catEG2, paf1EG, paf2EG)
+        self._joinPaf(catEG2, paf1EG, paf2EG)
+        
+        return True
 
-    def unbondCat(self):
+    def _joinPaf(self, catEG2, paf1EG, paf2EG):
+        """Given a cat bonded to two PAF groups, break the PAF bonds and form a PAF-PAF bond
+        
+        """
+        
+        # Get the bonds and the block
+        catBlock = catEG2.block()
+        
+        # Get the two bonds
+        assert len(catBlock._blockBonds) == 2,"CAT can only have two bonds"
+        bond1 = catBlock._blockBonds[0]
+        bond2 = catBlock._blockBonds[1]
+        
+        # Remove the block from the cell
+        self.delBlock(catBlock.id)
+    
+        # Break the two bonds
+        paf1 = catBlock.deleteBond(bond1)
+        #print "DELETED PAF1 ",paf1.id
+     
+        paf2 = catBlock.deleteBond(bond2)
+        #print "DELETED PAF2 ",paf2.id
+    
+        # Add the unbonded blocks back to the cell
+        self.addBlock(catBlock)
+        self.addBlock(paf1)
+        self.addBlock(paf2)
+    
+        # We now need to bond the two PAF groups
+        assert paf1EG.free() and paf2EG.free(),"PAF endgroups aren't free!"
+        bond = buildingBlock.Bond(paf1EG, paf2EG)
+        self.bondBlock(bond)
+    
+        # Now optimise the geometry
+        self.optimiseGeometry(rigidBody=True, dt=0.0001)
+        
+        return True
+
+    def cat1Paf2(self):
         """Function to unbond a Ni-catalyst bonded to two PAF groups
         
         """
         if not len(self.newBonds): return False
-        LOGGER.critical("GOT BONDS %s" % [str(b) for b in self.newBonds ])
-        return any([self._unbondCat(b) for b in self.newBonds]) 
+        LOGGER.critical("GOT NEW BONDS %s" % [str(b) for b in self.newBonds ])
+        return any([self._cat1Paf2(b) for b in self.newBonds]) 
+
+    def cat2Paf2(self):
+        """Function to unbond a Ni-catalyst bonded to two PAF groups
+        
+        """
+        if not len(self.newBonds): return False
+        LOGGER.critical("GOT NEW BONDS2 %s" % [str(b) for b in self.newBonds ])
+        return any([self._cat2Paf2(b) for b in self.newBonds]) 
 
     def updateCellSize(self, boxMargin=None, maxAtomRadius=None, MARGIN=0.01, boxShift=None):
         """The cell size is the vdw radius of the largest atom plus the largest of atom or bondMargin
