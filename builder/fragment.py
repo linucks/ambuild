@@ -20,7 +20,7 @@ import util
 
 ENDGROUPBONDED = '*'
 
-_logger = logging.getLogger()
+logger = logging.getLogger()
 
 class EndGroup(object):
 
@@ -53,6 +53,12 @@ class EndGroup(object):
     def capIdx(self):
         """Return the index of the endGroup atom in external block indices"""
         return self.blockCapIdx
+    
+    def coord(self,endGroup=True):
+        """Need to think about an API for accessing coordinates for endGroups
+        This just hacks in returning the endGroup.
+        """
+        return self.fragment._coords[self.fragmentEndGroupIdx]
 
     def dihedralIdx(self):
         """Return the index of the dihedral atom in external block indices"""
@@ -73,16 +79,19 @@ class EndGroup(object):
         self.fragment.addBond(self)
         return
 
-    def unBond(self):
+    def unBond(self, bondEndGroup):
         self.bonded = False
         # HACK WE REMOVE ALL SUFFIXES
-        _logger.debug("unBond ENDGROUPBONDED")
         for eg in self.fragment.endGroups():
             if eg._endGroupType.endswith(ENDGROUPBONDED):
+                logger.debug("unBond ENDGROUPBONDED")
                 eg._endGroupType = eg._endGroupType.rstrip(ENDGROUPBONDED)
         self.fragment.delBond(self.type())
         # Unmask cap and set the coordinate to the coordinate of the last block atom
-        self.fragment.masked[ self.fragmentCapIdx ] = False
+        self.fragment.masked[self.fragmentCapIdx] = False
+        if hasattr(bondEndGroup, 'coord'):
+            logger.critical("FOO")
+            self.fragment._coords[self.fragmentCapIdx] = bondEndGroup.coord()
         if self.fragmentUwIdx != -1:
             raise RuntimeError, "Cannot unbond masked endGroups yet!"
             self.fragment.masked[ self.fragmentUwIdx ] = True
@@ -155,7 +164,8 @@ class Fragment(object):
                  filePath=None,
                  fragmentType=None,
                  solvent=False,
-                 static=False
+                 static=False,
+                 markBonded=False
                  ):
         '''
         Constructor
@@ -173,6 +183,7 @@ class Fragment(object):
             'fragmentType'     : fragmentType,
             '_labels'          : [],
             '_masses'          : [],
+            'markBonded'       : False,
             'onbondFunction' : None,  # A function to be called when we bond an endGroup 
             '_radii'           : [],
             '_maxBonds'        : {},
@@ -213,8 +224,9 @@ class Fragment(object):
         for a, v in individualAttrs.iteritems():
             setattr(self, a, v)
             
-        # Static set on construction
+        # Init variables
         if static: self.static = True
+        if markBonded: self.markBonded = True
 
         # Set these manually
         self._individualAttrs = individualAttrs
@@ -224,15 +236,14 @@ class Fragment(object):
         if filePath: self.fromFile(filePath)
         return
 
-    def onbondCat(self, endGroup):
+    def _markBonded(self, endGroup):
         """Append * to all endGroups that match"""
+        # HACK TO MAKE SURE ONLY USED FOR CAT FOR TIME BEING
         if not endGroup.type() == 'cat:a': return
-        _logger.critical("ONBOND CAT")
-        frag = endGroup.fragment
-        for eg in frag.endGroups():
+        logger.debug("_markBonded marking bonds")
+        for eg in self.endGroups():
             assert not eg._endGroupType.endswith(ENDGROUPBONDED),"Already got bonded endGroup"
             eg._endGroupType += ENDGROUPBONDED
-        #print "GOT ",[eg.type() for eg in frag.endGroups()]
         return
 
     def addBond(self, endGroup):
@@ -261,8 +272,8 @@ class Fragment(object):
         # The user may have supplied a custom bonding function, so we call that here
         if self.onbondFunction: self.onbondFunction(endGroup)
         
-        if self.fragmentType == 'cat':
-            self.onbondCat(endGroup)
+        if  hasattr(self,'markBonded') and self.markBonded:
+            self._markBonded(endGroup)
         self.update()
         return
 
@@ -375,7 +386,7 @@ class Fragment(object):
             else:
                 # HACKS FOR DEALING WITH OLD FILES
                 msg = "Missing attribute in fragment copy: {0}".format(a)
-                _logger.critical(msg)
+                logger.critical(msg)
                 raise RuntimeError(msg)
 
             # Update fragment references in the endGroups
@@ -448,7 +459,7 @@ class Fragment(object):
 
                 line = line.strip()
                 if not line:
-                    _logger.critical("END OF CAR WITH NO END!!!")
+                    logger.critical("END OF CAR WITH NO END!!!")
                     break
                 fields = line.split()
                 label = fields[0]
@@ -581,7 +592,7 @@ class Fragment(object):
         
         egfile = os.path.join(dirname, basename + ".csv")
         if not os.path.isfile(egfile):
-            _logger.critical("No endGroup definition file supplied for file: {0}".format(filePath))
+            logger.critical("No endGroup definition file supplied for file: {0}".format(filePath))
             return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
             
         with open(egfile) as fh:

@@ -28,7 +28,7 @@ import numpy
 import fragment
 import util
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 class Bond(object):
     """An object to hold all info on a bond
@@ -134,7 +134,7 @@ class Block(object):
 
         # Makes no sense if they are already aligned
         if numpy.array_equal(pos2 / numpy.linalg.norm(pos2), refVector / numpy.linalg.norm(refVector)):
-            LOGGER.debug("alignBlock - block already aligned along vector. May not be a problem, but you should know...")
+            logger.debug("alignBlock - block already aligned along vector. May not be a problem, but you should know...")
             self.translate(pos1)  # NEW - put it back
             return
 
@@ -144,7 +144,7 @@ class Block(object):
         cross = numpy.cross(refVector, pos2)
         if numpy.array_equal(cross, [0, 0, 0]):
             # They must be already aligned but anti-parallel, so we flip
-            LOGGER.debug("alignBlock - vectors are anti-parallel so flipping")
+            logger.debug("alignBlock - vectors are anti-parallel so flipping")
             self.flip(refVector)
             self.translate(pos1)  # NEW - put it back
         else:
@@ -410,10 +410,7 @@ class Block(object):
     def deleteBond(self, bond, root=None):
         """root is an optional fragment which we want to remove and so must stay in this block if we are
         looping through bonds"""
-        # See if breaking the bond separates the block into two separate blocks
-        
         if not len(self._blockBonds): return None
-        
         assert bond in self._blockBonds
 
         # Create dictionary of which fragments are bonded to which fragments
@@ -461,8 +458,8 @@ class Block(object):
             # Fragments in common with both, so just delete the bond
             #print "Block remains contiguous"
             # Need to unmask the fragment atoms
-            bond.endGroup1.unBond()
-            bond.endGroup2.unBond()
+            bond.endGroup1.unBond(bond.endGroup2)
+            bond.endGroup2.unBond(bond.endGroup1)
 
             # Now delete the bond from the block
             self._blockBonds.remove(bond)
@@ -500,8 +497,8 @@ class Block(object):
                 f2bonds.add(b)
             else: raise RuntimeError,"Bond crosses set: {0}".format(b)
             
-        bond.endGroup1.unBond()
-        bond.endGroup2.unBond()
+        bond.endGroup1.unBond(bond.endGroup2)
+        bond.endGroup2.unBond(bond.endGroup1)
         
         # Create a new block with the smaller fragments
         newBlock = Block()
@@ -996,7 +993,7 @@ class Block(object):
                                     cell=cell,
                                     pruneBonds=False)
 
-        LOGGER.info("wrote block CML file: {0}".format(cmlFilename))
+        logger.info("wrote block CML file: {0}".format(cmlFilename))
         return
 
     def writeXyz(self, name, cell=None):
@@ -1006,7 +1003,7 @@ class Block(object):
             coords.append(c)
             symbols.append(self.symbol(i))
         fpath = util.writeXyz(name, coords, symbols, cell=cell)
-        LOGGER.info("Wrote block xyz file: {0}".format(fpath))
+        logger.info("Wrote block xyz file: {0}".format(fpath))
         return
 
     def __str__(self):
