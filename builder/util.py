@@ -18,7 +18,7 @@ import xml.etree.ElementTree as ET
 from opt import read_bond_params
 from paths import PARAMS_DIR
 
-_logger = logging.getLogger()
+logger = logging.getLogger()
 
 # Bits stolen from the CCP1GUI: http://sourceforge.net/projects/ccp1gui/
 # However, I wrote bits of that so I assume its ok
@@ -527,7 +527,6 @@ ELEMENT_TYPE_BOND_LENGTHS['SE'] = { 'SE' : 2.33 }
 
 ELEMENT_TYPE_BOND_LENGTHS['SI'] = { 'SI' : 2.33 }
 
-
 def angle(c1, c2, c3, dim=None, pbc=None):
     """Return the angle in radians c1---c2---c3
     where c are the coordinates in a numpy array
@@ -573,7 +572,7 @@ def bondLength(atomType1, atomType2):
         if ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ].has_key(symbol1):
             return ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ][ symbol1 ]
 
-    _logger.critical('No data for bond length for %s-%s' % (atomType1, atomType2))
+    logger.critical('No data for bond length for %s-%s' % (atomType1, atomType2))
     return 1.0
 
 def calcBondsHACK(coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0):
@@ -828,7 +827,7 @@ def XdistanceP(self, v1, v2):
 def dumpPkl(pickleFile, split=None, nonPeriodic=False):
 
     fpath = os.path.abspath(pickleFile)
-    _logger.info("Dumping pkl file: {0}".format(fpath))
+    logger.info("Dumping pkl file: {0}".format(fpath))
     dname, fname = os.path.split(fpath)
     prefix = os.path.splitext(fname)[0]
 
@@ -872,7 +871,7 @@ def dumpPkl(pickleFile, split=None, nonPeriodic=False):
 
 def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
     fpath = os.path.abspath(pickleFile)
-    _logger.info("Dumping DLPOLY files from pkl file: {0}".format(fpath))
+    logger.info("Dumping DLPOLY files from pkl file: {0}".format(fpath))
     mycell = cellFromPickle(pickleFile)
 
     # Need to do this here or else hoomdblue gets the command line arguments on import of the module
