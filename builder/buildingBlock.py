@@ -412,32 +412,28 @@ class Block(object):
         looping through bonds"""
         if not len(self._blockBonds): return None
         assert bond in self._blockBonds
+        
+        # Take the two fragments on either side of the bond
+        f1 = bond.endGroup1.fragment
+        f2 = bond.endGroup2.fragment
+        if root: assert root in [f1, f2],"Root must be attached to the bond"
+        
+        # Delete the bond
+        self._blockBonds.remove(bond)
 
         # Create dictionary of which fragments are bonded to which fragments
-        bondedToFragment = {}
+        bondedToFragment = { f1 : set(), f2 : set() } # Need to add those from bond as might not be connected
         for b in self._blockBonds:
             if b.endGroup1.fragment not in bondedToFragment:
                 bondedToFragment[b.endGroup1.fragment] = set()
             if b.endGroup2.fragment not in bondedToFragment:
                 bondedToFragment[b.endGroup2.fragment] = set()
-            if b != bond:
 #             if (b.endGroup1.blockEndGroupIdx==idxAtom1 and b.endGroup2.blockEndGroupIdx==idxAtom2) or \
 #                 (b.endGroup1.blockEndGroupIdx==idxAtom2 and b.endGroup2.blockEndGroupIdx==idxAtom1):
 #                 bond=b
-                bondedToFragment[b.endGroup1.fragment].add(b.endGroup2.fragment)
-                bondedToFragment[b.endGroup2.fragment].add(b.endGroup1.fragment)
-            
-        
-        # Take the two fragments on either side of the bond
-        f1 = bond.endGroup1.fragment
-        f2 = bond.endGroup2.fragment
-        
-        if root: assert root==f1 or root==f2,"Root must be attached to the bond"
+            bondedToFragment[b.endGroup1.fragment].add(b.endGroup2.fragment)
+            bondedToFragment[b.endGroup2.fragment].add(b.endGroup1.fragment)
 
-        # Sets of which fragments can be reached from each fragment
-        f1set = set()
-        f2set = set()
-        
         def addFragments(startf, f1set):
             # Trundle through the bond topology for f1 and set True for all fragments we reach
             for f in bondedToFragment[startf]:
@@ -446,13 +442,11 @@ class Block(object):
                     f1set.update(addFragments(f, f1set))
             return f1set
 
-        f1set = addFragments(f1, f1set)
-        f2set = addFragments(f2, f2set)
-        
+        # Sets of which fragments can be reached from each fragment
         # HACK - NEED TO ADD THE ROOT FRAGMENT IF IT'S NOT ALREADY IN THERE
         # ALGORITHM NEEDS MORE WORK!
-        f1set.add(f1)
-        f2set.add(f2)
+        f1set = addFragments(f1, set([f1]))
+        f2set = addFragments(f2, set([f2]))
         
         if bool(f1set.intersection(f2set)):
             # Fragments in common with both, so just delete the bond
@@ -462,7 +456,7 @@ class Block(object):
             bond.endGroup2.unBond(bond.endGroup1)
 
             # Now delete the bond from the block
-            self._blockBonds.remove(bond)
+            #self._blockBonds.remove(bond)
             self._update()
             return None
         
@@ -490,7 +484,6 @@ class Block(object):
         f1bonds = set()
         f2bonds = set()
         for b in self._blockBonds:
-            if b == bond: continue
             if b.endGroup1.fragment in f1set and b.endGroup2.fragment in f1set:
                 f1bonds.add(b)
             elif b.endGroup1.fragment in f2set and b.endGroup2.fragment in f2set:
@@ -502,15 +495,11 @@ class Block(object):
         
         # Create a new block with the smaller fragments
         newBlock = Block()
-#         newBlock.fragments = [f2]
-#         if len(f2set): newBlock.fragments += list(f2set)
         newBlock.fragments = list(f2set)
         newBlock._blockBonds = list(f2bonds)
         newBlock._update()
         
         # Update our list of bonds 
-        #self.fragments = [f1]
-        #if len(f1set): self.fragments += list(f1set)
         self.fragments = list(f1set)
         self._blockBonds = list(f1bonds)
         self._update()
