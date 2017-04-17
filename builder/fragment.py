@@ -90,7 +90,6 @@ class EndGroup(object):
         # Unmask cap and set the coordinate to the coordinate of the last block atom
         self.fragment.masked[self.fragmentCapIdx] = False
         if hasattr(bondEndGroup, 'coord'):
-            logger.critical("FOO")
             self.fragment._coords[self.fragmentCapIdx] = bondEndGroup.coord()
         if self.fragmentUwIdx != -1:
             raise RuntimeError, "Cannot unbond masked endGroups yet!"
