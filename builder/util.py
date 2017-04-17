@@ -704,9 +704,11 @@ def cellFromPickle(pickleFile):
             fragment.solvent = False
             fragment._sharedAttrs['solvent'] = fragment.solvent
         if not hasattr(fragment,'onbondFunction'):
-            # Solvent is a new attribute so we set to false
             fragment.onbondFunction = None
             fragment._sharedAttrs['onbondFunction'] = fragment.onbondFunction
+        if not hasattr(fragment,'markBonded'):
+            fragment.markBonded = None
+            fragment._sharedAttrs['markBonded'] = fragment.markBonded
     
         for e in fragment._endGroups:
             # More horrible hacks for old versions
