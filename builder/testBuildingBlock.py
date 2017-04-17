@@ -10,7 +10,7 @@ import fragment
 import util
 from paths import AMBUILD_DIR, BLOCKS_DIR
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 class Test(unittest.TestCase):
 
@@ -44,7 +44,7 @@ class Test(unittest.TestCase):
             for i, c in enumerate(coords):
                 f.write("{0:5} {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(symbols[ i ], c[0], c[1], c[2]))
 
-        LOGGER.info("Wrote file: {0}".format(fpath))
+        logger.info("Wrote file: {0}".format(fpath))
         return
 
     def testBodies(self):
