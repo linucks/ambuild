@@ -203,7 +203,6 @@ class Test(unittest.TestCase):
         
         # Add a cat block and bond it to a PAF block
         mycell.seed( 1, fragmentType='cat', center=True)
-    
         mycell.growBlocks(toGrow=1, cellEndGroups='cat:a', libraryEndGroups='PAF:a', maxTries=500)
         
         # copy the block and get the two endGroups that we will use to position the two catalysts so they can bond
@@ -220,15 +219,15 @@ class Test(unittest.TestCase):
         # Position so they can bond
         b1.positionGrowBlock(endGroup1, endGroup2)
         
-        # Put b2 in the cell
+        # Put b2 in the cell and bond them together
         mycell.addBlock(b2)
-        
         mycell.checkMove(b2.id)
         mycell.processBonds()
         #mycell.dump()
         # End setup
         
         self.assertEqual(len(mycell.blocks),1)
+        # Now see if we can split off the two cat blocks and join the two PAF blocks
         mycell.cat2Paf2()
         #mycell.dump()
     
