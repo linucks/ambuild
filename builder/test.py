@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/Users/jmht/miniconda2/bin/python2
 '''
 Created on 14 May 2016
 

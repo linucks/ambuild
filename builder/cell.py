@@ -135,6 +135,7 @@ class CellData(object):
         self.diameters = []
         self.images = []
         self.masses = []
+        self.masked = [] # Atoms that are to be ignored in MD/optimisation
         self.symbols = []
         self.static = []  # If this atom is part of a group that isn't to be moved
 
@@ -573,6 +574,8 @@ class Cell():
         elif bond.endGroup2.type() == 'cat:a':
             cfrag = bond.endGroup2.fragment
         else: return False # Nothing to do
+        logger.info("_joinPaf")
+
         
         # The block has multiple fragments, but we are only interested in this cat fragment
         # and if this has two bonds made to it.
@@ -605,7 +608,6 @@ class Cell():
         elif bond2.endGroup2 in [catEG1, catEG2]:
             assert bond2.endGroup1.type() == 'PAF:a'
             paf2EG = bond2.endGroup2
-
         return self._joinPaf(catEG2, paf1EG, paf2EG)
 
     def _cat2Paf2(self, bond):
@@ -707,7 +709,7 @@ class Cell():
 
     def _joinPaf(self, catEG2, paf1EG, paf2EG):
         """Given a cat bonded to two PAF groups, break the PAF bonds and form a PAF-PAF bond"""
-        
+                
         # Get the bonds and the block
         catBlock = catEG2.block()
         
@@ -740,7 +742,21 @@ class Cell():
         logger.info("_joinPaf Optimisation")
         self.optimiseGeometry(rigidBody=True, dt=0.001)
         
+        # jmht
+        self.clearUnbonded()
+        
         return True
+    
+    def clearUnbonded(self):
+        "Run after we have optimised to unset the unBonded flag and add capatoms back into the cell"
+        for idxBlock, block in self.blocks.iteritems():
+            if hasattr(block, '_fragments'):
+                fragments = block._fragments
+            else:
+                fragments = block.fragments
+            for frag in fragments:
+                frag.clearUnbonded()
+        return
 
     def cat1Paf2(self):
         """Function to unbond a Ni-catalyst bonded to two PAF groups"""
@@ -1285,6 +1301,12 @@ class Cell():
                         d.static.append(True)
                     else:
                         d.static.append(False)
+                    
+                    # masked atoms
+                    if (hasattr(frag, 'unBonded') and frag.unBonded[i]) or frag.type(i).lower() == 'x':
+                        d.masked.append(True)
+                    else:
+                        d.masked.append(False)
 
                     # Increment global atom count
                     atomCount += 1

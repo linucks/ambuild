@@ -895,6 +895,7 @@ class HoomdOptimiser(FFIELD):
         self.dihedrals = None
         self.impropers = None
         self.atomTypes = None
+        self.masked = None
         self.rCut = 5.0
         
         self.groupActive = None
@@ -1301,8 +1302,9 @@ class HoomdOptimiser(FFIELD):
         for i, atype in enumerate(self.atomTypes):
             for j, btype in enumerate(self.atomTypes):
                 if j >= i:
+                    if self.masked[i] or self.masked[j]:
                     # dummy atoms treated specially
-                    if atype.lower() == 'x' or btype.lower() == 'x':
+                    #if atype.lower() in ['x','hn'] or btype.lower() in ['x','hn']:
                         pairPotential.pair_coeff.set(atype,
                                                       btype,
                                                       epsilon=0.0,
@@ -1417,6 +1419,8 @@ class HoomdOptimiser(FFIELD):
                       doDihedral=doDihedral,
                       doImproper=doImproper)
 
+        # Set the masked array
+        self.masked = data.masked
         # Read parameters from file, set them as  attributes & check them
         self.setAttributesFromFile(xmlFilename)
         self.checkParameters()

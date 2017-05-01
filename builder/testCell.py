@@ -175,6 +175,66 @@ class Test(unittest.TestCase):
         mycell.blocks[ mycell.blocks.keys()[0] ]
         return
 
+    def testCat1Paf2(self):
+        boxDim=[40,40,40]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='PAF' )
+        mycell.libraryAddFragment( filename='/opt/ambuild/blocks/nh4.car', fragmentType='cat' )
+        mycell.addBondType( 'PAF:a-cat:a' )
+        
+        # Add a cat block and bond it to a PAF block
+        mycell.seed( 1, fragmentType='cat', center=True)
+        
+        mycell.growBlocks(toGrow=2, cellEndGroups='cat:a', libraryEndGroups='PAF:a', maxTries=500)
+        self.assertEqual(len(mycell.blocks),1)
+        mycell.cat1Paf2()
+        self.assertEqual(len(mycell.blocks),2)
+        return
+    
+    
+    def testCat2Paf2(self):
+        boxDim=[40,40,40]
+        mycell = Cell(boxDim)
+        mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='PAF')
+        mycell.libraryAddFragment( filename='/opt/ambuild/blocks/nh4.car', fragmentType='cat', markBonded=True  )
+        mycell.addBondType( 'PAF:a-cat:a' )
+        mycell.addBondType( 'cat:a*-cat:a*' )
+        
+        
+        # Add a cat block and bond it to a PAF block
+        mycell.seed( 1, fragmentType='cat', center=True)
+    
+        mycell.growBlocks(toGrow=1, cellEndGroups='cat:a', libraryEndGroups='PAF:a', maxTries=500)
+        
+        # copy the block and get the two endGroups that we will use to position the two catalysts so they can bond
+        #newblock = self.getLibraryBlock(fragmentType=fragmentType) # Create new block
+        b1 = mycell.blocks.values()[0]
+        
+        # Make copy of first block
+        b2 = b1.copy()
+        
+        # Get the two cat* endGroups
+        endGroup1 = b1.freeEndGroups(endGroupTypes='cat:a*')[0]
+        endGroup2 = b2.freeEndGroups(endGroupTypes='cat:a*')[0]
+        
+        # Position so they can bond
+        b1.positionGrowBlock(endGroup1, endGroup2)
+        
+        # Put b2 in the cell
+        mycell.addBlock(b2)
+        
+        mycell.checkMove(b2.id)
+        mycell.processBonds()
+        #mycell.dump()
+        # End setup
+        
+        self.assertEqual(len(mycell.blocks),1)
+        mycell.cat2Paf2()
+        #mycell.dump()
+    
+        self.assertEqual(len(mycell.blocks),3)
+        return
+
     def testCellIO(self):
         """Check we can write out and then read in a cell
         """

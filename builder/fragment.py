@@ -38,6 +38,7 @@ class EndGroup(object):
 
         self.fragmentCapIdx = None
         self.blockCapIdx = None
+        self.capBondLength = None
 
         self.fragmentDihedralIdx = -1
         self.blockDihedralIdx = -1
@@ -88,9 +89,23 @@ class EndGroup(object):
                 eg._endGroupType = eg._endGroupType.rstrip(ENDGROUPBONDED)
         self.fragment.delBond(self.type())
         # Unmask cap and set the coordinate to the coordinate of the last block atom
-        self.fragment.masked[self.fragmentCapIdx] = False
+        # NOTE - NEED TO SCALE BY CORRECT LENGTH
         if hasattr(bondEndGroup, 'coord'):
-            self.fragment._coords[self.fragmentCapIdx] = bondEndGroup.coord()
+            # Reposition the cap atom based on the bond vector
+            #self.fragment._coords[self.fragmentCapIdx] = bondEndGroup.coord()
+            # Get vector from this endGroup to the other endGroup
+            egPos = self.fragment._coords[self.fragmentEndGroupIdx]
+            v1 = bondEndGroup.coord() - egPos
+            # Now get unit vector
+            uv = v1 / numpy.linalg.norm(v1)
+            # calculate noew position
+            self.fragment._coords[self.fragmentCapIdx] = egPos + (uv * self.capBondLength)
+        
+        # Unhide the cap atom
+        self.fragment.masked[self.fragmentCapIdx] = False
+        # Mark capAtom as unBonded so that it won't be included in the optimisation
+        self.fragment.unBonded[self.fragmentCapIdx] = True
+             
         if self.fragmentUwIdx != -1:
             raise RuntimeError, "Cannot unbond masked endGroups yet!"
             self.fragment.masked[ self.fragmentUwIdx ] = True
@@ -213,6 +228,7 @@ class Fragment(object):
             '_endGroups'      : [],  # A list of the endGroup objects
             '_endGroupBonded' : [],  # A list of the number of each endGroup that are used in bonds
             'masked'         : [],  # bool - whether the atoms is hidden (e.g. cap or uw atom)
+            'unBonded'         : [],  # bool - whether an atom has just been unbonded 
             }
 
         # Set as attributes of self
@@ -370,6 +386,9 @@ class Fragment(object):
             self._coords[self._ext2int[idxAtom]] = coord
         return self._coords[self._ext2int[idxAtom]]
 
+    def clearUnbonded(self):
+        self.unBonded = [False] * len(self.unBonded)
+
     def copy(self):
         """Create a copy of ourselves.
         Those attributes in shared are just copied as references as they do not change between fragments
@@ -407,6 +426,7 @@ class Fragment(object):
         """ Fill the data arrays from the label """
 
         self.masked = [ False ] * len(self._coords)
+        self.unBonded = [ False ] * len(self._coords)
         self._masses = numpy.array([ util.ATOMIC_MASS[ symbol ] for symbol in self._symbols ])
         self._totalMass = numpy.sum(self._masses)
         self._radii = numpy.array([ util.COVALENT_RADII[util.SYMBOL_TO_NUMBER[s.upper()]] * util.BOHR2ANGSTROM \
@@ -725,6 +745,8 @@ class Fragment(object):
             eg.fragmentCapIdx = capAtoms[ i ]
             eg.fragmentDihedralIdx = dihedralAtoms[ i ]
             eg.fragmentUwIdx = uwAtoms[ i ]
+            
+            eg.capBondLength =  util.distance(self._coords[eg.fragmentCapIdx], self._coords[eg.fragmentEndGroupIdx ])
 
             if eg.type() not in self._maxBonds:
                 self._maxBonds[ eg.type() ] = None
