@@ -21,6 +21,7 @@ class Test(unittest.TestCase):
 
         cls.cx4Car = os.path.join(BLOCKS_DIR, "cx4.car")
         cls.ch4Car = os.path.join(BLOCKS_DIR, "ch4.car")
+        cls.nh4Car =  os.path.join(BLOCKS_DIR, "nh4.car")
         cls.ch4_1Car = os.path.join(BLOCKS_DIR, "ch4_1.car")
         cls.capLinker = os.path.join(BLOCKS_DIR, "cap_linker.car")
         cls.benzeneCar = os.path.join(BLOCKS_DIR, "benzene.car")
@@ -179,7 +180,7 @@ class Test(unittest.TestCase):
         boxDim=[40,40,40]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='PAF' )
-        mycell.libraryAddFragment( filename='/opt/ambuild/blocks/nh4.car', fragmentType='cat' )
+        mycell.libraryAddFragment( filename=self.nh4Car, fragmentType='cat' )
         mycell.addBondType( 'PAF:a-cat:a' )
         
         # Add a cat block and bond it to a PAF block
@@ -196,7 +197,7 @@ class Test(unittest.TestCase):
         boxDim=[40,40,40]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='PAF')
-        mycell.libraryAddFragment( filename='/opt/ambuild/blocks/nh4.car', fragmentType='cat', markBonded=True  )
+        mycell.libraryAddFragment( filename=self.nh4Car, fragmentType='cat', markBonded=True)
         mycell.addBondType( 'PAF:a-cat:a' )
         mycell.addBondType( 'cat:a*-cat:a*' )
         
