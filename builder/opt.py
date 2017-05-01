@@ -1302,22 +1302,22 @@ class HoomdOptimiser(FFIELD):
         for i, atype in enumerate(self.atomTypes):
             for j, btype in enumerate(self.atomTypes):
                 if j >= i:
-                    if self.masked[i] or self.masked[j]:
                     # dummy atoms treated specially
                     #if atype.lower() in ['x','hn'] or btype.lower() in ['x','hn']:
-                        pairPotential.pair_coeff.set(atype,
-                                                      btype,
-                                                      epsilon=0.0,
-                                                      sigma=0.0,
-                                                      rcut=0.0)
-                        if self.debug:
-                            logger.info("DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3}, rcut={4} )".format(atype, btype, 0.0, 0.0, 0.0))
-
+                    if self.masked[i] or self.masked[j]:
+                        epsilon = 0.0
+                        sigma = 0.0
                     else:
                         param = self.ffield.pairParameter(atype, btype)
-                        if self.debug:
-                            logger.info("DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype, btype, param['epsilon'], param['sigma']))
-                        pairPotential.pair_coeff.set(atype, btype, epsilon=param['epsilon'], sigma=param['sigma'])
+                        epsilon = param['epsilon']
+                        sigma = param['sigma']
+                        
+                    pairPotential.pair_coeff.set(atype, btype, epsilon=0.0, sigma=0.0)
+                    if self.debug:
+                        logger.info("DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype,
+                                                                                                           btype,
+                                                                                                           epsilon,
+                                                                                                           sigma))
         return
 
     def setAttributesFromFile(self, xmlFilename):
