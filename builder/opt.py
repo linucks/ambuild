@@ -1312,7 +1312,7 @@ class HoomdOptimiser(FFIELD):
                         epsilon = param['epsilon']
                         sigma = param['sigma']
                         
-                    pairPotential.pair_coeff.set(atype, btype, epsilon=0.0, sigma=0.0)
+                    pairPotential.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
                     if self.debug:
                         logger.info("DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype,
                                                                                                            btype,
