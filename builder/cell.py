@@ -574,8 +574,6 @@ class Cell():
         elif bond.endGroup2.type() == 'cat:a':
             cfrag = bond.endGroup2.fragment
         else: return False # Nothing to do
-        logger.info("_joinPaf")
-
         
         # The block has multiple fragments, but we are only interested in this cat fragment
         # and if this has two bonds made to it.
@@ -584,6 +582,8 @@ class Cell():
         if not all([ eg.bonded for eg in endGroups ]): return False
         assert len(endGroups) == 2, "Assumption is CAT only has 2 endGroups!"
         catEG1, catEG2 = endGroups
+        
+        logger.info("_cat1Paf2 %s %s" % (catEG1, catEG2))
     
         # Get the block and the PAF endGroups
         block = catEG1.block()
@@ -639,7 +639,7 @@ class Cell():
         # See if this bond is a made between two catalysts which both have PAF bonded to them
         catEG1 = bond.endGroup1
         catEG2 = bond.endGroup2
-        logger.critical("_unbondCat %s %s" % (bond.endGroup1, bond.endGroup2))
+        logger.info("_cat2Paf2 %s %s" % (catEG1, catEG2))
         if not (catEG1.type() == 'cat:a' + fragment.ENDGROUPBONDED and catEG2.type() == 'cat:a' + fragment.ENDGROUPBONDED):
             return False # Nothing to do
         
@@ -709,7 +709,9 @@ class Cell():
 
     def _joinPaf(self, catEG2, paf1EG, paf2EG):
         """Given a cat bonded to two PAF groups, break the PAF bonds and form a PAF-PAF bond"""
-                
+        
+        logger.info("Entering _joinPaf")
+
         # Get the bonds and the block
         catBlock = catEG2.block()
         
