@@ -902,7 +902,7 @@ class HoomdOptimiser(FFIELD):
         self.groupAll = None
         self.groupStatic = None
         
-        self.debug = True
+        self.debug = False
 
         # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
         # Incoming T is in Kelvin so we multiply by kB
