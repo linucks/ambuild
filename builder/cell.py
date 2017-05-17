@@ -639,9 +639,9 @@ class Cell():
         # See if this bond is a made between two catalysts which both have PAF bonded to them
         catEG1 = bond.endGroup1
         catEG2 = bond.endGroup2
-        logger.info("_cat2Paf2 %s %s" % (catEG1, catEG2))
         if not (catEG1.type() == 'cat:a' + fragment.ENDGROUPBONDED and catEG2.type() == 'cat:a' + fragment.ENDGROUPBONDED):
             return False # Nothing to do
+        logger.info("_cat2Paf2 %s %s" % (catEG1, catEG2))
         
         # Select the block that contains all the fragments - we call it cat1 as we're going to break
         # the bond to the other cat
@@ -651,6 +651,7 @@ class Cell():
         self.delBlock(cat1.id)
     
         # Break the two bonds
+        logger.info("_cat2Paf2 before deleteBond len(blockBonds): %d" % len(cat1._blockBonds))
         cat2 = cat1.deleteBond(bond)
         assert len(cat1._blockBonds) == 1,"Cat1 doesn't have a single bond to it!"
         assert len(cat2._blockBonds) == 1,"Cat2 doesn't have a single bond to it!"
