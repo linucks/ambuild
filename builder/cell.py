@@ -651,10 +651,10 @@ class Cell():
         self.delBlock(cat1.id)
     
         # Break the two bonds
-        logger.info("_cat2Paf2 before deleteBond len(blockBonds): %d" % len(cat1._blockBonds))
         cat2 = cat1.deleteBond(bond)
-        assert len(cat1._blockBonds) == 1,"Cat1 doesn't have a single bond to it!"
-        assert len(cat2._blockBonds) == 1,"Cat2 doesn't have a single bond to it!"
+        # Can't make this check as the cat block could be connect to a paf with multiple bonds?
+        #assert len(cat1._blockBonds) == 1,"Cat1 doesn't have a single bond to it!"
+        #assert len(cat2._blockBonds) == 1,"Cat2 doesn't have a single bond to it!"
         
         # Randomise the order
         l = [(cat1,catEG1), (cat2,catEG2)]
