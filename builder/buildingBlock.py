@@ -39,11 +39,9 @@ class Bond(object):
         return
     def __str__(self):
         """List the data attributes of this object"""
-        s = "Bond {0}: {1}:{2}:{3}-{4} -> {5}:{6}:{7}-{8}".format(id(self),
-                                                   self.endGroup1.block().id, id(self.endGroup1.fragment),
-                                                   id(self.endGroup1), self.endGroup1.blockEndGroupIdx,
-                                                   self.endGroup2.block().id, id(self.endGroup2.fragment),
-                                                   id(self.endGroup2), self.endGroup2.blockEndGroupIdx)
+        s = "Bond {0}: {1}:{2} -> {3}:{4}".format(id(self),
+                                                  self.endGroup1.block().id, self.endGroup1,
+                                                     self.endGroup2.block().id, self.endGroup2)
         return s
 
 class Block(object):
@@ -433,7 +431,7 @@ class Block(object):
 #                 bond=b
             bondedToFragment[b.endGroup1.fragment].add(b.endGroup2.fragment)
             bondedToFragment[b.endGroup2.fragment].add(b.endGroup1.fragment)
-
+        
         def addFragments(startf, f1set):
             # Trundle through the bond topology for f1 and set True for all fragments we reach
             for f in bondedToFragment[startf]:
@@ -460,34 +458,44 @@ class Block(object):
             self._update()
             return None
         
+        # Bit cludgy - we need to make sure that the root fragment is always first in the list of fragments
+        # jmht - consider adding rootFragment attribute?
+        f1list = list(f1set)
+        f1list.remove(f1)
+        f1list.insert(0,f1)
+        
+        f2list = list(f2set)
+        f2list.remove(f2)
+        f2list.insert(0,f2)
+        
         # Breaking the bond splits the block in two, so we separate the two fragments, keep the largest
         # for ourselves and return the new block. We set f1 and f1set to be the biggest
         if root:
             if root == f2:
                 # swap so the root fragment stays with us
-                tmp = f1set
-                f1set = f2set
-                f2set = tmp
+                tmp = f1list
+                f1list = f2list
+                f2list = tmp
                 tmp = f1
                 f1 = f2
                 f2 = tmp
         else:
-            if f2set > f1set:
-                tmp = f1set
-                f1set = f2set
-                f2set = tmp
+            if f2list > f1list:
+                tmp = f1list
+                f1list = f2list
+                f2list = tmp
                 tmp = f1
                 f1 = f2
                 f2 = tmp
-        
-        # How to partition the bonds?
-        f1bonds = set()
-        f2bonds = set()
+                
+        # How to partition the bonds? - use lists as we want to preserve order if possible
+        f1bonds = []
+        f2bonds = []
         for b in self._blockBonds:
-            if b.endGroup1.fragment in f1set and b.endGroup2.fragment in f1set:
-                f1bonds.add(b)
-            elif b.endGroup1.fragment in f2set and b.endGroup2.fragment in f2set:
-                f2bonds.add(b)
+            if b.endGroup1.fragment in f1list and b.endGroup2.fragment in f1list:
+                f1bonds.append(b)
+            elif b.endGroup1.fragment in f2list and b.endGroup2.fragment in f2list:
+                f2bonds.append(b)
             else: raise RuntimeError,"Bond crosses set: {0}".format(b)
             
         bond.endGroup1.unBond(bond.endGroup2)
@@ -495,13 +503,13 @@ class Block(object):
         
         # Create a new block with the smaller fragments
         newBlock = Block()
-        newBlock.fragments = list(f2set)
-        newBlock._blockBonds = list(f2bonds)
+        newBlock.fragments = f2list
+        newBlock._blockBonds = f2bonds
         newBlock._update()
         
         # Update our list of bonds 
-        self.fragments = list(f1set)
-        self._blockBonds = list(f1bonds)
+        self.fragments = f1list
+        self._blockBonds = f1bonds
         self._update()
         
         return newBlock
