@@ -637,21 +637,34 @@ class Cell():
         """
         
         # See if this bond is a made between two catalysts which both have PAF bonded to them
-        catEG1 = bond.endGroup1
-        catEG2 = bond.endGroup2
+
+        # Order is irrelevant (see switch below) but it always comes out with endGroup2 being the
+        # one that ends up on the original block
+        catEG1 = bond.endGroup2
+        catEG2 = bond.endGroup1
+
         if not (catEG1.type() == 'cat:a' + fragment.ENDGROUPBONDED and catEG2.type() == 'cat:a' + fragment.ENDGROUPBONDED):
             return False # Nothing to do
         logger.info("_cat2Paf2 %s %s" % (catEG1, catEG2))
         
-        # Select the block that contains all the fragments - we call it cat1 as we're going to break
+        # Select the block that is to contain all the fragments - we call it cat1 as we're going to break
         # the bond to the other cat
         cat1 = catEG1.block()    
         
         # Remove the block from the cell
         self.delBlock(cat1.id)
     
-        # Break the two bonds
+        # Break the bond between the two cat blocks
         cat2 = cat1.deleteBond(bond)
+        
+        # Both endGroups were part of the same block. On breaking the bond they will have ended up in different
+        # blocks so we need to pair them.
+        if catEG1.block().id != cat1.id:
+            tmp = catEG1
+            catEG1 = catEG2
+            catEG2 = tmp
+        assert catEG1.block().id == cat1.id and catEG2.block().id == cat2.id,"Misspaired endGroups"
+        
         # Can't make this check as the cat block could be connect to a paf with multiple bonds?
         #assert len(cat1._blockBonds) == 1,"Cat1 doesn't have a single bond to it!"
         #assert len(cat2._blockBonds) == 1,"Cat2 doesn't have a single bond to it!"
@@ -661,23 +674,40 @@ class Cell():
         _random.shuffle(l) 
         (cat1,catEG1), (cat2,catEG2) = l
         
-        # Need to get the two PAF endGroups as these are the ones we will be manipulating
-        bond1 = cat1._blockBonds[0]
-        if bond1.endGroup1.fragment.fragmentType == 'PAF':
-            paf1EG = bond1.endGroup1
-        elif bond1.endGroup2.fragment.fragmentType == 'PAF':
-            paf1EG = bond1.endGroup2
-        else:
-            'Cannot find PAF endGroup1"{}'.format(bond1)
+        # Need to get the two PAF endGroups that are directly bonded to the cat fragments
+        # as these are the ones we will be joining together
+        fid1 = id(cat1.fragments[0])
+        got = False
+        paf1EG = None
+        for bond in cat1._blockBonds:
+            if bond.endGroup1.fragment.fragmentType == 'PAF' and id(bond.endGroup2.fragment) == fid1:
+                if got: assert False,"More than one PAF-cat bond"
+                paf1EG = bond.endGroup1
+                bond1 = bond
+                got = True
+            if bond.endGroup2.fragment.fragmentType == 'PAF' and id(bond.endGroup1.fragment) == fid1:
+                if got: assert False,"More than one PAF-cat bond"
+                paf1EG = bond.endGroup2
+                bond1 = bond
+                got = True
         
-        # At this point we also get the other PAF endGroup
-        bond2 = cat2._blockBonds[0]
-        if bond2.endGroup1.fragment.fragmentType == 'PAF':
-            paf2EG = bond2.endGroup1
-        elif bond2.endGroup2.fragment.fragmentType == 'PAF':
-            paf2EG = bond2.endGroup2
-        else:
-            'Cannot find PAF endGroup2 {}'.format(bond2)
+        assert paf1EG,"Could not find paf1EG"
+        
+        # Now find second
+        fid2 = id(cat2.fragments[0])
+        got = False
+        paf2EG = None
+        for bond in cat2._blockBonds:
+            if bond.endGroup1.fragment.fragmentType == 'PAF' and id(bond.endGroup2.fragment) == fid2:
+                if got: assert False,"More than one PAF-cat bond"
+                paf2EG = bond.endGroup1
+                got = True
+            if bond.endGroup2.fragment.fragmentType == 'PAF' and id(bond.endGroup1.fragment) == fid2:
+                if got: assert False,"More than one PAF-cat bond"
+                paf2EG = bond.endGroup2
+                got = True
+        
+        assert paf2EG,"Could not find paf2EG"
         
         # Break the bond between the first CAT and its PAF    
         _ = cat1.deleteBond(bond1)        
@@ -689,7 +719,6 @@ class Cell():
         
         # Now bond the PAF to the second catalyst; we use the original PAF endGroup that was used for the bond
         # and the cat endGroup that was used to bond to the other catalyst
-        
         bond = buildingBlock.Bond(catEG2,paf1EG)
         #THIS RESETS THE ENDGROUPBONDED FLAG
         cat2.bondBlock(bond)
