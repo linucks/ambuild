@@ -9,6 +9,7 @@ import numpy
 
 from cell import Cell
 import buildingBlock
+import fragment
 import opt
 from paths import AMBUILD_DIR, BLOCKS_DIR
 import ambuild_subunit
@@ -217,11 +218,9 @@ class Test(unittest.TestCase):
         cat.bondBlock(bond)
         # Hack to set newBonds
         mycell.newBonds = [bond]
-        mycell.dump()
         
         self.assertEqual(len(mycell.blocks),1)
         mycell.cat1Paf2()
-        mycell.dump()
         self.assertEqual(len(mycell.blocks),2)
         return
     
@@ -236,7 +235,6 @@ class Test(unittest.TestCase):
         mycell.addBondType( 'PAF:a-PAF:a' )
         mycell.addBondType( 'PAF:a-cat:a' )
         mycell.addBondType( 'cat:a*-cat:a*' )
-        
         
         # Add a cat block and bond it to a PAF block
         mycell.seed( 1, fragmentType='cat', center=True)
@@ -262,12 +260,10 @@ class Test(unittest.TestCase):
         mycell.addBlock(b2)
         mycell.checkMove(b2.id)
         mycell.processBonds()
-        mycell.dump()
         # End setup
         
         self.assertEqual(len(mycell.blocks),1)
         
-        mycell.dump()
         # Now see if we can split off the two cat blocks and join the two PAF blocks
         mycell.cat2Paf2()
         #mycell.dump()
@@ -1194,7 +1190,7 @@ class Test(unittest.TestCase):
         # mycell.dump()
 
         return
-
+        
     def testRunMD(self):
         """
         """
@@ -1427,7 +1423,16 @@ class Test(unittest.TestCase):
         mycell.growBlocks(5)
         mycell.setBoxSize([20, 20, 20])
         mycell.growBlocks(5)
-
+        return
+    
+    def testSetStaticBlock(self):
+        mycell = Cell(filePath=self.graphiteCar)
+        mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
+        mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
+        mycell.addBondType('amine:a-triquin:b')
+        mycell.seed(3, fragmentType='triquin', center=True)
+        mycell.growBlocks(toGrow=2, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=10)
+        mycell.setStaticBlock(filePath=self.graphiteCar, replace=True)
         return
     
     def testSolvent(self):

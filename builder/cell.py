@@ -260,13 +260,10 @@ class Cell():
         self._fileCount = 0  # for naming output files
         self._deterministicState = 0 # For adding blocks in a non-random manner (for testing)
 
-        if not (boxDim or filePath) or (boxDim and filePath):
-            raise RuntimeError, "Cell constructor needs a boxDim list _or_ the path to a file with the box dimensions!"
-        
+        if filePath: # Init from a car file 
+            self.setStaticBlock(filePath)
         if boxDim:
             self.setBoxSize(boxDim)
-        else:
-            self.initFromFile(filePath)
 
         assert self.dim[0] > 0 and self.dim[1] > 0 and self.dim[2] > 0
         
@@ -1852,45 +1849,6 @@ class Cell():
     def haloCells(self, key):
         return util.haloCells(key, self.numBoxes, pbc=self.pbc)
     
-    def initFromFile(self, filePath):
-        # Create fragment
-        name = os.path.splitext(os.path.basename(filePath))[0]
-        f = fragment.Fragment(filePath, fragmentType=name, static=True)
-        p = f.cellParameters()
-        if not p:
-            raise RuntimeError, "car file needs to have PBC=ON and a PBC line defining the cell!"
-        
-        logger.info("Read cell parameters A={0}, B={1}, C={2} from car file: {3}".format(p['A'],
-                                                                                              p['B'],
-                                                                                              p['C'],
-                                                                                              filePath))
-        self.setBoxSize([p['A'], p['B'], p['C']])
-        # Update cell parameters for this fragment
-        maxAtomRadius = f.maxAtomRadius()
-        if  maxAtomRadius > self.maxAtomRadius:
-            self.updateCellSize(maxAtomRadius=maxAtomRadius)
-        
-        b = buildingBlock.Block(initFragment=f)
-        
-        # Check the molecule fits in the cell
-        for i, coord in enumerate(b.iterCoord()):
-            if coord[0] < 0 or coord[0] > self.dim[0] or \
-               coord[1] < 0 or coord[1] > self.dim[1] or \
-               coord[2] < 0 or coord[2] > self.dim[2]:
-                raise RuntimeError, "Static block doesn't fit in the cell! First failing coord is #{0}: {1}".format(i, coord)
-
-        # Add the block so we can check for clashes/bonds
-        idxBlock = self.addBlock(b)
-
-        # Test for Clashes with other molecules
-        if not self.checkMove(idxBlock):
-            raise RuntimeError, "Problem adding static block-got clashes!"
-        if self.processBonds() > 0:
-            raise RuntimeError, "Problem adding static block-we made bonds!"
-            
-        logger.info("Added static block to cell")
-
-        return
     def _intersectedCells(self, p1, p2, endPointCells=True):
         """Return a list of the cells intersected by the vector passing from p1 to p2.
         
@@ -2651,10 +2609,10 @@ class Cell():
         assert self.dim[0] > 0 and self.dim[1] > 0 and self.dim[2] > 0, "Invalid box dimensions: {0}".format(self.dim)
         
         boxShift = None
-        if old_dim is not None:
-            if not (self.dim[0] > old_dim[0] and \
-                self.dim[1] > old_dim[1] and 
-                self.dim[2] > old_dim[2]):
+        if old_dim is not None and not numpy.allclose(self.dim, old_dim):
+            if not (self.dim[0] >= old_dim[0] and \
+                self.dim[1] >= old_dim[1] and 
+                self.dim[2] >= old_dim[2]):
                 raise RuntimeError, "Can currently only increase box size!"
             
             # If we've made the cell bigger we need to shift all blocks so that they sit
@@ -2665,6 +2623,50 @@ class Cell():
                         ]
         
         self.updateCellSize(boxShift=boxShift)
+        return
+
+    def setStaticBlock(self, filePath, replace=False):
+        # Create fragment
+        name = os.path.splitext(os.path.basename(filePath))[0]
+        f = fragment.Fragment(filePath, fragmentType=name, static=True)
+        p = f.cellParameters()
+        if not p:
+            raise RuntimeError, "car file needs to have PBC=ON and a PBC line defining the cell!"
+        
+        logger.info("Read cell parameters A={0}, B={1}, C={2} from car file: {3}".format(
+            p['A'],p['B'],p['C'],filePath))
+        self.setBoxSize([p['A'], p['B'], p['C']])
+        # Update cell parameters for this fragment
+        maxAtomRadius = f.maxAtomRadius()
+        if  maxAtomRadius > self.maxAtomRadius:
+            self.updateCellSize(maxAtomRadius=maxAtomRadius)
+        
+        block = buildingBlock.Block(initFragment=f)
+        # Check the molecule fits in the cell
+        for i, coord in enumerate(block.iterCoord()):
+            if coord[0] < 0 or coord[0] > self.dim[0] or \
+               coord[1] < 0 or coord[1] > self.dim[1] or \
+               coord[2] < 0 or coord[2] > self.dim[2]:
+                raise RuntimeError, "Static block doesn't fit in the cell! First failing coord is #{0}: {1}".format(i, coord)
+
+        if replace:
+            self.delBlock(self.blocks.keys()[0]) # Assumes a static block is always the first
+        idxBlock = self.addBlock(block)
+        if len(self.blocks) > 1:
+            # If the cell already has blocks in, we need to remove them all and then add this as the first one
+            d = collections.OrderedDict()
+            d[idxBlock] = block
+            for k, v in self.blocks.iteritems(): d[k] = v
+            del self.blocks
+            self.blocks = d
+
+            # Also need to test for Clashes with other molecules
+            if not self.checkMove(idxBlock):
+                raise RuntimeError, "Problem adding static block: got clashes!"
+            if self.processBonds() > 0:
+                raise RuntimeError, "Problem adding static block-we made bonds!"
+            
+        logger.info("Added static block to cell")
         return
 
     def setMaxBond(self, bondType, count):
