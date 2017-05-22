@@ -575,7 +575,7 @@ class Cell():
             cfrag = bond.endGroup2.fragment
         else: return False # Nothing to do
         
-        # The block has multiple fragments, but we are only interested in this cat fragment
+        # The block may have multiple fragments, but we are only interested in this cat fragment
         # and if this has two bonds made to it.
         # For time being assume only two allowed bonds to cat
         endGroups = cfrag.endGroups()
@@ -584,30 +584,24 @@ class Cell():
         catEG1, catEG2 = endGroups
         
         logger.info("_cat1Paf2 %s %s" % (catEG1, catEG2))
-    
-        # Get the block and the PAF endGroups
-        block = catEG1.block()
         
-        # CAT can only have 2 bonds
-        assert len(block._blockBonds) == 2,"CAT can only have two bonds"
-        
-        bond1 = block._blockBonds[0]
-        bond2 = block._blockBonds[1]
-        
-        # Get the endGroups for the bond
-        if bond1.endGroup1 in [catEG1, catEG2]:
-            assert bond1.endGroup2.type() == 'PAF:a'
-            paf1EG = bond1.endGroup2
-        elif bond1.endGroup2 in [catEG1, catEG2]:
-            assert bond1.endGroup1.type() == 'PAF:a'
-            paf1EG = bond1.endGroup2
-            
-        if bond2.endGroup1 in [catEG1, catEG2]:
-            assert bond2.endGroup2.type() == 'PAF:a'
-            paf2EG = bond2.endGroup2
-        elif bond2.endGroup2 in [catEG1, catEG2]:
-            assert bond2.endGroup1.type() == 'PAF:a'
-            paf2EG = bond2.endGroup2
+        # Now get the two paf endGroups that are bonded to the cat EndGroups
+        cat = catEG1.block()
+        paf1EG, paf2EG = None, None
+        for bond in cat._blockBonds:
+            if bond.endGroup1 in [catEG1, catEG2] and bond.endGroup2.type() == 'PAF:a':
+                if paf1EG:
+                    assert not paf2EG
+                    paf2EG = bond.endGroup2
+                else:
+                    paf1EG = bond.endGroup2
+            elif bond.endGroup2 in [catEG1, catEG2] and bond.endGroup1.type() == 'PAF:a':
+                if paf1EG:
+                    assert not paf2EG
+                    paf2EG = bond.endGroup1
+                else:
+                    paf1EG = bond.endGroup1
+        assert paf1EG and paf2EG
         return self._joinPaf(catEG2, paf1EG, paf2EG)
 
     def _cat2Paf2(self, bond):
@@ -746,18 +740,22 @@ class Cell():
         catBlock = catEG2.block()
         
         # Get the two bonds
-        assert len(catBlock._blockBonds) == 2,"CAT can only have two bonds"
-        bond1 = catBlock._blockBonds[0]
-        bond2 = catBlock._blockBonds[1]
+        bond1, bond2 = None, None
+        for bond in catBlock._blockBonds:
+            if bond.endGroup1 == paf1EG or bond.endGroup2 == paf1EG:
+                bond1 = bond
+            elif bond.endGroup1 == paf2EG or bond.endGroup2 == paf2EG:
+                bond2 = bond
+        assert bond1 and bond2,"Could not find bonds!"
         
         # Remove the block from the cell
         self.delBlock(catBlock.id)
     
         # Break the two bonds
-        paf1 = catBlock.deleteBond(bond1)
+        paf1 = catBlock.deleteBond(bond1,root=catEG2.fragment)
         #print "DELETED PAF1 ",paf1.id
      
-        paf2 = catBlock.deleteBond(bond2)
+        paf2 = catBlock.deleteBond(bond2,root=catEG2.fragment)
         #print "DELETED PAF2 ",paf2.id
     
         # Add the unbonded blocks back to the cell
@@ -774,9 +772,7 @@ class Cell():
         logger.info("_joinPaf Optimisation")
         self.optimiseGeometry(rigidBody=True, dt=0.001)
         
-        # jmht
         self.clearUnbonded()
-        
         return True
     
     def clearUnbonded(self):

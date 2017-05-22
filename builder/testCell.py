@@ -175,29 +175,65 @@ class Test(unittest.TestCase):
         # mycell.dump()
         mycell.blocks[ mycell.blocks.keys()[0] ]
         return
-
+    
     def testCat1Paf2(self):
         boxDim=[40,40,40]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='PAF' )
         mycell.libraryAddFragment( filename=self.nh4Car, fragmentType='cat' )
         mycell.addBondType( 'PAF:a-cat:a' )
+        mycell.addBondType( 'PAF:a-PAF:a' )
         
-        # Add a cat block and bond it to a PAF block
-        mycell.seed( 1, fragmentType='cat', center=True)
+        # Add PAF and grow so that we have multi-PAF blocks
+        mycell.seed(2, fragmentType='PAF')
+        mycell.growBlocks(toGrow=5, cellEndGroups='PAF:a', libraryEndGroups='PAF:a', maxTries=500)
         
-        mycell.growBlocks(toGrow=2, cellEndGroups='cat:a', libraryEndGroups='PAF:a', maxTries=500)
+        # Get the ids of the blocks
+        paf1id, paf2id = mycell.blocks.keys()
+        paf1 = mycell.blocks[paf1id]
+        paf2 = mycell.blocks[paf2id]
+        # Remove from the cell
+        mycell.delBlock(paf1id)
+        mycell.delBlock(paf2id)
+        
+        # Add catalyst
+        mycell.seed(1, fragmentType='cat', center=True)
+        
+        # Now join the pafs to the cat
+        catid = mycell.blocks.keys()[0]
+        cat = mycell.blocks.values()[0]
+        
+        paf1eg = paf1.freeEndGroups()[0]
+        paf2eg = paf2.freeEndGroups()[0]
+        
+        cat1eg = cat.freeEndGroups()[0]
+        cat.positionGrowBlock(cat1eg,paf1eg )
+        bond = buildingBlock.Bond(cat1eg, paf1eg)
+        cat.bondBlock(bond)
+        
+        cat2eg = cat.freeEndGroups()[0]
+        cat.positionGrowBlock(cat2eg,paf2eg )
+        bond = buildingBlock.Bond(cat2eg, paf2eg)
+        cat.bondBlock(bond)
+        # Hack to set newBonds
+        mycell.newBonds = [bond]
+        mycell.dump()
+        
         self.assertEqual(len(mycell.blocks),1)
         mycell.cat1Paf2()
+        mycell.dump()
         self.assertEqual(len(mycell.blocks),2)
         return
     
-    
     def testCat2Paf2(self):
+        """Given two catalysts bonded to each other, each with PAF blocks bonded, break the bond
+        between the catalysts, move the PAFS from one catalysts to the other, and then join the PAFS
+        on that catalyst with all the PAFS"""
         boxDim=[40,40,40]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='PAF')
         mycell.libraryAddFragment( filename=self.nh4Car, fragmentType='cat', markBonded=True)
+        mycell.addBondType( 'PAF:a-PAF:a' )
         mycell.addBondType( 'PAF:a-cat:a' )
         mycell.addBondType( 'cat:a*-cat:a*' )
         
@@ -205,6 +241,8 @@ class Test(unittest.TestCase):
         # Add a cat block and bond it to a PAF block
         mycell.seed( 1, fragmentType='cat', center=True)
         mycell.growBlocks(toGrow=1, cellEndGroups='cat:a', libraryEndGroups='PAF:a', maxTries=500)
+        # Add three PAF blocks to the PAF
+        mycell.growBlocks(toGrow=3, cellEndGroups='PAF:a', libraryEndGroups='PAF:a', maxTries=500)
         
         # copy the block and get the two endGroups that we will use to position the two catalysts so they can bond
         #newblock = self.getLibraryBlock(fragmentType=fragmentType) # Create new block
@@ -224,10 +262,12 @@ class Test(unittest.TestCase):
         mycell.addBlock(b2)
         mycell.checkMove(b2.id)
         mycell.processBonds()
-        #mycell.dump()
+        mycell.dump()
         # End setup
         
         self.assertEqual(len(mycell.blocks),1)
+        
+        mycell.dump()
         # Now see if we can split off the two cat blocks and join the two PAF blocks
         mycell.cat2Paf2()
         #mycell.dump()
