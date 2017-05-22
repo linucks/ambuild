@@ -526,6 +526,8 @@ ELEMENT_TYPE_BOND_LENGTHS['S'] = { 'S' : 2.00,
 ELEMENT_TYPE_BOND_LENGTHS['SE'] = { 'SE' : 2.33 }
 
 ELEMENT_TYPE_BOND_LENGTHS['SI'] = { 'SI' : 2.33 }
+ELEMENT_TYPE_BOND_LENGTHS['LI'] = { 'LI' : 2.67 }
+
 
 def angle(c1, c2, c3, dim=None, pbc=None):
     """Return the angle in radians c1---c2---c3
@@ -698,18 +700,21 @@ def cellFromPickle(pickleFile):
     
         if not hasattr(fragment,'_atomTypes'):
             fragment._atomTypes = fragment._types
-            fragment._sharedAttrs['_atomTypes'] = fragment._atomTypes
+            fragment._sharedAttrs['_atomTypes'] = None
         if not hasattr(fragment,'solvent'):
             # Solvent is a new attribute so we set to false
             fragment.solvent = False
-            fragment._sharedAttrs['solvent'] = fragment.solvent
+            fragment._sharedAttrs['solvent'] = None
         if not hasattr(fragment,'onbondFunction'):
             fragment.onbondFunction = None
-            fragment._sharedAttrs['onbondFunction'] = fragment.onbondFunction
+            fragment._sharedAttrs['onbondFunction'] = None
         if not hasattr(fragment,'markBonded'):
             fragment.markBonded = None
-            fragment._sharedAttrs['markBonded'] = fragment.markBonded
-    
+            fragment._sharedAttrs['markBonded'] = None
+        if not hasattr(fragment,'unBonded'):
+            fragment.unBonded = [ False ] * len(fragment._coords)
+            fragment._individualAttrs['unBonded'] = None
+            
         for e in fragment._endGroups:
             # More horrible hacks for old versions
             if hasattr(e,'_isBonded'):
