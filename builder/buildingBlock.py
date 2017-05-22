@@ -406,8 +406,7 @@ class Block(object):
         return coords, symbols, bonds
 
     def deleteBond(self, bond, root=None):
-        """root is an optional fragment which we want to remove and so must stay in this block if we are
-        looping through bonds"""
+        """root is an optional fragment which we want to stay in this block"""
         if not len(self._blockBonds): return None
         assert bond in self._blockBonds
         
