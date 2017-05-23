@@ -636,7 +636,7 @@ class Cell():
 
         if not (catEG1.type() == 'cat:a' + fragment.ENDGROUPBONDED and catEG2.type() == 'cat:a' + fragment.ENDGROUPBONDED):
             return False # Nothing to do
-        logger.info("_cat2Paf2 %s %s" % (catEG1, catEG2))
+        logger.info("_cat2Paf2 processing endGroups: %s %s" % (catEG1, catEG2))
         
         # Select the block that is to contain all the fragments - we call it cat1 as we're going to break
         # the bond to the other cat
@@ -786,13 +786,13 @@ class Cell():
     def cat1Paf2(self):
         """Function to unbond a Ni-catalyst bonded to two PAF groups"""
         if not len(self.newBonds): return False
-        logger.info("ca1tPaf2 got new bonds %s" % [str(b) for b in self.newBonds ])
+        #logger.info("ca1tPaf2 got new bonds %s" % [str(b) for b in self.newBonds ])
         return any([self._cat1Paf2(b) for b in self.newBonds]) 
 
     def cat2Paf2(self):
         """Function to unbond a Ni-catalyst bonded to two PAF groups"""
         if not len(self.newBonds): return False
-        logger.info("cat2Paf2 got new bonds %s" % [str(b) for b in self.newBonds ])
+        #logger.info("cat2Paf2 got new bonds %s" % [str(b) for b in self.newBonds ])
         return any([self._cat2Paf2(b) for b in self.newBonds]) 
     
     def canBond(self,
