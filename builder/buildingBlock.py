@@ -446,6 +446,7 @@ class Block(object):
         f2set = addFragments(f2, set([f2]))
         
         if bool(f1set.intersection(f2set)):
+            logger.info("deleteBond broke internal bond")
             # Fragments in common with both, so just delete the bond
             #print "Block remains contiguous"
             # Need to unmask the fragment atoms
@@ -505,11 +506,13 @@ class Block(object):
         newBlock.fragments = f2list
         newBlock._blockBonds = f2bonds
         newBlock._update()
+        assert newBlock.id,"newBlock has no id!"
         
         # Update our list of bonds 
         self.fragments = f1list
         self._blockBonds = f1bonds
         self._update()
+        assert self.id,"self has no id!"
         
         return newBlock
     
