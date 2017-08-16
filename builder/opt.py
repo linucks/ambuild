@@ -110,6 +110,7 @@ class FfieldParameters(object):
                 if i == 0:
                     if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(dihedral_file, ",".join(header))
                     else: continue
+                if row[0].startswith('#'): continue
                 try:
                     dihedral = row[0]
                     k = float(row[1])
