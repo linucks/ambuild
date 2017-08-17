@@ -1036,55 +1036,58 @@ class HoomdOptimiser(FFIELD):
                           Etol=1e-5,
                           finc=1.1,
                           fdec=0.5,
+                          max_tries=1,
                           **kw):
         """Optimise the geometry with hoomdblue"""
 
         # Create the integrator with the values specified
-        if rigidBody:
-            fire = hoomdblue.integrate.mode_minimize_rigid_fire(group=self.groupActive,
-                                                                 dt=dt,
-                                                                 Nmin=Nmin,
-                                                                 alpha_start=alpha_start,
-                                                                 ftol=ftol,
-                                                                 Etol=Etol,
-                                                                 finc=finc,
-                                                                 fdec=fdec,
-                                                                )
-        else:
-            fire = hoomdblue.integrate.mode_minimize_fire(group=self.groupActive,
-                                                        dt=dt,
-                                                        Nmin=Nmin,
-                                                        alpha_start=alpha_start,
-                                                        ftol=ftol,
-                                                        Etol=Etol,
-                                                        finc=finc,
-                                                        fdec=fdec
-                                                        )
-
-        if dump:
-            # For tracking the optimsation
-            xmld = hoomdblue.dump.xml(filename="runopt.xml", vis=True)
-            dcdd = hoomdblue.dump.dcd(filename="runopt.dcd",
-                                      period=1,
-                                      unwrap_full=True,
-                                      overwrite=True,
-                                       )
-
-        optimised = False
-        hoomdblue.run(optCycles,
-                       callback=lambda x:-1 if fire.has_converged() else 0,
-                       callback_period=1)
+        for i in range(max_tries):
+            # Try optimising and lower the timestep and increasing the number of cycles each time
+            try:
+                if rigidBody:
+                    fire = hoomdblue.integrate.mode_minimize_rigid_fire(group=self.groupActive,
+                                                                         dt=dt,
+                                                                         Nmin=Nmin,
+                                                                         alpha_start=alpha_start,
+                                                                         ftol=ftol,
+                                                                         Etol=Etol,
+                                                                         finc=finc,
+                                                                         fdec=fdec)
+                else:
+                    fire = hoomdblue.integrate.mode_minimize_fire(group=self.groupActive,
+                                                                dt=dt,
+                                                                Nmin=Nmin,
+                                                                alpha_start=alpha_start,
+                                                                ftol=ftol,
+                                                                Etol=Etol,
+                                                                finc=finc,
+                                                                fdec=fdec)
+                if dump:
+                    # For tracking the optimsation
+                    xmld = hoomdblue.dump.xml(filename="runopt.xml", vis=True)
+                    dcdd = hoomdblue.dump.dcd(filename="runopt.dcd",
+                                              period=1,
+                                              unwrap_full=True,
+                                              overwrite=True)
+                optimised = False
+                hoomdblue.run(optCycles,
+                               callback=lambda x:-1 if fire.has_converged() else 0,
+                               callback_period=1)
+                break
+            except RuntimeError as e:
+                logger.info("Optimisation step {0} failed!\n{1}".format(i,e))
+                if i+1 < max_tries:
+                    dt_old = dt
+                    dt = dt_old * 0.1
+                    logger.info("Rerunning optimisation changing dt {0} -> {1}".format(e,dt_old, dt))
         if fire.has_converged():
             optimised = True
-
             # if float( self.hlog.query( 'potential_energy' ) ) < 1E-2:
             #    print "!!!!!!!!!!!HACK CONVERGENCE CRITERIA!!!!!!"
             #    optimised=True
             #    break
-
         # Delete variables before we return to stop memory leaks
         # del fire
-
         if dump and False:
             xmld.disable()
             dcdd.disable()
@@ -1094,10 +1097,8 @@ class HoomdOptimiser(FFIELD):
 #         del aharmonic
 #         del improper
 #         del lj
-
         # Write out a car file so we can see what happened
         # self.writeCar( system=self.system, filename=carOut, unwrap=True )
-
         return optimised
 
     def runMD(self,
