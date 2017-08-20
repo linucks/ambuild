@@ -1040,10 +1040,10 @@ class HoomdOptimiser(FFIELD):
                           **kw):
         """Optimise the geometry with hoomdblue"""
 
-        # Create the integrator with the values specified
         for i in range(max_tries):
             # Try optimising and lower the timestep and increasing the number of cycles each time
             try:
+                # Create the integrator with the values specified
                 if rigidBody:
                     fire = hoomdblue.integrate.mode_minimize_rigid_fire(group=self.groupActive,
                                                                          dt=dt,
@@ -1079,7 +1079,10 @@ class HoomdOptimiser(FFIELD):
                 if i+1 < max_tries:
                     dt_old = dt
                     dt = dt_old * 0.1
-                    logger.info("Rerunning optimisation changing dt {0} -> {1}".format(e,dt_old, dt))
+                    logger.info("Rerunning optimisation changing dt {0} -> {1}".format(dt_old, dt))
+                else:
+                    # If we're not going to try again we re-raise the last exception that we caught
+                    raise
         if fire.has_converged():
             optimised = True
             # if float( self.hlog.query( 'potential_energy' ) ) < 1E-2:

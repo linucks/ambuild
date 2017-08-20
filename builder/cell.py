@@ -477,6 +477,8 @@ class Cell():
         logger.debug("cell bondBlock: {0}".format(bond))
         # logger.debug("before bond: {0} - {1}".format( bond.idxBlock1, bond.block1._bondObjects) )
 
+        # HACK
+        selfBond=True
         # We need to remove the block even if we are bonding to self as we need to recalculate the atomCell list
         if bond.endGroup1.block() == bond.endGroup2.block() and not selfBond:
             logger.info("bondBlock skipped self-bonded Block")
@@ -641,11 +643,11 @@ class Cell():
         # First check if this bond is between 2 cat groups
         if not (cat1EG.type() == 'cat:a' + fragment.ENDGROUPBONDED and cat2EG.type() == 'cat:a' + fragment.ENDGROUPBONDED):
             return False # Nothing to do
+        logger.info("_cat2Paf2 processing bond: {0}".format(cc_bond))
 
         # Select the block that is to contain all the fragments - we call it cat1 as we're going to break
         # the bond to the other cat
         cat1 = cat1EG.block()    
-        assert cc_bond in cat1._blockBonds,"Bond not found in block bonds! {0}\n{1}".format(cc_bond,[str(b) for b in cat1._blockBonds])
 
         # Remove the block from the cell
         self.delBlock(cat1.id)
@@ -672,23 +674,26 @@ class Cell():
 
         assert paf1EG and paf2EG,"Could not find PAF endGroups"
         
-        # REM - need function to see if breaking a bond creates two fragments
         # Break the bond between the two cat blocks
         cat2 = cat1.deleteBond(cc_bond,root=cat1EG.fragment)
-        #Should check if cat1EG is indeed in this block
-        # Does it matter if circular?
-        assert cat2,"Breaking bond did not create two blocks!"
 
-        # Now pick a PAF-CAT bond and break it to create 2 lone PAF and CAT blocks
-        paf2 = cat2.deleteBond(bond2,root=cat2EG.fragment)
-        #Should check if paf2EG is indeed in this block
+        # The initial assumption was that breaking the cat-cat bond would create two blocks, but if the PAF bonded to the cat
+        # blocks are part of a chain, then this won't happen
+        # Now pick a PAF-CAT bond and break it to create a lone PAF block that will be joined to the other cat
+        # If the bonds were circular we create the separate cat2 block at this stage. Otherwise we are just splitting
+        # off the PAF block
+        if cat2:
+            # We ignore paf2 as it's only the container for the paf fragment, which is joined to cat1 below using the endGroup
+            paf2 = cat2.deleteBond(bond2,root=cat2EG.fragment)
+        else:
+            logger.info("Breaking bond cat-cat did not create two blocks so PAF blocks are joined in a chain")
+            cat2 = cat1.deleteBond(bond2,root=paf2EG.fragment)
         
-        # Put the unbonded cat back in the cell
+        # Put the separated off catalyst back in the cell
         self.addBlock(cat2)
         
         # Now bond the PAF to the first catalyst
         cp_bond1 = buildingBlock.Bond(cat1EG,paf2EG)
-        #THIS RESETS THE ENDGROUPBONDED FLAG?
         cat1.bondBlock(cp_bond1)
 
         # Put the newly bonded cat block back in the cell
@@ -728,6 +733,7 @@ class Cell():
         elif bond1.endGroup1.fragment.fragmentType == 'cat' and bond1.endGroup2.fragment.fragmentType == 'PAF':
             paf1EG = bond1.endGroup2
             catEG = bond1.endGroup1
+
         if bond2.endGroup1.fragment.fragmentType == 'PAF' and bond2.endGroup2.fragment.fragmentType == 'cat':
             paf2EG = bond2.endGroup1
             #catEG = bond2.endGroup2
@@ -743,14 +749,14 @@ class Cell():
         # Break the two bonds
         paf1 = catBlock.deleteBond(bond1,root=catEG.fragment)
         #print "DELETED PAF1 ",paf1.id
-     
         paf2 = catBlock.deleteBond(bond2,root=catEG.fragment)
         #print "DELETED PAF2 ",paf2.id
     
         # Add the unbonded blocks back to the cell
         self.addBlock(catBlock)
-        self.addBlock(paf1)
-        self.addBlock(paf2)
+        # Possibly need to think more about what happens when blocks are parts of chains
+        if paf1: self.addBlock(paf1)
+        if paf2: self.addBlock(paf2)
         
         # We now need to bond the two PAF groups
         assert paf1EG.free() and paf2EG.free(),"PAF endgroups aren't free!"
@@ -759,7 +765,8 @@ class Cell():
     
         # Now optimise the geometry
         logger.info("_joinPaf Optimisation")
-        self.optimiseGeometry(rigidBody=True, dt=0.001)
+        self.dump()
+        self.optimiseGeometry(rigidBody=True, dt=0.001, max_tries=4)
         
         self.clearUnbonded()
         return True
@@ -2282,7 +2289,7 @@ class Cell():
         # logger.debug = lambda x: sys.stdout.write(x + "\n")
 
         # Here no atoms clash and we have a list of possible bonds - so bond'em!
-        logger.debug("processBonds got bonds: {0}".format(self._possibleBonds))
+        logger.debug("processBonds got bonds: {0}".format([str(s) for s in self._possibleBonds]))
         logger.debug("processBonds blocks are: {0}".format(sorted(self.blocks)))
 
         bondsMade = 0
