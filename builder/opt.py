@@ -1037,10 +1037,13 @@ class HoomdOptimiser(FFIELD):
                           finc=1.1,
                           fdec=0.5,
                           max_tries=1,
+                          retries_on_error=1,
                           **kw):
         """Optimise the geometry with hoomdblue"""
+        
+        assert max_tries > 0 and retries_on_error > 0
 
-        for i in range(max_tries):
+        for i in range(retries_on_error):
             # Try optimising and lower the timestep and increasing the number of cycles each time
             try:
                 # Create the integrator with the values specified
@@ -1070,21 +1073,28 @@ class HoomdOptimiser(FFIELD):
                                               unwrap_full=True,
                                               overwrite=True)
                 optimised = False
-                hoomdblue.run(optCycles,
-                               callback=lambda x:-1 if fire.has_converged() else 0,
-                               callback_period=1)
-                break
+                for j in range(max_tries):
+                    logger.info("Running {0} optimisation cycless {0}".format(optCycles))
+                    hoomdblue.run(optCycles,
+                                   callback=lambda x:-1 if fire.has_converged() else 0,
+                                   callback_period=1)
+                    if fire.has_converged():
+                        logger.info("Optimisation converged on macrocycle {0}".format(j))
+                        optimised = True
+                        break
+                    else:
+                        logger.info("Optimisation failed to converge on macrocycle {0}".format(j))
+                        if j+1 < max_tries:  logger.info("Attempting another optimisation macrocycle")
+                break # Break out of try/except loop
             except RuntimeError as e:
                 logger.info("Optimisation step {0} failed!\n{1}".format(i,e))
-                if i+1 < max_tries:
+                if i+1 < retries_on_error:
                     dt_old = dt
                     dt = dt_old * 0.1
                     logger.info("Rerunning optimisation changing dt {0} -> {1}".format(dt_old, dt))
                 else:
                     # If we're not going to try again we re-raise the last exception that we caught
                     raise
-        if fire.has_converged():
-            optimised = True
             # if float( self.hlog.query( 'potential_energy' ) ) < 1E-2:
             #    print "!!!!!!!!!!!HACK CONVERGENCE CRITERIA!!!!!!"
             #    optimised=True
