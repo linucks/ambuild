@@ -1036,8 +1036,8 @@ class HoomdOptimiser(FFIELD):
                           Etol=1e-5,
                           finc=1.1,
                           fdec=0.5,
-                          max_tries=1,
-                          retries_on_error=1,
+                          max_tries=3,
+                          retries_on_error=3,
                           **kw):
         """Optimise the geometry with hoomdblue"""
         
@@ -1074,7 +1074,7 @@ class HoomdOptimiser(FFIELD):
                                               overwrite=True)
                 optimised = False
                 for j in range(max_tries):
-                    logger.info("Running {0} optimisation cycless {0}".format(optCycles))
+                    logger.info("Running {0} optimisation cycles in macrocycle {1}".format(optCycles,j))
                     hoomdblue.run(optCycles,
                                    callback=lambda x:-1 if fire.has_converged() else 0,
                                    callback_period=1)
