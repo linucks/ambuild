@@ -81,9 +81,9 @@ class EndGroup(object):
     def free(self):
         return not self.bonded and not self.blocked
 
-    def setBonded(self):
+    def setBonded(self, bond):
         self.bonded = True
-        self.fragment.addBond(self)
+        self.fragment.addBond(self, bond)
         return
 
     def unBond(self, bondEndGroup):
@@ -203,13 +203,13 @@ class Fragment(object):
             'fragmentType'     : fragmentType,
             '_labels'          : [],
             '_masses'          : [],
-            'markBonded'       : False,
+            'markBonded'       : markBonded,
             'onbondFunction' : None,  # A function to be called when we bond an endGroup 
             '_radii'           : [],
             '_maxBonds'        : {},
             '_radius'          :-1,
             'solvent'          : solvent,  # True if this fragment is solvent and should be excluded from clashChecks
-            'static'           : False,
+            'static'           : static,
             '_symbols'         : [],  # ordered array of symbols (in upper case)
             '_totalMass'       :-1,
             '_atomTypes'            : [],
@@ -245,10 +245,6 @@ class Fragment(object):
         for a, v in individualAttrs.iteritems():
             setattr(self, a, v)
             
-        # Init variables
-        if static: self.static = True
-        if markBonded: self.markBonded = True
-
         # Set these manually
         self._individualAttrs = individualAttrs
         self._sharedAttrs = sharedAttrs
@@ -257,17 +253,18 @@ class Fragment(object):
         if filePath: self.fromFile(filePath)
         return
 
-    def _markBonded(self, endGroup):
-        """Append * to all endGroups that match"""
-        # HACK TO MAKE SURE ONLY USED FOR CAT FOR TIME BEING
-        if not endGroup.type() == 'cat:a': return
-        logger.debug("_markBonded marking bonds")
+    def _markBonded(self, endGroup, bond):
+        """Append * to all endGroups in fragments that are involved in bonds to cat"""
+        #if not endGroup.type() == 'cat:a': return
+        if 'cat' not in [bond.endGroup1.fragmentType(), bond.endGroup2.fragmentType()] or \
+            endGroup.type().endswith(ENDGROUPBONDED): return
+        logger.debug("_markBonded marking bonds for fragment {0}".format(self.fragmentType))
         for eg in self.endGroups():
             assert not eg._endGroupType.endswith(ENDGROUPBONDED),"Already got bonded endGroup"
             eg._endGroupType += ENDGROUPBONDED
         return
 
-    def addBond(self, endGroup):
+    def addBond(self, endGroup, bond):
         endGroupType = endGroup.type()
         
         # Mask fragment cap and uw atoms now
@@ -294,7 +291,7 @@ class Fragment(object):
         if self.onbondFunction: self.onbondFunction(endGroup)
         
         if  hasattr(self,'markBonded') and self.markBonded:
-            self._markBonded(endGroup)
+            self._markBonded(endGroup, bond)
         self.update()
         return
 

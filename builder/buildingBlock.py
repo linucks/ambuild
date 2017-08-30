@@ -301,8 +301,8 @@ class Block(object):
         assert not bond.endGroup1.fragment == bond.endGroup2.fragment
 
         # Mark both endGroups as used
-        bond.endGroup1.setBonded()
-        bond.endGroup2.setBonded()
+        bond.endGroup1.setBonded(bond)
+        bond.endGroup2.setBonded(bond)
 
         # Tried optimising this by passing in the bond to update and only updating those fragments/
         # endGroups that had changed but it rapidly got rather complicated so we keep to a simple
