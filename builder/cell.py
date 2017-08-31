@@ -584,7 +584,8 @@ class Cell():
         if not all([ eg.bonded for eg in endGroups ]): return False
         assert len(endGroups) == 2, "Assumption is CAT only has 2 endGroups!"
         catEG1, catEG2 = endGroups
-        logger.info("_cat1Paf2 %s %s" % (catEG1, catEG2))
+        logger.info("_cat1Paf2 processing bond %s" % bond)
+        logger.debug("_cat1Paf2 %s %s" % (catEG1, catEG2))
         
         # Now get the two paf endGroups that are bonded to the cat EndGroups
         cat = catEG1.block()
@@ -3104,7 +3105,7 @@ class Cell():
                     logger.info("zipBlocks: No bonds remaining after clash checks")
                     return 0
 
-        logger.info("zipBlocks: found {0} additional bonds".format(len(self._possibleBonds)))
+        logger.info("zipBlocks: found {0} additional bonds\n{1}".format(len(self._possibleBonds,[str(b) for b in self._possibleBonds])))
 #         for b in self._possibleBonds:
 #             print "Attempting to bond: {0} {1} {2} -> {3} {4} {5}".format( b.block1.id(),
 #                                                                    b.endGroup1.blockEndGroupIdx,
