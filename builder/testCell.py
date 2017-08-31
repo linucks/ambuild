@@ -220,7 +220,7 @@ class Test(unittest.TestCase):
         mycell.newBonds = [bond]
         
         self.assertEqual(len(mycell.blocks),1)
-        mycell.cat1Paf2()
+        mycell.cat1Paf2(['PAF'])
         self.assertEqual(len(mycell.blocks),2)
         return
     
@@ -265,7 +265,7 @@ class Test(unittest.TestCase):
         self.assertEqual(len(mycell.blocks),1)
         
         # Now see if we can split off the two cat blocks and join the two PAF blocks
-        mycell.cat2Paf2()
+        mycell.cat2Paf2(['PAF'])
         #mycell.dump()
     
         self.assertEqual(len(mycell.blocks),3)

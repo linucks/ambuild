@@ -566,14 +566,14 @@ class Cell():
                     if dist < clashDist: return True
         return False
 
-    def _cat1Paf2(self, bond):
+    def _cat1Paf2(self, bond, fragmentTypes):
         """A CAT bonded to two PAF goups"""
         
         # See if either of the blocks connected is the cat
         cfrag = None
-        if bond.endGroup1.fragment.catalyst and bond.endGroup2.fragment.fragmentType == 'PAF':
+        if bond.endGroup1.fragment.catalyst and bond.endGroup2.fragment.fragmentType in fragmentTypes:
             cfrag = bond.endGroup1.fragment
-        elif bond.endGroup2.fragment.catalyst and bond.endGroup1.fragment.fragmentType == 'PAF':
+        elif bond.endGroup2.fragment.catalyst and bond.endGroup1.fragment.fragmentType in fragmentTypes:
             cfrag = bond.endGroup2.fragment
         else: return False # Nothing to do
         
@@ -591,13 +591,13 @@ class Cell():
         cat = catEG1.block()
         bond1, bond2 = None, None
         for bond in cat._blockBonds:
-            if bond.endGroup1 in [catEG1, catEG2] and bond.endGroup2.fragment.fragmentType == 'PAF':
+            if bond.endGroup1 in [catEG1, catEG2] and bond.endGroup2.fragment.fragmentType in fragmentTypes:
                 if bond1:
                     assert not bond2
                     bond2 = bond
                 else:
                     bond1 = bond
-            elif bond.endGroup2 in [catEG1, catEG2] and bond.endGroup1.fragment.fragmentType == 'PAF':
+            elif bond.endGroup2 in [catEG1, catEG2] and bond.endGroup1.fragment.fragmentType in fragmentTypes:
                 if bond1:
                     assert not bond2
                     bond2 = bond
@@ -609,9 +609,9 @@ class Cell():
             return
         #return self._joinPaf(catEG1, paf1EG, paf2EG)
         logger.critical("Got two bonds {0} {1}".format(bond1,bond2))
-        return self._joinPaf(bond1, bond2)
+        return self._joinPaf(fragmentTypes, bond1, bond2)
 
-    def _cat2Paf2(self, cc_bond):
+    def _cat2Paf2(self, cc_bond, fragmentTypes):
         """Function to unbond a Ni-catalyst bonded to two PAF groups
         
         check if have made a cat:a*-cat:a* bond
@@ -658,14 +658,14 @@ class Cell():
         paf1EG = None
         paf2EG = None
         for bond in cat1._blockBonds:
-            if bond.endGroup1.fragment.fragmentType == 'PAF' and bond.endGroup2.fragment in [cat1EG.fragment,cat2EG.fragment]:
+            if bond.endGroup1.fragment.fragmentType in fragmentTypes and bond.endGroup2.fragment in [cat1EG.fragment,cat2EG.fragment]:
                 if bond.endGroup2.fragment == cat1EG.fragment:
                     paf1EG = bond.endGroup1
                     bond1 = bond
                 else:
                     paf2EG = bond.endGroup1
                     bond2 = bond
-            elif bond.endGroup2.fragment.fragmentType == 'PAF' and bond.endGroup1.fragment in [cat1EG.fragment,cat2EG.fragment]:
+            elif bond.endGroup2.fragment.fragmentType in fragmentTypes and bond.endGroup1.fragment in [cat1EG.fragment,cat2EG.fragment]:
                 if bond.endGroup1.fragment == cat1EG.fragment:
                     paf1EG = bond.endGroup2
                     bond1 = bond
@@ -716,11 +716,11 @@ class Cell():
                 cp_bond2 = bond
                 break
         assert cp_bond2,"Could not find second cat/PAF bond"
-        self._joinPaf(cp_bond1, cp_bond2)
+        self._joinPaf(fragmentTypes, cp_bond1, cp_bond2)
         return True
 
     #def _joinPaf(self, catEG, paf1EG, paf2EG):
-    def _joinPaf(self, bond1, bond2):
+    def _joinPaf(self, fragmentTypes, bond1, bond2):
         """Given a cat bonded to two PAF groups, break the PAF bonds and form a PAF-PAF bond"""
         
         logger.info("Entering _joinPaf: {0} {1}".format(bond1, bond2))
@@ -728,14 +728,14 @@ class Cell():
         # Get the PAF endgroups and the block
         catBlock = bond1.endGroup1.block() # should all be part of the same block
         catEG, paf1EG, paf2EG = None, None, None
-        if bond1.endGroup1.fragment.fragmentType == 'PAF' and bond1.endGroup2.fragment.catalyst:
+        if bond1.endGroup1.fragment.fragmentType in fragmentTypes and bond1.endGroup2.fragment.catalyst:
             paf1EG = bond1.endGroup1
             catEG = bond1.endGroup2
         elif bond1.endGroup1.fragment.catalyst and bond1.endGroup2.fragment.fragmentType == 'PAF':
             paf1EG = bond1.endGroup2
             catEG = bond1.endGroup1
 
-        if bond2.endGroup1.fragment.fragmentType == 'PAF' and bond2.endGroup2.fragment.catalyst:
+        if bond2.endGroup1.fragment.fragmentType in fragmentTypes and bond2.endGroup2.fragment.catalyst:
             paf2EG = bond2.endGroup1
             #catEG = bond2.endGroup2
         elif bond2.endGroup1.fragment.catalyst and bond2.endGroup2.fragment.fragmentType == 'PAF':
@@ -783,17 +783,19 @@ class Cell():
                 frag.clearUnbonded()
         return
 
-    def cat1Paf2(self):
+    def cat1Paf2(self, fragmentTypes):
         """Function to unbond a Ni-catalyst bonded to two PAF groups"""
+        assert type(fragmentTypes) is list and len(fragmentTypes) > 0 and all([type(f) is str for f in fragmentTypes]),"Need a list of fragmentTypes"
         if not len(self.newBonds): return False
         #logger.info("ca1tPaf2 got new bonds %s" % [str(b) for b in self.newBonds ])
-        return any([self._cat1Paf2(b) for b in self.newBonds]) 
+        return any([self._cat1Paf2(b, fragmentTypes) for b in self.newBonds]) 
 
-    def cat2Paf2(self):
+    def cat2Paf2(self, fragmentTypes):
         """Function to unbond a Ni-catalyst bonded to two PAF groups"""
+        assert type(fragmentTypes) is list and len(fragmentTypes) > 0 and all([type(f) is str for f in fragmentTypes]),"Need a list of fragmentTypes"
         if not len(self.newBonds): return False
         #logger.info("cat2Paf2 got new bonds %s" % [str(b) for b in self.newBonds ])
-        return any([self._cat2Paf2(b) for b in self.newBonds]) 
+        return any([self._cat2Paf2(b, fragmentTypes) for b in self.newBonds]) 
     
     def canBond(self,
                  staticBlock,
@@ -3105,7 +3107,7 @@ class Cell():
                     logger.info("zipBlocks: No bonds remaining after clash checks")
                     return 0
 
-        logger.info("zipBlocks: found {0} additional bonds\n{1}".format(len(self._possibleBonds,[str(b) for b in self._possibleBonds])))
+        logger.info("zipBlocks found {0} additional bonds:\n{1}".format(len(self._possibleBonds),[str(b) for b in self._possibleBonds]))
 #         for b in self._possibleBonds:
 #             print "Attempting to bond: {0} {1} {2} -> {3} {4} {5}".format( b.block1.id(),
 #                                                                    b.endGroup1.blockEndGroupIdx,
