@@ -181,7 +181,7 @@ class Test(unittest.TestCase):
         boxDim=[40,40,40]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='PAF' )
-        mycell.libraryAddFragment( filename=self.nh4Car, fragmentType='cat' )
+        mycell.libraryAddFragment( filename=self.nh4Car, fragmentType='cat', catalyst=True)
         mycell.addBondType( 'PAF:a-cat:a' )
         mycell.addBondType( 'PAF:a-PAF:a' )
         
@@ -231,7 +231,7 @@ class Test(unittest.TestCase):
         boxDim=[40,40,40]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='PAF')
-        mycell.libraryAddFragment( filename=self.nh4Car, fragmentType='cat', markBonded=True)
+        mycell.libraryAddFragment( filename=self.nh4Car, fragmentType='cat', markBonded=True, catalyst=True)
         mycell.addBondType( 'PAF:a-PAF:a' )
         mycell.addBondType( 'PAF:a-cat:a' )
         mycell.addBondType( 'cat:a*-cat:a*' )

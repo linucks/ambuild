@@ -571,9 +571,9 @@ class Cell():
         
         # See if either of the blocks connected is the cat
         cfrag = None
-        if bond.endGroup1.type() == 'cat:a' and bond.endGroup2.type() == 'PAF:a':
+        if bond.endGroup1.fragment.catalyst and bond.endGroup2.fragment.fragmentType == 'PAF':
             cfrag = bond.endGroup1.fragment
-        elif bond.endGroup2.type() == 'cat:a' and bond.endGroup1.type() == 'PAF:a':
+        elif bond.endGroup2.fragment.catalyst and bond.endGroup1.fragment.fragmentType == 'PAF':
             cfrag = bond.endGroup2.fragment
         else: return False # Nothing to do
         
@@ -641,7 +641,7 @@ class Cell():
         cat2EG = cc_bond.endGroup2
 
         # First check if this bond is between 2 cat groups
-        if not (cat1EG.type() == 'cat:a' + fragment.ENDGROUPBONDED and cat2EG.type() == 'cat:a' + fragment.ENDGROUPBONDED):
+        if not (cat1EG.bondedCatalyst() and cat2EG.bondedCatalyst()):
             return False # Nothing to do
         logger.info("_cat2Paf2 processing bond: {0}".format(cc_bond))
 
@@ -659,18 +659,18 @@ class Cell():
         for bond in cat1._blockBonds:
             if bond.endGroup1.fragment.fragmentType == 'PAF' and bond.endGroup2.fragment in [cat1EG.fragment,cat2EG.fragment]:
                 if bond.endGroup2.fragment == cat1EG.fragment:
-                     paf1EG = bond.endGroup1
-                     bond1 = bond
+                    paf1EG = bond.endGroup1
+                    bond1 = bond
                 else:
-                     paf2EG = bond.endGroup1
-                     bond2 = bond
+                    paf2EG = bond.endGroup1
+                    bond2 = bond
             elif bond.endGroup2.fragment.fragmentType == 'PAF' and bond.endGroup1.fragment in [cat1EG.fragment,cat2EG.fragment]:
                 if bond.endGroup1.fragment == cat1EG.fragment:
-                     paf1EG = bond.endGroup2
-                     bond1 = bond
+                    paf1EG = bond.endGroup2
+                    bond1 = bond
                 else:
-                     paf2EG = bond.endGroup2
-                     bond2 = bond
+                    paf2EG = bond.endGroup2
+                    bond2 = bond
 
         assert paf1EG and paf2EG,"Could not find PAF endGroups"
         
@@ -708,10 +708,10 @@ class Cell():
         # Need to select the other cat-paf bond
         cp_bond2 = None
         for bond in cat1._blockBonds:
-            if bond.endGroup1.fragment.fragmentType == 'cat' and bond.endGroup2 == paf1EG:
+            if bond.endGroup1.fragment.catalyst and bond.endGroup2 == paf1EG:
                 cp_bond2 = bond
                 break
-            if bond.endGroup2.fragment.fragmentType == 'cat' and bond.endGroup1 == paf1EG:
+            if bond.endGroup2.fragment.catalyst and bond.endGroup1 == paf1EG:
                 cp_bond2 = bond
                 break
         assert cp_bond2,"Could not find second cat/PAF bond"
@@ -727,17 +727,17 @@ class Cell():
         # Get the PAF endgroups and the block
         catBlock = bond1.endGroup1.block() # should all be part of the same block
         catEG, paf1EG, paf2EG = None, None, None
-        if bond1.endGroup1.fragment.fragmentType == 'PAF' and bond1.endGroup2.fragment.fragmentType == 'cat':
+        if bond1.endGroup1.fragment.fragmentType == 'PAF' and bond1.endGroup2.fragment.catalyst:
             paf1EG = bond1.endGroup1
             catEG = bond1.endGroup2
-        elif bond1.endGroup1.fragment.fragmentType == 'cat' and bond1.endGroup2.fragment.fragmentType == 'PAF':
+        elif bond1.endGroup1.fragment.catalyst and bond1.endGroup2.fragment.fragmentType == 'PAF':
             paf1EG = bond1.endGroup2
             catEG = bond1.endGroup1
 
-        if bond2.endGroup1.fragment.fragmentType == 'PAF' and bond2.endGroup2.fragment.fragmentType == 'cat':
+        if bond2.endGroup1.fragment.fragmentType == 'PAF' and bond2.endGroup2.fragment.catalyst:
             paf2EG = bond2.endGroup1
             #catEG = bond2.endGroup2
-        elif bond2.endGroup1.fragment.fragmentType == 'cat' and bond2.endGroup2.fragment.fragmentType == 'PAF':
+        elif bond2.endGroup1.fragment.catalyst and bond2.endGroup2.fragment.fragmentType == 'PAF':
             paf2EG = bond2.endGroup2
             #catEG = bond2.endGroup1
         
@@ -2045,7 +2045,7 @@ class Cell():
 
         return added
 
-    def libraryAddFragment(self, filename, fragmentType='A', solvent=False, markBonded=False):
+    def libraryAddFragment(self, filename, fragmentType='A', solvent=False, markBonded=False, catalyst=False):
         """Add a fragment of type fragmentType defined in the .car file filename
 
         Args:
@@ -2066,7 +2066,7 @@ class Cell():
             raise RuntimeError, "fragmentType cannot containing {0} or {1} characters!".format(BONDTYPESEP, ENDGROUPSEP)
 
         # Create fragment
-        frag = fragment.Fragment(filename, fragmentType, solvent=solvent, markBonded=markBonded)
+        frag = fragment.Fragment(filename, fragmentType, solvent=solvent, markBonded=markBonded, catalyst=catalyst)
 
         # Update cell parameters for this fragment
         maxAtomRadius = frag.maxAtomRadius()

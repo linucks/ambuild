@@ -61,6 +61,10 @@ class EndGroup(object):
         """Return the index of the endGroup atom in external block indices"""
         return self.blockCapIdx
     
+    def bondedCatalyst(self):
+        """Return True if this endGroup belongs to a catalyst that is bonded to another catalyst"""
+        return self.fragment.catalyst and self._endGroupType.endswith(ENDGROUPBONDED)
+    
     def coord(self,endGroup=True):
         """Need to think about an API for accessing coordinates for endGroups
         This just hacks in returning the endGroup.
@@ -185,7 +189,8 @@ class Fragment(object):
                  fragmentType=None,
                  solvent=False,
                  static=False,
-                 markBonded=False
+                 markBonded=False,
+                 catalyst=False
                  ):
         '''
         Constructor
@@ -198,6 +203,7 @@ class Fragment(object):
             '_bodies'          : [],  # a list of which body within this fragment each atom belongs to
             '_bonds'           : [],  # List of internal fragment bonds
             '_bonded'          : [],  # List of which atoms are bonded to which
+            'catalyst'         : catalyst, # Whether this block is a catalyst
             '_cellParameters'  : {},
             '_charges'         : [],
             'fragmentType'     : fragmentType,
@@ -256,8 +262,8 @@ class Fragment(object):
     def _markBonded(self, endGroup, bond):
         """Append * to all endGroups in fragments that are involved in bonds to cat"""
         #if not endGroup.type() == 'cat:a': return
-        if 'cat' not in [bond.endGroup1.fragmentType(), bond.endGroup2.fragmentType()] or \
-            endGroup.type().endswith(ENDGROUPBONDED): return
+        if endGroup.type().endswith(ENDGROUPBONDED) or not (bond.endGroup1.fragment.catalyst or bond.endGroup2.fragment.catalyst):
+            return
         logger.debug("_markBonded marking bonds for fragment {0}".format(self.fragmentType))
         for eg in self.endGroups():
             assert not eg._endGroupType.endswith(ENDGROUPBONDED),"Already got bonded endGroup"
