@@ -731,14 +731,14 @@ class Cell():
         if bond1.endGroup1.fragment.fragmentType in fragmentTypes and bond1.endGroup2.fragment.catalyst:
             paf1EG = bond1.endGroup1
             catEG = bond1.endGroup2
-        elif bond1.endGroup1.fragment.catalyst and bond1.endGroup2.fragment.fragmentType == 'PAF':
+        elif bond1.endGroup1.fragment.catalyst and bond1.endGroup2.fragment.fragmentType in fragmentTypes:
             paf1EG = bond1.endGroup2
             catEG = bond1.endGroup1
 
         if bond2.endGroup1.fragment.fragmentType in fragmentTypes and bond2.endGroup2.fragment.catalyst:
             paf2EG = bond2.endGroup1
             #catEG = bond2.endGroup2
-        elif bond2.endGroup1.fragment.catalyst and bond2.endGroup2.fragment.fragmentType == 'PAF':
+        elif bond2.endGroup1.fragment.catalyst and bond2.endGroup2.fragment.fragmentType in fragmentTypes:
             paf2EG = bond2.endGroup2
             #catEG = bond2.endGroup1
         
@@ -767,7 +767,7 @@ class Cell():
         # Now optimise the geometry
         logger.info("_joinPaf Optimisation")
         self.dump()
-        self.optimiseGeometry(rigidBody=True, dt=0.001, max_tries=4)
+        self.optimiseGeometry(rigidBody=True, dt=0.001, max_tries=3, retries_on_error=4)
         
         self.clearUnbonded()
         return True
