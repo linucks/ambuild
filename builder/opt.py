@@ -1002,7 +1002,7 @@ class HoomdOptimiser(FFIELD):
                                        )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
+        self.hlog = hoomdblue.analyze.log(filename='geomopt.tsv',
                                      quantities=[
                                                  'num_particles',
                                                  'pair_lj_energy',
@@ -1145,20 +1145,19 @@ class HoomdOptimiser(FFIELD):
                                        )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        hlog = hoomdblue.analyze.log(filename='mylog.log',
+        hlog = hoomdblue.analyze.log(filename='runmd.tsv',
                                      quantities=[
                                                  'num_particles',
                                                  'pair_lj_energy',
                                                  'potential_energy',
                                                  'kinetic_energy',
                                                  ],
-                                     period=0,
+                                     period=100,
                                      header_prefix='#',
                                      overwrite=True
                                      )
 
-        self._runMD(rigidBody=rigidBody,
-                    **kw)
+        self._runMD(rigidBody=rigidBody, **kw)
 
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
@@ -1198,7 +1197,7 @@ class HoomdOptimiser(FFIELD):
                                        )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        self.hlog = hoomdblue.analyze.log(filename='mylog.csv',
+        self.hlog = hoomdblue.analyze.log(filename='md_geomopt.tsv',
                                      quantities=[
                                                  'num_particles',
                                                  'pair_lj_energy',
