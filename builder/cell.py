@@ -248,9 +248,6 @@ class Cell():
         # Holds possible bond after checkMove is run
         self._possibleBonds = []
         
-        # a list of blocks that are not part of the cell but are being kept for later re-additon
-        self.savedBlocks = []
-
         # Logging functions
         self.setupLogging(doLog=doLog)
 
@@ -1379,12 +1376,28 @@ class Cell():
         # del block # Don't want to delete the block as we might be saving it
         return
     
-    def deleteBlocksIndices(self, indices, save=False):
+    def deleteBlocks(self, fragmentTypes=None, indices=None, maxFrags=1, numBlocks=0):
+        """Remove blocks from the cell.
+        
+        Arguments:
+        fragmentTypes: the fragmentType, or list of fragmentTypes of the blocks to remove
+        indices: list of indices of the blocks in the overall list of blocks in the cell to be deleted
+        maxFrags: only blocks containing <= this number of fragments will be removed (default = 1)
+        numBlocks: optional - the number of blocks to remove, otherwise all blocks of the specified fragmentTypes will be removed
+        
+        Returns:
+        A list of the blocks that were removed - suitable for re-adding with restoreBlocks
+        """
+        if fragmentTypes is not None:
+            return self._deleteBlocksType(fragmentTypes, numBlocks=numBlocks, maxFrags=maxFrags)
+        elif indices is not None:
+            return self._deleteBlocksIndices(indices)
+    
+    def _deleteBlocksIndices(self, indices):
         """Delete the index-th(s) block from the cell
         
         Arguments:
         indices: list of indices of the blocks to be deleted
-        save: save all deleted blocks so they can be readded with the restoreBlocks command
         """
         if type(indices) is float:
             indices = [indices]
@@ -1397,21 +1410,21 @@ class Cell():
                 raise RuntimeError("Bad value for index {0} : {1}".format(i,idx))
         
         toRemove = [ (blockId, block) for i, (blockId, block) in enumerate(self.blocks.iteritems())  if i in indices ]
+        removed = []
         for blockId, block in toRemove:
             self.delBlock(blockId)
-            if save: self.savedBlocks.append(block)
+            removed.append(block)
         count = len(toRemove)
         logger.info("deleteBlocksIndices deleted {0} blocks. Cell now contains {1} blocks.".format(count,len(self.blocks)))
-        return count
+        return removed
 
-    def deleteBlocksType(self, fragmentTypes, numBlocks=0, multiple=False, save=False):
+    def _deleteBlocksType(self, fragmentTypes, numBlocks=0, maxFrags=1):
         """Remove numBlocks of fragmentType from the cell.
         
         Arguments:
         fragmentType: the fragmentType, or list of fragmentTypes of the blocks to remove
         numBlocks: optional - the number of blocks to remove, otherwise all blocks of the specified types will be removed
         multiple: if True remove blocks that contain > 1 fragment, else only single-fragment blocks
-        save: save all deleted blocks so they can be readded with the restoreBlocks command
         """
         if type(fragmentTypes) is str: fragmentTypes = [fragmentTypes]
         fragmentTypes = set(fragmentTypes)
@@ -1421,8 +1434,7 @@ class Cell():
         for blockId, block in self.blocks.iteritems():
 
             # Check if is multiple or not
-            if not multiple and len(block.fragments) != 1:
-                continue
+            if len(block.fragments) > maxFrags: continue
             # Add this block if it contains any of the fragmentTypes
             if set(block.fragmentTypes()).intersection(fragmentTypes):
                 allBlocks.append((blockId,block))
@@ -1433,16 +1445,15 @@ class Cell():
         else:
             toRemove = len(allBlocks)
         
+        removed = []
         if toRemove > 0:
-            for i in range(toRemove):
+            for _ in range(toRemove):
                 blockId, block = _random.choice(allBlocks)
                 self.delBlock(blockId)
                 allBlocks.remove((blockId,block))
-                if save: self.savedBlocks.append(block)
-            removed = i + 1
+                removed.append(block)
             logger.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(removed, len(self.blocks)))
         else:
-            removed = 0
             logger.info("Could not remove any blocks of type(s) {0}".format(fragmentTypes))
         
         return removed
@@ -2395,26 +2406,23 @@ class Cell():
             del blocks
         return
     
-    def restoreBlocks(self, fragmentTypes=None):
-        if not len(self.savedBlocks):
-            logger.critical('No saved blocks available for restoration.')
-            return 0
-        
+    def restoreBlocks(self, blocks, fragmentTypes=None):
+        assert len(blocks) > 0,"Need blocks to restore!"
         added = 0
         if fragmentTypes is not None:
             if type(fragmentTypes) is str: fragmentTypes = [fragmentTypes] 
             toAdd = []
             fragmentTypes = set(fragmentTypes)
-            for block in self.savedBlocks:
+            for block in blocks:
                 if fragmentTypes.intersection(set(block.fragmentTypes())):
                     toAdd.append(block) #if any of the fragments are within the blocks remove this block
             # Remove the blocks
             if len(toAdd):
                 for block in toAdd:
-                    self.savedBlocks.remove(block)
+                    blocks.remove(block)
                 added = self.addBlocks(toAdd)
         else:
-            added = self.addBlocks(self.savedBlocks)
+            added = self.addBlocks(blocks)
         logger.info("restoreBlocks re-added {0} blocks to the cell".format(added))
         return added
     

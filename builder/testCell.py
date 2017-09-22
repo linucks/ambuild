@@ -442,13 +442,13 @@ class Test(unittest.TestCase):
         toDelete = [0,3,5]
         
         bidxs = [ blockId for i, blockId in enumerate(mycell.blocks.iterkeys()) if i in toDelete]
-        mycell.deleteBlocksIndices(toDelete,save=True)
+        removed = mycell.deleteBlocks(indices=toDelete)
         self.assertEqual(len(mycell.blocks), toSeed-len(toDelete))
         
         for idx in bidxs:
             self.assertNotIn(idx, mycell.blocks.keys(), "Block was left in list")
             
-        mycell.restoreBlocks()
+        mycell.restoreBlocks(removed)
         self.assertEqual(len(mycell.blocks), toSeed)
         return
 
@@ -458,25 +458,27 @@ class Test(unittest.TestCase):
         boxDim = [50, 50, 50]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
-        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
+        #mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
         mycell.addBondType('A:a-A:a')
-        mycell.addBondType('A:a-B:a')
+        #mycell.addBondType('A:a-B:a')
 
         # See if we can delete single blocks
         toSeed = 10
         mycell.seed(toSeed, fragmentType='A')
         toDelete = toSeed - 1
-        deleted = mycell.deleteBlocksType('A', numBlocks=toDelete)
-        self.assertEqual(deleted, toDelete)
-        self.assertEqual(mycell.numBlocks(), toSeed - deleted)
+        removed = mycell.deleteBlocks(fragmentTypes='A', numBlocks=toDelete)
+        print 'GOT REMOVED ',removed
+        self.assertEqual(len(removed), toDelete)
+        self.assertEqual(mycell.numBlocks(), toSeed - len(removed))
 
-        # Now try deleting multiple blocks of a single type
-        mycell.growBlocks(8, cellEndGroups=['A:a'], libraryEndGroups=['A:a'])
-        deleted = mycell.deleteBlocksType('A', numBlocks=1)
-        self.assertEqual(deleted, 0)
-        deleted = mycell.deleteBlocksType('A', numBlocks=1, multiple=True)
-        self.assertEqual(deleted, 1)
-        
+        # Cell now contains one block. We grow 8 onto it (so we only have a large multiple block)
+        # and make sure we can only remove it if we specify a maxFrag > 1
+        toGrow = 8
+        mycell.growBlocks(toGrow, cellEndGroups=['A:a'], libraryEndGroups=['A:a'])
+        removed = mycell.deleteBlocks(fragmentTypes='A')
+        self.assertEqual(len(removed), 0)
+        removed = mycell.deleteBlocks(fragmentTypes='A', maxFrags=toGrow+1)
+        self.assertEqual(len(removed), 1)
         return
     
     def testDeleteBondType(self):

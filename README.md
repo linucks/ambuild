@@ -264,22 +264,17 @@ zipBlocks(bondMargin=5, bondAngleMargin=30, clashTest=True, clashDist=1.6)
 ```
 
 ### Deleting Blocks
-Blocks can be removed from the cell with two commands:
+Blocks can be removed from the cell with deleteBlocks command. Its arguments are:
 
-deleteBlocksIndices
-Arguments:
-**indices** list of indices of the blocks to be deleted
-**save** save all deleted blocks so they can be readded with the restoreBlocks command
+Name | Description
+---- | -----------
+**fragmentTypes** | the fragmentType, or list of fragmentTypes of the blocks to remove
+**indices** | list of indices of the blocks in the overall list of blocks in the cell to be deleted
+**maxFrags** | only blocks containing <= this number of fragments will be removed (default = 1)
+**numBlocks** | optional - the number of blocks to remove, otherwise all blocks of the specified fragmentTypes will be removed
 
-deleteBlocksTypes
-delete numBlocks of blocks of the specified fragment type
-
-Arguments:
-**fragmentType** the fragmentType, or list of fragmentTypes of the blocks to remove
-**numBlocks** optional - the number of blocks to remove, otherwise all blocks of the specified types will be removed
-**multiple** if True remove blocks that contain > 1 fragment, else only single-fragment blocks
-**save** save all deleted blocks so they can be readded with the restoreBlocks command
-
+Returns:
+A list of the blocks that were removed - suitable for re-adding with restoreBlocks
 ### Optimising the geometry of the blocks in the cell and running molecular dynamics simulations
 Once the cell has been filled with blocks, it is possible to either optimise the geometry or run a molecular dynamics
 simulation.
