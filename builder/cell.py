@@ -1434,7 +1434,7 @@ class Cell():
         for blockId, block in self.blocks.iteritems():
 
             # Check if is multiple or not
-            if len(block.fragments) > maxFrags: continue
+            if maxFrags > 0 and len(block.fragments) > maxFrags: continue
             # Add this block if it contains any of the fragmentTypes
             if set(block.fragmentTypes()).intersection(fragmentTypes):
                 allBlocks.append((blockId,block))
