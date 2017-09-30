@@ -1,4 +1,6 @@
 dihedral,k,d,n,comments
+cp-Ni-cp-cp,7,-1,2,paf cat AT added 
+cp-cp-Ni-cp,7,-1,2,paf cat AT added
 br-cp-c5-nh,7,-1,2,link3 gaff
 br-cp-cp-cp,7,-1,2,paf-br gaff
 br-cp-cp-hc,7,-1,2,paf-br gaff
@@ -128,7 +130,8 @@ cp-cp-cp-sf,7,1,2,benzene-fda-acid gaff
 cp-cp-ct-ct,0,-1,2,CMP1 gaff
 cp-cp-Ni-c=,7,-1,2,
 cp-cp-Ni-hc,7,-1,2,
-cp-cp-Ni-hi,7,-1,2,
+cp-cp-Ni-hi,1000000,-1,2,original7
+hi-Ni-cp-cp,1000000,-1,2,original7
 cp-cp-sf-o=,2,-1,2,benzene-fda-acid gaff
 cp-cp-sf-oh,2,-1,2,benzene-fda-acid gaff
 cp-cpa-cpa-cp,30,-1,2,aza
@@ -237,3 +240,28 @@ oh-c2-c2-hc,0.5,1,1,butoh
 oh-coh-cp-cp,0,1,2,benzene-fda-acid gaff
 sf-cp-cp-cp,7,-1,2,benzene-fda-acid gaff
 sf-cp-cp-hc,7,-1,2,benzene-fda-acid gaff
+Pd-ct-ct-cp,10,-1,1,abbie
+ct-Pd-p-cp,10,-1,1,abbie
+ct-Pd-hc-cp,10,-1,1,abbie
+ct-ct-Pd-hcat,10,-1,1,abbie
+ct-ct-Pd-p,10,-1,1,abbie
+ct-ct-Pd-hc,10,-1,1,abbie
+ct-Pd-ct-ct,10,-1,1,abbie
+ct-ct-Pd-ct,10,-1,1,abbie
+cp-Pd-p-cp,10,-1,1,abbie
+cp-Pd-ct-ct,10,-1,1,abbie
+Pd-cp-cp-cp,10,-1,1,abbie
+hc-Pd-cp-cp,10,-1,1,abbie
+ct-Pd-cp-cp,10,-1,1,abbie
+p-Pd-ct-ct,10,-1,1,abbie
+hc-Pd-ct-ct,10,-1,1,abbie
+hcat-Pd-cp-cp,10,-1,1,abbie
+ct-ct-ct-cp,10,-1,1,abbie
+ct-ct-ct-ct,10,-1,1,abbie
+cp-Pd-hc-cp,10,-1,1,abbie 
+cp-cp-Pd-p,10,-1,1,abbie
+cp-cp-Pd-hc,10,-1,1,abbie
+cp-cp-Pd-hcat,10,-1,1,abbie
+hcat-Pd-ct-ct,10,-1,1,abbie
+ct-ct-Pd-cp,10,-1,1,abbie
+cp-cp-Pd-ct,10,-1,1,abbie

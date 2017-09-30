@@ -13,6 +13,15 @@ c-cp-cp,127.68,120.63,paf-br gaff
 c=-c=1-ct,133.36,121.58,cyano-c3
 c=-cp-cp,129.76,120.66,cyano-c3
 c=-Ni-cp,120,62.5,
+cp-Ni-c=,120,62.5,
+Ni-Ni-cp,180,62.5,pafcat
+Ni-Ni-c=,180,62.5,pafcat
+Ni-Ni-hc,120,62.5,pafcat
+hc-Ni-Ni,120,62.5,pafcat
+c=-Ni-Ni,180,62.5,pafcat
+cp-Ni-Ni,180,62.5,pafcat
+cp-Ni-hi,1000000,97.5742,orginal120
+hi-Ni-cp,1000000,97.5742,
 c=1-c=-cp,128.1,127.44,cyano-c3
 c=1-c=-hc,99.14,121.19,cyano-c3
 c=1-ct-nt,118.82,177.89,cyano-c3
@@ -143,11 +152,14 @@ hc-coh-cp,93.56,110.95,benzene-fda-acid gaff
 hc-coh-hc,78,109.19,FDA gaff
 hc-coh-oh,101.68,108.82,benzene-fda-acid gaff
 hc-Ni-cp,120,97.6,
+cp-Ni-hc,120,97.6,
 hn-nb-hn,800,110,
 n3m-c4-h1,99.64,109.32,dmf gaff
 nb-c_0-c_0,1000,118,
 nh-c5-hc,99.52,122.1,link3 gaff
 Ni-cp-cp,120,87.6,
+hi-Ni-hi,1000000,91.5,pafcat
+cp-cp-Ni,120,87.6,
 np-c5-cp,140.28,119.72,link1 gaff
 np-c5-hc,100.26,125.38,link1 gaff
 np-c5-nh,149.56,112.02,link3 gaff
@@ -182,3 +194,26 @@ oh-c3-hc,101.68,108.82,benzene-fda-acid gaff
 oh-coh-cp,136.38,108.89,benzene-fda-acid gaff
 oh-sf-o=,90.42,106.93,benzene-fda-acid gaff
 sf-oh-ho,111.88,106.41,benzene-fda-acid gaff
+ct-ct-Cu,113,179.46,CMP-1 abbie
+ct-ct-ct,113,179.46,CMP-1 abbie
+ct-Pd-hc,113,179.46,CMP-1 abbie
+ct-ct-p,113,179.46,CMP-1 abbie
+ct-ct-Pd,113,179.46,CMP-1 abbie
+p-Pd-cp,113,179.46,CMP-1 abbie
+hc-Pd-cp,113,179.46,CMP-1 abbie
+Pd-cp-cp,113,179.46,CMP-1 abbie
+cp-Pd-p,113,179.46,CMP-1 abbie
+cp-cp-Pd,113,179.46,CMP-1 abbie
+cp-Pd-hc,113,179.46,CMP-1 abbie
+hcat-Pd-cp,113,179.46,CMP-1 abbie
+ct-Pd-hcat,113,179.46,CMP-1 abbie
+ct-Pd-p,113,179.46,CMP-1 abbie
+ct-Pd-ct,113,179.46,CMP-1 abbie
+hc-Pd-ct,113,179.46,CMP-1 abbie
+p-Pd-ct,113,179.46,CMP-1 abbie
+Pd-ct-ct,113,179.46,CMP-1 abbie
+cp-Pd-cp,113,179.46,CMP-1 abbie
+hcat-Pd-ct,113,179.46,CMP-1 abbie
+ct-Pd-cp,113,179.46,CMP-1 abbie
+cp-Pd-ct,113,179.46,CMP-1 abbie
+cp-Pd-hcat,113,179.46,CMP-1 abbie

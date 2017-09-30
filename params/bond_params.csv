@@ -1,4 +1,6 @@
 A,B,k,r0,comments
+Ni,Ni,1000000,2.77,pafcat
+Ni,hi,10000000,2.77,pafcat
 c,cp,647,1.513,paf-br gaff
 c,o,1554,1.166,co2
 c_0,nb,1200,1.32,aza
@@ -53,7 +55,7 @@ cpm,cpm,1550,1.384,aza
 cpp,cpp,3000,1.384,aza
 ct,cp,813.2,1.438,CMP-1 gaff
 ct,hc,751.8,1.066,triethynylbenzene
-ct,ct,1691.6,1.222,CMP-1 gaff
+ct,ct,1691.6,1.181,CMP-1 gaff
 ct,nt,1989.4,1.143,cyano-c2
 n3m,c4,661.2,1.46,dmf gaff
 nb,c_0,1200,1.32,aza
@@ -73,3 +75,11 @@ oh,ho,739.2,0.974,acid gaff
 s,o,1550,1.384,aza
 sf,o=,986,1.466,acid gaff
 sf,oh,580.8,1.649,acid gaff
+Cu,ct,700,1.100,abbie
+Cu,hc,700,1.100,abbie
+Cu,cp,700,1.100,abbie
+Pd,hc,700,3.219,abbie
+Pd,p,700,3.219,abbie
+Pd,ct,700,3.219,abbie
+Pd,cp,700,3.219,abbie
+Pd,hcat,700,3.219,abbie
