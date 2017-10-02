@@ -1364,15 +1364,15 @@ class Test(unittest.TestCase):
         toSeed = 10
         mycell.seed(toSeed, fragmentType='A')
         mycell.seed(toSeed, fragmentType='B')
-        deleted = mycell.deleteBlocksType('A', save=True)
-        self.assertEqual(deleted, toSeed)
-        deleted = mycell.deleteBlocksType('B', save=True)
-        self.assertEqual(deleted, toSeed)
+        deleted_a = mycell.deleteBlocks(fragmentTypes='A')
+        self.assertEqual(len(deleted_a), toSeed)
+        deleted_b = mycell.deleteBlocks(fragmentTypes='B')
+        self.assertEqual(len(deleted_b), toSeed)
         
         self.assertEqual(len(mycell.blocks), 0)
-        added = mycell.restoreBlocks(fragmentTypes='A')
+        added = mycell.restoreBlocks(deleted_a,fragmentTypes='A')
         self.assertEqual(added, toSeed)
-        added = mycell.restoreBlocks(fragmentTypes='B')
+        added = mycell.restoreBlocks(deleted_b, fragmentTypes='B')
         self.assertEqual(added, toSeed)
         
         return

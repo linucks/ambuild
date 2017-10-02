@@ -1452,7 +1452,7 @@ class Cell():
                 self.delBlock(blockId)
                 allBlocks.remove((blockId,block))
                 removed.append(block)
-            logger.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(removed, len(self.blocks)))
+            logger.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(len(removed), len(self.blocks)))
         else:
             logger.info("Could not remove any blocks of type(s) {0}".format(fragmentTypes))
         
