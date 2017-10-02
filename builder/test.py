@@ -8,13 +8,13 @@ Created on 14 May 2016
 import os
 import sys
 import unittest
-from paths import AMBUILD_DIR
+from paths import BUILDER_DIR
 
 VERBOSITY = 2
-suite = unittest.TestLoader().discover(AMBUILD_DIR)
+suite = unittest.TestLoader().discover(BUILDER_DIR)
 if int(suite.countTestCases()) <= 0:
-    msg = 'Could not find any tests to run in directory: {0}'.format(AMBUILD_DIR) + os.linesep
+    msg = 'Could not find any tests to run in directory: {0}'.format(BUILDER_DIR) + os.linesep
     sys.stderr.write(msg)
     sys.exit(1)
 
-unittest.TextTestRunner(verbosity=VERBOSITY, buffer=buffer).run(suite)
+unittest.TextTestRunner(verbosity=VERBOSITY, buffer=False).run(suite)

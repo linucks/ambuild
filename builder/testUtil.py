@@ -46,7 +46,9 @@ class Test(unittest.TestCase):
         self.assertEqual(len(mycell.blocks), 20, "Incorrect number of blocks: {0}".format(len(mycell.blocks)))
         
         # Just check we can build onto the cell as it demonstrates all the values are ok
-        mycell.growBlocks(2)
+        toGrow = 2
+        grown = mycell.growBlocks(toGrow)
+        self.assertEqual(toGrow,grown,"Failed to grow blocks after unpickling")
         return
 
     def testVectorAngle(self):

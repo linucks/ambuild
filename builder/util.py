@@ -714,6 +714,9 @@ def cellFromPickle(pickleFile):
         if not hasattr(fragment,'unBonded'):
             fragment.unBonded = [ False ] * len(fragment._coords)
             fragment._individualAttrs['unBonded'] = None
+        if not hasattr(fragment,'catalyst'):
+            fragment.catalyst = False
+            fragment._sharedAttrs['catalyst'] = False
             
         for e in fragment._endGroups:
             # More horrible hacks for old versions

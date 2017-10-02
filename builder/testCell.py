@@ -9,7 +9,6 @@ import numpy
 
 from cell import Cell
 import buildingBlock
-import fragment
 import opt
 from paths import AMBUILD_DIR, BLOCKS_DIR
 import ambuild_subunit
