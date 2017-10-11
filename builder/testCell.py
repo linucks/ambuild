@@ -10,7 +10,7 @@ import numpy
 from cell import Cell
 import buildingBlock
 import opt
-from paths import AMBUILD_DIR, BLOCKS_DIR
+from paths import AMBUILD_DIR, BLOCKS_DIR, PARAMS_DIR
 import ambuild_subunit
 import util
 
@@ -566,7 +566,7 @@ class Test(unittest.TestCase):
         b3.translateCentroid([ 25, 25, 20 ])
         mycell.addBlock(b3)
 
-        d = opt.DLPOLY()
+        d = opt.DLPOLY(PARAMS_DIR)
 
         # data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
         d.writeCONTROL()
@@ -1313,7 +1313,7 @@ class Test(unittest.TestCase):
         # Now test with HOOMD-Blue
         filename = "periodicTest.xml"
         data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
-        o = opt.HoomdOptimiser()
+        o = opt.HoomdOptimiser(mycell.paramsDir)
         o.writeXml(data,
                    xmlFilename=filename,
                    rigidBody=True,
@@ -2041,7 +2041,7 @@ class Test(unittest.TestCase):
 
         xmlFilename = "testWriteHoomdblue.xml"
         data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
-        o = opt.HoomdOptimiser()
+        o = opt.HoomdOptimiser(mycell.paramsDir)
         o.writeXml(data,
                    xmlFilename=xmlFilename,
                    rigidBody=True,
@@ -2071,8 +2071,6 @@ class Test(unittest.TestCase):
 
         self.assertTrue(all(map(lambda x : numpy.allclose(x[0], x[1]), zip(initcoords, finalcoords))),
                          "coords don't match")
-
-        # ok = opt.HoomdOptimiser().optimiseGeometry( xmlFilename,doDihedral=doDihedral)
 
         os.unlink(xmlFilename)
 

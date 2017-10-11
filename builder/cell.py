@@ -19,10 +19,11 @@ import time
 import numpy
 
 # Our modules
+import ambuild_subunit
 import buildingBlock
 import fragment
 import opt
-import ambuild_subunit
+from paths import PARAMS_DIR
 import util
 
 BONDTYPESEP = "-"  # Character for separating bonds
@@ -163,7 +164,8 @@ class Cell():
                  atomMargin=0.5,
                  bondMargin=0.5,
                  bondAngleMargin=15,
-                 doLog=False):
+                 doLog=False,
+                 paramsDir=None):
         '''Construct an empty cell:
 
         Args:
@@ -178,6 +180,7 @@ class Cell():
         bondAngleMargin - the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
         doLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
                 and slows the program.
+        paramsDir - path to the directory holding the forcefield parameter csv files (default ../params)
         '''
 
         # For time being origin always 0,0,0
@@ -256,6 +259,16 @@ class Cell():
 
         self._fileCount = 0  # for naming output files
         self._deterministicState = 0 # For adding blocks in a non-random manner (for testing)
+        
+        if paramsDir is not None:
+            if not os.path.isdir(paramsDir):
+                msg = "Cannot find parameter directory: {0}".format(paramsDir)
+                logger.critical(msg)
+                raise RuntimeError(msg)
+        else:
+            paramsDir = PARAMS_DIR
+        self.paramsDir = paramsDir
+        util.setModuleBondLength(os.path.join(self.paramsDir,'bond_params.csv'))
 
         if filePath: # Init from a car file 
             self.setStaticBlock(filePath)
@@ -1576,7 +1589,7 @@ class Cell():
 
         # in hoomdblue. loopt through list of labels and create groups and computes for each one
         # opt must hold the list of groups and computes
-        o = opt.HoomdOptimiser()
+        o = opt.HoomdOptimiser(self.paramsDir)
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
@@ -1760,7 +1773,7 @@ class Cell():
                 endGroupPair = self.libraryEndGroupPair(cellEndGroups=cellEndGroups,
                                                                          libraryEndGroups=libraryEndGroups,
                                                                          random=random)
-            except RuntimeError, e:
+            except RuntimeError as e:
                 logger.critical("growBlocks cannot grow more blocks: {0}".format(e))
                 return added
             
@@ -2070,14 +2083,14 @@ class Cell():
         """
 
         if self._fragmentLibrary.has_key(fragmentType):
-            raise RuntimeError, "Adding existing ftype {0} again!".format(fragmentType)
+            raise RuntimeError("Adding existing ftype {0} again!".format(fragmentType))
 
         # For now don't allow adding blocks when the cell has blocks in
         # assert not len(self.blocks),"Cannot add library fragments with populated cell!"
 
         # Make sure the type is valid
         if BONDTYPESEP in fragmentType or ENDGROUPSEP in fragmentType:
-            raise RuntimeError, "fragmentType cannot containing {0} or {1} characters!".format(BONDTYPESEP, ENDGROUPSEP)
+            raise RuntimeError("fragmentType cannot containing {0} or {1} characters!".format(BONDTYPESEP, ENDGROUPSEP))
 
         # Create fragment
         frag = fragment.Fragment(filename, fragmentType, solvent=solvent, markBonded=markBonded, catalyst=catalyst)
@@ -2098,7 +2111,7 @@ class Cell():
         return
     
     def  _getCell2Library(self, endGroupTypes2Block, cellEndGroups=None, libraryEndGroups=None):
-        if len(endGroupTypes2Block.keys()) == 0: raise RuntimeError, "No available endGroups in the cell"
+        if len(endGroupTypes2Block.keys()) == 0: raise RuntimeError("No available endGroups in the cell")
         # We create a dictionary mapping cell endGroups to possible libraryEndGroups
         cell2Library = {}
         for ceg in endGroupTypes2Block.keys():
@@ -2109,7 +2122,7 @@ class Cell():
 
         # Check that there are some available
         if len(cell2Library.keys()) == 0:
-            raise RuntimeError, "No library fragments available to bond under the given rules: {0}".format(endGroupTypes2Block.keys())
+            raise RuntimeError("No library fragments available to bond under the given rules: {0}".format(endGroupTypes2Block.keys()))
 
         # If the user supplied a list of cellEndGroups we prune the list of cell endGroups to those that are in this list
         if cellEndGroups is not None:
@@ -2120,8 +2133,8 @@ class Cell():
                 if ceg not in cellEndGroups:
                     del cell2Library[ ceg ]
             if len(cell2Library.keys()) == 0:
-                raise RuntimeError, "No free endGroups of types in cellEndGroups: {0} - {1}".format(cellEndGroups,
-                                                                                                    endGroupTypes2Block.keys())
+                raise RuntimeError("No free endGroups of types in cellEndGroups: {0} - {1}".format(cellEndGroups,
+                                                                                                    endGroupTypes2Block.keys()))
 
         # If the user supplied a list of libraryEndGroups we remove any library endGroups that aren't in the list
         if libraryEndGroups is not None:
@@ -2138,8 +2151,8 @@ class Cell():
                     cell2Library[ ceg ] = pleg
 
             if not len(cell2Library.keys()):
-                raise RuntimeError, "No library fragments of type {0} available to bond under the given rules: {0}".format(libraryEndGroups,
-                                                                                                                           endGroupTypes2Block.keys())
+                raise RuntimeError("No library fragments of type {0} available to bond under the given rules: {0}".format(libraryEndGroups,
+                                                                                                                           endGroupTypes2Block.keys()))
         return cell2Library
 
     def libraryEndGroupPair(self, cellEndGroups=None, libraryEndGroups=None, random=True):
@@ -2235,7 +2248,7 @@ class Cell():
         if doDihedral and doImproper:
             raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
 
-        optimiser = opt.HoomdOptimiser()
+        optimiser = opt.HoomdOptimiser(self.paramsDir)
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
@@ -2451,7 +2464,7 @@ class Cell():
         if doDihedral and doImproper:
             raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
 
-        optimiser = opt.HoomdOptimiser()
+        optimiser = opt.HoomdOptimiser(self.paramsDir)
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
@@ -2495,7 +2508,7 @@ class Cell():
         if doDihedral and doImproper:
             raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
 
-        optimiser = opt.HoomdOptimiser()
+        optimiser = opt.HoomdOptimiser(self.paramsDir)
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
@@ -2699,7 +2712,7 @@ class Cell():
         fragment = self._fragmentLibrary[ fragmentType ]
         fragment.onbondFunction = onbondFunction
         return
-    
+        
     def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType='c'):
         """Create walls along the specified sides.
         """

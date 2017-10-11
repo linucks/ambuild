@@ -48,21 +48,20 @@ def read_bond_params(bond_file):
         params.append(bp)
     return params
 
-from paths import PARAMS_DIR
 import util
 import hoomdblue
 
 class FfieldParameters(object):
 
-    def __init__(self):
+    def __init__(self, paramsDir):
         # All parameters calculated to fit PCFF adapted forcefield Holden et al j.phys.chem.c 2012
         # from combining rules calculated using dlpoly-prep (Willock)
         # bonds adapted from quartic PCFF
-        self.bonds = self._processBonds(os.path.abspath(os.path.join(PARAMS_DIR, 'bond_params.csv')))
-        self.angles = self._processAngles(os.path.abspath(os.path.join(PARAMS_DIR, 'angle_params.csv')))
-        self.dihedrals = self._processDihedrals(os.path.abspath(os.path.join(PARAMS_DIR, 'dihedral_params.csv')))
-        self.impropers = self._processImpropers(os.path.abspath(os.path.join(PARAMS_DIR, 'improper_params.csv')))
-        self.pairs = self._readPairs(os.path.abspath(os.path.join(PARAMS_DIR, 'pair_params.csv')))
+        self.bonds = self._processBonds(os.path.abspath(os.path.join(paramsDir, 'bond_params.csv')))
+        self.angles = self._processAngles(os.path.abspath(os.path.join(paramsDir, 'angle_params.csv')))
+        self.dihedrals = self._processDihedrals(os.path.abspath(os.path.join(paramsDir, 'dihedral_params.csv')))
+        self.impropers = self._processImpropers(os.path.abspath(os.path.join(paramsDir, 'improper_params.csv')))
+        self.pairs = self._readPairs(os.path.abspath(os.path.join(paramsDir, 'pair_params.csv')))
         return
     
     def _processBonds(self,bond_file):
@@ -217,8 +216,8 @@ class FfieldParameters(object):
 
 class FFIELD(object):
 
-    def __init__(self):
-        self.ffield = FfieldParameters()
+    def __init__(self, paramsDir):
+        self.ffield = FfieldParameters(paramsDir)
         self.bonds = None
         self.angles = None
         self.dihedrals = None
@@ -887,9 +886,9 @@ finish
 
 class HoomdOptimiser(FFIELD):
 
-    def __init__(self):
+    def __init__(self, paramsDir):
 
-        self.ffield = FfieldParameters()
+        self.ffield = FfieldParameters(paramsDir)
         self.system = None
         self.bonds = None
         self.angles = None
@@ -1791,8 +1790,8 @@ if __name__ == "__main__":
     # xmlFilename = sys.argv[1]
     # xyzFilename = xmlFilename +".xyz"
     # xml2xyz( xmlFilename, xyzFilename )
-
-    opt = HoomdOptimiser()
+    from paths import PARAMS_DIR
+    opt = HoomdOptimiser(PARAMS_DIR)
     mycell = util.cellFromPickle(sys.argv[1])
     rigidBody = False
     data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)

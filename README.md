@@ -79,6 +79,8 @@ Name | Description
 **bondMargin** | two atoms are considered close enough to bond if they are within the bond length defined for the two atoms +/- the bondMargin.
 **bondAngleMargin** | the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
 **doLog** | True/False - specifies if a log will be created - not recommended as it generates lots of data and slows the program.
+**paramsDir** | path to the directory holding the forcefield parameter csv files (default ../params)
+
                 
 Alternatively, the cell can be read from a .car file using the filePath argument instead of the boxDim argument. In
 this case, the cell dimensions will be taken from the .car file PBC line, e.g.:

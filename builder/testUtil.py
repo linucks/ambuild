@@ -8,10 +8,15 @@ import numpy
 
 # our imports
 import util
-from paths import AMBUILD_DIR
+from paths import AMBUILD_DIR, PARAMS_DIR
 
 class Test(unittest.TestCase):
 
+    def setUp(self):
+        #logging.basicConfig(level=logging.DEBUG)
+        util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
+        return
+    
     def testDistance(self):
         v1 = numpy.array([0, 0, 0])
         v2 = numpy.array([2.5, 2.5, 2.5])

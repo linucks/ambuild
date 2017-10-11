@@ -12,7 +12,6 @@ import os
 import numpy
 import math
 import sys
-import unittest
 import xml.etree.ElementTree as ET
 
 from opt import read_bond_params
@@ -413,18 +412,6 @@ Si      2.21 1.87 2.05 1.58      1.48 2.44      1.63      2.14           2.33
 Sn           2.14 2.28           1.71 2.67
 Te                     1.82      1.66
 """
-
-# This is updated from the parameters in the bond_params.csv file
-ATOM_TYPE_BOND_LENGTHS = {}
-for p in read_bond_params(os.path.join(PARAMS_DIR,"bond_params.csv")):
-    if p.A not in ATOM_TYPE_BOND_LENGTHS:
-        if p.B in ATOM_TYPE_BOND_LENGTHS:
-            ATOM_TYPE_BOND_LENGTHS[p.B][p.A] = float(p.r0)
-        else:
-            ATOM_TYPE_BOND_LENGTHS[p.A] = { p.B : float(p.r0) }
-    else:
-        ATOM_TYPE_BOND_LENGTHS[p.A][p.B] = float(p.r0)
-
 # REM - symbols should be in lower case!
 # UNITS ARE IN ANGSTROM!!!
 ELEMENT_TYPE_BOND_LENGTHS = {}
@@ -528,6 +515,67 @@ ELEMENT_TYPE_BOND_LENGTHS['SE'] = { 'SE' : 2.33 }
 ELEMENT_TYPE_BOND_LENGTHS['SI'] = { 'SI' : 2.33 }
 ELEMENT_TYPE_BOND_LENGTHS['LI'] = { 'LI' : 2.67 }
 
+class BondLength(object):
+    """Class to hold calculate bond lengths.
+    
+    This is required because we use data stored in the ATOM_TYPE_BOND_LENGTHS dict
+    which is calculated from the parameter files, which is read at run time. Therefore
+    we initialise this object using a parameter file and set it as a module object for 
+    use by the bondLength function
+    """
+    def __init__(self, bond_param_file):
+        self.ATOM_TYPE_BOND_LENGTHS = {}
+        for p in read_bond_params(bond_param_file):
+            if p.A not in self.ATOM_TYPE_BOND_LENGTHS:
+                if p.B in self.ATOM_TYPE_BOND_LENGTHS:
+                    self.ATOM_TYPE_BOND_LENGTHS[p.B][p.A] = float(p.r0)
+                else:
+                    self.ATOM_TYPE_BOND_LENGTHS[p.A] = { p.B : float(p.r0) }
+            else:
+                self.ATOM_TYPE_BOND_LENGTHS[p.A][p.B] = float(p.r0)
+    
+    def bondLength(self, atomType1, atomType2):
+        """ Get the characteristic lengths of single bonds as defined in:
+            Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
+        """
+        #print "Getting bond length for %s-%s" % ( atomType1, atomType2 )
+        
+        # We first see if we can find the bond length in the ATOM_TYPE_BOND_LENGTHS table
+        # If not we fall back to using the bonds calculated from element types
+        if self.ATOM_TYPE_BOND_LENGTHS.has_key(atomType1):
+            if self.ATOM_TYPE_BOND_LENGTHS[ atomType1 ].has_key(atomType2):
+                return self.ATOM_TYPE_BOND_LENGTHS[ atomType1 ][ atomType2 ]
+    
+        if self.ATOM_TYPE_BOND_LENGTHS.has_key(atomType2):
+            if self.ATOM_TYPE_BOND_LENGTHS[ atomType2 ].has_key(atomType1):
+                return self.ATOM_TYPE_BOND_LENGTHS   [ atomType2 ][ atomType1 ]
+            
+        symbol1 = label2symbol(atomType1).upper()
+        symbol2 = label2symbol(atomType2).upper()
+        
+        if ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol1):
+            if ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ].has_key(symbol2):
+                return ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ][ symbol2 ]
+    
+        if ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol2):
+            if ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ].has_key(symbol1):
+                return ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ][ symbol1 ]
+    
+        logger.critical('No data for bond length for %s-%s' % (atomType1, atomType2))
+        return 1.0
+
+# This needs to be set to the bondLength function of the BondLength class 
+# See cell.Cell_setUtilBondLength
+# We set this to raise an error if unset
+def __STOP(x,y): raise NotImplementedError("Need to set the bondLength function - see setModuleBondLength")
+bondLength = __STOP
+    
+def setModuleBondLength(paramFile):
+    """Set the bondLength function of the util module"""
+    global bondLength
+    BL = BondLength(paramFile)
+    bondLength = BL.bondLength
+    return
 
 def angle(c1, c2, c3, dim=None, pbc=None):
     """Return the angle in radians c1---c2---c3
@@ -547,35 +595,7 @@ def angle(c1, c2, c3, dim=None, pbc=None):
         theta = numpy.arccos(x)
     return theta
 
-def bondLength(atomType1, atomType2):
-    """ Get the characteristic lengths of single bonds as defined in:
-        Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
-    """
-    #print "Getting bond length for %s-%s" % ( atomType1, atomType2 )
-    
-    # We first see if we can find the bond length in the ATOM_TYPE_BOND_LENGTHS table
-    # If not we fall back to using the bonds calculated from element types
-    if ATOM_TYPE_BOND_LENGTHS.has_key(atomType1):
-        if ATOM_TYPE_BOND_LENGTHS[ atomType1 ].has_key(atomType2):
-            return ATOM_TYPE_BOND_LENGTHS[ atomType1 ][ atomType2 ]
 
-    if ATOM_TYPE_BOND_LENGTHS.has_key(atomType2):
-        if ATOM_TYPE_BOND_LENGTHS[ atomType2 ].has_key(atomType1):
-            return ATOM_TYPE_BOND_LENGTHS   [ atomType2 ][ atomType1 ]
-        
-    symbol1 = label2symbol(atomType1).upper()
-    symbol2 = label2symbol(atomType2).upper()
-    
-    if ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol1):
-        if ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ].has_key(symbol2):
-            return ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ][ symbol2 ]
-
-    if ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol2):
-        if ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ].has_key(symbol1):
-            return ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ][ symbol1 ]
-
-    logger.critical('No data for bond length for %s-%s' % (atomType1, atomType2))
-    return 1.0
 
 def calcBondsHACK(coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0):
     """HACK FOR NETWORK"""

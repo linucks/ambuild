@@ -8,7 +8,7 @@ import numpy
 from buildingBlock import Bond, Block
 import fragment
 import util
-from paths import AMBUILD_DIR, BLOCKS_DIR
+from paths import AMBUILD_DIR, BLOCKS_DIR, PARAMS_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,8 @@ class Test(unittest.TestCase):
         self.benzeneCar = os.path.join(BLOCKS_DIR, "benzene.car")
         self.benzene2Car = os.path.join(BLOCKS_DIR, "benzene2.car")
         self.ch4Ca2Car = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
-
+        
+        util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
         return
 
     def catBlocks(self, blocks, filename):
@@ -576,8 +577,6 @@ class Test(unittest.TestCase):
 
         self.assertTrue(numpy.allclose(p, c, rtol=1e-9, atol=1e-9), "simple move")
         return
-
-
 
     def testPositionGrowBlock(self):
 
