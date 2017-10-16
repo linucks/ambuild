@@ -443,8 +443,8 @@ class Fragment(object):
         self._maxAtomRadius = numpy.max(self._radii)
         return
 
-#     def freeEndGroups(self):
-#         return [ eg for eg in self._endGroups if eg.free() ]
+    def freeEndGroups(self):
+         return [ eg for eg in self._endGroups if eg.free() ]
 
     def fromCarFile(self, carFile):
         """"Abbie did this.
