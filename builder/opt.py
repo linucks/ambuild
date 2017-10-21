@@ -62,6 +62,7 @@ class FfieldParameters(object):
         self.dihedrals = self._processDihedrals(os.path.abspath(os.path.join(paramsDir, 'dihedral_params.csv')))
         self.impropers = self._processImpropers(os.path.abspath(os.path.join(paramsDir, 'improper_params.csv')))
         self.pairs = self._readPairs(os.path.abspath(os.path.join(paramsDir, 'pair_params.csv')))
+        self.paramsDir = os.path.abspath(paramsDir)
         return
     
     def _processBonds(self,bond_file):
@@ -274,7 +275,7 @@ class FFIELD(object):
             if missingPairs:
                 msg += "Pairs: {0}\n".format(missingPairs)
 
-            msg += "Please add these to the files in the directory: {0}\n".format(PARAMS_DIR)
+            msg += "Please add these to the files in the directory: {0}\n".format(self.ffield.paramsDir)
             raise RuntimeError, msg
         return
 
