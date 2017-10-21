@@ -538,29 +538,23 @@ class BondLength(object):
         """ Get the characteristic lengths of single bonds as defined in:
             Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
         """
-        #print "Getting bond length for %s-%s" % ( atomType1, atomType2 )
-        
         # We first see if we can find the bond length in the ATOM_TYPE_BOND_LENGTHS table
         # If not we fall back to using the bonds calculated from element types
-        if self.ATOM_TYPE_BOND_LENGTHS.has_key(atomType1):
-            if self.ATOM_TYPE_BOND_LENGTHS[ atomType1 ].has_key(atomType2):
-                return self.ATOM_TYPE_BOND_LENGTHS[ atomType1 ][ atomType2 ]
-    
-        if self.ATOM_TYPE_BOND_LENGTHS.has_key(atomType2):
-            if self.ATOM_TYPE_BOND_LENGTHS[ atomType2 ].has_key(atomType1):
-                return self.ATOM_TYPE_BOND_LENGTHS   [ atomType2 ][ atomType1 ]
+        if self.ATOM_TYPE_BOND_LENGTHS.has_key(atomType1) and self.ATOM_TYPE_BOND_LENGTHS[ atomType1 ].has_key(atomType2):
+            #print "ATOM TYPE"
+            return self.ATOM_TYPE_BOND_LENGTHS[ atomType1 ][ atomType2 ]
+        elif self.ATOM_TYPE_BOND_LENGTHS.has_key(atomType2) and self.ATOM_TYPE_BOND_LENGTHS[ atomType2 ].has_key(atomType1):
+            #print "ATOM TYPE"
+            return self.ATOM_TYPE_BOND_LENGTHS[ atomType2 ][ atomType1 ]
             
         symbol1 = label2symbol(atomType1).upper()
         symbol2 = label2symbol(atomType2).upper()
-        
-        if ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol1):
-            if ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ].has_key(symbol2):
-                return ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ][ symbol2 ]
-    
-        if ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol2):
-            if ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ].has_key(symbol1):
-                return ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ][ symbol1 ]
-    
+        if ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol1) and ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ].has_key(symbol2):
+            #print "ELEMENT TYPE"
+            return ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ][ symbol2 ]
+        elif ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol2) and ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ].has_key(symbol1):
+            #print "ELEMENT TYPE"
+            return ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ][ symbol1 ]
         logger.critical('No data for bond length for %s-%s' % (atomType1, atomType2))
         return 1.0
 
@@ -594,8 +588,6 @@ def angle(c1, c2, c3, dim=None, pbc=None):
     else:
         theta = numpy.arccos(x)
     return theta
-
-
 
 def calcBondsHACK(coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0):
     """HACK FOR NETWORK"""
@@ -641,7 +633,7 @@ def calcBonds(coords, symbols, dim=None, maxAtomRadius=None, bondMargin=0.2, box
     for i, (idxAtom1, idxAtom2) in enumerate(close):
         bond_length = bondLength(symbols[idxAtom1], symbols[idxAtom2])
         if bond_length < 0: continue
-        # print "Dist:length {0}:{1} {2}-{3} {4} {5}".format( idxAtom1, idxAtom2, symbol1, symbol2, bond_length, dist )
+        #logger.info("Dist:length {1}({0})-{3}({2}) {4} {5}".format( symbols[idxAtom1], idxAtom1, symbols[idxAtom2], idxAtom2, distances[i], bond_length ))
         if  bond_length - bondMargin < distances[i] < bond_length + bondMargin:
             bonds.append((idxAtom1, idxAtom2))
     return bonds
