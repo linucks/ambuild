@@ -710,7 +710,7 @@ def getCell(coord, boxSize, dim=None, pbc=[True, True, True]):
     c = int(math.floor(z / boxSize))
     return (a, b, c)
 
-def cellFromPickle(pickleFile):
+def cellFromPickle(pickleFile, paramsDir=None):
     """Recreate a cell from a pickled file and apply any hacks so that we can work with older versions"""
     def fixFragment(fragment):
         # Need to make sure coords and masses are numpy arrays
@@ -757,6 +757,17 @@ def cellFromPickle(pickleFile):
     if not hasattr(myCell, 'pbc'):
         myCell.pbc = [True, True, True]
         myCell.walls = [False, False, False]
+    
+    # Set parameter Directory
+    if paramsDir is None:
+        if hasattr(myCell, 'paramsDir'):
+            paramsDir = myCell.paramsDir
+        else:
+            paramsDir = PARAMS_DIR
+    if not os.path.isdir(paramsDir):
+        raise RuntimeError("Cannot find cell paramsDir: {0}".format(paramsDir))
+    logger.info("Getting parameter files from directory: {0}".format(paramsDir))
+    setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
     
     # Fix all the fragments
     for fragment in myCell._fragmentLibrary.values():
