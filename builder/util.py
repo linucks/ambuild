@@ -12,6 +12,7 @@ import os
 import numpy
 import math
 import sys
+import warnings
 import xml.etree.ElementTree as ET
 
 from opt import read_bond_params
@@ -555,7 +556,7 @@ class BondLength(object):
         elif ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol2) and ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ].has_key(symbol1):
             #print "ELEMENT TYPE"
             return ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ][ symbol1 ]
-        logger.critical('No data for bond length for %s-%s' % (atomType1, atomType2))
+        warnings.warn('No data for bond length for %s-%s' % (atomType1, atomType2))
         return 1.0
 
 # This needs to be set to the bondLength function of the BondLength class 
