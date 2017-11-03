@@ -37,8 +37,7 @@ def create_snapshot(data, rigidBody=False):
         angle_types = list(set(data.angleLabels)) if len(data.angles) else None
         dihedral_types = list(set(data.properLabels)) if len(data.propers) else None
             
-        pair_types = None
-        #FIX!!!
+        pair_types = None #FIX?
 
         snap = hoomd.data.make_snapshot(N=nparticles,
                                         box=hoomd.data.boxdim(Lx=data.cell[0], Ly=data.cell[1], Lz=data.cell[2]),
@@ -70,7 +69,6 @@ def create_snapshot(data, rigidBody=False):
                 snap.dihedrals.group[i] = [d[0], d[1], d[2], d[3]]
                 snap.dihedrals.typeid[i] = dihedral_types.index(data.properLabels[i])
         
-        
         # Populate  particle data
         # particle attributes:  acceleration, angmom, body, charge, diameter, image, is_accel_set, mass, 
         # moment_inertia, orientation, position, typeid, types, velocity
@@ -82,6 +80,8 @@ def create_snapshot(data, rigidBody=False):
             snap.particles.mass[i] = data.mass[i]
             snap.particles.position[i] = data.coords[i]
             snap.particles.typeid[i] = data.atomTypes[i]
+            
+    return snap
         
 
 
