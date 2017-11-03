@@ -1,8 +1,10 @@
 #!/Users/jmht/miniconda2/envs/hoomd2/bin/python
 # source activate hoomd2
 
+import itertools
 import os
 import sys
+
 
 # 3rd-party imports
 import hoomd
@@ -10,79 +12,176 @@ import hoomd.md
 
 # Our imports
 from opt import FFIELD, FfieldParameters
+import util
 
+class Hoomd2(object):
+    def __init__(self, paramsDir):
+        self.ffield = FfieldParameters(paramsDir)
 
+    def checkParameters(self, skipDihedrals=False):
 
-"""
+        assert self.ffield
+        assert self.particle_types
 
+        ok = True
+        missingBonds = []
+        for bond in self.bond_types:
+            if not self.ffield.hasBond(bond):
+                ok = False
+                missingBonds.append(bond)
+        missingAngles = []
+        for angle in self.angle_types:
+            if not self.ffield.hasAngle(angle):
+                ok = False
+                missingAngles.append(angle)
+        missingDihedrals = []
+        missingImpropers = []
+        if not skipDihedrals:
+            for dihedral in self.dihedral_types:
+                if not self.ffield.hasDihedral(dihedral):
+                    ok = False
+                    missingDihedrals.append(dihedral)
+#             for improper in self.impropers:
+#                 if not self.ffield.hasImproper(improper):
+#                     ok = False
+#                     missingImpropers.append(improper)
 
-"""
+        missingPairs = []
+        for atype, btype in itertools.combinations(self.particle_types, 2):
+            if not self.ffield.hasPair(atype, btype):
+                ok = False
+                missingPairs.append((atype, btype))
 
+        if not ok:
+            msg = "The following parameters could not be found:\n"
+            if missingBonds:
+                msg += "Bonds: {0}\n".format(missingBonds)
+            if missingAngles:
+                msg += "Angles: {0}\n".format(missingAngles)
+            if missingDihedrals:
+                msg += "Dihedrals: {0}\n".format(missingDihedrals)
+            if missingImpropers:
+                msg += "Impropers: {0}\n".format(missingImpropers)
+            if missingPairs:
+                msg += "Pairs: {0}\n".format(missingPairs)
 
-def create_snapshot(data, rigidBody=False):
-    """Create a populated snapshot with all the particles.
-    
-    Rigid body will require creating the central particles so we'll do this later
-    """
-    
-    if not rigidBody:
-        # Create snapshot
-        nparticles = len(data.coords)
-        assert nparticles > 0,"Simulation needs some particles!"
-        particle_types = list(set(data.atomTypes))
+            msg += "Please add these to the files in the directory: {0}\n".format(self.ffield.paramsDir)
+            raise RuntimeError(msg)
+        return
 
-        # now bond etc attributes
-        # snap attributes: angles, bonds, box, constraints, dihedrals, impropers, pairs, particles
-        bond_types = list(set(data.bondLabels)) if len(data.bonds) else None
-        angle_types = list(set(data.angleLabels)) if len(data.angles) else None
-        dihedral_types = list(set(data.properLabels)) if len(data.propers) else None
-            
-        pair_types = None #FIX?
-
-        snap = hoomd.data.make_snapshot(N=nparticles,
-                                        box=hoomd.data.boxdim(Lx=data.cell[0], Ly=data.cell[1], Lz=data.cell[2]),
-                                        particle_types = particle_types,
-                                        bond_types = bond_types,
-                                        angle_types = angle_types,
-                                        dihedral_types = dihedral_types,
-                                        pair_types = pair_types
-                                        )
+    def create_snapshot(self, data, rigidBody=False):
+        """Create a populated snapshot with all the particles.
         
-        # Add Bonds
-        if len(data.bonds):
-            snap.bonds.resize(len(data.bonds))
-            for i, b in enumerate(data.bonds):
-                snap.bonds.group[i] = [b[0], b[1]]
-                snap.bonds.typeid[i] = bond_types.index(data.bondLabels[i])
+        Rigid body will require creating the central particles so we'll do this later
+        """
+        
+        if not rigidBody:
+            # Create snapshot
+            nparticles = len(data.coords)
+            assert nparticles > 0,"Simulation needs some particles!"
+            self.particle_types = list(set(data.atomTypes))
+    
+            # now bond etc attributes
+            # snap attributes: angles, bonds, box, constraints, dihedrals, impropers, pairs, particles
+            self.bond_types = list(set(data.bondLabels)) if len(data.bonds) else None
+            self.angle_types = list(set(data.angleLabels)) if len(data.angles) else None
+            self.dihedral_types = list(set(data.properLabels)) if len(data.propers) else None
                 
-        # Add Angles
-        if len(data.angles):
-            snap.angles.resize(len(data.angles))
-            for i, a in enumerate(data.angles):
-                snap.angles.group[i] = [a[0], a[1], a[2]]
-                snap.angles.typeid[i] = angle_types.index(data.angleLabels[i])
-
-        # Add Dihedrals
-        if len(data.propers):
-            snap.dihedrals.resize(len(data.propers))
-            for i, d in enumerate(data.propers):
-                snap.dihedrals.group[i] = [d[0], d[1], d[2], d[3]]
-                snap.dihedrals.typeid[i] = dihedral_types.index(data.properLabels[i])
-        
-        # Populate  particle data
-        # particle attributes:  acceleration, angmom, body, charge, diameter, image, is_accel_set, mass, 
-        # moment_inertia, orientation, position, typeid, types, velocity
-        for i in range(nparticles):
-            snap.particles.body[i] = data.body[i]
-            snap.particles.charge[i] = data.charge[i]
-            snap.particles.diameter[i] = data.diameter[i]
-            snap.particles.image[i] = data.image[i]
-            snap.particles.mass[i] = data.mass[i]
-            snap.particles.position[i] = data.coords[i]
-            snap.particles.typeid[i] = data.atomTypes[i]
+            snap = hoomd.data.make_snapshot(N=nparticles,
+                                            box=hoomd.data.boxdim(Lx=data.cell[0], Ly=data.cell[1], Lz=data.cell[2]),
+                                            particle_types = self.particle_types,
+                                            bond_types = self.bond_types,
+                                            angle_types = self.angle_types,
+                                            dihedral_types = self.dihedral_types,
+                                            #pair_types = pair_types
+                                            )
             
-    return snap
+            # Add Bonds
+            if len(data.bonds):
+                snap.bonds.resize(len(data.bonds))
+                for i, b in enumerate(data.bonds):
+                    snap.bonds.group[i] = [b[0], b[1]]
+                    snap.bonds.typeid[i] = self.bond_types.index(data.bondLabels[i])
+                    
+            # Add Angles
+            if len(data.angles):
+                snap.angles.resize(len(data.angles))
+                for i, a in enumerate(data.angles):
+                    snap.angles.group[i] = [a[0], a[1], a[2]]
+                    snap.angles.typeid[i] = self.angle_types.index(data.angleLabels[i])
+    
+            # Add Dihedrals
+            if len(data.propers):
+                snap.dihedrals.resize(len(data.propers))
+                for i, d in enumerate(data.propers):
+                    snap.dihedrals.group[i] = [d[0], d[1], d[2], d[3]]
+                    snap.dihedrals.typeid[i] = self.dihedral_types.index(data.properLabels[i])
+            
+            # Populate  particle data
+            # particle attributes:  acceleration, angmom, body, charge, diameter, image, is_accel_set, mass, 
+            # moment_inertia, orientation, position, typeid, types, velocity
+            for i in range(nparticles):
+                snap.particles.body[i] = data.bodies[i]
+                snap.particles.charge[i] = data.charges[i]
+                snap.particles.diameter[i] = data.diameters[i]
+                snap.particles.image[i] = data.images[i]
+                snap.particles.mass[i] = data.masses[i]
+                snap.particles.position[i] = data.coords[i]
+                snap.particles.typeid[i] = self.particle_types.index(data.atomTypes[i])
+        return snap
+            
+    
+    def setup_simulation(self, snap):
+        # Set the masked array
+        self.masked = data.masked
+
+        # Check we have all the parameters for this snapshot
+        self.checkParameters()
         
+        sys.exit()
+        
+        # Init the sytem from the file
+        system = hoomdblue.init.read_xml(filename=xmlFilename)
+
+        # Below disables pretty much all output
+        if quiet:
+            logger.info("Disabling HOOMD-Blue output!")
+            hoomdblue.globals.msg.setNoticeLevel(0)
+
+        # Set the parameters
+        harmonic = None
+        if len(self.bonds):
+            harmonic = hoomdblue.bond.harmonic()
+            self.setBond(harmonic)
+
+        aharmonic = None
+        if len(self.angles):
+            aharmonic = hoomdblue.angle.harmonic()
+            self.setAngle(aharmonic)
+
+        dharmonic = improper = None
+        if doDihedral and len(self.dihedrals):
+                dharmonic = hoomdblue.dihedral.harmonic()
+                self.setDihedral(dharmonic)
+        elif doImproper and len(self.dihedrals):
+            improper = hoomdblue.improper.harmonic()
+            self.setImproper(improper)
+
+        lj = hoomdblue.pair.lj(r_cut=rCut)
+        self.setPair(lj)
+        
+        # Specify the groups
+        self.setupGroups(data)
+        
+        # Add any walls
+        self.setupWalls(walls, system, wallAtomType, rCut)
+
+        if rigidBody:
+            hoomdblue.globals.neighbor_list.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
+        else:
+            hoomdblue.globals.neighbor_list.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
+    
+
 
 
 class HoomdOptimiser(FFIELD):
@@ -884,22 +983,20 @@ class HoomdOptimiser(FFIELD):
 
 
 if __name__ == "__main__":
-
-    # xmlFilename = sys.argv[1]
-    # xyzFilename = xmlFilename +".xyz"
-    # xml2xyz( xmlFilename, xyzFilename )
     from paths import PARAMS_DIR
-    opt = HoomdOptimiser(PARAMS_DIR)
     mycell = util.cellFromPickle(sys.argv[1])
     rigidBody = False
     data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)
-    ok = opt.optimiseGeometry(data,
-                            xmlFilename="opt.xml",
-                            rigidBody=rigidBody,
-                            doDihedral=True,
-                            doImproper=False,
-                            doCharges=True
-                            )
-
-    # optimiser.optimiseGeometry( xmlFilename=xmlFilename, doDihedral=False )
+    
+    opt = Hoomd2(PARAMS_DIR)
+    hoomd.context.initialize()
+    snap = opt.create_snapshot(data, rigidBody)
+    opt.setup_simulation(snap)
+#     ok = opt.optimiseGeometry(data,
+#                             xmlFilename="opt.xml",
+#                             rigidBody=rigidBody,
+#                             doDihedral=True,
+#                             doImproper=False,
+#                             doCharges=True
+#                             )
 
