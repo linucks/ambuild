@@ -448,7 +448,8 @@ ELEMENT_TYPE_BOND_LENGTHS['C'] = { 'C' : 1.53,
                                   'SE': 1.95,
                                   'SI': 1.87,
 				  'NI': 2.75,
-                                  'SN': 2.14 }
+                                  'SN': 2.14,
+                                  'Cu': 1.98 }
 
 ELEMENT_TYPE_BOND_LENGTHS['CL'] = { 'CL' : 1.99,
                                    'F'  : 1.63,
@@ -515,6 +516,9 @@ ELEMENT_TYPE_BOND_LENGTHS['SE'] = { 'SE' : 2.33 }
 
 ELEMENT_TYPE_BOND_LENGTHS['SI'] = { 'SI' : 2.33 }
 ELEMENT_TYPE_BOND_LENGTHS['LI'] = { 'LI' : 2.67 }
+
+ELEMENT_TYPE_BOND_LENGTHS['Cu'] = { 'C' : 1.98 }
+
 
 class BondLength(object):
     """Class to hold calculate bond lengths.
@@ -634,7 +638,7 @@ def calcBonds(coords, symbols, dim=None, maxAtomRadius=None, bondMargin=0.2, box
     for i, (idxAtom1, idxAtom2) in enumerate(close):
         bond_length = bondLength(symbols[idxAtom1], symbols[idxAtom2])
         if bond_length < 0: continue
-        #logger.info("Dist:length {1}({0})-{3}({2}) {4} {5}".format( symbols[idxAtom1], idxAtom1, symbols[idxAtom2], idxAtom2, distances[i], bond_length ))
+        logger.debug("Dist:length {1}({0})-{3}({2}) {4} {5}".format( symbols[idxAtom1], idxAtom1, symbols[idxAtom2], idxAtom2, distances[i], bond_length ))
         if  bond_length - bondMargin < distances[i] < bond_length + bondMargin:
             bonds.append((idxAtom1, idxAtom2))
     return bonds

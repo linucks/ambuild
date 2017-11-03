@@ -725,6 +725,7 @@ class Fragment(object):
             dim = numpy.array([self._cellParameters['A'], self._cellParameters['B'], self._cellParameters['C']])
 
         # Specify internal bonds - bond margin probably too big...
+        logger.debug("Calculating bonds for fragmentType: {0}".format(self.fragmentType))
         self._bonds = util.calcBonds(self._coords,
                                      atomTypes,
                                      dim=dim,
