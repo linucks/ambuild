@@ -60,7 +60,7 @@ class Hoomd2(object):
 #                     missingImpropers.append(improper)
 
         missingPairs = []
-        for atype, btype in itertools.combinations(self.particle_types, 2):
+        for atype, btype in itertools.combinations_with_replacement(self.particle_types, 2):
             if not self.ffield.hasPair(atype, btype):
                 ok = False
                 missingPairs.append((atype, btype))
@@ -137,13 +137,15 @@ class Hoomd2(object):
             # particle attributes:  acceleration, angmom, body, charge, diameter, image, is_accel_set, mass, 
             # moment_inertia, orientation, position, typeid, types, velocity
             for i in range(nparticles):
-                snap.particles.body[i] = data.bodies[i]
+                #snap.particles.body[i] = data.bodies[i]
                 snap.particles.charge[i] = data.charges[i]
                 snap.particles.diameter[i] = data.diameters[i]
                 snap.particles.image[i] = data.images[i]
                 snap.particles.mass[i] = data.masses[i]
                 snap.particles.position[i] = data.coords[i]
                 snap.particles.typeid[i] = self.particle_types.index(data.atomTypes[i])
+        else:
+            assert False
         return snap
     
     def setBonds(self):
@@ -176,7 +178,7 @@ class Hoomd2(object):
     def setPairs(self, rCut, rigidBody):
         nl = hoomd.md.nlist.cell()
         lj = hoomd.md.pair.lj(r_cut=rCut, nlist=nl)
-        for atype, btype in itertools.combinations(self.particle_types, 2):
+        for atype, btype in itertools.combinations_with_replacement(self.particle_types, 2):
 #             # dummy atoms treated specially
 #             #if atype.lower() in ['x','hn'] or btype.lower() in ['x','hn']:
 #             if self.masked[i] or self.masked[j]:
@@ -211,6 +213,8 @@ class Hoomd2(object):
 
     def setupSimulation(self, data, snap, rCut, rigidBody):
 
+
+        if rigidBody: assert False
         # Check we have all the parameters for this snapshot
         self.checkParameters()
         
@@ -234,6 +238,111 @@ class Hoomd2(object):
         # Add any walls
         #self.setupWalls(walls, system, wallAtomType, rCut)
         return
+
+    def runMD(self,
+              data,
+              doDihedral=False,
+              doImproper=False,
+              doCharges=True,
+              rigidBody=False,
+              rCut=None,
+              quiet=None,
+              walls=None,
+              wallAtomType=None,
+              **kw):
+
+        if rCut is not None: self.rCut = rCut
+
+        if doDihedral and doImproper:
+            raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
+        
+        hoomd.context.initialize()
+        snap = self.createSnapshot(data, rigidBody)
+        rCut = 5.0
+        self.setupSimulation(data, snap, rCut, rigidBody)        
+
+#         self.system = self.setupSystem(data,
+#                                        xmlFilename=xmlFilename,
+#                                        rigidBody=rigidBody,
+#                                        doDihedral=doDihedral,
+#                                        doImproper=doImproper,
+#                                        rCut=self.rCut,
+#                                        quiet=quiet,
+#                                        walls=walls,
+#                                        wallAtomType=wallAtomType,
+#                                        )
+
+#         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
+#         hlog = hoomdblue.analyze.log(filename='runmd.tsv',
+#                                      quantities=[
+#                                                  'num_particles',
+#                                                  'pair_lj_energy',
+#                                                  'potential_energy',
+#                                                  'kinetic_energy',
+#                                                  ],
+#                                      period=100,
+#                                      header_prefix='#',
+#                                      overwrite=True
+#                                      )
+
+        self._runMD(rigidBody=rigidBody, **kw)
+
+        # Extract the energy
+        if 'd' in kw and kw['d'] is not None:
+            for i in ['potential_energy' ]:
+                kw['d'][ i ] = self.toStandardUnits(hlog.query(i))
+        return True
+
+    def _runMD(self,
+               mdCycles=100000,
+               rigidBody=True,
+               integrator='nvt',
+               T=1.0,
+               tau=0.5,
+               P=1,
+               tauP=0.5,
+               dt=0.0005,
+               dump=False,
+               dumpPeriod=100,
+               **kw):
+
+        # Added **kw arguments so that we don't get confused by arguments intended for the optimise
+        # when MD and optimiser run together
+        integrator_mode = hoomd.md.integrate.mode_standard(dt=dt)
+
+        if integrator == 'nvt':
+            if rigidBody:
+                # nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
+                integ = hoomd.md.integrate.nvt_rigid(group=self.groupActive, kT=T, tau=tau)
+            else:
+                integ = hoomd.md.integrate.nvt(group=self.groupActive, kT=T, tau=tau)
+        elif integrator == 'npt':
+            if rigidBody:
+                integ = hoomd.md.integrate.npt_rigid(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
+            else:
+                integ = hoomd.md.integrate.npt(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
+        else:
+            raise RuntimeError("Unrecognised integrator: {0}".format(integrator))
+
+        if dump:
+            xmld = hoomdblue.dump.xml(filename="runmd.xml", vis=True)
+            dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
+                                      period=dumpPeriod,
+                                      unwrap_full=True,
+                                      overwrite=True)
+        # run mdCycles time steps
+        hoomd.run(mdCycles)
+
+        integ.disable()
+        if dump:
+            #xmld.disable()
+            dcdd.disable()
+            del xmld
+            del dcdd
+        del integ
+        del integrator_mode
+        return
+
 
 class HoomdOptimiser(FFIELD):
 
@@ -397,57 +506,7 @@ class HoomdOptimiser(FFIELD):
         # self.writeCar( system=self.system, filename=carOut, unwrap=True )
         return optimised
 
-    def runMD(self,
-              data,
-              xmlFilename="hoomdMD.xml",
-              doDihedral=False,
-              doImproper=False,
-              doCharges=True,
-              rigidBody=True,
-              rCut=None,
-              quiet=None,
-              walls=None,
-              wallAtomType=None,
-              **kw):
 
-        if rCut is not None:
-            self.rCut = rCut
-
-        if doDihedral and doImproper:
-            raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
-
-        self.system = self.setupSystem(data,
-                                       xmlFilename=xmlFilename,
-                                       rigidBody=rigidBody,
-                                       doDihedral=doDihedral,
-                                       doImproper=doImproper,
-                                       rCut=self.rCut,
-                                       quiet=quiet,
-                                       walls=walls,
-                                       wallAtomType=wallAtomType,
-                                       )
-
-        # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        hlog = hoomdblue.analyze.log(filename='runmd.tsv',
-                                     quantities=[
-                                                 'num_particles',
-                                                 'pair_lj_energy',
-                                                 'potential_energy',
-                                                 'kinetic_energy',
-                                                 ],
-                                     period=100,
-                                     header_prefix='#',
-                                     overwrite=True
-                                     )
-
-        self._runMD(rigidBody=rigidBody, **kw)
-
-        # Extract the energy
-        if 'd' in kw and kw['d'] is not None:
-            for i in ['potential_energy' ]:
-                kw['d'][ i ] = self.toStandardUnits(hlog.query(i))
-
-        return True
 
     def runMDAndOptimise(self,
                          data,
@@ -509,61 +568,6 @@ class HoomdOptimiser(FFIELD):
                 kw['d'][ i ] = self.toStandardUnits(self.hlog.query(i))
 
         return optimised
-
-    def _runMD(self, mdCycles=100000,
-               rigidBody=True,
-               integrator='nvt',
-               T=1.0,
-               tau=0.5,
-               P=1,
-               tauP=0.5,
-               dt=0.0005,
-               dump=False,
-               dumpPeriod=100, **kw):
-
-        # Added **kw arguments so that we don't get confused by arguments intended for the optimise
-        # when MD and optimiser run together
-        # T= 0.1
-
-        # Convert T
-        # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
-        # Incoming T is in Kelvin so we multiply by kB
-        T = self.fromStandardUnits(T)
-        integrator_mode = hoomdblue.integrate.mode_standard(dt=dt)
-
-        if integrator == 'nvt':
-            if rigidBody:
-                # nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
-                integ = hoomdblue.integrate.nvt_rigid(group=self.groupActive, T=T, tau=tau)
-            else:
-                integ = hoomdblue.integrate.nvt(group=self.groupActive, T=T, tau=tau)
-        elif integrator == 'npt':
-            if rigidBody:
-                integ = hoomdblue.integrate.npt_rigid(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
-            else:
-                integ = hoomdblue.integrate.npt(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
-        else:
-            raise RuntimeError("Unrecognised integrator: {0}".format(integrator))
-
-        if dump:
-            xmld = hoomdblue.dump.xml(filename="runmd.xml", vis=True)
-            dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
-                                      period=dumpPeriod,
-                                      unwrap_full=True,
-                                      overwrite=True)
-
-        # run mdCycles time steps
-        hoomdblue.run(mdCycles)
-
-        integ.disable()
-        if dump:
-            #xmld.disable()
-            dcdd.disable()
-            del xmld
-            del dcdd
-        del integ
-        del integrator_mode
-        return
 
     def setupSystem(self,
                     data,
@@ -904,10 +908,11 @@ if __name__ == "__main__":
     data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)
     
     opt = Hoomd2(PARAMS_DIR)
-    hoomd.context.initialize()
-    snap = opt.createSnapshot(data, rigidBody)
-    rCut = 5.0
-    opt.setupSimulation(data, snap, rCut, rigidBody)
+    #hoomd.context.initialize()
+    #snap = opt.createSnapshot(data, rigidBody)
+    #rCut = 5.0
+    #opt.setupSimulation(data, snap, rCut, rigidBody)
+    opt.runMD(data, rigidBody=rigidBody, rCut=5.0, mdCycles=1000)
 #     ok = opt.optimiseGeometry(data,
 #                             xmlFilename="opt.xml",
 #                             rigidBody=rigidBody,
