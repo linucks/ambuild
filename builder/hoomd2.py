@@ -2,6 +2,7 @@
 # source activate hoomd2
 
 import itertools
+import logging
 import os
 import sys
 
@@ -14,9 +15,21 @@ import hoomd.md
 from opt import FFIELD, FfieldParameters
 import util
 
+logger = logging.getLogger(__name__)
+
 class Hoomd2(object):
+    """
+    TODO in 2
+    * fix masked atoms
+    
+    TODO in 1
+    * change checkParameters to use self.particle_types etc
+    * change setBonds etc to match hoomd2 so creation of oboject in routine
+    
+    """
     def __init__(self, paramsDir):
         self.ffield = FfieldParameters(paramsDir)
+        self.debug = True
 
     def checkParameters(self, skipDihedrals=False):
 
@@ -69,7 +82,7 @@ class Hoomd2(object):
             raise RuntimeError(msg)
         return
 
-    def create_snapshot(self, data, rigidBody=False):
+    def createSnapshot(self, data, rigidBody=False):
         """Create a populated snapshot with all the particles.
         
         Rigid body will require creating the central particles so we'll do this later
@@ -79,6 +92,9 @@ class Hoomd2(object):
             # Create snapshot
             nparticles = len(data.coords)
             assert nparticles > 0,"Simulation needs some particles!"
+            # NEED TO THINK ABOUT WHAT TO DO ABOUT MASKED ATOMS - set particle_types?
+            #self.masked = data.masked
+
             self.particle_types = list(set(data.atomTypes))
     
             # now bond etc attributes
@@ -97,21 +113,21 @@ class Hoomd2(object):
                                             )
             
             # Add Bonds
-            if len(data.bonds):
+            if len(self.bond_types):
                 snap.bonds.resize(len(data.bonds))
                 for i, b in enumerate(data.bonds):
                     snap.bonds.group[i] = [b[0], b[1]]
                     snap.bonds.typeid[i] = self.bond_types.index(data.bondLabels[i])
                     
             # Add Angles
-            if len(data.angles):
+            if len(self.angle_types):
                 snap.angles.resize(len(data.angles))
                 for i, a in enumerate(data.angles):
                     snap.angles.group[i] = [a[0], a[1], a[2]]
                     snap.angles.typeid[i] = self.angle_types.index(data.angleLabels[i])
     
             # Add Dihedrals
-            if len(data.propers):
+            if len(self.dihedral_types):
                 snap.dihedrals.resize(len(data.propers))
                 for i, d in enumerate(data.propers):
                     snap.dihedrals.group[i] = [d[0], d[1], d[2], d[3]]
@@ -129,72 +145,101 @@ class Hoomd2(object):
                 snap.particles.position[i] = data.coords[i]
                 snap.particles.typeid[i] = self.particle_types.index(data.atomTypes[i])
         return snap
-            
     
-    def setup_simulation(self, snap):
-        # Set the masked array
-        self.masked = data.masked
+    def setBonds(self):
+        if not self.bond_types: return
+        bond_harmonic = hoomd.md.bond.harmonic(name="bond_harmonic")
+        for bond in self.bond_types:
+            param = self.ffield.bondParameter(bond)
+            if self.debug: logger.info("DEBUG: bond_harmonic.bond_coeff.set( '{0}',  k={1}, r0={2} )".format(bond, param['k'], param['r0']))
+            bond_harmonic.bond_coeff.set(bond, k=param['k'], r0=param['r0'])
+        return
+
+    def setAngles(self):
+        if not self.angle_types: return
+        angle_harmonic = hoomd.md.angle.harmonic()
+        for angle in self.angle_types:
+            param = self.ffield.angleParameter(angle)
+            if self.debug: logger.info("DEBUG: angle_harmonic.angle_coeff.set( '{0}',  k={1}, t0={2} )".format(angle, param['k'], param['t0']))
+            angle_harmonic.angle_coeff.set(angle, k=param['k'], t0=param['t0'])
+        return
+    
+    def setDihedrals(self):
+        if not self.dihedral_types: return
+        dihedral_harmonic = hoomd.md.dihedral.harmonic()
+        for dihedral in self.dihedral_types:
+            param = self.ffield.dihedralParameter(dihedral)
+            if self.debug:logger.info("DEBUG: dihedral_harmonic.dihedral_coeff.set('{0}',  k={1}, d={2}, n={3})".format(dihedral, param['k'], param['d'], param['n']))
+            dihedral_harmonic.dihedral_coeff.set(dihedral, k=param['k'], d=param['d'], n=param['n'])
+        return
+
+    def setPairs(self, rCut, rigidBody):
+        nl = hoomd.md.nlist.cell()
+        lj = hoomd.md.pair.lj(r_cut=rCut, nlist=nl)
+        for atype, btype in itertools.combinations(self.particle_types, 2):
+#             # dummy atoms treated specially
+#             #if atype.lower() in ['x','hn'] or btype.lower() in ['x','hn']:
+#             if self.masked[i] or self.masked[j]:
+#                 epsilon = 0.0
+#                 sigma = 0.0
+#             else:
+            param = self.ffield.pairParameter(atype, btype)
+            epsilon = param['epsilon']
+            sigma = param['sigma']
+            lj.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
+            if self.debug: logger.info("DEBUG: lj.pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype, btype, epsilon, sigma))
+
+        if rigidBody:
+            nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
+        else:
+            nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
+
+        return
+
+    def setupGroups(self, data):
+        self.groupAll = hoomd.group.all()
+        # All atoms that are part of static fragments
+        if any(data.static):
+            self.groupStatic = hoomd.group.tag_list(name="static",
+                                                      tags=[i for i, s in enumerate(data.static) if s])
+            self.groupActive = hoomd.group.difference(name="active",
+                                                        a=self.groupAll,
+                                                        b=self.groupStatic)
+        else:
+            self.groupActive = self.groupAll
+        return
+
+    def setupSimulation(self, data, snap, rCut, rigidBody):
 
         # Check we have all the parameters for this snapshot
         self.checkParameters()
         
-        sys.exit()
-        
-        # Init the sytem from the file
-        system = hoomdblue.init.read_xml(filename=xmlFilename)
+        # Init the sytem from the snapshot
+        system = hoomd.init.read_snapshot(snap)
 
-        # Below disables pretty much all output
-        if quiet:
-            logger.info("Disabling HOOMD-Blue output!")
-            hoomdblue.globals.msg.setNoticeLevel(0)
+#         # Below disables pretty much all output
+#         if quiet:
+#             logger.info("Disabling HOOMD-Blue output!")
+#             hoomdblue.globals.msg.setNoticeLevel(0)
 
         # Set the parameters
-        harmonic = None
-        if len(self.bonds):
-            harmonic = hoomdblue.bond.harmonic()
-            self.setBond(harmonic)
-
-        aharmonic = None
-        if len(self.angles):
-            aharmonic = hoomdblue.angle.harmonic()
-            self.setAngle(aharmonic)
-
-        dharmonic = improper = None
-        if doDihedral and len(self.dihedrals):
-                dharmonic = hoomdblue.dihedral.harmonic()
-                self.setDihedral(dharmonic)
-        elif doImproper and len(self.dihedrals):
-            improper = hoomdblue.improper.harmonic()
-            self.setImproper(improper)
-
-        lj = hoomdblue.pair.lj(r_cut=rCut)
-        self.setPair(lj)
+        self.setBonds()
+        self.setAngles()
+        self.setDihedrals()
+        self.setPairs(rCut, rigidBody)
         
         # Specify the groups
         self.setupGroups(data)
         
         # Add any walls
-        self.setupWalls(walls, system, wallAtomType, rCut)
-
-        if rigidBody:
-            hoomdblue.globals.neighbor_list.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
-        else:
-            hoomdblue.globals.neighbor_list.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
-    
-
-
+        #self.setupWalls(walls, system, wallAtomType, rCut)
+        return
 
 class HoomdOptimiser(FFIELD):
 
     def __init__(self, paramsDir):
 
         self.ffield = FfieldParameters(paramsDir)
-        self.system = None
-        self.bonds = None
-        self.angles = None
-        self.dihedrals = None
-        self.impropers = None
-        self.atomTypes = None
         self.masked = None
         self.rCut = 5.0
         
@@ -518,136 +563,6 @@ class HoomdOptimiser(FFIELD):
             del dcdd
         del integ
         del integrator_mode
-        return
-
-    def setAngle(self, anglePotential):
-        for angle in self.angles:
-            param = self.ffield.angleParameter(angle)
-            if self.debug:
-                logger.info("DEBUG: angle set_coeff( '{0}',  k={1}, t0={2} )".format(angle, param['k'], param['t0']))
-            anglePotential.set_coeff(angle, k=param['k'], t0=param['t0'])
-        return
-
-    def setBond(self, bondPotential):
-        for bond in self.bonds:
-            param = self.ffield.bondParameter(bond)
-            if self.debug:
-                logger.info("DEBUG: bond_coeff.set( '{0}',  k={1}, r0={2} )".format(bond, param['k'], param['r0']))
-            bondPotential.bond_coeff.set(bond, k=param['k'], r0=param['r0'])
-        return
-
-    def setDihedral(self, dihedralPotential):
-        for dihedral in self.dihedrals:
-            param = self.ffield.dihedralParameter(dihedral)
-            if self.debug:
-                logger.info("DEBUG: dihedral set_coeff.('{0}',  k={1}, d={2}, n={3})".format(dihedral, param['k'], param['d'], param['n']))
-            dihedralPotential.set_coeff(dihedral, k=param['k'], d=param['d'], n=param['n'])
-        return
-
-    def setImproper(self, improperPotential):
-        for improper in self.impropers:
-            param = self.ffield.improperParameter(improper)
-            improperPotential.set_coeff(improper, k=param['k'], chi=param['chi'])
-        return
-
-    def setPair(self, pairPotential):
-        for i, atype in enumerate(self.atomTypes):
-            for j, btype in enumerate(self.atomTypes):
-                if j >= i:
-                    # dummy atoms treated specially
-                    #if atype.lower() in ['x','hn'] or btype.lower() in ['x','hn']:
-                    if self.masked[i] or self.masked[j]:
-                        epsilon = 0.0
-                        sigma = 0.0
-                    else:
-                        param = self.ffield.pairParameter(atype, btype)
-                        epsilon = param['epsilon']
-                        sigma = param['sigma']
-                        
-                    pairPotential.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
-                    if self.debug:
-                        logger.info("DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype,
-                                                                                                           btype,
-                                                                                                           epsilon,
-                                                                                                           sigma))
-        return
-
-    def setAttributesFromFile(self, xmlFilename):
-        """Parse the xml file to extract the bonds, angles etc."""
-
-        tree = ET.parse(xmlFilename)
-        root = tree.getroot()
-
-        bonds = []
-        x = root.findall(".//bond")
-        if len(x):
-            btext = x[0].text
-            for line in btext.split(os.linesep):
-                line = line.strip()
-                if line:
-                    bond = line.split()[0]
-                    if bond not in bonds:
-                        bonds.append(bond)
-        self.bonds = bonds
-
-        angles = []
-        x = root.findall(".//angle")
-        if len(x):
-            atext = x[0].text
-            for line in atext.split(os.linesep):
-                line = line.strip()
-                if line:
-                    angle = line.split()[0]
-                    if angle not in angles:
-                        angles.append(angle)
-        self.angles = angles
-
-        dihedrals = []
-        dn = root.findall(".//dihedral")
-        if len(dn):
-            dtext = dn[0].text
-            for line in dtext.split(os.linesep):
-                line = line.strip()
-                if line:
-                    dihedral = line.split()[0]
-                    if dihedral not in dihedrals:
-                        dihedrals.append(dihedral)
-        self.dihedrals = dihedrals
-
-        impropers = []
-        dn = root.findall(".//improper")
-        if len(dn):
-            dtext = dn[0].text
-            for line in dtext.split(os.linesep):
-                line = line.strip()
-                if line:
-                    improper = line.split()[0]
-                    if improper not in impropers:
-                        impropers.append(improper)
-        self.impropers = impropers
-
-        atomTypes = []
-        atext = root.findall(".//type")[0].text
-        for line in atext.split(os.linesep):
-            atomType = line.strip()
-            if atomType and atomType not in atomTypes:
-                atomTypes.append(atomType)
-
-        self.atomTypes = atomTypes
-
-        return
-    
-    def setupGroups(self, data):
-        self.groupAll = hoomdblue.group.all()
-        # All atoms that are part of static fragments
-        if any(data.static):
-            self.groupStatic = hoomdblue.group.tag_list(name="static",
-                                                      tags=[i for i, s in enumerate(data.static) if s])
-            self.groupActive = hoomdblue.group.difference(name="active",
-                                                        a=self.groupAll,
-                                                        b=self.groupStatic)
-        else:
-            self.groupActive = self.groupAll
         return
 
     def setupSystem(self,
@@ -990,8 +905,9 @@ if __name__ == "__main__":
     
     opt = Hoomd2(PARAMS_DIR)
     hoomd.context.initialize()
-    snap = opt.create_snapshot(data, rigidBody)
-    opt.setup_simulation(snap)
+    snap = opt.createSnapshot(data, rigidBody)
+    rCut = 5.0
+    opt.setupSimulation(data, snap, rCut, rigidBody)
 #     ok = opt.optimiseGeometry(data,
 #                             xmlFilename="opt.xml",
 #                             rigidBody=rigidBody,
