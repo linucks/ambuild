@@ -272,18 +272,17 @@ class Hoomd2(object):
 #                                        wallAtomType=wallAtomType,
 #                                        )
 
-#         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-#         hlog = hoomdblue.analyze.log(filename='runmd.tsv',
-#                                      quantities=[
-#                                                  'num_particles',
-#                                                  'pair_lj_energy',
-#                                                  'potential_energy',
-#                                                  'kinetic_energy',
-#                                                  ],
-#                                      period=100,
-#                                      header_prefix='#',
-#                                      overwrite=True
-#                                      )
+        # Logger - we don't write anything but query the final value - hence period 0 and overwrite
+        hlog = hoomd.analyze.log(filename='runmd.tsv',
+                                     quantities=[ 'num_particles',
+                                                 'pair_lj_energy',
+                                                 'potential_energy',
+                                                 'kinetic_energy',
+                                                 ],
+                                     period=100,
+                                     header_prefix='#',
+                                     overwrite=True
+                                     )
 
         self._runMD(rigidBody=rigidBody, **kw)
 
@@ -309,7 +308,6 @@ class Hoomd2(object):
         # Added **kw arguments so that we don't get confused by arguments intended for the optimise
         # when MD and optimiser run together
         integrator_mode = hoomd.md.integrate.mode_standard(dt=dt)
-
         if integrator == 'nvt':
             if rigidBody:
                 # nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
@@ -325,10 +323,9 @@ class Hoomd2(object):
             raise RuntimeError("Unrecognised integrator: {0}".format(integrator))
 
         if dump:
-            xmld = hoomdblue.dump.xml(filename="runmd.xml", vis=True)
-            dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
+            dgsd = hoomd.dump.gsd(filename="runmd.gsd",
                                       period=dumpPeriod,
-                                      unwrap_full=True,
+                                      group=self.groupAll,
                                       overwrite=True)
         # run mdCycles time steps
         hoomd.run(mdCycles)
@@ -336,9 +333,8 @@ class Hoomd2(object):
         integ.disable()
         if dump:
             #xmld.disable()
-            dcdd.disable()
-            del xmld
-            del dcdd
+            dgsd.disable()
+            del dgsd
         del integ
         del integrator_mode
         return
@@ -912,7 +908,7 @@ if __name__ == "__main__":
     #snap = opt.createSnapshot(data, rigidBody)
     #rCut = 5.0
     #opt.setupSimulation(data, snap, rCut, rigidBody)
-    opt.runMD(data, rigidBody=rigidBody, rCut=5.0, mdCycles=1000)
+    opt.runMD(data, rigidBody=rigidBody, rCut=5.0, mdCycles=10000, dump=True)
 #     ok = opt.optimiseGeometry(data,
 #                             xmlFilename="opt.xml",
 #                             rigidBody=rigidBody,
