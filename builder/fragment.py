@@ -200,6 +200,7 @@ class Fragment(object):
         # When we copy a fragment the new fragment gets references to the variables
         # that were created for the first fragment (see copy)
         sharedAttrs = {
+            '_atomTypes'       : [],
             '_bodies'          : [],  # a list of which body within this fragment each atom belongs to
             '_bonds'           : [],  # List of internal fragment bonds
             '_bonded'          : [],  # List of which atoms are bonded to which
@@ -218,7 +219,6 @@ class Fragment(object):
             'static'           : static,
             '_symbols'         : [],  # ordered array of symbols (in upper case)
             '_totalMass'       :-1,
-            '_atomTypes'            : [],
             '_individualAttrs' : None,
             '_sharedAttrs'     : None,
             }

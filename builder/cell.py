@@ -3,6 +3,8 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 '''
+from hoomd.group import rigid_center
+import hoomd
 VERSION = "a842475a64c9"
 
 import collections
@@ -28,6 +30,8 @@ import util
 
 BONDTYPESEP = "-"  # Character for separating bonds
 ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
+
+HOOMDVERSION = 2 # HACK FOR NOW
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +155,15 @@ class CellData(object):
 
         # for computing block/fragment enegies
         self.tagIndices = []
+        
+        # Central particles for hoomd-blue rigid bodies
+        self.rigid_body = []
+        self.rigid_image = []
+        self.rigid_mass = []
+        self.rigid_centre = []
+        self.rigid_type = []
+        self.rigid_orientation = []
+        self.rigid_fragments = {} # key fragmentType -> {'atomTypes': list, 'coords' : list}
         return
 
 class Cell():
@@ -1202,10 +1215,13 @@ class Cell():
 
         # Object to hold the cell data
         d = CellData()
-
         d.cell = self.dim
 
+        # Track which fragmentTypes we've seen (for rigidBody/HOOMD >1)
+        fragmentTypes = set()
+
         if fragmentType is not None:
+            if rigidBody and HOOMDVERSION > 1: assert False,"Need to update for HOOMD2"
             # Only returning data for one type of fragment
             assert fragmentType in self.fragmentTypes(), "FragmentType {0} not in cell!".format(fragmentType)
             atomCount = 0
@@ -1300,14 +1316,30 @@ class Cell():
 
             # Now loop through fragments and coordinates
             # for i, coord in enumerate(block.iterCoord() ):
-            if hasattr(block, '_fragments'):
-                fragments = block._fragments
-            else:
-                fragments = block.fragments
+            fragments = block._fragments if hasattr(block, '_fragments') else block.fragments
             for idxFrag, frag in enumerate(fragments):  # need index of fragment in block
 
                 # Body count always increments with fragment although it may go up within a fragment too
                 bodyCount += 1
+                
+                fragmentTypes.update(frag.fragmentType)
+                
+                # Hoomd2 rigid bodies
+                d.rigid_body.append(bodyCount)
+                rigid_center = frag.centroid() #OR frag.centerOfMass() ?
+                if periodic:
+                    x, ix = util.wrapCoord(rigid_center[0], self.dim[0], center=center)
+                    y, iy = util.wrapCoord(rigid_center[1], self.dim[1], center=center)
+                    z, iz = util.wrapCoord(rigid_center[2], self.dim[2], center=center)
+                    d.rigid_image.append(numpy.array([ix, iy, iz]))
+                    d.rigid_centre.append(numpy.array([x, y, z]))
+                else:
+                    d.rigid_image.append([0, 0, 0])
+                    d.rigid_centre.append(rigid_center)
+                d.rigid_mass.append(frag.totalMass())
+                d.rigid_type.append(frag.fragmentType)
+                logger.critical("HACK ORIENTATIONS")
+                d.rigid_orientation.append([1,0,0,0]) # HACK
 
                 lastBody = frag.body(0)
                 for i, coord in enumerate(frag.iterCoord()):
@@ -1330,6 +1362,7 @@ class Cell():
                     # Work out which body this is in
                     b = frag.body(i)
                     if b != lastBody:
+                        if HOOMDVERSION > 1: assert False,"Cannot currently deal with fragments containing multiple bodies - FOR HOOMD 2.X"
                         bodyCount += 1
                         lastBody = b
                     d.bodies.append(bodyCount)
@@ -1354,7 +1387,13 @@ class Cell():
             # END loop through fragments
 
             # End block loop
-
+        
+        if rigidBody and HOOMDVERSION > 1:
+            for ftype in fragmentTypes:
+                d.rigid_fragments[ftype] = {}
+                lib_frag = self._fragmentLibrary[ftype]
+                d.rigid_fragments[ftype]['atomTypes'] = lib_frag._atomTypes
+                d.rigid_fragments[ftype]['coords'] = lib_frag._coords
         return d
 
     def delBlock(self, blockId):
