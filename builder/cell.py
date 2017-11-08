@@ -5,6 +5,7 @@ Created on Jan 15, 2013
 '''
 from hoomd.group import rigid_center
 import hoomd
+from util import DUMMY_DIAMETER
 VERSION = "a842475a64c9"
 
 import collections
@@ -1315,85 +1316,54 @@ class Cell():
                         d.properLabels.append(dlabel)
 
             # Now loop through fragments and coordinates
-            # for i, coord in enumerate(block.iterCoord() ):
             fragments = block._fragments if hasattr(block, '_fragments') else block.fragments
             for idxFrag, frag in enumerate(fragments):  # need index of fragment in block
-
-                # Body count always increments with fragment although it may go up within a fragment too
-                bodyCount += 1
-                
                 fragmentTypes.update(frag.fragmentType)
-                
-                # Hoomd2 rigid bodies
-                d.rigid_body.append(bodyCount)
-                rigid_center = frag.centroid() #OR frag.centerOfMass() ?
-                if periodic:
-                    x, ix = util.wrapCoord(rigid_center[0], self.dim[0], center=center)
-                    y, iy = util.wrapCoord(rigid_center[1], self.dim[1], center=center)
-                    z, iz = util.wrapCoord(rigid_center[2], self.dim[2], center=center)
-                    d.rigid_image.append(numpy.array([ix, iy, iz]))
-                    d.rigid_centre.append(numpy.array([x, y, z]))
-                else:
-                    d.rigid_image.append([0, 0, 0])
-                    d.rigid_centre.append(rigid_center)
-                d.rigid_mass.append(frag.totalMass())
-                d.rigid_type.append(frag.fragmentType)
-                logger.critical("HACK ORIENTATIONS")
-                d.rigid_orientation.append([1,0,0,0]) # HACK
-
-                lastBody = frag.body(0)
-                for i, coord in enumerate(frag.iterCoord()):
-                    if periodic:
-                        x, ix = util.wrapCoord(coord[0], self.dim[0], center=center)
-                        y, iy = util.wrapCoord(coord[1], self.dim[1], center=center)
-                        z, iz = util.wrapCoord(coord[2], self.dim[2], center=center)
-                        d.coords.append(numpy.array([x, y, z]))
-                        d.images.append([ix, iy, iz])
-                    else:
-                        d.coords.append(coord)
-                        d.images.append([0, 0, 0])
-
-                    d.atomTypes.append(frag.type(i))
-                    d.charges.append(frag.charge(i))
-                    d.diameters.append(0.1)
-                    d.masses.append(frag.mass(i))
-                    d.symbols.append(frag.symbol(i))
-
-                    # Work out which body this is in
-                    b = frag.body(i)
-                    if b != lastBody:
-                        if HOOMDVERSION > 1: assert False,"Cannot currently deal with fragments containing multiple bodies - FOR HOOMD 2.X"
-                        bodyCount += 1
-                        lastBody = b
-                    d.bodies.append(bodyCount)
-                    
-                    if hasattr(frag, 'static') and frag.static:
-                        d.static.append(True)
-                    else:
-                        d.static.append(False)
-                    
-                    # masked atoms
-                    if (hasattr(frag, 'unBonded') and frag.unBonded[i]) or frag.type(i).lower() == 'x':
-                        d.masked.append(True)
-                    else:
-                        d.masked.append(False)
-
-                    # Increment global atom count
-                    atomCount += 1
+#                 # Hoomd2 rigid bodies
+#                 d.rigid_body.append(bodyCount)
+#                 rigid_center = frag.centroid() #OR frag.centerOfMass() ?
+#                 if periodic:
+#                     x, ix = util.wrapCoord(rigid_center[0], self.dim[0], center=center)
+#                     y, iy = util.wrapCoord(rigid_center[1], self.dim[1], center=center)
+#                     z, iz = util.wrapCoord(rigid_center[2], self.dim[2], center=center)
+#                     d.rigid_image.append(numpy.array([ix, iy, iz]))
+#                     d.rigid_centre.append(numpy.array([x, y, z]))
+#                 else:
+#                     d.rigid_image.append([0, 0, 0])
+#                     d.rigid_centre.append(rigid_center)
+#                 d.rigid_mass.append(frag.totalMass())
+#                 d.rigid_type.append(frag.fragmentType)
+#                 logger.critical("HACK ORIENTATIONS")
+#                 d.rigid_orientation.append([1,0,0,0]) # HACK
+                for body in frag.bodies():
+                    # Body count always increments with fragment although it may go up within a fragment too
+                    bodyCount += 1
+                    images, coords = body.cords_images(self.dim, center=center)
+                    d.coords += coords
+                    d.image += images
+                    d.atomTypes += body.atomTypes()
+                    d.bodies += body.bodies()
+                    d.charges += body.charges()
+                    d.diameters += body.diameters()
+                    d.masked += body.masked()
+                    d.masses += body.masses()
+                    d.static += body.static()
+                    d.symbols += body.symbols()
+                    if rigidBody:
+                        d.rigid_centre.append(body.center())
+                        d.rigid_image.append(XXX)
+                        d.rigid_mass.append(body.mass())
+                    bodyCount += 1
+                    atomCount += len(coords)
 
                 # Work out which fragment this is in
                 d.tagIndices.append((idxBlock, idxFrag, atomCount - i - 1, atomCount))
-
-            # END loop through fragments
-
-            # End block loop
-        
         if rigidBody and HOOMDVERSION > 1:
             for ftype in fragmentTypes:
                 d.rigid_fragments[ftype] = {}
                 lib_frag = self._fragmentLibrary[ftype]
-                d.rigid_fragments[ftype]['atomTypes'] = lib_frag._atomTypes
-                d.rigid_fragments[ftype]['coords'] = lib_frag._coords
+                d.rigid_fragments[ftype]['atomTypes'] = [ a for a in lib_frag.iterAtomTypes() ]
+                d.rigid_fragments[ftype]['coords'] = [ c for c in lib_frag.iterCoord() ]
         return d
 
     def delBlock(self, blockId):

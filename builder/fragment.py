@@ -19,9 +19,76 @@ from paths import BLOCKS_DIR
 import util
 
 ENDGROUPBONDED = '*'
-
 logger = logging.getLogger()
 
+class Body(object):
+    """Proxy object for the body within a fragment"""
+    def __init__(self, fragment, bodyIndex):
+        self.fragmgent = fragment
+        self.bodyIndex = bodyIndex
+        return
+    
+    def coords_images(self, dim=None, center=True):
+        coords = []
+        images = []
+        for i in range(len(self.fragment._ext2int)):
+            if self.fragment.body(i) != self.bodyIndex: continue
+            c = self.fragment.coord(i)
+            image = [0,0,0]
+            if dim is not None:
+                ix, x = util.wrapCoord(c[0], dim=dim[0], center=center)
+                iy, y = util.wrapCoord(c[1], dim=dim[1], center=center)
+                iz, z = util.wrapCoord(c[2], dim=dim[2], center=center)
+                c = [x,y,z]
+                image = [ix,iy,iz]
+            coords.append(c)
+            images.append(image)
+        return coords, images
+    
+    def atomTypes(self):
+        return [ self.fragment.type(i) for i in range(len(self.fragment._ext2int)) \
+                if self.fragment.body(i) == self.bodyIndex ]
+        
+    def bodies(self):
+        return [ self.bodyIndex for i in range(len(self.fragment._ext2int)) \
+                if self.fragment.body(i) == self.bodyIndex ]
+        
+    def charges(self):
+        return [ self.fragment.charge(i) for i in range(len(self.fragment._ext2int)) \
+                if self.fragment.body(i) == self.bodyIndex ]
+        
+    def diameters(self):
+        return [ util.DUMMY_DIAMETER for i in range(len(self.fragment._ext2int)) \
+                if self.fragment.body(i) == self.bodyIndex ]
+
+    def masked(self):
+        mask = []
+        for i in range(len(self.fragment._ext2int)):
+            if self.fragment.body(i) == self.bodyIndex:
+                if (hasattr(self.fragment, 'unBonded') and self.fragment.unBonded[i]) or self.fragment.type(i).lower() == 'x':
+                    mask.append(True)
+                else:
+                    mask.append(False)
+        return mask
+
+    def masses(self):
+        return [ self.fragment.mass(i) for i in range(len(self.fragment._ext2int)) \
+                if self.fragment.body(i) == self.bodyIndex ]
+        
+    def static(self):
+        static = []
+        for i in range(len(self.fragment._ext2int)):
+            if self.fragment.body(i) == self.bodyIndex:
+                if hasattr(self.fragment, 'static') and self.fragment.static:
+                    static.append(True)
+                else:
+                    static.append(False)
+        return static
+        
+    def symbols(self):
+        return [ self.fragment.charge(i) for i in range(len(self.fragment._ext2int)) \
+                if self.fragment.body(i) == self.bodyIndex ]
+    
 class EndGroup(object):
 
     def __init__(self):
@@ -183,7 +250,6 @@ class Fragment(object):
     '''
     classdocs
     '''
-
     def __init__(self,
                  filePath=None,
                  fragmentType=None,
@@ -305,6 +371,9 @@ class Fragment(object):
         self._endGroupBonded[ endGroupType ] -= 1
         return
 
+    def bodies(self):
+        for bodyIdx in set(self._bodies): yield Body(self, bodyIdx)
+    
     def body(self, idxAtom):
         return self._bodies[self._ext2int[idxAtom]]
     
@@ -579,6 +648,12 @@ class Fragment(object):
         
         return
 
+    def iterAtomTypes(self):
+        """Generator to return the atomTypes"""
+        for i in range(len(self._ext2int)):
+            yield self.type(i)
+        return
+    
     def iterCoord(self):
         """Generator to return the coordinates"""
         for i in range(len(self._ext2int)):

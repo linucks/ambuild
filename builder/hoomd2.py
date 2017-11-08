@@ -28,19 +28,14 @@ class Hoomd2(object):
     * change setBonds etc to match hoomd2 so creation of oboject in routine
     
     
-    Add list of particles that define the centre of all rigid bodies
-    need a list of centre particles, their masses and orientations
-    - each fragment will have a central particle - need to make sure that the 
-    - for each fragment that goes into the simulation we then need to determine the orientation of that central particle
-    
-    data.rigid_centre_coord
-    data.rigid_centre_mass
-    data.rigid_centre_orientation
+    Each rigid body in the cell is a type of rigid body - define fragmentType:bodyCount
+    - calc centre for the body -> need coords and atomTypes for each body in a fragment
     
     """
     def __init__(self, paramsDir):
         self.ffield = FfieldParameters(paramsDir)
         self.debug = True
+        self.exclusions = [] # particle tags to be ignored in pair-pair interactions
 
     def checkParameters(self, skipDihedrals=False):
 
@@ -72,6 +67,7 @@ class Hoomd2(object):
 
         missingPairs = []
         for atype, btype in itertools.combinations_with_replacement(self.particle_types, 2):
+            if atype in self.exclusions or btype in self.exclusions: continue
             if not self.ffield.hasPair(atype, btype):
                 ok = False
                 missingPairs.append((atype, btype))
@@ -98,6 +94,9 @@ class Hoomd2(object):
         
         Rigid body will require creating the central particles so we'll do this later
         """
+        
+        # Reset exclusions here for time being
+        self.exclusions = []
         
         # Create snapshot
         # snap attributes: angles, bonds, box, constraints, dihedrals, impropers, pairs, particles
@@ -213,9 +212,13 @@ class Hoomd2(object):
 #                 epsilon = 0.0
 #                 sigma = 0.0
 #             else:
-            param = self.ffield.pairParameter(atype, btype)
-            epsilon = param['epsilon']
-            sigma = param['sigma']
+            if atype in self.exclusions or btype in self.exclusions:
+                epsilon = 0.0
+                sigma = 0.0
+            else:
+                param = self.ffield.pairParameter(atype, btype)
+                epsilon = param['epsilon']
+                sigma = param['sigma']
             lj.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
             if self.debug: logger.info("DEBUG: lj.pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype, btype, epsilon, sigma))
         if rigidBody:
@@ -224,24 +227,29 @@ class Hoomd2(object):
             nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
         return
 
-    def setupGroups(self, data):
+    def setupGroups(self, data, rigidBody):
         self.groupAll = hoomd.group.all()
+        self.groupRigid = hoomd.group.rigid_center()
         # All atoms that are part of static fragments
         if any(data.static):
             self.groupStatic = hoomd.group.tag_list(name="static",
                                                       tags=[i for i, s in enumerate(data.static) if s])
-            self.groupActive = hoomd.group.difference(name="active",
-                                                        a=self.groupAll,
-                                                        b=self.groupStatic)
+            if rigidBody:
+                self.groupActive = hoomd.group.difference(name="active",
+                                                            a=self.groupRigid,
+                                                            b=self.groupStatic)
+            else:
+                self.groupActive = hoomd.group.difference(name="active",
+                                                            a=self.groupAll,
+                                                            b=self.groupStatic)
         else:
-            self.groupActive = self.groupAll
+            if rigidBody:
+                self.groupActive = self.groupRigid
+            else:
+                self.groupActive = self.groupAll
         return
-
+    
     def setupSimulation(self, data, snap, rCut=None, rigidBody=False, walls=None, wallAtomType=None):
-
-
-        # Check we have all the parameters for this snapshot
-        self.checkParameters()
         
         # Init the sytem from the snapshot
         system = hoomd.init.read_snapshot(snap)
@@ -251,16 +259,20 @@ class Hoomd2(object):
 #             logger.info("Disabling HOOMD-Blue output!")
 #             hoomdblue.globals.msg.setNoticeLevel(0)
 
+        # Create any rigid bodies and get list of central particle types to exclude
+        self.setupRigidBody(rigidBody, data)
+        
+        # Check we have all the parameters for this snapshot
+        self.checkParameters()
+        
         # Set the parameters
         self.setBonds()
         self.setAngles()
         self.setDihedrals()
         self.setPairs(rCut, rigidBody)
         
-        self.setupRigidBody(rigidBody, data)
-        
         # Specify the groups
-        self.setupGroups(data)
+        self.setupGroups(data, rigidBody)
         
         # Add any walls
         self.setupWalls(walls, system, wallAtomType, rCut)
@@ -268,13 +280,12 @@ class Hoomd2(object):
     
     def setupRigidBody(self, rigidBody, data):
         if not rigidBody: return
-        
-        # Here we need to loop through each rigid body type 
         rigid = hoomd.md.constrain.rigid()
         for ftype, fdata in data.rigid_fragments.iteritems():
             rigid.set_param(ftype,
                             types=fdata['atomTypes'],
                             positions=fdata['coords'])
+            self.exclusions.append(ftype)
         rigid.validate_bodies()
         return
 
@@ -388,13 +399,13 @@ class Hoomd2(object):
         # when MD and optimiser run together
         integrator_mode = hoomd.md.integrate.mode_standard(dt=dt)
         if integrator == 'nvt':
-            if rigidBody:
+            if False and rigidBody:
                 # nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
                 integ = hoomd.md.integrate.nvt_rigid(group=self.groupActive, kT=T, tau=tau)
             else:
                 integ = hoomd.md.integrate.nvt(group=self.groupActive, kT=T, tau=tau)
         elif integrator == 'npt':
-            if rigidBody:
+            if False and rigidBody:
                 integ = hoomd.md.integrate.npt_rigid(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
             else:
                 integ = hoomd.md.integrate.npt(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
