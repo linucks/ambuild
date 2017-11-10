@@ -23,6 +23,8 @@ logger = logging.getLogger()
 # Bits stolen from the CCP1GUI: http://sourceforge.net/projects/ccp1gui/
 # However, I wrote bits of that so I assume its ok
 
+DUMMY_DIAMETER = 0.1
+
 # degrees to radians
 BOHR2ANGSTROM = 0.529177249
 
@@ -1133,29 +1135,21 @@ def vectorAngle(v1, v2):
 def unWrapCoord(coord, image, ldim, centered=False):
     """Unwrap a coordinate back into a cell
     """
-
     if centered:
         # Put it back with origin at corner
         coord += ldim / 2
-
-        # Make sure it's gone into the box
-        assert 0.0 <= coord <= ldim, "Bad coord: {0}".format(coord)
-
+        assert 0.0 <= coord <= ldim, "Coord outside box: {0}".format(coord)
     # Now move it according to its image
     coord += ldim * float(image)
-
     return coord
 
 def wrapCoord(coord, ldim, center=False):
-    """Wrap a coodinate into a cell of length ldim
+    """Wrap coodinate into a cell of length ldim
     return the wrapped coordinate and the image index
     """
-
     image = int(math.floor(coord / ldim))
-
     # Make the coordinate positive so the math modulo operator works
-    if image < 0:
-        coord += -image * ldim
+    if image < 0:  coord += -image * ldim
 
     # Use fmod to avoid overflow problems with python modulo operater - see stackexchange
     wcoord = math.fmod(coord, ldim)
@@ -1164,9 +1158,8 @@ def wrapCoord(coord, ldim, center=False):
     assert wcoord >= 0.0, "Coord {0} -> {1} : {2}".format(coord, wcoord, image)
 
     # Change the coord so the origin is at the center of the box (we start from the corner)
-    if center:
-        wcoord -= ldim / 2
-
+    if center: wcoord -= ldim / 2
+    
     return wcoord, image
 
 def writeCml(cmlFilename,

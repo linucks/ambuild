@@ -24,11 +24,11 @@ logger = logging.getLogger()
 class Body(object):
     """Proxy object for the body within a fragment"""
     def __init__(self, fragment, bodyIndex):
-        self.fragmgent = fragment
+        self.fragment = fragment
         self.bodyIndex = bodyIndex
         return
     
-    def coords_images(self, dim=None, center=True):
+    def coords(self, dim=None, center=True):
         coords = []
         images = []
         for i in range(len(self.fragment._ext2int)):
@@ -36,14 +36,17 @@ class Body(object):
             c = self.fragment.coord(i)
             image = [0,0,0]
             if dim is not None:
-                ix, x = util.wrapCoord(c[0], dim=dim[0], center=center)
-                iy, y = util.wrapCoord(c[1], dim=dim[1], center=center)
-                iz, z = util.wrapCoord(c[2], dim=dim[2], center=center)
+                ix, x = util.wrapCoord(c[0], dim[0], center=center)
+                iy, y = util.wrapCoord(c[1], dim[1], center=center)
+                iz, z = util.wrapCoord(c[2], dim[2], center=center)
                 c = [x,y,z]
                 image = [ix,iy,iz]
             coords.append(c)
             images.append(image)
-        return coords, images
+        if dim is not None:
+            return coords, images
+        else:
+            return coords
     
     def atomTypes(self):
         return [ self.fragment.type(i) for i in range(len(self.fragment._ext2int)) \
@@ -52,6 +55,19 @@ class Body(object):
     def bodies(self):
         return [ self.bodyIndex for i in range(len(self.fragment._ext2int)) \
                 if self.fragment.body(i) == self.bodyIndex ]
+        
+    def center_particle(self, dim=None, center=True):
+        coords = self.coords()
+        centroid = numpy.sum(coords, axis=0) / numpy.size(coords, axis=0)
+        if dim is not None:
+            ix, x = util.wrapCoord(centroid[0], dim[0], center=center)
+            iy, y = util.wrapCoord(centroid[1], dim[1], center=center)
+            iz, z = util.wrapCoord(centroid[2], dim[2], center=center)
+            image = [ix,iy,iz]
+            centroid = [x,y,z]
+            return centroid, image
+        else:
+            return centroid
         
     def charges(self):
         return [ self.fragment.charge(i) for i in range(len(self.fragment._ext2int)) \
@@ -70,6 +86,9 @@ class Body(object):
                 else:
                     mask.append(False)
         return mask
+    
+    def mass(self):
+        return numpy.sum(self.masses())
 
     def masses(self):
         return [ self.fragment.mass(i) for i in range(len(self.fragment._ext2int)) \
@@ -88,7 +107,7 @@ class Body(object):
     def symbols(self):
         return [ self.fragment.charge(i) for i in range(len(self.fragment._ext2int)) \
                 if self.fragment.body(i) == self.bodyIndex ]
-    
+        
 class EndGroup(object):
 
     def __init__(self):

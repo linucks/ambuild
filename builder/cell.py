@@ -28,6 +28,7 @@ import fragment
 import opt
 from paths import PARAMS_DIR
 import util
+import warnings
 
 BONDTYPESEP = "-"  # Character for separating bonds
 ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
@@ -1335,14 +1336,14 @@ class Cell():
 #                 d.rigid_type.append(frag.fragmentType)
 #                 logger.critical("HACK ORIENTATIONS")
 #                 d.rigid_orientation.append([1,0,0,0]) # HACK
-                for body in frag.bodies():
+                for bidx, body in enumerate(frag.bodies()):
                     # Body count always increments with fragment although it may go up within a fragment too
                     bodyCount += 1
-                    images, coords = body.cords_images(self.dim, center=center)
+                    coords, images = body.coords(self.dim, center=center)
                     d.coords += coords
-                    d.image += images
+                    d.images += images
                     d.atomTypes += body.atomTypes()
-                    d.bodies += body.bodies()
+                    d.bodies += [ b + bodyCount for b in body.bodies() ]
                     d.charges += body.charges()
                     d.diameters += body.diameters()
                     d.masked += body.masked()
@@ -1350,14 +1351,19 @@ class Cell():
                     d.static += body.static()
                     d.symbols += body.symbols()
                     if rigidBody:
-                        d.rigid_centre.append(body.center())
-                        d.rigid_image.append(XXX)
+                        center, image = body.center_particle(dim=self.dim, center=center)
+                        d.rigid_centre.append(center)
+                        d.rigid_image.append(image)
                         d.rigid_mass.append(body.mass())
+                        d.rigid_body.append(bodyCount)
+                        d.rigid_type.append("{0}_{1}".format(frag.fragmentType,bidx))
+                        d.rigid_orientation.append([1,0,0,0])
                     bodyCount += 1
                     atomCount += len(coords)
 
                 # Work out which fragment this is in
-                d.tagIndices.append((idxBlock, idxFrag, atomCount - i - 1, atomCount))
+                warnings.warn("JMHT FIX i")
+                #d.tagIndices.append((idxBlock, idxFrag, atomCount - i - 1, atomCount))
         if rigidBody and HOOMDVERSION > 1:
             for ftype in fragmentTypes:
                 d.rigid_fragments[ftype] = {}
