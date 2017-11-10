@@ -104,7 +104,9 @@ class Hoomd2(object):
             # Combined size includes rigid centre and constituent particles
             nrigid_centres = len(data.rigid_centre)
             nparticles = len(data.coords) + nrigid_centres
-            self.particle_types = list(set(data.atomTypes).union(set(data.rigid_type)))
+            rigid_centers = set(data.rigid_type)
+            self.particle_types = list(set(data.atomTypes).union(rigid_centers))
+            self.exclusions = list(rigid_centers)
         else:
             nparticles = len(data.coords)
             self.particle_types = list(set(data.atomTypes))
@@ -173,6 +175,14 @@ class Hoomd2(object):
                 snap.particles.mass[i] = data.masses[i]
                 snap.particles.position[i] = data.coords[i]
                 snap.particles.typeid[i] = self.particle_types.index(data.atomTypes[i])
+                
+#         with open('foo.xyz','w') as w:
+#             w.write("%d\n" % snap.particles.N)
+#             w.write("JENS\n")
+#             types = snap.particles.types
+#             print "POS ",snap.particles.position
+#             for i in range(snap.particles.N):
+#                 w.write("%s    %f    %f    %f\n" % (types[snap.particles.typeid[i]], snap.particles.position[i][0], snap.particles.position[i][1], snap.particles.position[i][2]))
         return snap
     
     def setBonds(self):

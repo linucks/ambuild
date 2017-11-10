@@ -1336,14 +1336,16 @@ class Cell():
 #                 d.rigid_type.append(frag.fragmentType)
 #                 logger.critical("HACK ORIENTATIONS")
 #                 d.rigid_orientation.append([1,0,0,0]) # HACK
-                for bidx, body in enumerate(frag.bodies()):
+                for body in frag.bodies():
                     # Body count always increments with fragment although it may go up within a fragment too
                     bodyCount += 1
                     coords, images = body.coords(self.dim, center=center)
+                    print "BODY COORDS ",coords
                     d.coords += coords
                     d.images += images
-                    d.atomTypes += body.atomTypes()
-                    d.bodies += [ b + bodyCount for b in body.bodies() ]
+                    btypes = body.atomTypes()
+                    d.atomTypes += btypes
+                    d.bodies += [ bodyCount for b in body.bodies() ]
                     d.charges += body.charges()
                     d.diameters += body.diameters()
                     d.masked += body.masked()
@@ -1356,20 +1358,21 @@ class Cell():
                         d.rigid_image.append(image)
                         d.rigid_mass.append(body.mass())
                         d.rigid_body.append(bodyCount)
-                        d.rigid_type.append("{0}_{1}".format(frag.fragmentType,bidx))
+                        ftype = "{0}_{1}".format(frag.fragmentType,bodyCount)
+                        d.rigid_type.append(ftype)
                         d.rigid_orientation.append([1,0,0,0])
-                    bodyCount += 1
+                        d.rigid_fragments[ftype] = { 'coords' : coords, 'atomTypes' : btypes}
                     atomCount += len(coords)
 
                 # Work out which fragment this is in
                 warnings.warn("JMHT FIX i")
                 #d.tagIndices.append((idxBlock, idxFrag, atomCount - i - 1, atomCount))
-        if rigidBody and HOOMDVERSION > 1:
-            for ftype in fragmentTypes:
-                d.rigid_fragments[ftype] = {}
-                lib_frag = self._fragmentLibrary[ftype]
-                d.rigid_fragments[ftype]['atomTypes'] = [ a for a in lib_frag.iterAtomTypes() ]
-                d.rigid_fragments[ftype]['coords'] = [ c for c in lib_frag.iterCoord() ]
+#         if rigidBody:
+#             for ftype in fragmentTypes:
+#                 d.rigid_fragments[ftype] = {}
+#                 lib_frag = self._fragmentLibrary[ftype]
+#                 d.rigid_fragments[ftype]['atomTypes'] = [ a for a in lib_frag.iterAtomTypes() ]
+#                 d.rigid_fragments[ftype]['coords'] = [ c for c in lib_frag.iterCoord() ]
         return d
 
     def delBlock(self, blockId):
