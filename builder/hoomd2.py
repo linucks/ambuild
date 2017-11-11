@@ -131,21 +131,39 @@ class Hoomd2(object):
         if len(self.bond_types):
             snap.bonds.resize(len(data.bonds))
             for i, b in enumerate(data.bonds):
-                snap.bonds.group[i] = [b[0], b[1]]
+                if rigidBody: # center particles are at the front of the arrays, so everything gets shifted up
+                    b0 = b[0] + nrigid_centres
+                    b1 = b[1] + nrigid_centres
+                else:
+                    b0, b1 = b
+                snap.bonds.group[i] = [b0, b1]
                 snap.bonds.typeid[i] = self.bond_types.index(data.bondLabels[i])
                 
         # Add Angles
         if len(self.angle_types):
             snap.angles.resize(len(data.angles))
             for i, a in enumerate(data.angles):
-                snap.angles.group[i] = [a[0], a[1], a[2]]
+                if rigidBody: # center particles are at the front of the arrays, so everything gets shifted up
+                    a0 = a[0] + nrigid_centres
+                    a1 = a[1] + nrigid_centres
+                    a2 = a[2] + nrigid_centres
+                else:
+                    a0, a1, a2 = a
+                snap.angles.group[i] = [a0, a1, a2]
                 snap.angles.typeid[i] = self.angle_types.index(data.angleLabels[i])
 
         # Add Dihedrals
         if doDihedral and len(self.dihedral_types):
             snap.dihedrals.resize(len(data.propers))
             for i, d in enumerate(data.propers):
-                snap.dihedrals.group[i] = [d[0], d[1], d[2], d[3]]
+                if rigidBody: # center particles are at the front of the arrays, so everything gets shifted up
+                    d0 = d[0] + nrigid_centres
+                    d1 = d[1] + nrigid_centres
+                    d2 = d[2] + nrigid_centres
+                    d3 = d[3] + nrigid_centres
+                else:
+                    d0, d1, d2, d3 = d
+                snap.dihedrals.group[i] = [d0, d1, d2, d3]
                 snap.dihedrals.typeid[i] = self.dihedral_types.index(data.properLabels[i])
         
         # Populate  particle data
@@ -176,14 +194,13 @@ class Hoomd2(object):
                 snap.particles.position[i] = data.coords[i]
                 snap.particles.typeid[i] = self.particle_types.index(data.atomTypes[i])
         
-        
-        with open('foo.xyz','w') as w:
-            w.write("%d\n" % snap.particles.N)
-            w.write("JENS\n")
-            types = snap.particles.types
-            for i in range(snap.particles.N):
-                w.write("%s    %f    %f    %f\n" % (types[snap.particles.typeid[i]], snap.particles.position[i][0], snap.particles.position[i][1], snap.particles.position[i][2]))
-        print "GOT BONDS ",snap.bonds.types
+#         with open('foo.xyz','w') as w:
+#             w.write("%d\n" % snap.particles.N)
+#             w.write("JENS\n")
+#             types = snap.particles.types
+#             for i in range(snap.particles.N):
+#                 w.write("%s    %f    %f    %f\n" % (types[snap.particles.typeid[i]], snap.particles.position[i][0], snap.particles.position[i][1], snap.particles.position[i][2]))
+#         print "GOT BONDS ",snap.bonds.types
         return snap
     
     def setBonds(self):

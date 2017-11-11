@@ -1311,8 +1311,7 @@ class Cell():
                         dlabel = "{0}-{1}-{2}-{3}".format(block.type(dindices[0]),
                                                            block.type(dindices[1]),
                                                            block.type(dindices[2]),
-                                                           block.type(dindices[3])
-                                                        )
+                                                           block.type(dindices[3]) )
                         d.properLabels.append(dlabel)
 
             # Now loop through fragments and coordinates
@@ -1333,7 +1332,7 @@ class Cell():
                     d.masses += body.masses()
                     d.static += body.static()
                     d.symbols += body.symbols()
-                    if rigidBody:
+                    if rigidBody and HOOMDVERSION > 1:
                         center_pos, image = body.center_particle(dim=self.dim, center=center)
                         d.rigid_centre.append(center_pos)
                         d.rigid_image.append(image)
