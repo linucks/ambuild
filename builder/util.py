@@ -1149,7 +1149,7 @@ def wrapCoord(coord, ldim, center=False):
     """
     image = int(math.floor(coord / ldim))
     # Make the coordinate positive so the math modulo operator works
-    if image < 0:  coord += -image * ldim
+    if image < 0: coord += -image * ldim
 
     # Use fmod to avoid overflow problems with python modulo operater - see stackexchange
     wcoord = math.fmod(coord, ldim)
@@ -1160,6 +1160,18 @@ def wrapCoord(coord, ldim, center=False):
     # Change the coord so the origin is at the center of the box (we start from the corner)
     if center: wcoord -= ldim / 2
     
+    return wcoord, image
+
+def wrapCoord3(coord, dim, center=False):
+    """Wrap coodinate triple into a cell of length dim
+    return the wrapped coordinates and the images
+    """
+    image = numpy.floor(coord/dim).astype(int)
+    if numpy.any(image < 0): coord += -image * dim # Make positive so the modulo operator works
+    wcoord = numpy.fmod(coord, dim)
+    assert numpy.all(wcoord >= 0.0), "-ve Coord!: {0} -> {1} : {2}".format(coord, wcoord, image)
+    # Change the coord so the origin is at the center of the box (we start from the corner)
+    if center: wcoord -= dim / 2
     return wcoord, image
 
 def writeCml(cmlFilename,
