@@ -34,13 +34,10 @@ class Body(object):
         for i in range(len(self.fragment._ext2int)):
             if self.fragment.body(i) != self.bodyIndex: continue
             c = self.fragment.coord(i)
-            image = [0,0,0]
             if dim is not None:
-                x, ix = util.wrapCoord(c[0], dim[0], center=center)
-                y, iy = util.wrapCoord(c[1], dim[1], center=center)
-                z, iz = util.wrapCoord(c[2], dim[2], center=center)
-                c = [x,y,z]
-                image = [ix,iy,iz]
+                c, image = util.wrapCoord3(c, dim, center=center)
+            else:
+                image = [0,0,0]
             coords.append(c)
             images.append(image)
         if dim is not None:
@@ -60,11 +57,7 @@ class Body(object):
         coords = self.coords()
         centroid = numpy.sum(coords, axis=0) / numpy.size(coords, axis=0)
         if dim is not None:
-            x, ix = util.wrapCoord(centroid[0], dim[0], center=center)
-            y, iy = util.wrapCoord(centroid[1], dim[1], center=center)
-            z, iz = util.wrapCoord(centroid[2], dim[2], center=center)
-            image = [ix,iy,iz]
-            centroid = [x,y,z]
+            centroid, image = util.wrapCoord3(centroid, dim, center=center)
             return centroid, image
         else:
             return centroid

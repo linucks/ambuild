@@ -175,14 +175,15 @@ class Hoomd2(object):
                 snap.particles.mass[i] = data.masses[i]
                 snap.particles.position[i] = data.coords[i]
                 snap.particles.typeid[i] = self.particle_types.index(data.atomTypes[i])
-                
-#         with open('foo.xyz','w') as w:
-#             w.write("%d\n" % snap.particles.N)
-#             w.write("JENS\n")
-#             types = snap.particles.types
-#             print "POS ",snap.particles.position
-#             for i in range(snap.particles.N):
-#                 w.write("%s    %f    %f    %f\n" % (types[snap.particles.typeid[i]], snap.particles.position[i][0], snap.particles.position[i][1], snap.particles.position[i][2]))
+        
+        
+        with open('foo.xyz','w') as w:
+            w.write("%d\n" % snap.particles.N)
+            w.write("JENS\n")
+            types = snap.particles.types
+            for i in range(snap.particles.N):
+                w.write("%s    %f    %f    %f\n" % (types[snap.particles.typeid[i]], snap.particles.position[i][0], snap.particles.position[i][1], snap.particles.position[i][2]))
+        print "GOT BONDS ",snap.bonds.types
         return snap
     
     def setBonds(self):
@@ -224,17 +225,17 @@ class Hoomd2(object):
 #             else:
             if atype in self.exclusions or btype in self.exclusions:
                 epsilon = 0.0
-                sigma = 0.0
+                sigma = 1.0
             else:
                 param = self.ffield.pairParameter(atype, btype)
                 epsilon = param['epsilon']
                 sigma = param['sigma']
             lj.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
             if self.debug: logger.info("DEBUG: lj.pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype, btype, epsilon, sigma))
-        if rigidBody:
-            nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
-        else:
-            nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
+            
+        # Don't think we need to include body any more for rigid bodies, as these are already excluded by default
+        #nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
+        nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
         return
 
     def setupGroups(self, data, rigidBody):
@@ -308,11 +309,9 @@ class Hoomd2(object):
         that isn't part of the wall.
         """
         if walls is None: return
-        print "BAR"
         assert len(walls) is 3 # array of three booleans - one per wall
         if not any(walls): return
         assert wallAtomType is not None,"Need to set a wallAtomType!"
-        print "FOO"
         wtypes = ['XOY', 'XOZ', 'YOZ'] # Order of walls
         wallstructure = None
         for do, wtype in zip(walls, wtypes):
@@ -332,7 +331,6 @@ class Hoomd2(object):
                     normal = (1, 0, 0)
                 else:
                     raise RuntimeError("Unrecognised Wall Type! {0}".format(wtype))
-            
                 if not wallstructure:
                     # We only create the wall and the LJ potentials once as they are used
                     # by all subsequent walls in the group
@@ -351,7 +349,6 @@ class Hoomd2(object):
                 # Back
                 wallstructure.add_plane(origin=originBack, normal=normal, inside=False)
         return
-
 
     def runMD(self,
               data,
@@ -409,16 +406,9 @@ class Hoomd2(object):
         # when MD and optimiser run together
         integrator_mode = hoomd.md.integrate.mode_standard(dt=dt)
         if integrator == 'nvt':
-            if False and rigidBody:
-                # nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
-                integ = hoomd.md.integrate.nvt_rigid(group=self.groupActive, kT=T, tau=tau)
-            else:
-                integ = hoomd.md.integrate.nvt(group=self.groupActive, kT=T, tau=tau)
+            integ = hoomd.md.integrate.nvt(group=self.groupActive, kT=T, tau=tau)
         elif integrator == 'npt':
-            if False and rigidBody:
-                integ = hoomd.md.integrate.npt_rigid(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
-            else:
-                integ = hoomd.md.integrate.npt(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
+            integ = hoomd.md.integrate.npt(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
         else:
             raise RuntimeError("Unrecognised integrator: {0}".format(integrator))
 
@@ -1002,14 +992,12 @@ class HoomdOptimiser(FFIELD):
 
         with open(filename, 'w') as f:
             f.writelines(xyz)
-
         return
-
 
 if __name__ == "__main__":
     from paths import PARAMS_DIR
     mycell = util.cellFromPickle(sys.argv[1])
-    rigidBody = True
+    rigidBody = True    
     data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)
     
     opt = Hoomd2(PARAMS_DIR)

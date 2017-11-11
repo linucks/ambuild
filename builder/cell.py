@@ -1233,7 +1233,6 @@ class Cell():
                 d.symbols += symbols
                 d.bonds += [ (b1 + atomCount, b2 + atomCount) for (b1, b2) in bonds ]
                 atomCount += len(coords)
-
             return d
 
         atomCount = 0  # Global count in cell
@@ -1318,29 +1317,11 @@ class Cell():
 
             # Now loop through fragments and coordinates
             fragments = block._fragments if hasattr(block, '_fragments') else block.fragments
-            for idxFrag, frag in enumerate(fragments):  # need index of fragment in block
-                fragmentTypes.update(frag.fragmentType)
-#                 # Hoomd2 rigid bodies
-#                 d.rigid_body.append(bodyCount)
-#                 rigid_center = frag.centroid() #OR frag.centerOfMass() ?
-#                 if periodic:
-#                     x, ix = util.wrapCoord(rigid_center[0], self.dim[0], center=center)
-#                     y, iy = util.wrapCoord(rigid_center[1], self.dim[1], center=center)
-#                     z, iz = util.wrapCoord(rigid_center[2], self.dim[2], center=center)
-#                     d.rigid_image.append(numpy.array([ix, iy, iz]))
-#                     d.rigid_centre.append(numpy.array([x, y, z]))
-#                 else:
-#                     d.rigid_image.append([0, 0, 0])
-#                     d.rigid_centre.append(rigid_center)
-#                 d.rigid_mass.append(frag.totalMass())
-#                 d.rigid_type.append(frag.fragmentType)
-#                 logger.critical("HACK ORIENTATIONS")
-#                 d.rigid_orientation.append([1,0,0,0]) # HACK
+            for frag in fragments:  # need index of fragment in block
                 for body in frag.bodies():
                     # Body count always increments with fragment although it may go up within a fragment too
                     bodyCount += 1
                     coords, images = body.coords(self.dim, center=center)
-                    print "BODY COORDS ",coords
                     d.coords += coords
                     d.images += images
                     btypes = body.atomTypes()
@@ -1353,8 +1334,8 @@ class Cell():
                     d.static += body.static()
                     d.symbols += body.symbols()
                     if rigidBody:
-                        center, image = body.center_particle(dim=self.dim, center=center)
-                        d.rigid_centre.append(center)
+                        center_pos, image = body.center_particle(dim=self.dim, center=center)
+                        d.rigid_centre.append(center_pos)
                         d.rigid_image.append(image)
                         d.rigid_mass.append(body.mass())
                         d.rigid_body.append(bodyCount)
@@ -1367,12 +1348,6 @@ class Cell():
                 # Work out which fragment this is in
                 warnings.warn("JMHT FIX i")
                 #d.tagIndices.append((idxBlock, idxFrag, atomCount - i - 1, atomCount))
-#         if rigidBody:
-#             for ftype in fragmentTypes:
-#                 d.rigid_fragments[ftype] = {}
-#                 lib_frag = self._fragmentLibrary[ftype]
-#                 d.rigid_fragments[ftype]['atomTypes'] = [ a for a in lib_frag.iterAtomTypes() ]
-#                 d.rigid_fragments[ftype]['coords'] = [ c for c in lib_frag.iterCoord() ]
         return d
 
     def delBlock(self, blockId):
