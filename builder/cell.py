@@ -1321,7 +1321,7 @@ class Cell():
                     # Body count always increments with fragment although it may go up within a fragment too
                     bodyCount += 1
                     coords, images = body.coords(self.dim, center=center)
-                    d.coords += coords
+                    d.coords += list(coords)
                     d.images += images
                     btypes = body.atomTypes()
                     d.atomTypes += btypes

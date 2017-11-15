@@ -9,7 +9,6 @@ import copy
 import csv
 import logging
 import os
-import types
 import unittest
 
 import numpy
@@ -29,29 +28,24 @@ class Body(object):
         return
     
     def coords(self, dim=None, center=True):
-        coords = []
-        images = []
-        for i in range(len(self.fragment._ext2int)):
-            if self.fragment.body(i) != self.bodyIndex: continue
-            c = self.fragment.coord(i)
-            if dim is not None:
-                c, image = util.wrapCoord3(c, dim, center=center)
-            else:
-                image = [0,0,0]
-            coords.append(c)
-            images.append(image)
+        # Get list of the internal indices of unmasked atoms that belong to body self.bodyIndex
+        coords = self.fragment._coords[ [ i for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] ]
         if dim is not None:
-            return coords, images
+            _coords = []
+            images = []
+            for coord in coords:
+                coord, image = util.wrapCoord3(coord, dim, center=center)
+                _coords.append(coord)
+                images.append(image)
+            return _coords, images
         else:
             return coords
     
     def atomTypes(self):
-        return [ self.fragment.type(i) for i in range(len(self.fragment._ext2int)) \
-                if self.fragment.body(i) == self.bodyIndex ]
+        return [ self.fragment._atomTypes[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
         
     def bodies(self):
-        return [ self.bodyIndex for i in range(len(self.fragment._ext2int)) \
-                if self.fragment.body(i) == self.bodyIndex ]
+        return [ self.bodyIndex ] * len(self.fragment._ext2int.values())
         
     def center_particle(self, dim=None, center=True):
         coords = self.coords()
@@ -63,43 +57,35 @@ class Body(object):
             return centroid
         
     def charges(self):
-        return [ self.fragment.charge(i) for i in range(len(self.fragment._ext2int)) \
-                if self.fragment.body(i) == self.bodyIndex ]
+        return [ self.fragment._charges[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
         
     def diameters(self):
-        return [ util.DUMMY_DIAMETER for i in range(len(self.fragment._ext2int)) \
-                if self.fragment.body(i) == self.bodyIndex ]
+        return [ util.DUMMY_DIAMETER ] * len(self.fragment._ext2int.values())
 
     def masked(self):
         mask = []
-        for i in range(len(self.fragment._ext2int)):
-            if self.fragment.body(i) == self.bodyIndex:
-                if (hasattr(self.fragment, 'unBonded') and self.fragment.unBonded[i]) or self.fragment.type(i).lower() == 'x':
-                    mask.append(True)
-                else:
-                    mask.append(False)
+        for i in [ i for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex]:
+            if (hasattr(self.fragment, 'unBonded') and self.fragment.unBonded[i]) or self.fragment._atomTypes[i].lower() == 'x':
+                mask.append(True)
+            else:
+                mask.append(False)
         return mask
     
     def mass(self):
         return numpy.sum(self.masses())
 
     def masses(self):
-        return [ self.fragment.mass(i) for i in range(len(self.fragment._ext2int)) \
-                if self.fragment.body(i) == self.bodyIndex ]
+        return [ self.fragment._masses[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
         
     def static(self):
-        static = []
-        for i in range(len(self.fragment._ext2int)):
-            if self.fragment.body(i) == self.bodyIndex:
-                if hasattr(self.fragment, 'static') and self.fragment.static:
-                    static.append(True)
-                else:
-                    static.append(False)
-        return static
+        if hasattr(self.fragment, 'static') and self.fragment.static:
+            v = True
+        else:
+            v = False
+        return [ v ] * len(self.fragment._ext2int.values())
         
     def symbols(self):
-        return [ self.fragment.charge(i) for i in range(len(self.fragment._ext2int)) \
-                if self.fragment.body(i) == self.bodyIndex ]
+        return [ self.fragment._symbols[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
         
 class EndGroup(object):
 
@@ -128,12 +114,12 @@ class EndGroup(object):
         return
 
     def block(self):
-        f=True
-        b=True
-        if self.fragment.block is None: b=False
-        if self.fragment is None: f=False
+        f = True
+        b = True
+        if self.fragment.block is None: b = False
+        if self.fragment is None: f = False
         if not b and f: 
-            raise RuntimeError("None Block {0} Fragment {1}\n{2}".format(b,f,self))
+            raise RuntimeError("None Block {0} Fragment {1}\n{2}".format(b, f, self))
         return self.fragment.block
 
     def capIdx(self):
@@ -309,8 +295,8 @@ class Fragment(object):
             '_coords'         : [],
             '_centroid'       : None,
             '_centerOfMass'   : None,
-            '_ext2int'        : None,
-            '_int2ext'        : None,
+            '_ext2int'        : collections.OrderedDict(),
+            '_int2ext'        : collections.OrderedDict(),
             '_centerOfMass'   : None,
             '_maxAtomRadius'  :-1,
             '_changed'        : True,  # Flag for when we've been moved and need to recalculate things
@@ -515,7 +501,7 @@ class Fragment(object):
     def fillData(self):
         """ Fill the data arrays from the label """
 
-        self.masked = [ False ] * len(self._coords)
+        self.masked = numpy.array([ False ] * len(self._coords))
         self.unBonded = [ False ] * len(self._coords)
         self._masses = numpy.array([ util.ATOMIC_MASS[ symbol ] for symbol in self._symbols ])
         self._totalMass = numpy.sum(self._masses)
@@ -754,13 +740,13 @@ class Fragment(object):
 
         bodyFile = os.path.join(dirname, basename + ".ambody")
         if os.path.isfile(bodyFile):
-            self._bodies = [ int(l.strip()) for l in open(bodyFile) ]
+            self._bodies = numpy.array([ int(l.strip()) for l in open(bodyFile) ])
             assert len(self._bodies) == len(self._coords), \
             "Must have as many bodies as coordinates: {0} - {1}!".format(len(self.bodies), self._dataLen)
             assert self._bodies[0] == 0, "Bodies must start with zero!"
         else:
             # Just create an array with 0
-            self._bodies = [ 0 ] * len(self._coords)
+            self._bodies = numpy.zeros(len(self._coords))
         return
 
     def radius(self, idxAtom):
@@ -892,8 +878,8 @@ class Fragment(object):
 
     def update(self):
         """Update the mapping between the internal and external indices"""
-        self._int2ext = collections.OrderedDict()
-        self._ext2int = collections.OrderedDict()
+        self._int2ext.clear()
+        self._ext2int.clear()
         ecount = 0
         for i in range(len(self._coords)):
             if not self.masked[i]:
