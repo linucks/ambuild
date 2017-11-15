@@ -3,11 +3,8 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 '''
-from hoomd.group import rigid_center
-import hoomd
-from util import DUMMY_DIAMETER
-VERSION = "a842475a64c9"
 
+VERSION = "a842475a64c9"
 import collections
 import copy
 import csv
@@ -25,19 +22,15 @@ import numpy
 import ambuild_subunit
 import buildingBlock
 import fragment
-import opt
 from paths import PARAMS_DIR
 import util
 import warnings
 
 BONDTYPESEP = "-"  # Character for separating bonds
 ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
-
-HOOMDVERSION = 2 # HACK FOR NOW
+HOOMDVERSION = 1
 
 logger = logging.getLogger(__name__)
-
-
 class Analyse():
     def __init__(self, cell, logfile="ambuild.csv"):
 
@@ -282,8 +275,16 @@ class Cell():
                 raise RuntimeError(msg)
         else:
             paramsDir = PARAMS_DIR
-        self.paramsDir = paramsDir
-        util.setModuleBondLength(os.path.join(self.paramsDir,'bond_params.csv'))
+        # Use the parameters to set the bond lengts in the util module
+        util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
+        
+        global HOOMDVERSION
+        if HOOMDVERSION < 2:
+            from hoomd1 import Hoomd1
+            self.MDENGINE = Hoomd1(paramsDir)
+        else:
+            from hoomd2 import Hoomd2
+            self.MDENGINE = Hoomd2(paramsDir)
 
         if filePath: # Init from a car file 
             self.setStaticBlock(filePath)
@@ -1219,11 +1220,8 @@ class Cell():
         d = CellData()
         d.cell = self.dim
 
-        # Track which fragmentTypes we've seen (for rigidBody/HOOMD >1)
-        fragmentTypes = set()
-
         if fragmentType is not None:
-            if rigidBody and HOOMDVERSION > 1: assert False,"Need to update for HOOMD2"
+            if rigidBody and opt.HOOMDVERSION > 1: assert False,"Need to update for HOOMD2"
             # Only returning data for one type of fragment
             assert fragmentType in self.fragmentTypes(), "FragmentType {0} not in cell!".format(fragmentType)
             atomCount = 0
@@ -1332,7 +1330,7 @@ class Cell():
                     d.masses += body.masses()
                     d.static += body.static()
                     d.symbols += body.symbols()
-                    if rigidBody and HOOMDVERSION > 1:
+                    if HOOMDVERSION > 1 and rigidBody:
                         center_pos, image = body.center_particle(dim=self.dim, center=center)
                         d.rigid_centre.append(center_pos)
                         d.rigid_image.append(image)
@@ -1581,15 +1579,14 @@ class Cell():
 
         # in hoomdblue. loopt through list of labels and create groups and computes for each one
         # opt must hold the list of groups and computes
-        o = opt.HoomdOptimiser(self.paramsDir)
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
-            self.rCut = o.rCut
+            self.rCut = self.MDENGINE.rCut
 
         logger.info("Running fragMaxEnergy")
 
-        maxe, idxBlock, idxFragment = o.fragMaxEnergy(data,
+        maxe, idxBlock, idxFragment = self.MDENGINE.fragMaxEnergy(data,
                                                     xmlFilename,
                                                     rigidBody=rigidBody,
                                                     doDihedral=doDihedral,
@@ -1614,11 +1611,6 @@ class Cell():
     def fragmentTypeFromEndGroupType(self, endGroupType):
         return endGroupType.split(self.ENDGROUPSEP)[0]
     
-    def fromFile(self, filePath):
-        
-        
-        return
-
     def fromHoomdblueSystem(self, system):
         """Reset the particle positions from hoomdblue system"""  # Should really check HOOMD version but...
         if hasattr(system.box, "Lx"):
@@ -2240,15 +2232,14 @@ class Cell():
         if doDihedral and doImproper:
             raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
 
-        optimiser = opt.HoomdOptimiser(self.paramsDir)
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
-            self.rCut = optimiser.rCut
+            self.rCut = self.MDENGINE.rCut
 
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
         d = {}  # for printing results
-        ok = optimiser.optimiseGeometry(data,
+        ok = self.MDENGINE.optimiseGeometry(data,
                                          xmlFilename=xmlFilename,
                                          rigidBody=rigidBody,
                                          doDihedral=doDihedral,
@@ -2262,7 +2253,7 @@ class Cell():
 
         if ok:
             logger.info("Optimisation succeeded")
-            self.fromHoomdblueSystem(optimiser.system)
+            self.fromHoomdblueSystem(self.MDENGINE.system)
             return True
         else:
             logger.critical("Optimisation Failed")
@@ -2456,15 +2447,14 @@ class Cell():
         if doDihedral and doImproper:
             raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
 
-        optimiser = opt.HoomdOptimiser(self.paramsDir)
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
-            self.rCut = optimiser.rCut
+            self.rCut = self.MDENGINE.rCut
 
         d = {}
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
-        ok = optimiser.runMD(data,
+        ok = self.MDENGINE.runMD(data,
                              xmlFilename=xmlFilename,
                              rigidBody=rigidBody,
                              doDihedral=doDihedral,
@@ -2477,7 +2467,7 @@ class Cell():
 
         self.analyse.stop('runMD', d)
 
-        self.fromHoomdblueSystem(optimiser.system)
+        self.fromHoomdblueSystem(self.MDENGINE.system)
 
         return ok
 
@@ -2500,15 +2490,12 @@ class Cell():
         if doDihedral and doImproper:
             raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
 
-        optimiser = opt.HoomdOptimiser(self.paramsDir)
-        if 'rCut' in kw:
-            self.rCut = kw['rCut']
-        else:
-            self.rCut = optimiser.rCut
+        if 'rCut' in kw: self.rCut = kw['rCut']
+        else: self.rCut = self.MDENGINE.rCut
 
         d = {}
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
-        ok = optimiser.runMDAndOptimise(data,
+        ok = self.MDENGINE.runMDAndOptimise(data,
                                         xmlFilename=xmlFilename,
                                         rigidBody=rigidBody,
                                         doDihedral=doDihedral,
@@ -2519,14 +2506,9 @@ class Cell():
                                         wallAtomType=self.wallAtomType,
                                         **kw)
 
-        if ok:
-            logger.info("runMDAndOptimise succeeded")
-
-
+        if ok: logger.info("runMDAndOptimise succeeded")
         self.analyse.stop('runMDAndOptimise', d)
-
-        self.fromHoomdblueSystem(optimiser.system)
-
+        self.fromHoomdblueSystem(self.MDENGINE.system)
         return ok
         
     def seed(self,
@@ -3157,9 +3139,9 @@ class Cell():
 
         # Return everything bar our logger
         d = dict(self.__dict__)
-        #del d['logger']
         d['analyseLogfile'] = d['analyse'].logfile
         del d['analyse']
+        if 'MDENGINE' in d: del d['MDENGINE'] # Contains a reference to the hood-blue logger
         return d
 
     def __setstate__(self, d):

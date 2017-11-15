@@ -15,7 +15,7 @@ import sys
 import warnings
 import xml.etree.ElementTree as ET
 
-from opt import read_bond_params
+from ffield import read_bond_params
 from paths import PARAMS_DIR
 
 logger = logging.getLogger()
@@ -1024,14 +1024,12 @@ def newFilename(filename, separator="_"):
 def pickleObj(obj, fileName):
     """Pickle an object - required as we can't pickle in the cell as otherwise the open filehandle
     is within the cell which is the object we are trying to pickle..."""
-
-    with open(fileName, 'w') as pfile:
-        cPickle.dump(obj , pfile)
-
+    with open(fileName, 'w') as pfile: cPickle.dump(obj , pfile)
+    #import pickle
+    #with open(fileName, 'w') as pfile: pickle.dump(obj , pfile)
     return
 
 def readMol2(filename):
-
     coords = []
     symbols = []
     # bonds=[]
@@ -1053,7 +1051,6 @@ def readMol2(filename):
                 coords.append([float(f[2]), float(f[3]), float(f[4])])
 #             if captureBond:
 #                 f=line.split()
-
     return coords, symbols
 
 def rotation_matrix(axis, angle):

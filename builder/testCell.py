@@ -7,9 +7,9 @@ import unittest
 
 import numpy
 
+import dlpoly
 from cell import Cell
 import buildingBlock
-import opt
 from paths import AMBUILD_DIR, BLOCKS_DIR, PARAMS_DIR
 import ambuild_subunit
 import util
@@ -566,7 +566,7 @@ class Test(unittest.TestCase):
         b3.translateCentroid([ 25, 25, 20 ])
         mycell.addBlock(b3)
 
-        d = opt.DLPOLY(PARAMS_DIR)
+        d = dlpoly.DLPOLY(PARAMS_DIR)
 
         # data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
         d.writeCONTROL()
@@ -613,30 +613,41 @@ class Test(unittest.TestCase):
         v2 = numpy.array([ 0.0, 0.0, 8.0 ])
         dc = mycell.distance(v1, v2)
         self.assertEqual(dc, 2.0, "Distance across boundary cell:{}".format(dc))
-
         return
 
     def testDihedral(self):
-
         CELLDIM = 30
         boxDim = [CELLDIM, CELLDIM, CELLDIM]
         mycell = Cell(boxDim)
-
         p1 = numpy.array([ 0.0, 0.0, 0.0 ])
         p2 = numpy.array([ 10.0, 0.0, 0.0 ])
         p3 = numpy.array([ 10.0, 10.0, 0.0 ])
         p4 = numpy.array([ 20.0, 10.0, 10.0 ])
-
         ref = util.dihedral(p1, p2, p3, p4)
-        
         self.assertEqual(ref, mycell.dihedral(p1, p2, p3, p4))
 
         # Move by a full cell along x-axis - result should be the same
         p3 = numpy.array([ 10.0 + CELLDIM, 10.0, 0.0 ])
         p4 = numpy.array([ 20.0 + CELLDIM, 10.0, 10.0 ])
-
         self.assertEqual(ref, mycell.dihedral(p1, p2, p3, p4))
+        return
 
+    def testDump(self):
+        """Test we can dump a cell"""
+        boxDim = [30, 30, 30]
+        mycell = Cell(boxDim, doLog=False)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.addBondType('A:a-A:a')
+        
+        toSeed = 2
+        added = mycell.seed(toSeed, center=True, random=False)
+        self.assertEqual(added, toSeed, 'seed')
+        nblocks = 2
+        added = mycell.growBlocks(nblocks, endGroupType=None, maxTries=1, random=False)
+        self.assertEqual(added, nblocks, "growBlocks did not return ok")
+        mycell.optimiseGeometry(rigidBody=True, optCycles=10)
+        mycell.dump()
+        os.unlink('step_1.pkl')
         return
 
     def testEndGroupTypes(self):
@@ -754,16 +765,18 @@ class Test(unittest.TestCase):
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         # mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-
-        added = mycell.seed(1, center=True, random=False)
-        self.assertEqual(added, 1, 'seed')
+        
+        toSeed = 1
+        added = mycell.seed(toSeed, center=True, random=False)
+        self.assertEqual(added, toSeed, 'seed')
         natoms = mycell.numAtoms()
         nblocks = 10
         added = mycell.growBlocks(nblocks, endGroupType=None, maxTries=1, random=False)
+        #mycell.dump()
   
         # mycell.writeCml("foo.cml", periodic=True, pruneBonds=False)
         self.assertEqual(added, nblocks, "growBlocks did not return ok")
-        self.assertEqual(1, len(mycell.blocks), "Growing blocks found {0} blocks".format(len(mycell.blocks)))
+        self.assertEqual(toSeed, len(mycell.blocks), "Growing blocks found {0} blocks".format(len(mycell.blocks)))
   
         natoms2 = mycell.numAtoms()
         nblocks += 1
@@ -1241,7 +1254,7 @@ class Test(unittest.TestCase):
 
     def testPeriodic(self):
 
-        import hoomdblue
+        import hoomd1
 
         mycell = self.createTestCell()
 
@@ -1313,18 +1326,17 @@ class Test(unittest.TestCase):
         # Now test with HOOMD-Blue
         filename = "periodicTest.xml"
         data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
-        o = opt.HoomdOptimiser(mycell.paramsDir)
-        o.writeXml(data,
-                   xmlFilename=filename,
-                   rigidBody=True,
-                   doDihedral=True,
-                   doImproper=False,
-                   doCharges=True,
-                   )
+        hoomd1.Hoomd1(PARAMS_DIR).writeXml(data,
+                                           xmlFilename=filename,
+                                           rigidBody=True,
+                                           doDihedral=True,
+                                           doImproper=False,
+                                           doCharges=True,
+                                           )
 
-        if hoomdblue.init.is_initialized():
-            hoomdblue.init.reset()
-        system = hoomdblue.init.read_xml(filename=filename)
+        if hoomd1.hoomdblue.init.is_initialized():
+            hoomd1.hoomdblue.init.reset()
+        system = hoomd1.hoomdblue.init.read_xml(filename=filename)
 
         wcoords = []
         for i, p in enumerate(system.particles):
@@ -1491,7 +1503,7 @@ class Test(unittest.TestCase):
         pass
 
     def testSubunit(self):
-        
+        util.setModuleBondLength(os.path.join(PARAMS_DIR,'bond_params.csv'))
         b1 = buildingBlock.Block(filePath=self.ch4Car, fragmentType='A')
         fragment = b1.fragments[0]
         
@@ -2011,7 +2023,7 @@ class Test(unittest.TestCase):
         """
         write out hoomdblue xml
         """
-        import hoomdblue
+        import hoomd1
 
         boxDim = [20, 20, 20]
         mycell = Cell(boxDim)
@@ -2041,14 +2053,13 @@ class Test(unittest.TestCase):
 
         xmlFilename = "testWriteHoomdblue.xml"
         data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
-        o = opt.HoomdOptimiser(mycell.paramsDir)
-        o.writeXml(data,
-                   xmlFilename=xmlFilename,
-                   rigidBody=True,
-                   doDihedral=True,
-                   doImproper=False,
-                   doCharges=True,
-                   )
+        hoomd1.Hoomd1(PARAMS_DIR).writeXml(data,
+                                           xmlFilename=xmlFilename,
+                                           rigidBody=True,
+                                           doDihedral=True,
+                                           doImproper=False,
+                                           doCharges=True,
+                                           )
 
         # Test what we've written out matches the reference file
         with open(xmlFilename) as f:
@@ -2058,9 +2069,9 @@ class Test(unittest.TestCase):
         self.assertEqual(test, ref, "xml compare")
 
         # Init the sytem from the file
-        if hoomdblue.init.is_initialized():
-            hoomdblue.init.reset()
-        system = hoomdblue.init.read_xml(filename=xmlFilename)
+        if hoomd1.hoomdblue.init.is_initialized():
+            hoomd1.hoomdblue.init.reset()
+        system = hoomd1.hoomdblue.init.read_xml(filename=xmlFilename)
 
         # Read it back in to make sure we get the same values
         mycell.fromHoomdblueSystem(system)
