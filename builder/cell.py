@@ -2862,19 +2862,12 @@ class Cell():
 #             for j, coord in enumerate( block.iterCoord() ):
         for i, coord in enumerate(data['coord']):
                 if periodic:
-                    x, ix = util.wrapCoord(coord[0], data['A'], center=False)
-                    y, iy = util.wrapCoord(coord[1], data['B'], center=False)
-                    z, iz = util.wrapCoord(coord[2], data['C'], center=False)
-                else:
-                    x = coord[0]
-                    y = coord[1]
-                    z = coord[2]
-
+                    coord, _ = util.wrapCoord3(coord, numpy.array([data['A'], data['B'], data['C']]), center=False)
                 atype = data['type'][ i ]
                 charge = data['charge'][ i ]
                 label = data['label'][ i ][:5]
                 symbol = data['symbol'][ i ]
-                car += "{0: <5} {1: >15.10} {2: >15.10} {3: >15.10} XXXX 1      {4: <4}    {5: <2} {6: > 2.3f}\n".format(label, x, y, z, atype, symbol, charge)
+                car += "{0: <5} {1: >15.10} {2: >15.10} {3: >15.10} XXXX 1      {4: <4}    {5: <2} {6: > 2.3f}\n".format(label, coord[0], coord[1], coord[2], atype, symbol, charge)
 
         car += "end\nend\n\n"
 

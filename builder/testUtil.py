@@ -104,25 +104,17 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(ref, result), msg="Incorrect with partial cell: {0}".format(result))
         return
     
-    def testWrapCoord1(self):
+    def testWrapCoord3_1(self):
         dim = np.array([10,20,30])
         c1 = np.array([101.0,202.0,303.0 ])
         center=True
-        if False:
-            x, ix  = util.wrapCoord(c1[0], dim[0], center=center)
-            y, iy = util.wrapCoord(c1[1], dim[1], center=center)
-            z, iz = util.wrapCoord(c1[2], dim[2], center=center)
-            c1u = np.array([x,y,z])
-            image = np.array([ix,iy,iz],dtype=np.int)
-        else:
-            c1u, image = util.wrapCoord3(c1, dim, center=center)
-            
+        c1u, image = util.wrapCoord3(c1, dim, center=center)
         cref = np.array([-4.0,-8.0,-12.0])
         iref = np.array([10,10,10],dtype=np.int)
         self.assertTrue(np.allclose(c1u,cref))
         self.assertTrue(np.array_equal(image,iref))
         
-    def testWrapCoord2(self):
+    def testWrapCoord3_2(self):
         dim = np.array([10,20,30])
         c1 = np.array([-101.0,-202.0,-303.0 ])
         center=True
@@ -132,6 +124,13 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(c1u,cref))
         self.assertTrue(np.array_equal(image,iref))
 
+    def testUnWrapCoord3_1(self):
+        cin = np.array([-4.0,-8.0,-12.0])
+        idxin = np.array([10,10,10],dtype=np.int)
+        dim = np.array([10,20,30])
+        coord = util.unWrapCoord3(cin, idxin, dim, centered=True)
+        self.assertTrue(np.allclose(coord,np.array([101.0,202.0,303.0 ])))
+        
 if __name__ == '__main__':
     """
     Run the unit tests

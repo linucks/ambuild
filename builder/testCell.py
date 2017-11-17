@@ -1253,75 +1253,38 @@ class Test(unittest.TestCase):
         return
 
     def testPeriodic(self):
-
         import hoomd1
-
+        import copy
         mycell = self.createTestCell()
-
         # Grab coords
         coords = []
         for block in mycell.blocks.itervalues():
             for i, coord in enumerate(block.iterCoord()):
                 coords.append(coord)
-
         # Wrap them
         wcoords = []
         images = []
-        for c in coords:
-            x, xi = util.wrapCoord(c[0], mycell.dim[0], center=False)
-            y, yi = util.wrapCoord(c[1], mycell.dim[1], center=False)
-            z, zi = util.wrapCoord(c[2], mycell.dim[2], center=False)
-            wcoords.append([ x, y, z ])
-            images.append([ xi, yi, zi ])
+        for i, c in enumerate(coords):
+            cw, ic = util.wrapCoord3(c, mycell.dim, center=False)
+            wcoords.append(cw)
+            images.append(ic)
 
         # Now umwrap them
         for i, c in enumerate(wcoords):
-            x = util.unWrapCoord(c[0], images[i][0], mycell.dim[0], centered=False)
-            y = util.unWrapCoord(c[1], images[i][1], mycell.dim[1], centered=False)
-            z = util.unWrapCoord(c[2], images[i][2], mycell.dim[2], centered=False)
-
-            self.assertAlmostEqual(x,
-                                    coords[ i ][ 0 ],
-                                    places=9,
-                                    msg="{0} {1}".format(x, coords[ i ][ 0 ]))
-            self.assertAlmostEqual(y,
-                                    coords[ i ][ 1 ],
-                                    places=9,
-                                    msg="{0} {1}".format(y, coords[ i ][ 1 ]))
-            self.assertAlmostEqual(z,
-                                    coords[ i ][ 2 ],
-                                    places=9,
-                                    msg="{0} {1}".format(z, coords[ i ][ 2 ]))
+            c = util.unWrapCoord3(c, images[i], mycell.dim, centered=False)
+            self.assertTrue(numpy.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
 
         # Now wrap them with centering
         wcoords = []
         images = []
         for c in coords:
-            x, xi = util.wrapCoord(c[0], mycell.dim[0], center=True)
-            y, yi = util.wrapCoord(c[1], mycell.dim[1], center=True)
-            z, zi = util.wrapCoord(c[2], mycell.dim[2], center=True)
-            wcoords.append([ x, y, z ])
-            images.append([ xi, yi, zi ])
-
+            c, i = util.wrapCoord3(c, mycell.dim, center=True)
+            wcoords.append(c)
+            images.append(i)
         # Now umwrap them
         for i, c in enumerate(wcoords):
-            x = util.unWrapCoord(c[0], images[i][0], mycell.dim[0], centered=True)
-            y = util.unWrapCoord(c[1], images[i][1], mycell.dim[1], centered=True)
-            z = util.unWrapCoord(c[2], images[i][2], mycell.dim[2], centered=True)
-
-            self.assertAlmostEqual(x,
-                                    coords[ i ][ 0 ],
-                                    places=9,
-                                    msg="{0} {1}".format(x, coords[ i ][ 0 ]))
-
-            self.assertAlmostEqual(y,
-                                    coords[ i ][ 1 ],
-                                    places=9,
-                                    msg="{0} {1}".format(y, coords[ i ][ 1 ]))
-            self.assertAlmostEqual(z,
-                                    coords[ i ][ 2 ],
-                                    places=9,
-                                    msg="{0} {1}".format(z, coords[ i ][ 2 ]))
+            c = util.unWrapCoord3(c, images[i], mycell.dim, centered=True)
+            self.assertTrue(numpy.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
 
         # Now test with HOOMD-Blue
         filename = "periodicTest.xml"
@@ -1340,26 +1303,10 @@ class Test(unittest.TestCase):
 
         wcoords = []
         for i, p in enumerate(system.particles):
-            x, y, z = p.position
-            ix, iy, iz = p.image
-
-            x = util.unWrapCoord(x, ix, mycell.dim[0], centered=True)
-            y = util.unWrapCoord(y, iy, mycell.dim[1], centered=True)
-            z = util.unWrapCoord(z, iz, mycell.dim[2], centered=True)
-
-            self.assertAlmostEqual(x,
-                                    coords[ i ][ 0 ],
-                                    places=6,
-                                    msg="{0} {1}".format(x, coords[ i ][ 0 ]))
-
-            self.assertAlmostEqual(y,
-                                    coords[ i ][ 1 ],
-                                    places=6,
-                                    msg="{0} {1}".format(y, coords[ i ][ 1 ]))
-            self.assertAlmostEqual(z,
-                                    coords[ i ][ 2 ],
-                                    places=6,
-                                    msg="{0} {1}".format(z, coords[ i ][ 2 ]))
+            #x, y, z = p.position
+            #ix, iy, iz = p.image
+            c = util.unWrapCoord3(p.position, p.image, mycell.dim, centered=True)
+            self.assertTrue(numpy.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
         os.unlink(filename)
         return
     

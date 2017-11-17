@@ -1140,6 +1140,19 @@ def unWrapCoord(coord, image, ldim, centered=False):
     coord += ldim * float(image)
     return coord
 
+def unWrapCoord3(coord, image, ldim, centered=False, inplace=False):
+    """Unwrap a coordinate back into a cell
+    """
+    if not inplace: coord = numpy.copy(coord)
+    if centered:
+        # Put it back with origin at corner
+        #coord += ldim / 2
+        coord =  coord + ldim / 2
+        assert numpy.all((coord >= 0.0) & (coord <= ldim))
+    # Now move it according to its image
+    coord = coord + ldim * image
+    return coord
+
 def wrapCoord(coord, ldim, center=False):
     """Wrap coodinate into a cell of length ldim
     return the wrapped coordinate and the image index
@@ -1159,10 +1172,11 @@ def wrapCoord(coord, ldim, center=False):
     
     return wcoord, image
 
-def wrapCoord3(coord, dim, center=False):
+def wrapCoord3(coord, dim, center=False, inplace=False):
     """Wrap coodinate triple into a cell of length dim
     return the wrapped coordinates and the images
     """
+    if not inplace: coord = numpy.copy(coord)
     image = numpy.floor(coord/dim).astype(int)
     if numpy.any(image < 0): coord += -image * dim # Make positive so the modulo operator works
     wcoord = numpy.fmod(coord, dim)
