@@ -25,10 +25,14 @@ import fragment
 from paths import PARAMS_DIR
 import util
 import warnings
+# Our hoomd modules handle loading hoomd-blue so this is just to determine which version we are using
+import hoomd
+HOOMDVERSION = hoomd.__version__
+del hoomd
 
 BONDTYPESEP = "-"  # Character for separating bonds
 ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
-HOOMDVERSION = 1
+
 
 logger = logging.getLogger(__name__)
 class Analyse():
@@ -276,7 +280,7 @@ class Cell():
         util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
         
         global HOOMDVERSION
-        if HOOMDVERSION < 2:
+        if HOOMDVERSION[0] < 2:
             from hoomd1 import Hoomd1
             self.MDENGINE = Hoomd1(paramsDir)
         else:
@@ -292,6 +296,7 @@ class Cell():
         
         self.version = VERSION # Save as attribute so we can query pickle files
         logger.info("AMBUILD version: {0}".format(VERSION))
+        logger.info("Using HOOMD-BLUE version: {0}.{1}.{2}".format(*HOOMDVERSION))
 
         return
 
@@ -1212,13 +1217,14 @@ class Cell():
         return endGroup1, endGroup2
 
     def dataDict(self, rigidBody=True, periodic=True, center=False, fragmentType=None):
-
+        
+        global HOOMDVERSION
         # Object to hold the cell data
         d = CellData()
         d.cell = self.dim
 
         if fragmentType is not None:
-            if rigidBody and opt.HOOMDVERSION > 1: assert False,"Need to update for HOOMD2"
+            if rigidBody and HOOMDVERSION[0] > 1: assert False,"Need to update for HOOMD2"
             # Only returning data for one type of fragment
             assert fragmentType in self.fragmentTypes(), "FragmentType {0} not in cell!".format(fragmentType)
             atomCount = 0
@@ -1327,7 +1333,7 @@ class Cell():
                     d.masses += body.masses()
                     d.static += body.static()
                     d.symbols += body.symbols()
-                    if HOOMDVERSION > 1 and rigidBody:
+                    if HOOMDVERSION[0] > 1 and rigidBody:
                         center_pos, image = body.center_particle(dim=self.dim, center=center)
                         d.rigid_centre.append(center_pos)
                         d.rigid_image.append(image)

@@ -22,14 +22,27 @@ pe_c1 = logger.query('potential_energy_b1')
 pe = logger.query('potential_energy')
 
 """
+import sys
+from hoomd_script import *
+# Need to avoid name clash with dump now that we've removed the hooomdblue namespace we had earlier
+hdump = dump
+del dump
+
+# Later versions of hoomd-blue have a context that needs to be updated
+if 'context' in locals().keys():
+    # Context parses the command-line, so we need to make sure there
+    # are no arguments or else we lose the ability to display our own help
+    _argv = sys.argv
+    sys.argv = [sys.argv[0]]
+    context.initialize()
+    sys.argv = _argv
+    
 import logging
 import os
 import time
 import xml.etree.ElementTree as ET
-
 # our imports
 from ffield import FFIELD, FfieldParameters
-import hoomdblue
 import util
 
 logger = logging.getLogger(__name__)
@@ -90,16 +103,12 @@ class Hoomd1(FFIELD):
         for idxBlock, idxFragment, start, end in data.tagIndices:
             quantities.append("potential_energy_{0}:{1}".format(start, end))
 
-        self.hlog = hoomdblue.analyze.log(filename='mylog1.csv',
-                                     quantities=quantities,
-                                     period=1,
-                                     header_prefix='#',
-                                     overwrite=True
-                                     )
-
-        optimised = self._optimiseGeometry(rigidBody=rigidBody,
-                                            optCycles=10,
-                                            **kw)
+        self.hlog = analyze.log(filename='mylog1.csv',
+                                quantities=quantities,
+                                period=1,
+                                header_prefix='#',
+                                overwrite=True )
+        optimised = self._optimiseGeometry(rigidBody=rigidBody, optCycles=10, **kw)
 
         maxe = -10000
         maxi = -1
@@ -151,20 +160,19 @@ class Hoomd1(FFIELD):
                                        )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        self.hlog = hoomdblue.analyze.log(filename='geomopt.tsv',
-                                     quantities=[
-                                                 'num_particles',
-                                                 'pair_lj_energy',
-                                                 'potential_energy',
-                                                 'kinetic_energy',
-                                                 ],
-                                     period=100,
-                                     header_prefix='#',
-                                     overwrite=True
-                                     )
+        self.hlog = analyze.log(filename='geomopt.tsv',
+                                quantities=[
+                                    'num_particles',
+                                    'pair_lj_energy',
+                                    'potential_energy',
+                                    'kinetic_energy',
+                                    ],
+                                period=100,
+                                header_prefix='#',
+                                overwrite=True
+                                )
 
-        optimised = self._optimiseGeometry(rigidBody=rigidBody,
-                                            **kw)
+        optimised = self._optimiseGeometry(rigidBody=rigidBody, **kw)
 
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
@@ -197,36 +205,36 @@ class Hoomd1(FFIELD):
             try:
                 # Create the integrator with the values specified
                 if rigidBody:
-                    fire = hoomdblue.integrate.mode_minimize_rigid_fire(group=self.groupActive,
-                                                                         dt=dt,
-                                                                         Nmin=Nmin,
-                                                                         alpha_start=alpha_start,
-                                                                         ftol=ftol,
-                                                                         Etol=Etol,
-                                                                         finc=finc,
-                                                                         fdec=fdec)
+                    fire = integrate.mode_minimize_rigid_fire(group=self.groupActive,
+                                                              dt=dt,
+                                                              Nmin=Nmin,
+                                                               alpha_start=alpha_start,
+                                                               ftol=ftol,
+                                                               Etol=Etol,
+                                                               finc=finc,
+                                                               fdec=fdec)
                 else:
-                    fire = hoomdblue.integrate.mode_minimize_fire(group=self.groupActive,
-                                                                dt=dt,
-                                                                Nmin=Nmin,
-                                                                alpha_start=alpha_start,
-                                                                ftol=ftol,
-                                                                Etol=Etol,
-                                                                finc=finc,
-                                                                fdec=fdec)
+                    fire = integrate.mode_minimize_fire(group=self.groupActive,
+                                                        dt=dt,
+                                                        Nmin=Nmin,
+                                                        alpha_start=alpha_start,
+                                                        ftol=ftol,
+                                                        Etol=Etol,
+                                                        finc=finc,
+                                                        fdec=fdec)
                 if dump:
                     # For tracking the optimsation
-                    xmld = hoomdblue.dump.xml(filename="runopt.xml", vis=True)
-                    dcdd = hoomdblue.dump.dcd(filename="runopt.dcd",
-                                              period=1,
-                                              unwrap_full=True,
-                                              overwrite=True)
+                    xmld = hdump.xml(filename="runopt.xml", vis=True)
+                    dcdd = hdump.dcd(filename="runopt.dcd",
+                                    period=1,
+                                    unwrap_full=True,
+                                    overwrite=True)
                 optimised = False
                 for j in range(max_tries):
                     logger.info("Running {0} optimisation cycles in macrocycle {1}".format(optCycles,j))
-                    hoomdblue.run(optCycles,
-                                   callback=lambda x:-1 if fire.has_converged() else 0,
-                                   callback_period=1)
+                    run(optCycles,
+                        callback=lambda x:-1 if fire.has_converged() else 0,
+                        callback_period=1)
                     if fire.has_converged():
                         logger.info("Optimisation converged on macrocycle {0}".format(j))
                         optimised = True
@@ -294,17 +302,17 @@ class Hoomd1(FFIELD):
                                        )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        hlog = hoomdblue.analyze.log(filename='runmd.tsv',
-                                     quantities=[
-                                                 'num_particles',
-                                                 'pair_lj_energy',
-                                                 'potential_energy',
-                                                 'kinetic_energy',
-                                                 ],
-                                     period=100,
-                                     header_prefix='#',
-                                     overwrite=True
-                                     )
+        hlog = analyze.log(filename='runmd.tsv',
+                           quantities=[
+                               'num_particles',
+                               'pair_lj_energy',
+                               'potential_energy',
+                               'kinetic_energy',
+                               ],
+                           period=100,
+                           header_prefix='#',
+                           overwrite=True
+                           )
 
         self._runMD(rigidBody=rigidBody, **kw)
 
@@ -346,23 +354,23 @@ class Hoomd1(FFIELD):
                                        )
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
-        self.hlog = hoomdblue.analyze.log(filename='md_geomopt.tsv',
-                                     quantities=[
-                                                 'num_particles',
-                                                 'pair_lj_energy',
-                                                 'potential_energy',
-                                                 'kinetic_energy',
-                                                 ],
-                                     period=0,
-                                     header_prefix='#',
-                                     overwrite=True
-                                     )
+        self.hlog = analyze.log(filename='md_geomopt.tsv',
+                                quantities=[
+                                    'num_particles',
+                                    'pair_lj_energy',
+                                    'potential_energy',
+                                    'kinetic_energy',
+                                    ],
+                                period=0,
+                                header_prefix='#',
+                                overwrite=True
+                                )
 
         # pre-optimise for preopt steps to make sure the sytem is sane - otherwise the MD
         # blows up
         preOptCycles = 5000
-        self._optimiseGeometry(optCycles=preOptCycles,
-                               dt=0.0001)
+        self._optimiseGeometry(optCycles=preOptCycles, dt=0.0001)
+        
         # Now run the MD steps
         self._runMD(**kw)
 
@@ -394,30 +402,30 @@ class Hoomd1(FFIELD):
         # Convert T
         # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
         # Incoming T is in Kelvin so we multiply by kB
-        integrator_mode = hoomdblue.integrate.mode_standard(dt=dt)
+        integrator_mode = integrate.mode_standard(dt=dt)
         if integrator == 'nvt':
             if rigidBody:
-                # nvt = hoomdblue.integrate.nvt_rigid(group=hoomdblue.group.rigid(), T=T, tau=tau )
-                integ = hoomdblue.integrate.nvt_rigid(group=self.groupActive, T=T, tau=tau)
+                # nvt = integrate.nvt_rigid(group=group.rigid(), T=T, tau=tau )
+                integ = integrate.nvt_rigid(group=self.groupActive, T=T, tau=tau)
             else:
-                integ = hoomdblue.integrate.nvt(group=self.groupActive, T=T, tau=tau)
+                integ = integrate.nvt(group=self.groupActive, T=T, tau=tau)
         elif integrator == 'npt':
             if rigidBody:
-                integ = hoomdblue.integrate.npt_rigid(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
+                integ = integrate.npt_rigid(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
             else:
-                integ = hoomdblue.integrate.npt(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
+                integ = integrate.npt(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
         else:
             raise RuntimeError("Unrecognised integrator: {0}".format(integrator))
 
         if dump:
-            xmld = hoomdblue.dump.xml(filename="runmd.xml", vis=True)
-            dcdd = hoomdblue.dump.dcd(filename="runmd.dcd",
-                                      period=dumpPeriod,
-                                      unwrap_full=True,
-                                      overwrite=True)
+            xmld = hdump.xml(filename="runmd.xml", vis=True)
+            dcdd = hdump.dcd(filename="runmd.dcd",
+                            period=dumpPeriod,
+                            unwrap_full=True,
+                            overwrite=True)
 
         # run mdCycles time steps
-        hoomdblue.run(mdCycles)
+        run(mdCycles)
 
         integ.disable()
         if dump:
@@ -547,12 +555,12 @@ class Hoomd1(FFIELD):
         return
     
     def setupGroups(self, data):
-        self.groupAll = hoomdblue.group.all()
+        self.groupAll = group.all()
         # All atoms that are part of static fragments
         if any(data.static):
-            self.groupStatic = hoomdblue.group.tag_list(name="static",
+            self.groupStatic = group.tag_list(name="static",
                                                       tags=[i for i, s in enumerate(data.static) if s])
-            self.groupActive = hoomdblue.group.difference(name="active",
+            self.groupActive = group.difference(name="active",
                                                         a=self.groupAll,
                                                         b=self.groupStatic)
         else:
@@ -586,37 +594,36 @@ class Hoomd1(FFIELD):
         self.setAttributesFromFile(xmlFilename)
         self.checkParameters()
 
-        if hoomdblue.init.is_initialized():
-            hoomdblue.init.reset()
+        if init.is_initialized(): init.reset()
 
         # Init the sytem from the file
-        system = hoomdblue.init.read_xml(filename=xmlFilename)
+        system = init.read_xml(filename=xmlFilename)
 
         # Below disables pretty much all output
         if quiet:
             logger.info("Disabling HOOMD-Blue output!")
-            hoomdblue.globals.msg.setNoticeLevel(0)
+            globals.msg.setNoticeLevel(0)
 
         # Set the parameters
         harmonic = None
         if len(self.bonds):
-            harmonic = hoomdblue.bond.harmonic()
+            harmonic = bond.harmonic()
             self.setBond(harmonic)
 
         aharmonic = None
         if len(self.angles):
-            aharmonic = hoomdblue.angle.harmonic()
+            aharmonic = angle.harmonic()
             self.setAngle(aharmonic)
 
         dharmonic = improper = None
         if doDihedral and len(self.dihedrals):
-                dharmonic = hoomdblue.dihedral.harmonic()
+                dharmonic = dihedral.harmonic()
                 self.setDihedral(dharmonic)
         elif doImproper and len(self.dihedrals):
-            improper = hoomdblue.improper.harmonic()
+            improper = improper.harmonic()
             self.setImproper(improper)
 
-        lj = hoomdblue.pair.lj(r_cut=rCut)
+        lj = pair.lj(r_cut=rCut)
         self.setPair(lj)
         
         # Specify the groups
@@ -626,9 +633,9 @@ class Hoomd1(FFIELD):
         self.setupWalls(walls, system, wallAtomType, rCut)
 
         if rigidBody:
-            hoomdblue.globals.neighbor_list.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
+            globals.neighbor_list.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
         else:
-            hoomdblue.globals.neighbor_list.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
+            globals.neighbor_list.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
 
         # For calculating groups
         # self.labels=[]
@@ -636,10 +643,10 @@ class Hoomd1(FFIELD):
             for idxBlock, idxFragment, start, end in data.tagIndices:
                 # create the group
                 l = "{0}:{1}".format(start, end)
-                g = hoomdblue.group.tag_list(name=l, tags=range(start, end))
+                g = group.tag_list(name=l, tags=range(start, end))
                 print "SET GROUP ", start, end
                 # create the compute for this group
-                c = hoomdblue.compute.thermo(group=g)
+                c = compute.thermo(group=g)
                 # self.labels.append(l)
 
 
@@ -687,10 +694,10 @@ class Hoomd1(FFIELD):
                     # We only create the wall and the LJ potentials once as they are used
                     # by all subsequent walls in the group
                     try: 
-                        wallstructure = hoomdblue.wall.group()
+                        wallstructure = wall.group()
                     except AttributeError:
                         raise RuntimeError('HOOMD-blue wall does not have a group attribute. You may need to update your version of HOOMD-Blue in order to use walls')
-                    lj = hoomdblue.wall.lj(wallstructure, r_cut=rCut)
+                    lj = wall.lj(wallstructure, r_cut=rCut)
                     for atype in self.atomTypes:
                         param = self.ffield.pairParameter(atype, wallAtomType)
                         lj.force_coeff.set(atype, epsilon=param['epsilon'], sigma=param['sigma'])
@@ -709,10 +716,8 @@ class Hoomd1(FFIELD):
     def writeCar(self, system, filename, unwrap=True, pbc=True):
         """Car File
         """
-
         car = "!BIOSYM archive 3\n"
         car += "PBC=ON\n"
-
         car += "ambuild generated car file\n"
         tstr = time.strftime("%a %b %d %H:%M:%S %Y", time.gmtime())
         car += "!DATE {0}\n".format(tstr)
@@ -724,32 +729,26 @@ class Hoomd1(FFIELD):
             car += "PBC  {0: < 9.4F} {1: < 9.4F} {2: < 9.4F}  90.0000   90.0000   90.0000 (P1)\n".format(xdim,
                                                                                                       ydim,
                                                                                                       zdim)
-
         for p in system.particles:
-
                 label = atype = p.type.strip()
-
                 # Treat x-atoms differently
                 if label[0].lower() == 'x':
                     symbol = 'x'
                 else:
                     symbol = util.label2symbol(label)
 
-                x, y, z = p.position
-                ix, iy, iz = p.image
                 charge = float(p.charge)
 
                 if unwrap:
-                    x = util.unWrapCoord(x, ix, xdim, centered=False)
-                    y = util.unWrapCoord(y, iy, ydim, centered=False)
-                    z = util.unWrapCoord(z, iz, zdim, centered=False)
+                    coord = util.unWrapCoord3(p.position, p.image, system.box, centered=False)
                 else:
+                    pass
                     # Put back with origin at corner
-                    x = x + (xdim / 2)
-                    y = y + (ydim / 2)
-                    z = z + (zdim / 2)
+#                     x = x + (xdim / 2)
+#                     y = y + (ydim / 2)
+#                     z = z + (zdim / 2)
 
-                car += "{0: <5} {1: >15.10} {2: >15.10} {3: >15.10} XXXX 1      {4: <4}    {5: <2} {6: > 2.3f}\n".format(label, x, y, z, atype, symbol, charge)
+                car += "{0: <5} {1: >15.10} {2: >15.10} {3: >15.10} XXXX 1      {4: <4}    {5: <2} {6: > 2.3f}\n".format(label, coord[0], coord[1], coord[2], atype, symbol, charge)
 
         car += "end\nend\n\n"
 

@@ -1263,9 +1263,9 @@ class Test(unittest.TestCase):
                                            doCharges=True,
                                            )
 
-        if hoomd1.hoomdblue.init.is_initialized():
-            hoomd1.hoomdblue.init.reset()
-        system = hoomd1.hoomdblue.init.read_xml(filename=filename)
+        if hoomd1.init.is_initialized():
+            hoomd1.init.reset()
+        system = hoomd1.init.read_xml(filename=filename)
 
         wcoords = []
         for i, p in enumerate(system.particles):
@@ -1931,7 +1931,6 @@ class Test(unittest.TestCase):
         os.unlink(fname)
         return
 
-
     def testWriteHoomdblue(self):
         """
         write out hoomdblue xml
@@ -1982,9 +1981,9 @@ class Test(unittest.TestCase):
         self.assertEqual(test, ref, "xml compare")
 
         # Init the sytem from the file
-        if hoomd1.hoomdblue.init.is_initialized():
-            hoomd1.hoomdblue.init.reset()
-        system = hoomd1.hoomdblue.init.read_xml(filename=xmlFilename)
+        if hoomd1.init.is_initialized():
+            hoomd1.init.reset()
+        system = hoomd1.init.read_xml(filename=xmlFilename)
 
         # Read it back in to make sure we get the same values
         mycell.fromHoomdblueSystem(system)
