@@ -1137,40 +1137,6 @@ class Test(unittest.TestCase):
         # os.unlink("hoomdOpt.xml")
         return
 
-    def XtestOptimiseGeometryMinCell(self):
-        """
-        """
-
-        # Create a large cell and populate it with a block
-        CELLA = CELLB = CELLC = 100
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
-        mycell.addBondType('A:a-A:a')
-
-        mycell.seed(1)
-        mycell.growBlocks(3, 'A')
-
-        # Get the block and put it in the centre of the cell
-        block = mycell.blocks[ mycell.blocks.keys()[0] ]
-        block.translateCentroid([ CELLA / 2, CELLB / 2, CELLC / 2 ])
-
-        # mycell.dump()
-        # Center of mass shouldn't have changed
-        com = 0.0
-        for _, block in mycell.blocks.iteritems():
-            com += block.centerOfMass()
-
-        mycell.optimiseGeometry(minCell=True, optAttempts=1)
-
-        comA = 0.0
-        for _, block in mycell.blocks.iteritems():
-            comA += block.centerOfMass()
-
-        self.assertTrue(numpy.allclose(com, comA))
-
-        return
-
     def testOptimiseGeometryDihedral(self):
         """
         """
@@ -2031,52 +1997,6 @@ class Test(unittest.TestCase):
                          "coords don't match")
 
         os.unlink(xmlFilename)
-
-        return
-
-    def XtestWriteHoomdblueMinCell(self):
-        """
-        write out hoomdblue xml
-        """
-
-        import hoomdblue
-
-        # Create a large cell and populate it with a block
-        CELLA = CELLB = CELLC = 100
-        mycell = Cell()
-        mycell.cellAxis(A=CELLA, B=CELLB, C=CELLC)
-        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
-        mycell.addBondType('A:a-A:a')
-
-        mycell.seed(1)
-        mycell.growBlocks(3, 'A')
-
-        # Get the block and put it in the centre of the cell
-        block = mycell.blocks[ mycell.blocks.keys()[0] ]
-        block.translateCentroid([ CELLA / 2, CELLB / 2, CELLC / 2 ])
-
-        initcoords = []
-        for block in mycell.blocks.itervalues():
-            initcoords += block._coords
-
-        filename = "testWriteHoomdblue.xml"
-        natoms = mycell.writeHoomdXml(xmlFilename=filename)
-
-        # Init the sytem from the file
-        if hoomdblue.init.is_initialized():
-            hoomdblue.init.reset()
-        system = hoomdblue.init.read_xml(filename=filename)
-
-        # Read it back in to make sure we get the same values
-        mycell.fromHoomdblueSystem(system, minCell=True)
-
-        finalcoords = []
-        for block in mycell.blocks.itervalues():
-            finalcoords += block._coords
-
-        self.assertEqual(initcoords, finalcoords, "coords don't match")
-
-        os.unlink(filename)
 
         return
 

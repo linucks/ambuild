@@ -165,7 +165,6 @@ class Cell():
     '''
     classdocs
     '''
-
     def __init__(self,
                  boxDim=None,
                  filePath=None,
@@ -236,8 +235,6 @@ class Cell():
 
         # see optimiseGeometry
         self.rCut = 5.0
-        self.minCell = False
-        self.minCellData = None
 
         # number of boxes in A,B,C axes - used for calculating PBC
         self.numBoxes = [None, None, None]
@@ -1622,11 +1619,6 @@ class Cell():
             Ly = system.box[1]
             Lz = system.box[2]
         
-        if self.minCell:
-            # Need to take unwrapped coords and put back into
-            # the original cell
-            assert self.minCellData
-
         # Read back in the particle positions
         atomCount = 0
         for block in self.blocks.itervalues():
@@ -1636,32 +1628,9 @@ class Cell():
                 xt, yt, zt = p.position
                 ix, iy, iz = p.image
 
-                if self.minCell:
-
-                    assert False, "FIX MINCELL"
-                    assert self.minCellData['A'] == Lx
-                    assert self.minCellData['B'] == Ly
-                    assert self.minCellData['C'] == Lz
-
-                    # Unwrap the coordinates in the centered cell
-                    x = util.unWrapCoord(xt, ix, Lx, centered=False)
-                    y = util.unWrapCoord(yt, iy, Ly, centered=False)
-                    z = util.unWrapCoord(zt, iz, Lz, centered=False)
-
-                    # Need to take unwrapped coords and put back into
-                    # the original cell
-                    x = x + Lx / 2 + self.minCellData['minA']
-                    y = y + Ly / 2 + self.minCellData['minB']
-                    z = z + Lz / 2 + self.minCellData['minC']
-
-                    # Not the case as could be in a different image
-                    # assert x >= 0 and x <= self.A
-                    # assert y >= 0 and y <= self.B
-                    # assert z >= 0 and z <= self.C
-                else:
-                    x = util.unWrapCoord(xt, ix, Lx, centered=True)
-                    y = util.unWrapCoord(yt, iy, Ly, centered=True)
-                    z = util.unWrapCoord(zt, iz, Lz, centered=True)
+                x = util.unWrapCoord(xt, ix, Lx, centered=True)
+                y = util.unWrapCoord(yt, iy, Ly, centered=True)
+                z = util.unWrapCoord(zt, iz, Lz, centered=True)
 
                 # block.atomCoord( k )[0] = x
                 # block.atomCoord( k )[1] = y
@@ -2224,10 +2193,6 @@ class Cell():
         """
 
         logger.info("Running optimisation")
-
-        # HACK
-        minCell = False
-        self.minCell = minCell
 
         if doDihedral and doImproper:
             raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
