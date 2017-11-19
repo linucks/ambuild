@@ -38,6 +38,7 @@ if 'context' in locals().keys():
     sys.argv = _argv
     
 import logging
+import numpy
 import os
 import time
 import xml.etree.ElementTree as ET
@@ -712,6 +713,35 @@ class Hoomd1(FFIELD):
     def toStandardUnits(self, value):
         # return float(value) / self.CONVERSIONFACTOR
         return float(value)
+
+    def updateCell(self, cell):
+        """Reset the particle positions from hoomdblue system"""  # Should really check HOOMD version but...
+        if hasattr(self.system.box, "Lx"):
+            box = numpy.array([self.system.box.Lx, self.system.box.Ly, self.system.box.Lz])
+        else:
+            box = numpy.array(self.system.box)
+        
+        # Read back in the particle positions
+        atomCount = 0
+        for block in cell.blocks.itervalues():
+            for k in range(block.numAtoms()):
+                p = self.system.particles[ atomCount ]
+                coord = util.unWrapCoord3(p.position, p.image, box, centered=True)
+                block.coord(k, coord)
+                atomCount += 1
+    
+        if atomCount != len(self.system.particles):
+            raise RuntimeError, "Read {0} positions but there were {1} particles!".format(atomCount, len(self.system.particles))
+        
+        # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update 
+        # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks
+        if not numpy.allclose(box, cell.dim):
+            logger.info("Changing cell dimensions after HOOMD-blue simulation from: {0} to: {1}".format(cell.dim,box))
+            cell.dim = box
+    
+        # Now have the new coordinates, so we need to put the atoms in their new cells
+        cell.repopulateCells()
+        return
 
     def writeCar(self, system, filename, unwrap=True, pbc=True):
         """Car File

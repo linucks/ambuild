@@ -1986,7 +1986,8 @@ class Test(unittest.TestCase):
         system = hoomd1.init.read_xml(filename=xmlFilename)
 
         # Read it back in to make sure we get the same values
-        mycell.fromHoomdblueSystem(system)
+        mycell.MDENGINE.system = system
+        mycell.MDENGINE.updateCell(mycell)
         finalcoords = []
         for block in mycell.blocks.itervalues():
             for c in block.iterCoord():

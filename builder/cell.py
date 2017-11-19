@@ -1613,52 +1613,6 @@ class Cell():
 
     def fragmentTypeFromEndGroupType(self, endGroupType):
         return endGroupType.split(self.ENDGROUPSEP)[0]
-    
-    def fromHoomdblueSystem(self, system):
-        """Reset the particle positions from hoomdblue system"""  # Should really check HOOMD version but...
-        if hasattr(system.box, "Lx"):
-            Lx = system.box.Lx
-            Ly = system.box.Ly
-            Lz = system.box.Lz
-        else:
-            Lx = system.box[0]
-            Ly = system.box[1]
-            Lz = system.box[2]
-        
-        # Read back in the particle positions
-        atomCount = 0
-        for block in self.blocks.itervalues():
-            for k in range(block.numAtoms()):
-
-                p = system.particles[ atomCount ]
-                xt, yt, zt = p.position
-                ix, iy, iz = p.image
-
-                x = util.unWrapCoord(xt, ix, Lx, centered=True)
-                y = util.unWrapCoord(yt, iy, Ly, centered=True)
-                z = util.unWrapCoord(zt, iz, Lz, centered=True)
-
-                # block.atomCoord( k )[0] = x
-                # block.atomCoord( k )[1] = y
-                # block.atomCoord( k )[2] = z
-                block.coord(k, [x, y, z])
-
-                atomCount += 1
-
-        if atomCount != len(system.particles):
-            raise RuntimeError, "Read {0} positions but there were {1} particles!".format(atomCount, len(system.particles))
-        
-        # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update 
-        # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks
-        dim = numpy.array([Lx,Ly,Lz])
-        if not numpy.allclose(dim, self.dim):
-            logger.info("Changing cell dimensions after HOOMD-blue simulation from: {0} to: {1}".format(self.dim,dim))
-            self.dim = dim
-
-        # Now have the new coordinates, so we need to put the atoms in their new cells
-        self.repopulateCells()
-
-        return
 
     def _getBox(self, coord):
         """Return the box that the coord is in under periodic boundaries"""
@@ -2170,6 +2124,7 @@ class Cell():
             n = sum([len(b.fragments) for b in self.blocks.itervalues()])
         except AttributeError:
             n = sum([len(b._fragments) for b in self.blocks.itervalues()])
+        return n
 
     def numFreeEndGroups(self):
         return sum([ b.numFreeEndGroups() for b in self.blocks.itervalues() ])
@@ -2224,7 +2179,7 @@ class Cell():
 
         if ok:
             logger.info("Optimisation succeeded")
-            self.fromHoomdblueSystem(self.MDENGINE.system)
+            self.MDENGINE.updateCell(self)
             return True
         else:
             logger.critical("Optimisation Failed")
@@ -2437,9 +2392,7 @@ class Cell():
                              **kw)
 
         self.analyse.stop('runMD', d)
-
-        self.fromHoomdblueSystem(self.MDENGINE.system)
-
+        self.MDENGINE.updateCell(self)
         return ok
 
     def runMDAndOptimise(self,
@@ -2479,7 +2432,7 @@ class Cell():
 
         if ok: logger.info("runMDAndOptimise succeeded")
         self.analyse.stop('runMDAndOptimise', d)
-        self.fromHoomdblueSystem(self.MDENGINE.system)
+        self.MDENGINE.updateCell(self)
         return ok
         
     def seed(self,
