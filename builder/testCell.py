@@ -1125,16 +1125,17 @@ class Test(unittest.TestCase):
 
         mycell.seed(1, fragmentType='triquin', center=True)
         mycell.growBlocks(toGrow=1, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
-        # self.testCell.writeCml("foo.cml")
         mycell.runMD(rigidBody=False,
                      doDihedral=True,
                      rCut=5.0,
                      mdCycles=1000,
                      T=1.0,
                      tau=0.5,
-                     dt=0.0005)
+                     dt=0.0005,
+                     dump=False,
+                     quiet=True
+                     )
         self.assertFalse(self.clashes(mycell))
-        # os.unlink("hoomdOpt.xml")
         return
 
     def testOptimiseGeometryDihedral(self):

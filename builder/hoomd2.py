@@ -5,10 +5,10 @@ import itertools
 import logging
 import sys
 
-
 # 3rd-party imports
 import hoomd
 import hoomd.md
+import numpy
 
 # Our imports
 from ffield import FfieldParameters
@@ -33,7 +33,8 @@ class Hoomd2(object):
     """
     def __init__(self, paramsDir):
         self.ffield = FfieldParameters(paramsDir)
-        self.debug = True
+        self.debug = False
+        self.system = None
         self.exclusions = [] # particle tags to be ignored in pair-pair interactions
 
     def checkParameters(self, skipDihedrals=False):
@@ -215,15 +216,15 @@ class Hoomd2(object):
                           **kw):
         if rCut is not None: self.rCut = rCut
         if doDihedral and doImproper: raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
-        hoomd.context.initialize()
-        snap = self.createSnapshot(data, rigidBody=rigidBody, doCharges=doCharges, doDihedral=doDihedral)
-        self.setupSimulation(data, snap, rCut, rigidBody=rigidBody, walls=walls, wallAtomType=wallAtomType)        
+        self.setupContext(quiet=quiet)
+        snapshot = self.createSnapshot(data, rigidBody=rigidBody, doCharges=doCharges, doDihedral=doDihedral)
+        self.setupSimulation(snapshot, data, rCut, rigidBody=rigidBody, walls=walls, wallAtomType=wallAtomType)        
         hlog = self._createLog('geomopt.tsv')
         optimised = self._optimiseGeometry(rigidBody=rigidBody, **kw)
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
-                kw['d'][ i ] = self.toStandardUnits(hlog.query(i))
+                kw['d'][ i ] = hlog.query(i)
         return True
         return optimised
 
@@ -306,15 +307,15 @@ class Hoomd2(object):
               **kw):
         if rCut is not None: self.rCut = rCut
         if doDihedral and doImproper: raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
-        hoomd.context.initialize()
-        snap = self.createSnapshot(data, rigidBody=rigidBody, doCharges=doCharges, doDihedral=doDihedral)
-        self.setupSimulation(data, snap, rCut, rigidBody=rigidBody, walls=walls, wallAtomType=wallAtomType)        
+        self.setupContext(quiet=quiet)
+        snapshot = self.createSnapshot(data, rigidBody=rigidBody, doCharges=doCharges, doDihedral=doDihedral)
+        self.setupSimulation(snapshot, data, rCut, rigidBody=rigidBody, walls=walls, wallAtomType=wallAtomType)        
         hlog = self._createLog('runmd.log')
         self._runMD(rigidBody=rigidBody, **kw)
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
-                kw['d'][ i ] = self.toStandardUnits(hlog.query(i))
+                kw['d'][ i ] = hlog.query(i)
         return True
 
     def _runMD(self,
@@ -407,6 +408,13 @@ class Hoomd2(object):
         #nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
         nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
         return
+    
+    def setupContext(self, quiet=False):
+        hoomd.context.initialize()
+        if quiet:
+            hoomd.util.quiet_status()
+            hoomd.option.set_notice_level(0)
+        return
 
     def setupGroups(self, data, rigidBody):
         self.groupAll = hoomd.group.all()
@@ -430,10 +438,10 @@ class Hoomd2(object):
                 self.groupActive = self.groupAll
         return
     
-    def setupSimulation(self, data, snap, rCut=None, rigidBody=False, walls=None, wallAtomType=None):
+    def setupSimulation(self, snapshot, data, rCut=None, rigidBody=False, walls=None, wallAtomType=None):
         
         # Init the sytem from the snapshot
-        system = hoomd.init.read_snapshot(snap)
+        self.system = hoomd.init.read_snapshot(snapshot)
 
 #         # Below disables pretty much all output
 #         if quiet:
@@ -456,7 +464,7 @@ class Hoomd2(object):
         self.setupGroups(data, rigidBody)
         
         # Add any walls
-        self.setupWalls(walls, system, wallAtomType, rCut)
+        self.setupWalls(walls, wallAtomType, rCut)
         return
     
     def setupRigidBody(self, rigidBody, data):
@@ -470,7 +478,7 @@ class Hoomd2(object):
         rigid.validate_bodies()
         return
 
-    def setupWalls(self, walls, system, wallAtomType, rCut):
+    def setupWalls(self, walls, wallAtomType, rCut):
         """Set up walls for the simulation
         
         I think that we require two walls. One on the front side with the potential facing in,
@@ -488,16 +496,16 @@ class Hoomd2(object):
             if do:
                 logger.info('Setting wall in HOOMDBLUE for {0} of atomType {1}'.format(wtype, wallAtomType))
                 if wtype is 'XOY':
-                    originFront = (0, 0, -system.box.Lz/2)
-                    originBack  = (0, 0,  system.box.Lz/2)
+                    originFront = (0, 0, -self.system.box.Lz/2)
+                    originBack  = (0, 0,  self.system.box.Lz/2)
                     normal = (0, 0, 1)
                 elif wtype is 'XOZ':
-                    originFront = (0, -system.box.Ly/2, 0)
-                    originBack  = (0,  system.box.Ly/2, 0)
+                    originFront = (0, -self.system.box.Ly/2, 0)
+                    originBack  = (0,  self.system.box.Ly/2, 0)
                     normal = (0, 1, 0)
                 elif wtype is 'YOZ':
-                    originFront = (-system.box.Lx/2, 0, 0)
-                    originBack  = ( system.box.Lx/2, 0, 0)
+                    originFront = (-self.system.box.Lx/2, 0, 0)
+                    originBack  = ( self.system.box.Lx/2, 0, 0)
                     normal = (1, 0, 0)
                 else:
                     raise RuntimeError("Unrecognised Wall Type! {0}".format(wtype))
@@ -518,6 +526,35 @@ class Hoomd2(object):
                 wallstructure.add_plane(origin=originFront, normal=normal, inside=True)
                 # Back
                 wallstructure.add_plane(origin=originBack, normal=normal, inside=False)
+        return
+
+    def updateCell(self, cell):
+        """Reset the particle positions from hoomdblue system""" 
+        box = numpy.array([self.system.box.Lx,self.system.box.Ly,self.system.box.Lz])
+        snapshot = self.system.take_snapshot()
+        
+        # Read back in the particle positions
+        atomCount = 0
+        for block in cell.blocks.itervalues():
+            for k in range(block.numAtoms()):
+                coord = util.unWrapCoord3(snapshot.particles.position[ atomCount ],
+                                          snapshot.particles.image[ atomCount ],
+                                          box,
+                                          centered=True)
+                block.coord(k, coord)
+                atomCount += 1
+    
+        if atomCount != snapshot.particles.N:
+            raise RuntimeError, "Read {0} positions but there were {1} particles!".format(atomCount, len(self.system.particles))
+        
+        # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update 
+        # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks
+        if not numpy.allclose(box, cell.dim):
+            logger.info("Changing cell dimensions after HOOMD-blue simulation from: {0} to: {1}".format(cell.dim,box))
+            cell.dim = box
+    
+        # Now have the new coordinates, so we need to put the atoms in their new cells
+        cell.repopulateCells()
         return
     
     def _createLog(self, filename):
