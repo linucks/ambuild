@@ -25,14 +25,12 @@ import fragment
 from paths import PARAMS_DIR
 import util
 import warnings
+
 # Our hoomd modules handle loading hoomd-blue so this is just to determine which version we are using
-import hoomd
-HOOMDVERSION = hoomd.__version__
-del hoomd
+HOOMDVERSION = util.hoomdVersion()
 
 BONDTYPESEP = "-"  # Character for separating bonds
 ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
-
 
 logger = logging.getLogger(__name__)
 class Analyse():
@@ -280,12 +278,7 @@ class Cell():
         util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
         
         global HOOMDVERSION
-        if HOOMDVERSION[0] < 2:
-            from hoomd1 import Hoomd1
-            self.MDENGINE = Hoomd1(paramsDir)
-        else:
-            from hoomd2 import Hoomd2
-            self.MDENGINE = Hoomd2(paramsDir)
+        self.setMdEngine(HOOMDVERSION, paramsDir)
 
         if filePath: # Init from a car file 
             self.setStaticBlock(filePath)
@@ -2518,6 +2511,11 @@ class Cell():
         logger.info("Seed added {0} blocks. Cell now contains {1} blocks".format(numBlocksAdded, len(self.blocks)))
         return numBlocksAdded
 
+    def setBondingFunction(self, fragmentType, onbondFunction):
+        fragment = self._fragmentLibrary[ fragmentType ]
+        fragment.onbondFunction = onbondFunction
+        return
+
     def setBoxSize(self, boxDim):
         # A, B and C are cell vectors - for the time being we assume they are orthogonal
         # so they are just floats
@@ -2605,11 +2603,14 @@ class Cell():
         # Now get the library fragment to set it's maxBond parameter
         fragment = self._fragmentLibrary[ fragmentType ]
         return fragment.setMaxBond(bondType, count)
-    
-    def setBondingFunction(self, fragmentType, onbondFunction):
-        fragment = self._fragmentLibrary[ fragmentType ]
-        fragment.onbondFunction = onbondFunction
-        return
+
+    def setMdEngine(self, hoomdVersion, paramsDir):
+        if hoomdVersion[0] < 2:
+            from hoomd1 import Hoomd1
+            self.MDENGINE = Hoomd1(paramsDir)
+        else:
+            from hoomd2 import Hoomd2
+            self.MDENGINE = Hoomd2(paramsDir)
         
     def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType='c'):
         """Create walls along the specified sides.

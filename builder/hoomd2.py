@@ -276,6 +276,8 @@ class Hoomd2(object):
                 break # Break out of try/except loop
             except RuntimeError as e:
                 logger.info("Optimisation step {0} failed!\n{1}".format(i,e))
+                fire.reset()
+                integrate_nve.disable()
                 if i+1 < retries_on_error:
                     dt_old = dt
                     dt = dt_old * 0.1
@@ -404,9 +406,9 @@ class Hoomd2(object):
             lj.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
             if self.debug: logger.info("DEBUG: lj.pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype, btype, epsilon, sigma))
             
-        # Don't think we need to include body any more for rigid bodies, as these are already excluded by default
-        #nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
-        nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
+        # Don't think we need to include body any more for rigid bodies, as these are already excluded by default?
+        nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
+        #nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
         return
     
     def setupContext(self, quiet=False):
@@ -533,8 +535,11 @@ class Hoomd2(object):
         box = numpy.array([self.system.box.Lx,self.system.box.Ly,self.system.box.Lz])
         snapshot = self.system.take_snapshot()
         
+        # If we are running under rigid bodies we need to exclude the center particles,
+        # which will be at the start of the particle list
+        nrigid_centers = len(hoomd.group.rigid_center())
         # Read back in the particle positions
-        atomCount = 0
+        atomCount = nrigid_centers
         for block in cell.blocks.itervalues():
             for k in range(block.numAtoms()):
                 coord = util.unWrapCoord3(snapshot.particles.position[ atomCount ],

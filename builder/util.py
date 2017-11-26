@@ -768,6 +768,9 @@ def cellFromPickle(pickleFile, paramsDir=None):
     logger.info("Getting parameter files from directory: {0}".format(paramsDir))
     setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
     
+    # Set the MD enginge
+    myCell.setMdEngine(hoomdVersion(), paramsDir)
+    
     # Fix all the fragments
     for fragment in myCell._fragmentLibrary.values():
         fixFragment(fragment)
@@ -1004,6 +1007,11 @@ def label2symbol(name):
 
     raise RuntimeError, "label2symbol cannot convert name {0} to symbol!".format(origName)
     return
+
+def hoomdVersion():
+    import hoomd
+    #del hoomd
+    return hoomd.__version__
 
 def newFilename(filename, separator="_"):
 

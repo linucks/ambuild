@@ -1073,7 +1073,8 @@ class Test(unittest.TestCase):
                                         Etol=1e-5,
                                          )
         self.assertFalse(self.clashes(mycell))
-        os.unlink("hoomdOpt.xml")
+        hxml = "hoomdOpt.xml"
+        if os.path.isfile(hxml): os.unlink(hxml)
         return
 
     def testOptimiseGeometryAll(self):
