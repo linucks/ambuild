@@ -436,10 +436,11 @@ ELEMENT_TYPE_BOND_LENGTHS['BR'] = { 'BR': 2.28,
 
 ELEMENT_TYPE_BOND_LENGTHS['C'] = { 'C' : 1.53,
                                   'CL': 1.79,
+                                  'Cu': 1.981,
                                   'F' : 1.39,
                                   'GE': 1.95,
                                   'H' : 1.09,
-                                  'I' : 2.13,
+                                  'I' : 2.05,
                                   'O' : 1.42,
                                   # 'N' : 1.46,
                                   'N' : 1.4,  # jmht changed for abbie
@@ -449,6 +450,7 @@ ELEMENT_TYPE_BOND_LENGTHS['C'] = { 'C' : 1.53,
                                   'SI': 1.87,
 				  'NI': 2.75,
                                   'SN': 2.14,
+                                  'Pd': 3.178,
                                   'Cu': 1.98 }
 
 ELEMENT_TYPE_BOND_LENGTHS['CL'] = { 'CL' : 1.99,
@@ -492,13 +494,14 @@ ELEMENT_TYPE_BOND_LENGTHS['H'] = { 'H' : 0.74,
                                   'SI': 1.48,
                                   'SN': 1.71,
 				  'NI': 2.75,
-                                  'TE': 1.66 }
+                                  'TE': 1.66,
+			          'Cu': 1.10 }
 
 ELEMENT_TYPE_BOND_LENGTHS['I'] = { 'I'  : 2.67,
                                    'SI' : 2.44,
                                    'SN' : 2.67 }
 
-ELEMENT_TYPE_BOND_LENGTHS['N'] = { 'N' : 1.45,
+ELEMENT_TYPE_BOND_LENGTHS['N'] = { 'N' : 1.098,
                                    'O' : 1.43,
                                    'P' : 1.65,
                                    'ZN' : 2.166,  # Added for abbie
@@ -516,6 +519,7 @@ ELEMENT_TYPE_BOND_LENGTHS['SE'] = { 'SE' : 2.33 }
 
 ELEMENT_TYPE_BOND_LENGTHS['SI'] = { 'SI' : 2.33 }
 ELEMENT_TYPE_BOND_LENGTHS['LI'] = { 'LI' : 2.67 }
+ELEMENT_TYPE_BOND_LENGTHS['Cu'] = { 'C' : 1.981 }
 
 ELEMENT_TYPE_BOND_LENGTHS['Cu'] = { 'C' : 1.98 }
 
@@ -640,6 +644,7 @@ def calcBonds(coords, symbols, dim=None, maxAtomRadius=None, bondMargin=0.2, box
         if bond_length < 0: continue
         logger.debug("Dist:length {1}({0})-{3}({2}) {4} {5}".format( symbols[idxAtom1], idxAtom1, symbols[idxAtom2], idxAtom2, distances[i], bond_length ))
         if  bond_length - bondMargin < distances[i] < bond_length + bondMargin:
+            #logger.info("GOT")
             bonds.append((idxAtom1, idxAtom2))
     return bonds
 
@@ -907,7 +912,7 @@ def dumpPkl(pickleFile, split=None, nonPeriodic=False):
             mycell.writeCml(prefix + "_PV.cml", data=data, periodic=True, pruneBonds=True)
     return
 
-def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
+def dumpDLPOLY(pickleFile, paramsDir=None, rigidBody=False, skipDihedrals=False):
     fpath = os.path.abspath(pickleFile)
     logger.info("Dumping DLPOLY files from pkl file: {0}".format(fpath))
     mycell = cellFromPickle(pickleFile)
@@ -915,7 +920,11 @@ def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
     # Need to do this here or else hoomdblue gets the command line arguments on import of the module
     import opt
 
-    d = opt.DLPOLY()
+    if paramsDir is None: paramsDir = PARAMS_DIR
+    if not os.path.isdir(paramsDir):
+        raise RuntimeError("Cannot find cell paramsDir: {0}".format(paramsDir))
+
+    d = opt.DLPOLY(paramsDir)
     d.writeCONTROL()
     d.writeFIELDandCONFIG(mycell, rigidBody=rigidBody, skipDihedrals=skipDihedrals)
     return
@@ -1419,6 +1428,7 @@ if __name__ == '__main__':
     p.add_argument('pkl_file', type=str, metavar='pickle_file.pkl', help='Ambuild pickle file')
     p.add_argument('-f', '--split_fragments', action='store_true', default=False, help="Split the cell into fragments")
     p.add_argument('-b', '--split_blocks', action='store_true', default=False, help="Split the cell into blocks")
+    p.add_argument('-p', '--params_dir', help="Path to the force field parameters directory")
     p.add_argument('-da', '--dlpoly_allatom', action='store_true', default=False, help="Create all-atom DLPOLY CONFIG and FIELD files")
     p.add_argument('-dr', '--dlpoly_rigid', action='store_true', default=False, help="Create rigid-body DLPOLY CONFIG and FIELD files")
     p.add_argument('-np', '--non_periodic', action='store_true', default=False, help="Dump a non-periodic system")
@@ -1450,6 +1460,6 @@ if __name__ == '__main__':
     sys.argv = [sys.argv[0]]
 
     if dlpoly:
-        dumpDLPOLY(args.pkl_file, rigidBody=rigid, skipDihedrals=skipDihedrals)
+        dumpDLPOLY(args.pkl_file, paramsDir=args.params_dir, rigidBody=rigid, skipDihedrals=skipDihedrals)
     else:
         dumpPkl(args.pkl_file, split=split, nonPeriodic=nonPeriodic)
