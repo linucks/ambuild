@@ -193,15 +193,7 @@ class Hoomd2(object):
                 snap.particles.mass[i] = data.masses[i]
                 snap.particles.position[i] = data.coords[i]
                 snap.particles.typeid[i] = self.particle_types.index(data.atomTypes[i])
-        
-#         with open('foo.xyz','w') as w:
-#             w.write("%d\n" % snap.particles.N)
-#             w.write("JENS\n")
-#             types = snap.particles.types
-#             for i in range(snap.particles.N):
-#                 w.write("%s    %f    %f    %f\n" % (types[snap.particles.typeid[i]], snap.particles.position[i][0], snap.particles.position[i][1], snap.particles.position[i][2]))
         return snap
-
 
     def optimiseGeometry(self,
                           data,
@@ -348,6 +340,7 @@ class Hoomd2(object):
                                   period=dumpPeriod,
                                   group=self.groupAll,
                                   overwrite=True)
+        
         # run mdCycles time steps
         hoomd.run(mdCycles)
 
@@ -407,8 +400,9 @@ class Hoomd2(object):
             if self.debug: logger.info("DEBUG: lj.pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype, btype, epsilon, sigma))
             
         # Don't think we need to include body any more for rigid bodies, as these are already excluded by default?
-        nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
+        #nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
         #nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
+        nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body'])
         return
     
     def setupContext(self, quiet=False):
@@ -572,6 +566,19 @@ class Hoomd2(object):
                                      period=100,
                                      header_prefix='#',
                                      overwrite=True)
+
+def snap2xyz(snapshot,fpath='foo.xyz'):
+    with open(fpath,'w') as w:
+        w.write("%d\n" % snapshot.particles.N)
+        w.write("JENS\n")
+        types = snapshot.particles.types
+        for i in range(snapshot.particles.N):
+            w.write("%s    %f    %f    %f\n" % (types[snapshot.particles.typeid[i]],
+                                                snapshot.particles.position[i][0],
+                                                snapshot.particles.position[i][1],
+                                                snapshot.particles.position[i][2]))
+    print("JMHT WROTE SNAPSHOT: %s" % fpath)
+    return
 
 if __name__ == "__main__":
     from paths import PARAMS_DIR

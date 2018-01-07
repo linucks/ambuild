@@ -1314,7 +1314,11 @@ class Cell():
                 for body in frag.bodies():
                     # Body count always increments with fragment although it may go up within a fragment too
                     bodyCount += 1
-                    coords, images = body.coords(self.dim, center=center)
+                    # FIX!! - this is horribly unoptimised as coords with bodyspace calls body.center_particle,
+                    # which in turn calls body.coords!
+                    bodyspace = False
+                    if HOOMDVERSION[0] > 1 and rigidBody: bodyspace = True
+                    coords, images = body.coords(self.dim, center=center, bodyspace=bodyspace)
                     d.coords += list(coords)
                     d.images += images
                     btypes = body.atomTypes()

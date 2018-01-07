@@ -27,7 +27,7 @@ class Body(object):
         self.bodyIndex = bodyIndex
         return
     
-    def coords(self, dim=None, center=True):
+    def coords(self, dim=None, center=True, bodyspace=False):
         # Get list of the internal indices of unmasked atoms that belong to body self.bodyIndex
         coords = self.fragment._coords[ [ i for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] ]
         if dim is not None:
@@ -37,7 +37,19 @@ class Body(object):
                 coord, image = util.wrapCoord3(coord, dim, center=center)
                 _coords.append(coord)
                 images.append(image)
-            return _coords, images
+            coords = _coords
+#             return _coords, images
+#         else:
+#             return coords
+
+        if bodyspace:
+            # Everything is in cell/centred if required, so now just need coords
+            # relative to the centre particle - this is horrbily unoptimised as center_particle
+            # also calls coords
+            centroid, _ = self.center_particle(dim=dim, center=center)
+            coords = [ c - centroid for c in coords]
+        if dim is not None:
+            return coords, images
         else:
             return coords
     
