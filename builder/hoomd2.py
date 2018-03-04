@@ -172,6 +172,7 @@ class Hoomd2(object):
         for i in range(nparticles):
             if rigidBody:
                 if i < nrigid_centres:
+                    # Add possible angmom, moment_inertia, orientation
                     snap.particles.body[i] = data.rigid_body[i]
                     snap.particles.image[i] = data.rigid_image[i]
                     snap.particles.mass[i] = data.rigid_mass[i]
@@ -402,6 +403,7 @@ class Hoomd2(object):
         # Don't think we need to include body any more for rigid bodies, as these are already excluded by default?
         #nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
         #nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
+       
         nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body'])
         return
     
@@ -438,11 +440,6 @@ class Hoomd2(object):
         
         # Init the sytem from the snapshot
         self.system = hoomd.init.read_snapshot(snapshot)
-
-#         # Below disables pretty much all output
-#         if quiet:
-#             logger.info("Disabling HOOMD-Blue output!")
-#             hoomdblue.globals.msg.setNoticeLevel(0)
 
         # Create any rigid bodies and get list of central particle types to exclude
         self.setupRigidBody(rigidBody, data)
