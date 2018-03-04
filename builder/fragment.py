@@ -27,6 +27,24 @@ class Body(object):
         self.bodyIndex = bodyIndex
         return
     
+    def atomTypes(self):
+        return [ self.fragment._atomTypes[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
+        
+    def bodies(self):
+        return [ self.bodyIndex ] * len(self.fragment._ext2int.values())
+        
+    def centerParticle(self, dim=None, center=True):
+        coords = self.coords()
+        centroid = numpy.sum(coords, axis=0) / numpy.size(coords, axis=0)
+        if dim is not None:
+            centroid, image = util.wrapCoord3(centroid, dim, center=center)
+            return centroid, image
+        else:
+            return centroid
+        
+    def charges(self):
+        return [ self.fragment._charges[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
+
     def coords(self, dim=None, center=True, bodyspace=False):
         # Get list of the internal indices of unmasked atoms that belong to body self.bodyIndex
         coords = self.fragment._coords[ [ i for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] ]
@@ -46,31 +64,16 @@ class Body(object):
             # Everything is in cell/centred if required, so now just need coords
             # relative to the centre particle - this is horrbily unoptimised as center_particle
             # also calls coords
-            centroid, _ = self.center_particle(dim=dim, center=center)
+            if dim:
+                centroid, _ = self.centerParticle(dim=dim, center=center)
+            else:
+                centroid = self.centerParticle(dim=dim, center=center)
             coords = [ c - centroid for c in coords]
         if dim is not None:
             return coords, images
         else:
             return coords
-    
-    def atomTypes(self):
-        return [ self.fragment._atomTypes[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
-        
-    def bodies(self):
-        return [ self.bodyIndex ] * len(self.fragment._ext2int.values())
-        
-    def center_particle(self, dim=None, center=True):
-        coords = self.coords()
-        centroid = numpy.sum(coords, axis=0) / numpy.size(coords, axis=0)
-        if dim is not None:
-            centroid, image = util.wrapCoord3(centroid, dim, center=center)
-            return centroid, image
-        else:
-            return centroid
-        
-    def charges(self):
-        return [ self.fragment._charges[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
-        
+
     def diameters(self):
         return [ util.DUMMY_DIAMETER ] * len(self.fragment._ext2int.values())
 
@@ -88,6 +91,23 @@ class Body(object):
 
     def masses(self):
         return [ self.fragment._masses[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
+    
+    def momentInertia(self, dim=None, center=True,  bodyspace=False):
+        """Moment of Inertia Tensor in diagonal form suitable form HoomdBlue"""
+        
+        coords = self.coords(dim=dim, center=center, bodyspace=bodyspace)
+        #Calculate centre of mass in body coordinates
+        totalMass = self.mass()
+        masses = numpy.array(self.masses())
+        centreOfMass = numpy.sum(coords * masses[:,numpy.newaxis], axis=0) / totalMass
+        
+        # Coords relative to centre of mass
+        coords = coords - centreOfMass
+        I = numpy.dot(coords.transpose(), coords)
+        # Think I now need to work out the rotation that diagonalises this matrix and return I and the orientation
+        #of the particule relative to this rotation
+        
+        return I
         
     def static(self):
         if hasattr(self.fragment, 'static') and self.fragment.static:
