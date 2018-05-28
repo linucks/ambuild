@@ -26,26 +26,20 @@ class Body(object):
         self.fragment = fragment
         self.bodyIndex = bodyIndex
         return
-    
+
     def atomTypes(self):
-        return [ self.fragment._atomTypes[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
-        
+        return [ self.fragment._atomTypes[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
+
     def bodies(self):
         return [ self.bodyIndex ] * len(self.fragment._ext2int.values())
-        
-    def centerParticle(self, dim=None, center=True):
-        coords = self.coords()
-        centroid = numpy.sum(coords, axis=0) / numpy.size(coords, axis=0)
-        if dim is not None:
-            centroid, image = util.wrapCoord3(centroid, dim, center=center)
-            return centroid, image
-        else:
-            return centroid
-        
-    def charges(self):
-        return [ self.fragment._charges[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
 
-    def coords(self, dim=None, center=True, bodyspace=False):
+    def centroid(self, coords):
+        return numpy.sum(coords, axis=0) / numpy.size(coords, axis=0)
+
+    def charges(self):
+        return [ self.fragment._charges[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
+
+    def coords(self, dim=None, center=True):
         # Get list of the internal indices of unmasked atoms that belong to body self.bodyIndex
         coords = self.fragment._coords[ [ i for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] ]
         if dim is not None:
@@ -56,23 +50,21 @@ class Body(object):
                 _coords.append(coord)
                 images.append(image)
             coords = _coords
-#             return _coords, images
-#         else:
-#             return coords
-
-        if bodyspace:
-            # Everything is in cell/centred if required, so now just need coords
-            # relative to the centre particle - this is horrbily unoptimised as center_particle
-            # also calls coords
-            if dim:
-                centroid, _ = self.centerParticle(dim=dim, center=center)
-            else:
-                centroid = self.centerParticle(dim=dim, center=center)
-            coords = [ c - centroid for c in coords]
-        if dim is not None:
-            return coords, images
+            return _coords, images
         else:
             return coords
+
+    def wrapCoords(self, coords, dim, center):
+        _coords = []
+        images = []
+        for coord in coords:
+            coord, image = util.wrapCoord3(coord, dim, center=center)
+            _coords.append(coord)
+            images.append(image)
+        return _coords, images
+
+    def body_coordinates(self, coords, centroid):
+        return [c - centroid for c in coords]
 
     def diameters(self):
         return [ util.DUMMY_DIAMETER ] * len(self.fragment._ext2int.values())
@@ -85,40 +77,33 @@ class Body(object):
             else:
                 mask.append(False)
         return mask
-    
+
     def mass(self):
         return numpy.sum(self.masses())
 
     def masses(self):
-        return [ self.fragment._masses[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
-    
-    def momentInertia(self, dim=None, center=True,  bodyspace=False):
-        """Moment of Inertia Tensor in diagonal form suitable form HoomdBlue"""
-        
-        coords = self.coords(dim=dim, center=center, bodyspace=bodyspace)
-        #Calculate centre of mass in body coordinates
+        return [ self.fragment._masses[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
+
+    def momentOfInertia(self, coords):
+        """Moment of Inertia Tensor"""
         totalMass = self.mass()
         masses = numpy.array(self.masses())
         centreOfMass = numpy.sum(coords * masses[:,numpy.newaxis], axis=0) / totalMass
-        
         # Coords relative to centre of mass
         coords = coords - centreOfMass
         I = numpy.dot(coords.transpose(), coords)
-        # Think I now need to work out the rotation that diagonalises this matrix and return I and the orientation
-        #of the particule relative to this rotation
-        
         return I
-        
+
     def static(self):
         if hasattr(self.fragment, 'static') and self.fragment.static:
             v = True
         else:
             v = False
         return [ v ] * len(self.fragment._ext2int.values())
-        
+
     def symbols(self):
-        return [ self.fragment._symbols[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] 
-        
+        return [ self.fragment._symbols[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
+
 class EndGroup(object):
 
     def __init__(self):
@@ -150,18 +135,18 @@ class EndGroup(object):
         b = True
         if self.fragment.block is None: b = False
         if self.fragment is None: f = False
-        if not b and f: 
+        if not b and f:
             raise RuntimeError("None Block {0} Fragment {1}\n{2}".format(b, f, self))
         return self.fragment.block
 
     def capIdx(self):
         """Return the index of the endGroup atom in external block indices"""
         return self.blockCapIdx
-    
+
     def bondedCatalyst(self):
         """Return True if this endGroup belongs to a catalyst that is bonded to another catalyst"""
         return self.fragment.catalyst and self._endGroupType.endswith(ENDGROUPBONDED)
-    
+
     def coord(self,endGroup=True):
         """Need to think about an API for accessing coordinates for endGroups
         This just hacks in returning the endGroup.
@@ -207,12 +192,12 @@ class EndGroup(object):
             uv = v1 / numpy.linalg.norm(v1)
             # calculate noew position
             self.fragment._coords[self.fragmentCapIdx] = egPos + (uv * self.capBondLength)
-        
+
         # Unhide the cap atom
         self.fragment.masked[self.fragmentCapIdx] = False
         # Mark capAtom as unBonded so that it won't be included in the optimisation
         self.fragment.unBonded[self.fragmentCapIdx] = True
-             
+
         if self.fragmentUwIdx != -1:
             raise RuntimeError, "Cannot unbond masked endGroups yet!"
             self.fragment.masked[ self.fragmentUwIdx ] = True
@@ -307,7 +292,7 @@ class Fragment(object):
             '_labels'          : [],
             '_masses'          : [],
             'markBonded'       : markBonded,
-            'onbondFunction' : None,  # A function to be called when we bond an endGroup 
+            'onbondFunction' : None,  # A function to be called when we bond an endGroup
             '_radii'           : [],
             '_maxBonds'        : {},
             '_radius'          :-1,
@@ -336,7 +321,7 @@ class Fragment(object):
             '_endGroups'      : [],  # A list of the endGroup objects
             '_endGroupBonded' : [],  # A list of the number of each endGroup that are used in bonds
             'masked'         : [],  # bool - whether the atoms is hidden (e.g. cap or uw atom)
-            'unBonded'         : [],  # bool - whether an atom has just been unbonded 
+            'unBonded'         : [],  # bool - whether an atom has just been unbonded
             }
 
         # Set as attributes of self
@@ -346,7 +331,7 @@ class Fragment(object):
         # Set as attributes of self
         for a, v in individualAttrs.iteritems():
             setattr(self, a, v)
-            
+
         # Set these manually
         self._individualAttrs = individualAttrs
         self._sharedAttrs = sharedAttrs
@@ -368,16 +353,16 @@ class Fragment(object):
 
     def addBond(self, endGroup, bond):
         endGroupType = endGroup.type()
-        
+
         # Mask fragment cap and uw atoms now
         self.masked[ endGroup.fragmentCapIdx ] = True
         if endGroup.fragmentUwIdx != -1:
             self.masked[ endGroup.fragmentUwIdx ] = True
-            
+
         # Hack for starred endGroups
         if not endGroupType.endswith(ENDGROUPBONDED):
             self._endGroupBonded[ endGroupType] += 1
-    
+
             # Handle maxBonds here
             #if self._maxBonds[ endGroupType ] is not None and \
             #self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]
@@ -388,10 +373,10 @@ class Fragment(object):
                     for eg in self._endGroups:
                         if not eg.bonded and eg.type() == endGroupType:
                             eg.blocked = True
-        
+
         # The user may have supplied a custom bonding function, so we call that here
         if self.onbondFunction: self.onbondFunction(endGroup)
-        
+
         if  hasattr(self,'markBonded') and self.markBonded:
             self._markBonded(endGroup, bond)
         self.update()
@@ -403,10 +388,10 @@ class Fragment(object):
 
     def bodies(self):
         for bodyIdx in set(self._bodies): yield Body(self, bodyIdx)
-    
+
     def body(self, idxAtom):
         return self._bodies[self._ext2int[idxAtom]]
-    
+
     def bonds(self):
         """Return a list of bonds
         We exclude masked atoms"""
@@ -464,7 +449,7 @@ class Fragment(object):
         self._calcRadius()
         self._changed = False
         return
-    
+
     def cellParameters(self):
         return self._cellParameters
 
@@ -567,7 +552,7 @@ class Fragment(object):
             pbc, state = f.readline().strip().split("=")
             assert pbc.strip() == "PBC"
             state = state.strip()
-            
+
             # skip two lines
             f.readline()
             f.readline()
@@ -675,7 +660,7 @@ class Fragment(object):
         self.update()
 
         self._calcProperties()
-        
+
         return
 
     def iterAtomTypes(self):
@@ -683,7 +668,7 @@ class Fragment(object):
         for i in range(len(self._ext2int)):
             yield self.type(i)
         return
-    
+
     def iterCoord(self):
         """Generator to return the coordinates"""
         for i in range(len(self._ext2int)):
@@ -707,7 +692,7 @@ class Fragment(object):
 
     def numAtoms(self):
         return len(self._ext2int)
-    
+
     def numBondedEndGroups(self):
         """Return the total number of bonded endGroups in this fragment"""
         return sum([nbonded for nbonded in self._endGroupBonded.values() ])
@@ -722,12 +707,12 @@ class Fragment(object):
         capAtoms = []
         uwAtoms = []
         dihedralAtoms = []
-        
+
         egfile = os.path.join(dirname, basename + ".csv")
         if not os.path.isfile(egfile):
             logger.critical("No endGroup definition file supplied for file: {0}".format(filePath))
             return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
-            
+
         with open(egfile) as fh:
             csvreader = csv.reader(fh, delimiter=',', quotechar='"')
             for i, row in enumerate(csvreader):
@@ -759,7 +744,7 @@ class Fragment(object):
 
             if self.fragmentType == 'cap' and len(endGroups) != 1:
                 raise RuntimeError, "Capfile had >1 endGroup specified!"
-            
+
         return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
 
     def processBodies(self, filepath):
@@ -801,7 +786,7 @@ class Fragment(object):
         self._coords = self._coords  + center
         self._changed = True
         return
-    
+
     def setData(self,
                 coords=None,
                 labels=None,
@@ -820,10 +805,10 @@ class Fragment(object):
         self._labels = labels
         self._symbols = symbols
         self._atomTypes = atomTypes
-        
+
         # Calculate anything we haven't been given
         self.fillData()
-        
+
         # If under PBC we need to change how we calculate the bonds
         dim = None
         if self._cellParameters and self.static:
@@ -860,7 +845,7 @@ class Fragment(object):
             eg.fragmentCapIdx = capAtoms[ i ]
             eg.fragmentDihedralIdx = dihedralAtoms[ i ]
             eg.fragmentUwIdx = uwAtoms[ i ]
-            
+
             eg.capBondLength =  util.distance(self._coords[eg.fragmentCapIdx], self._coords[eg.fragmentEndGroupIdx ])
 
             if eg.type() not in self._maxBonds:
@@ -879,7 +864,7 @@ class Fragment(object):
             "uwAtom {0} is not bonded to endGroup {1}".format(eg.fragmentUwIdx, eg.fragmentEndGroupIdx)
 
             self._endGroups.append(eg)
-            
+
         # sanity check - make sure no endGroup is the cap Atom for another endGroup
         eg = set([ e.fragmentEndGroupIdx for e in self._endGroups ])
         caps = set([ e.fragmentCapIdx for e in self._endGroups ])
@@ -935,13 +920,13 @@ class Fragment(object):
 
 #     def __getstate__(self):
 #         """Called on pickling
-#         
+#
 #         CAN'T DO THIS AS DEEPCOPY USES SOME PICKLING CODE AND SO __getstate__ IS CALLED
 #         AND THIS DELETES onbondFunction WHENEVER A FRAGMENT IS COPIED. NEED TO FIX BY CHANGING
 #         TO A CLASS FACTORY AND NOT DOING OUR OWN MANUAL COPYING OF FRAGMENTS.
-#         
+#
 #         We need to delete the onbondFunction because otherwise it can't be pickled as it will
-#         have been defined in the calling script and hence not available to the util module on 
+#         have been defined in the calling script and hence not available to the util module on
 #         unpickling.
 #         """
 #         assert False
@@ -960,14 +945,14 @@ class TestFragment(unittest.TestCase):
 
         f = Fragment(filePath=graphite, fragmentType='A')
         self.assertEqual(len(f.bonds()), 1284)
-        
+
         f = Fragment(filePath=graphite, fragmentType='A', static=True)
         self.assertEqual(len(f.bonds()), 1792)
         return
-    
-    
+
+
 if __name__ == '__main__':
     """
     Run the unit tests
     """
-    unittest.main()  
+    unittest.main()

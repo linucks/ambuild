@@ -35,15 +35,17 @@ class Test(unittest.TestCase):
 
         return
 
-    def createTestCell(self):
+    def createTestCell(self, boxWidth=20):
         # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
         # From code looks like default r_buff is 0.4 and our default r_cut is 5.0
-        boxDim = [20, 20, 20]
+        boxDim = [boxWidth, boxWidth, boxWidth]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-        mycell.seed(5, fragmentType='A')
-        mycell.growBlocks(8)
+        # was seed 5 grow 8
+        mycell.seed(3, fragmentType='A', point=[boxWidth/2, boxWidth/2, boxWidth/2], radius=5)
+        mycell.growBlocks(4)
+        mycell.dump()
         return mycell
     
     def clashes(self, mycell, minDist=1.0, pbc=[True, True, True]):
@@ -1063,7 +1065,7 @@ class Test(unittest.TestCase):
         """
         """
         # self.testCell.writeCml("foo.cml")
-        mycell = self.createTestCell()
+        mycell = self.createTestCell(boxWidth=30)
         mycell.optimiseGeometry(rigidBody=True,
                                         doDihedral=True,
                                         quiet=True,

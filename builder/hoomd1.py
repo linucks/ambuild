@@ -28,15 +28,15 @@ from hoomd_script import *
 hdump = dump
 del dump
 
-# Later versions of hoomd-blue have a context that needs to be updated
-if 'context' in locals().keys():
+if __name__ != '__main__' and 'context' in locals().keys():
+    # Later versions of hoomd-blue have a context that needs to be updated
     # Context parses the command-line, so we need to make sure there
     # are no arguments or else we lose the ability to display our own help
     _argv = sys.argv
     sys.argv = [sys.argv[0]]
     context.initialize()
     sys.argv = _argv
-    
+
 import logging
 import numpy
 import os
@@ -61,11 +61,11 @@ class Hoomd1(FFIELD):
         self.atomTypes = None
         self.masked = None
         self.rCut = 5.0
-        
+
         self.groupActive = None
         self.groupAll = None
         self.groupStatic = None
-        
+
         self.debug = False
 
         # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
@@ -198,7 +198,7 @@ class Hoomd1(FFIELD):
                           retries_on_error=3,
                           **kw):
         """Optimise the geometry with hoomdblue"""
-        
+
         assert max_tries > 0 and retries_on_error > 0
 
         for i in range(retries_on_error):
@@ -371,7 +371,7 @@ class Hoomd1(FFIELD):
         # blows up
         preOptCycles = 5000
         self._optimiseGeometry(optCycles=preOptCycles, dt=0.0001)
-        
+
         # Now run the MD steps
         self._runMD(**kw)
 
@@ -481,7 +481,7 @@ class Hoomd1(FFIELD):
                         param = self.ffield.pairParameter(atype, btype)
                         epsilon = param['epsilon']
                         sigma = param['sigma']
-                        
+
                     pairPotential.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
                     if self.debug:
                         logger.info("DEBUG: pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype,
@@ -554,7 +554,7 @@ class Hoomd1(FFIELD):
         self.atomTypes = atomTypes
 
         return
-    
+
     def setupGroups(self, data):
         self.groupAll = group.all()
         # All atoms that are part of static fragments
@@ -626,10 +626,10 @@ class Hoomd1(FFIELD):
 
         lj = pair.lj(r_cut=rCut)
         self.setPair(lj)
-        
+
         # Specify the groups
         self.setupGroups(data)
-        
+
         # Add any walls
         self.setupWalls(walls, system, wallAtomType, rCut)
 
@@ -658,13 +658,13 @@ class Hoomd1(FFIELD):
 #         del lj
 
         return system
-    
+
     def setupWalls(self, walls, system, wallAtomType, rCut):
         """Set up walls for the simulation
-        
+
         I think that we require two walls. One on the front side with the potential facing in,
         the other on the back wall with the potential facing back towards the other potential.
-        The origin of the wall is the centre of plane but then back half a cell along the axis 
+        The origin of the wall is the centre of plane but then back half a cell along the axis
         that isn't part of the wall.
         """
         if walls is None: return
@@ -690,11 +690,11 @@ class Hoomd1(FFIELD):
                     normal = (1, 0, 0)
                 else:
                     raise RuntimeError("Unrecognised Wall Type! {0}".format(wtype))
-            
+
                 if not wallstructure:
                     # We only create the wall and the LJ potentials once as they are used
                     # by all subsequent walls in the group
-                    try: 
+                    try:
                         wallstructure = wall.group()
                     except AttributeError:
                         raise RuntimeError('HOOMD-blue wall does not have a group attribute. You may need to update your version of HOOMD-Blue in order to use walls')
@@ -702,7 +702,7 @@ class Hoomd1(FFIELD):
                     for atype in self.atomTypes:
                         param = self.ffield.pairParameter(atype, wallAtomType)
                         lj.force_coeff.set(atype, epsilon=param['epsilon'], sigma=param['sigma'])
-                
+
                 # Add the two walls
                 # Front
                 wallstructure.add_plane(origin=originFront, normal=normal, inside=True)
@@ -720,7 +720,7 @@ class Hoomd1(FFIELD):
             box = numpy.array([self.system.box.Lx, self.system.box.Ly, self.system.box.Lz])
         else:
             box = numpy.array(self.system.box)
-        
+
         # Read back in the particle positions
         atomCount = 0
         for block in cell.blocks.itervalues():
@@ -729,16 +729,16 @@ class Hoomd1(FFIELD):
                 coord = util.unWrapCoord3(p.position, p.image, box, centered=True)
                 block.coord(k, coord)
                 atomCount += 1
-    
+
         if atomCount != len(self.system.particles):
             raise RuntimeError, "Read {0} positions but there were {1} particles!".format(atomCount, len(self.system.particles))
-        
-        # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update 
+
+        # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update
         # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks
         if not numpy.allclose(box, cell.dim):
             logger.info("Changing cell dimensions after HOOMD-blue simulation from: {0} to: {1}".format(cell.dim,box))
             cell.dim = box
-    
+
         # Now have the new coordinates, so we need to put the atoms in their new cells
         cell.repopulateCells()
         return
@@ -960,3 +960,24 @@ def xml2xyz(xmlFilename, xyzFilename):
     print "Wrote file: {0}".format(xyzFilename)
 
     return
+
+if __name__ == "__main__":
+    from paths import PARAMS_DIR
+    mycell = util.cellFromPickle(sys.argv[1])
+    rigidBody = True
+    data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+
+    opt = Hoomd1(PARAMS_DIR)
+    #hoomd.context.initialize()
+    #snap = opt.createSnapshot(data, rigidBody)
+    #rCut = 5.0
+    #opt.setupSimulation(data, snap, rCut, rigidBody)
+    #opt.runMD(data, rigidBody=rigidBody, rCut=5.0, mdCycles=100000, dump=True, walls=None, wallAtomType='c')
+    ok = opt.optimiseGeometry(data,
+                              rigidBody=rigidBody,
+                              doDihedral=True,
+                              doImproper=False,
+                              doCharges=True,
+                              dump=True,
+                              optCycles=1000
+                              )
