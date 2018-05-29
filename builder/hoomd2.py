@@ -212,9 +212,6 @@ class Hoomd2(object):
         self.setupContext(quiet=quiet)
         snapshot = self.createSnapshot(data, rigidBody=rigidBody, doCharges=doCharges, doDihedral=doDihedral)
         self.setupSimulation(snapshot, data, rCut, rigidBody=rigidBody, walls=walls, wallAtomType=wallAtomType)
-        print("GOT ")
-        print(snapshot.box)
-        print(snapshot.particles.position)
 
         hlog = self._createLog('geomopt.tsv')
         optimised = self._optimiseGeometry(rigidBody=rigidBody, **kw)
@@ -611,3 +608,4 @@ if __name__ == "__main__":
                               max_tries=1,
                               retries_on_error=0
                               )
+    

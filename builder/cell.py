@@ -1314,21 +1314,16 @@ class Cell():
                 for body in frag.bodies():
                     # Body count always increments with fragment although it may go up within a fragment too
                     bodyCount += 1
-                    # FIX!! - this is horribly unoptimised as coords with bodyspace calls body.center_particle,
-                    # which in turn calls body.coords!
-                    bodyspace = False
                     if HOOMDVERSION[0] > 1 and rigidBody:
                         bcoords = body.coords(dim=None, center=False)
-                        print "COORDS ",bcoords
                         centroid = body.centroid(bcoords)
-                        print "CENT ",centroid
                         coords = body.body_coordinates(bcoords, centroid)
-                        # images are those of the centroid particle
                         moment_of_inertia = body.momentOfInertia(coords)
                         centroid, centroid_image = util.wrapCoord3(centroid, self.dim, center=center)
+                        # images are those of the centroid particle
                         images = [centroid_image for _ in range(len(coords))]
-                        print "COORDS 2 ", coords
                         print "CENTROID 2", centroid
+                        print "MOI ",moment_of_inertia
                     else:
                         coords, images = body.coords(self.dim, center=center)
                     d.coords += list(coords)
@@ -1347,7 +1342,7 @@ class Cell():
                         d.rigid_image.append(centroid_image)
                         d.rigid_mass.append(body.mass())
                         d.rigid_body.append(bodyCount)
-                        ftype = "{0}_{1}".format(frag.fragmentType,bodyCount)
+                        ftype = "{0}_{1}".format(frag.fragmentType, bodyCount)
                         d.rigid_type.append(ftype)
                         d.rigid_moment_inertia.append([moment_of_inertia[0][0], moment_of_inertia[1][1], moment_of_inertia[2][2]])
                         d.rigid_fragments[ftype] = { 'coords' : coords, 'atomTypes' : btypes}
