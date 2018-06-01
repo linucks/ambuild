@@ -1322,8 +1322,6 @@ class Cell():
                         centroid, centroid_image = util.wrapCoord3(centroid, self.dim, center=center)
                         # images are those of the centroid particle
                         images = [centroid_image for _ in range(len(coords))]
-                        print "CENTROID 2", centroid
-                        print "MOI ",moment_of_inertia
                     else:
                         coords, images = body.coords(self.dim, center=center)
                     d.coords += list(coords)

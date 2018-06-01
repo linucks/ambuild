@@ -123,6 +123,16 @@ class Test(unittest.TestCase):
         iref = np.array([-11,-11,-11],dtype=np.int)
         self.assertTrue(np.allclose(c1u,cref))
         self.assertTrue(np.array_equal(image,iref))
+        
+    def testWrapCoord3_list(self):
+        dim = np.array([10,20,30])
+        c1 = np.array([[101.0,202.0,303.0 ], [-101.0,-202.0,-303.0 ]])
+        center=True
+        c1u, image = util.wrapCoord3(c1, dim, center=center)
+        cref = np.array([[-4.0,-8.0,-12.0], [ 4.,8.,12.]])
+        iref = np.array([[10,10,10], [-11,-11,-11]], dtype=np.int)
+        self.assertTrue(np.allclose(c1u,cref))
+        self.assertTrue(np.array_equal(image,iref))    
 
     def testUnWrapCoord3_1(self):
         cin = np.array([-4.0,-8.0,-12.0])

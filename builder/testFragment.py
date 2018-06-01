@@ -3,6 +3,7 @@ Created on 4 Mar 2018
 
 @author: jmht
 '''
+import math
 import os
 import unittest
 
@@ -17,17 +18,30 @@ util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
 
 class Test(unittest.TestCase):
 
-    def XtestMomentOfInertia(self):
+    def testMomentOfInertia(self):
         Iref = np.array([[  1.58122888e+00,  -2.49643156e-17,   3.63000000e-07],
                         [ -2.49643156e-17,   1.58122879e+00,   1.36956935e-17],
                         [  3.63000000e-07,   1.36956935e-17,   1.58122800e+00]])
 
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
         frag = fragment.Fragment(filePath=ch4, fragmentType='A')
+
+        if False:
+                axis = [0,0,1]
+                angle = math.pi/3
+                rotationMatrix = util.rotation_matrix(axis, angle)
+                center = np.array([ 0, 0, 0 ])
+                frag.rotate(rotationMatrix, center)
+
         body = list(frag.bodies())[0]
 
-        coords = body.coords(dim=None, center=False, bodyspace=True)
+        bcoords = body.coords(dim=None, center=False)
+        centroid = body.centroid(bcoords)
+        coords = body.body_coordinates(bcoords, centroid)
         I = body.momentOfInertia(coords)
+
+        print(I)
+
         self.assertTrue(np.allclose(I, Iref))
         # https://github.com/pierrepo/principal_axes/blob/master/principal_axes.py
         #http://farside.ph.utexas.edu/teaching/336k/Newtonhtml/node67.html
@@ -55,12 +69,12 @@ class Test(unittest.TestCase):
         print ("GOT ACXES, ", axis3, axis2, axis1)
         print("Inertia axis are now ordered !")
 
-    def testMomentOfInertia2(self):
+    def XtestMomentOfInertia2(self):
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
         frag = fragment.Fragment(filePath=ch4, fragmentType='A')
         body = list(frag.bodies())[0]
         dim = np.array([10.0, 10.0, 10.0])
-        coords, images = body.coords(dim=dim, center=True, bodyspace=True)
+        coords, images = body.coords(dim=dim, center=True)
         I = body.momentOfInertia(coords)
 
 

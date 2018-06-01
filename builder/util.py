@@ -1184,14 +1184,18 @@ def wrapCoord3(coord, dim, center=False, inplace=False):
     """Wrap coodinate triple into a cell of length dim
     return the wrapped coordinates and the images
     """
-    if not inplace: coord = numpy.copy(coord)
+    if not inplace:
+        coord = numpy.copy(coord)
     image = numpy.floor(coord/dim).astype(int)
-    if numpy.any(image < 0): coord += -image * dim # Make positive so the modulo operator works
+    if numpy.any(image < 0):
+        coord += -image * dim # Make positive so the modulo operator works
     wcoord = numpy.fmod(coord, dim)
     assert numpy.all(wcoord >= 0.0), "-ve Coord!: {0} -> {1} : {2}".format(coord, wcoord, image)
     # Change the coord so the origin is at the center of the box (we start from the corner)
-    if center: wcoord -= dim / 2
+    if center:
+        wcoord -= dim / 2
     return wcoord, image
+
 
 def writeCml(cmlFilename,
              coords,

@@ -16,6 +16,7 @@ import util
 
 logger = logging.getLogger(__name__)
 
+
 class Hoomd2(object):
     """
     TODO in 2
@@ -31,11 +32,12 @@ class Hoomd2(object):
     - calc centre for the body -> need coords and atomTypes for each body in a fragment
 
     """
+
     def __init__(self, paramsDir):
         self.ffield = FfieldParameters(paramsDir)
         self.debug = False
         self.system = None
-        self.exclusions = [] # particle tags to be ignored in pair-pair interactions
+        self.exclusions = []  # particle tags to be ignored in pair-pair interactions
 
     def checkParameters(self, skipDihedrals=False):
 
@@ -111,27 +113,27 @@ class Hoomd2(object):
             nparticles = len(data.coords)
             self.particle_types = list(set(data.atomTypes))
 
-        assert nparticles > 0,"Simulation needs some particles!"
+        assert nparticles > 0, "Simulation needs some particles!"
         # NEED TO THINK ABOUT WHAT TO DO ABOUT MASKED ATOMS - set particle_types?
-        #self.masked = data.masked
+        # self.masked = data.masked
 
         self.bond_types = list(set(data.bondLabels)) if len(data.bonds) else []
         self.angle_types = list(set(data.angleLabels)) if len(data.angles) else []
         self.dihedral_types = list(set(data.properLabels)) if len(data.propers) and doDihedral else []
         snap = hoomd.data.make_snapshot(N=nparticles,
                                         box=hoomd.data.boxdim(Lx=data.cell[0], Ly=data.cell[1], Lz=data.cell[2]),
-                                        particle_types = self.particle_types,
-                                        bond_types = self.bond_types,
-                                        angle_types = self.angle_types,
-                                        dihedral_types = self.dihedral_types,
-                                        #pair_types = pair_types
+                                        particle_types=self.particle_types,
+                                        bond_types=self.bond_types,
+                                        angle_types=self.angle_types,
+                                        dihedral_types=self.dihedral_types,
+                                        # pair_types = pair_types
                                         )
 
         # Add Bonds
         if len(self.bond_types):
             snap.bonds.resize(len(data.bonds))
             for i, b in enumerate(data.bonds):
-                if rigidBody: # center particles are at the front of the arrays, so everything gets shifted up
+                if rigidBody:  # center particles are at the front of the arrays, so everything gets shifted up
                     b0 = b[0] + nrigid_centres
                     b1 = b[1] + nrigid_centres
                 else:
@@ -143,7 +145,7 @@ class Hoomd2(object):
         if len(self.angle_types):
             snap.angles.resize(len(data.angles))
             for i, a in enumerate(data.angles):
-                if rigidBody: # center particles are at the front of the arrays, so everything gets shifted up
+                if rigidBody:  # center particles are at the front of the arrays, so everything gets shifted up
                     a0 = a[0] + nrigid_centres
                     a1 = a[1] + nrigid_centres
                     a2 = a[2] + nrigid_centres
@@ -156,7 +158,7 @@ class Hoomd2(object):
         if doDihedral and len(self.dihedral_types):
             snap.dihedrals.resize(len(data.propers))
             for i, d in enumerate(data.propers):
-                if rigidBody: # center particles are at the front of the arrays, so everything gets shifted up
+                if rigidBody:  # center particles are at the front of the arrays, so everything gets shifted up
                     d0 = d[0] + nrigid_centres
                     d1 = d[1] + nrigid_centres
                     d2 = d[2] + nrigid_centres
@@ -178,7 +180,7 @@ class Hoomd2(object):
                     snap.particles.mass[i] = data.rigid_mass[i]
                     snap.particles.moment_inertia[i] = data.rigid_moment_inertia[i]
                     snap.particles.position[i] = data.rigid_centre[i]
-                    snap.particles.typeid[i] =  self.particle_types.index(data.rigid_type[i])
+                    snap.particles.typeid[i] = self.particle_types.index(data.rigid_type[i])
                 else:
                     snap.particles.body[i] = data.bodies[i - nrigid_centres]
                     if doCharges: snap.particles.charge[i] = data.charges[i - nrigid_centres]
@@ -263,7 +265,7 @@ class Hoomd2(object):
                                           overwrite=True)
                 optimised = False
                 for j in range(max_tries):
-                    logger.info("Running {0} optimisation cycles in macrocycle {1}".format(optCycles,j))
+                    logger.info("Running {0} optimisation cycles in macrocycle {1}".format(optCycles, j))
                     hoomd.run(optCycles,
                               callback=lambda x:-1 if fire.has_converged() else 0,
                               callback_period=1)
@@ -273,11 +275,11 @@ class Hoomd2(object):
                         break
                     else:
                         logger.info("Optimisation failed to converge on macrocycle {0}".format(j))
-                        if j+1 < max_tries:
+                        if j + 1 < max_tries:
                             logger.info("Attempting another optimisation macrocycle")
-                break # Break out of try/except loop
+                break  # Break out of try/except loop
             except RuntimeError as e:
-                logger.info("Optimisation step {0} failed!\n{1}".format(i,e))
+                logger.info("Optimisation step {0} failed!\n{1}".format(i, e))
                 fire.reset()
                 integrate_nve.disable()
                 if i + 1 < retries_on_error:
@@ -410,8 +412,8 @@ class Hoomd2(object):
             if self.debug: logger.info("DEBUG: lj.pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype, btype, epsilon, sigma))
 
         # Don't think we need to include body any more for rigid bodies, as these are already excluded by default?
-        #nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
-        #nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
+        # nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
+        # nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
 
         nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body'])
         return
@@ -489,25 +491,25 @@ class Hoomd2(object):
         that isn't part of the wall.
         """
         if walls is None: return
-        assert len(walls) is 3 # array of three booleans - one per wall
+        assert len(walls) is 3  # array of three booleans - one per wall
         if not any(walls): return
-        assert wallAtomType is not None,"Need to set a wallAtomType!"
-        wtypes = ['XOY', 'XOZ', 'YOZ'] # Order of walls
+        assert wallAtomType is not None, "Need to set a wallAtomType!"
+        wtypes = ['XOY', 'XOZ', 'YOZ']  # Order of walls
         wallstructure = None
         for do, wtype in zip(walls, wtypes):
             if do:
                 logger.info('Setting wall in HOOMDBLUE for {0} of atomType {1}'.format(wtype, wallAtomType))
                 if wtype is 'XOY':
-                    originFront = (0, 0, -self.system.box.Lz/2)
-                    originBack  = (0, 0,  self.system.box.Lz/2)
+                    originFront = (0, 0, -self.system.box.Lz / 2)
+                    originBack = (0, 0, self.system.box.Lz / 2)
                     normal = (0, 0, 1)
                 elif wtype is 'XOZ':
-                    originFront = (0, -self.system.box.Ly/2, 0)
-                    originBack  = (0,  self.system.box.Ly/2, 0)
+                    originFront = (0, -self.system.box.Ly / 2, 0)
+                    originBack = (0, self.system.box.Ly / 2, 0)
                     normal = (0, 1, 0)
                 elif wtype is 'YOZ':
-                    originFront = (-self.system.box.Lx/2, 0, 0)
-                    originBack  = ( self.system.box.Lx/2, 0, 0)
+                    originFront = (-self.system.box.Lx / 2, 0, 0)
+                    originBack = (self.system.box.Lx / 2, 0, 0)
                     normal = (1, 0, 0)
                 else:
                     raise RuntimeError("Unrecognised Wall Type! {0}".format(wtype))
@@ -532,7 +534,7 @@ class Hoomd2(object):
 
     def updateCell(self, cell):
         """Reset the particle positions from hoomdblue system"""
-        box = numpy.array([self.system.box.Lx,self.system.box.Ly,self.system.box.Lz])
+        box = numpy.array([self.system.box.Lx, self.system.box.Ly, self.system.box.Lz])
         snapshot = self.system.take_snapshot()
 
         # If we are running under rigid bodies we need to exclude the center particles,
@@ -555,7 +557,7 @@ class Hoomd2(object):
         # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update
         # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks
         if not numpy.allclose(box, cell.dim):
-            logger.info("Changing cell dimensions after HOOMD-blue simulation from: {0} to: {1}".format(cell.dim,box))
+            logger.info("Changing cell dimensions after HOOMD-blue simulation from: {0} to: {1}".format(cell.dim, box))
             cell.dim = box
 
         # Now have the new coordinates, so we need to put the atoms in their new cells
@@ -573,8 +575,9 @@ class Hoomd2(object):
                                      header_prefix='#',
                                      overwrite=True)
 
-def snap2xyz(snapshot,fpath='foo.xyz'):
-    with open(fpath,'w') as w:
+
+def snap2xyz(snapshot, fpath='foo.xyz'):
+    with open(fpath, 'w') as w:
         w.write("%d\n" % snapshot.particles.N)
         w.write("JENS\n")
         types = snapshot.particles.types
@@ -586,26 +589,28 @@ def snap2xyz(snapshot,fpath='foo.xyz'):
     print("JMHT WROTE SNAPSHOT: %s" % fpath)
     return
 
+
 if __name__ == "__main__":
     from paths import PARAMS_DIR
     mycell = util.cellFromPickle(sys.argv[1])
     rigidBody = True
     data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)
 
-    opt = Hoomd2(PARAMS_DIR)
-    #hoomd.context.initialize()
-    #snap = opt.createSnapshot(data, rigidBody)
-    #rCut = 5.0
-    #opt.setupSimulation(data, snap, rCut, rigidBody)
-    #opt.runMD(data, rigidBody=rigidBody, rCut=5.0, mdCycles=100000, dump=True, walls=None, wallAtomType='c')
-    ok = opt.optimiseGeometry(data,
-                              rigidBody=rigidBody,
-                              doDihedral=True,
-                              doImproper=False,
-                              doCharges=True,
-                              dump=True,
-                              optCycles=1000,
-                              max_tries=1,
-                              retries_on_error=0
-                              )
-    
+    hmd = Hoomd2(PARAMS_DIR)
+    if False:
+        ok = hmd.optimiseGeometry(data,
+                                  rigidBody=rigidBody,
+                                  doDihedral=True,
+                                  doImproper=False,
+                                  doCharges=True,
+                                  dump=True,
+                                  optCycles=1000,
+                                  max_tries=1,
+                                  retries_on_error=0)
+    else:
+        ok = hmd.runMD(data,
+                       rigidBody=rigidBody,
+                       doDihedral=True,
+                       doImproper=False,
+                       doCharges=True,
+                       dump=True)

@@ -43,14 +43,8 @@ class Body(object):
         # Get list of the internal indices of unmasked atoms that belong to body self.bodyIndex
         coords = self.fragment._coords[ [ i for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] ]
         if dim is not None:
-            _coords = []
-            images = []
-            for coord in coords:
-                coord, image = util.wrapCoord3(coord, dim, center=center)
-                _coords.append(coord)
-                images.append(image)
-            coords = _coords
-            return _coords, images
+            coords, images = util.wrapCoord3(coords, dim, center=center)
+            return coords, images
         else:
             return coords
 

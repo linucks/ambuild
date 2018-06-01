@@ -199,7 +199,10 @@ class Hoomd1(FFIELD):
                           **kw):
         """Optimise the geometry with hoomdblue"""
 
-        assert max_tries > 0 and retries_on_error > 0
+        assert max_tries > 0
+        if retries_on_error < 1:
+            retries_on_error = 0
+        retries_on_error += 1
 
         for i in range(retries_on_error):
             # Try optimising and lower the timestep and increasing the number of cycles each time
@@ -967,17 +970,21 @@ if __name__ == "__main__":
     rigidBody = True
     data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)
 
-    opt = Hoomd1(PARAMS_DIR)
-    #hoomd.context.initialize()
-    #snap = opt.createSnapshot(data, rigidBody)
-    #rCut = 5.0
-    #opt.setupSimulation(data, snap, rCut, rigidBody)
-    #opt.runMD(data, rigidBody=rigidBody, rCut=5.0, mdCycles=100000, dump=True, walls=None, wallAtomType='c')
-    ok = opt.optimiseGeometry(data,
-                              rigidBody=rigidBody,
-                              doDihedral=True,
-                              doImproper=False,
-                              doCharges=True,
-                              dump=True,
-                              optCycles=1000
-                              )
+    hmd = Hoomd1(PARAMS_DIR)
+    if False:
+        ok = hmd.optimiseGeometry(data,
+                                  rigidBody=rigidBody,
+                                  doDihedral=True,
+                                  doImproper=False,
+                                  doCharges=True,
+                                  dump=True,
+                                  optCycles=1000,
+                                  max_tries=1,
+                                  retries_on_error=0)
+    else:
+        ok = hmd.runMD(data,
+                       rigidBody=rigidBody,
+                       doDihedral=True,
+                       doImproper=False,
+                       doCharges=True,
+                       dump=True)
