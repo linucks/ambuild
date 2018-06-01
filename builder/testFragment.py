@@ -36,9 +36,9 @@ class Test(unittest.TestCase):
         body = list(frag.bodies())[0]
 
         bcoords = body.coords(dim=None, center=False)
-        centroid = body.centroid(bcoords)
+        centroid = util.centroid(bcoords)
         coords = body.body_coordinates(bcoords, centroid)
-        I = body.momentOfInertia(coords)
+        I = util.momentOfInertia(coords, np.array(body.masses()))
 
         print(I)
 

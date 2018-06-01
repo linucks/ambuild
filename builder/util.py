@@ -709,6 +709,9 @@ def getCell(coord, boxSize, dim=None, pbc=[True, True, True]):
     c = int(math.floor(z / boxSize))
     return (a, b, c)
 
+def centroid(coords):
+    return numpy.sum(coords, axis=0) / numpy.size(coords, axis=0)
+
 def cellFromPickle(pickleFile, paramsDir=None):
     """Recreate a cell from a pickled file and apply any hacks so that we can work with older versions"""
     def fixFragment(fragment):
@@ -1012,6 +1015,16 @@ def hoomdVersion():
     import hoomd
     #del hoomd
     return hoomd.__version__
+
+def momentOfInertia(coords, masses):
+    """Moment of Inertia Tensor"""
+    totalMass = numpy.sum(masses)
+    #masses = numpy.array(masses())
+    centreOfMass = numpy.sum(coords * masses[:,numpy.newaxis], axis=0) / totalMass
+    # Coords relative to centre of mass
+    coords = coords - centreOfMass
+    I = numpy.dot(coords.transpose(), coords)
+    return I
 
 def newFilename(filename, separator="_"):
 

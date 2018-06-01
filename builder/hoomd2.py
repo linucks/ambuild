@@ -477,7 +477,7 @@ class Hoomd2(object):
         for ftype, fdata in data.rigid_fragments.iteritems():
             rigid.set_param(ftype,
                             types=fdata['atomTypes'],
-                            positions=fdata['coords'])
+                            positions=data.coords[fdata['coord_idxs'][0] : fdata['coord_idxs'][1]])
             self.exclusions.append(ftype)
         rigid.validate_bodies()
         return

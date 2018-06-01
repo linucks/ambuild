@@ -1232,8 +1232,7 @@ class Cell():
         atomCount = 0  # Global count in cell
         bodyCount = -1
 
-        # for idxBlock, block in enumerate(self.blocks.itervalues()):
-        for idxBlock, block in self.blocks.iteritems():
+        for block in self.blocks.itervalues():
 
             # Do bonds first as counting starts from atomCount and goes up through the blocks
             if not rigidBody:
@@ -1316,16 +1315,16 @@ class Cell():
                     bodyCount += 1
                     if HOOMDVERSION[0] > 1 and rigidBody:
                         bcoords = body.coords(dim=None, center=False)
-                        centroid = body.centroid(bcoords)
+                        centroid = util.centroid(bcoords)
                         coords = body.body_coordinates(bcoords, centroid)
-                        moment_of_inertia = body.momentOfInertia(coords)
+                        moment_of_inertia = util.momentOfInertia(coords, numpy.array(body.masses()))
                         centroid, centroid_image = util.wrapCoord3(centroid, self.dim, center=center)
                         # images are those of the centroid particle
                         images = [centroid_image for _ in range(len(coords))]
                     else:
                         coords, images = body.coords(self.dim, center=center)
                     d.coords += list(coords)
-                    d.images += images
+                    d.images += list(images)
                     btypes = body.atomTypes()
                     d.atomTypes += btypes
                     d.bodies += [ bodyCount for b in body.bodies() ]
@@ -1343,7 +1342,7 @@ class Cell():
                         ftype = "{0}_{1}".format(frag.fragmentType, bodyCount)
                         d.rigid_type.append(ftype)
                         d.rigid_moment_inertia.append([moment_of_inertia[0][0], moment_of_inertia[1][1], moment_of_inertia[2][2]])
-                        d.rigid_fragments[ftype] = { 'coords' : coords, 'atomTypes' : btypes}
+                        d.rigid_fragments[ftype] = { 'coord_idxs' : (atomCount, atomCount + len(coords)), 'atomTypes' : btypes}
                     atomCount += len(coords)
 
                 # Work out which fragment this is in

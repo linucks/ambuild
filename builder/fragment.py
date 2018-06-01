@@ -33,9 +33,6 @@ class Body(object):
     def bodies(self):
         return [ self.bodyIndex ] * len(self.fragment._ext2int.values())
 
-    def centroid(self, coords):
-        return numpy.sum(coords, axis=0) / numpy.size(coords, axis=0)
-
     def charges(self):
         return [ self.fragment._charges[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
 
@@ -47,15 +44,6 @@ class Body(object):
             return coords, images
         else:
             return coords
-
-    def wrapCoords(self, coords, dim, center):
-        _coords = []
-        images = []
-        for coord in coords:
-            coord, image = util.wrapCoord3(coord, dim, center=center)
-            _coords.append(coord)
-            images.append(image)
-        return _coords, images
 
     def body_coordinates(self, coords, centroid):
         return [c - centroid for c in coords]
@@ -77,16 +65,6 @@ class Body(object):
 
     def masses(self):
         return [ self.fragment._masses[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
-
-    def momentOfInertia(self, coords):
-        """Moment of Inertia Tensor"""
-        totalMass = self.mass()
-        masses = numpy.array(self.masses())
-        centreOfMass = numpy.sum(coords * masses[:,numpy.newaxis], axis=0) / totalMass
-        # Coords relative to centre of mass
-        coords = coords - centreOfMass
-        I = numpy.dot(coords.transpose(), coords)
-        return I
 
     def static(self):
         if hasattr(self.fragment, 'static') and self.fragment.static:
