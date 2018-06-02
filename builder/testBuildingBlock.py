@@ -137,13 +137,9 @@ class Test(unittest.TestCase):
         self.assertEqual([ (0, 4) ], ch4_1.blockBonds())
 
         # Check all bonds
-        self.assertEqual([(0, 1), (0, 3), (0, 2), (4, 5), (4, 7), (4, 6), (0, 4)], ch4_1.bonds())
-
-#         # print
-#         for fragment in ch4_1.fragments:
-#             for i, eg in enumerate( fragment.endGroups() ):
-#                 print eg
-
+        ref_bonds = [(0, 1), (0, 2), (0, 3), (4, 5), (4, 6), (4, 7), (0, 4)]
+        # order irrelevant
+        self.assertEqual(ref_bonds, ch4_1.bonds())
 
         return
 

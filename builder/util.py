@@ -648,7 +648,9 @@ def calcBonds(coords, symbols, dim=None, maxAtomRadius=None, bondMargin=0.2, box
         logger.debug("Dist:length {1}({0})-{3}({2}) {4} {5}".format( symbols[idxAtom1], idxAtom1, symbols[idxAtom2], idxAtom2, distances[i], bond_length ))
         if  bond_length - bondMargin < distances[i] < bond_length + bondMargin:
             bonds.append((idxAtom1, idxAtom2))
-    return bonds
+    
+    # We sort the bonds on return so that results are deterministic and can be tested
+    return sorted(bonds)
 
 def closeAtoms(coords, symbols, dim=None, maxAtomRadius=None, boxMargin=1.0):
     """Return a list of which atoms in the cell are close to each other.
@@ -663,9 +665,9 @@ def closeAtoms(coords, symbols, dim=None, maxAtomRadius=None, boxMargin=1.0):
     if dim is not None:
         if type(dim) is list:
             dim = numpy.array(dim)
-        boxNum = [ int(math.ceil(dim[0] / boxSize)),
-                 int(math.ceil(dim[1] / boxSize)),
-                 int(math.ceil(dim[2] / boxSize))]
+        boxNum = [int(math.ceil(dim[0] / boxSize)),
+                  int(math.ceil(dim[1] / boxSize)),
+                  int(math.ceil(dim[2] / boxSize))]
 
     atomCells = []  # List of which cell each atom is in - matches coords array
     # For cells and hCells, the key is a triple of the indices of the cell position (a,b,c)
@@ -691,11 +693,14 @@ def closeAtoms(coords, symbols, dim=None, maxAtomRadius=None, boxMargin=1.0):
         # Loop through all cells surrounding this one
         for scell in hCells[ key ]:
             # Check if we have a cell with anything in it
-            try: alist = cells[ scell ]
-            except KeyError: continue  # Trigger exception to save searching through the keys
+            try:
+                alist = cells[ scell ]
+            except KeyError:
+                continue  # Trigger exception to save searching through the keys
             for idxAtom2 in alist:
                 if idxAtom2 > idxAtom1:  # Skip atoms we've already processed
                     _closeAtoms.append((idxAtom1, idxAtom2))
+    
     return _closeAtoms
 
 def getCell(coord, boxSize, dim=None, pbc=[True, True, True]):
@@ -1277,8 +1282,8 @@ def writeCml(cmlFilename,
 
     if atomTypes:
         assert len(atomTypes) == len(coords)
-        # Need to collate atomTypes
-        for atype in set(atomTypes):
+        # Need to collate atomTypes - sorted to ensure consistency for testing
+        for atype in sorted(set(atomTypes)):
             atomTypeNode = ET.SubElement(root, "atomType")
             atomTypeNode.attrib['name'] = atype
             atomTypeNode.attrib['title'] = atype

@@ -462,11 +462,11 @@ class Block(object):
         # jmht - consider adding rootFragment attribute?
         f1list = list(f1set)
         f1list.remove(f1)
-        f1list.insert(0,f1)
+        f1list.insert(0, f1)
         
         f2list = list(f2set)
         f2list.remove(f2)
-        f2list.insert(0,f2)
+        f2list.insert(0, f2)
         
         # Breaking the bond splits the block in two, so we separate the two fragments, keep the largest
         # for ourselves and return the new block. We set f1 and f1set to be the biggest
@@ -480,7 +480,7 @@ class Block(object):
                 f1 = f2
                 f2 = tmp
         else:
-            if f2list > f1list:
+            if len(f2list) > len(f1list):
                 tmp = f1list
                 f1list = f2list
                 f2list = tmp
@@ -901,7 +901,7 @@ class Block(object):
                 self._fragmentTypeDict[ t ] += 1
 
             fragment.blockIdx = len(self._dataMap)  # Mark where the data starts in the block
-            for i in xrange(fragment.numAtoms()):
+            for i in range(fragment.numAtoms()):
                 self._dataMap.append((fragment, i))
 
                 # Bring up the bodies

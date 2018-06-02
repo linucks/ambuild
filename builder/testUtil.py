@@ -50,6 +50,48 @@ class Test(unittest.TestCase):
         self.assertEqual(util.label2symbol(label), 'H')
         
     
+    def testCalcBonds(self):
+        coords = np.array([[ 0.      ,  0.      ,  0.      ],
+                           [ 0.      ,  0.      ,  1.089   ],
+                           [ 1.026719,  0.      , -0.363   ],
+                           [-0.51336 , -0.889165, -0.363   ],
+                           [-0.51336 ,  0.889165, -0.363   ]])
+        symbols = ['c', 'h', 'h', 'h', 'h']
+        dim = None
+        maxAtomRadius = 0.70380574116999994
+        bondMargin = 0.2
+        boxMargin = 1.0
+        bonds = util.calcBonds(coords,
+                               symbols,
+                               dim=dim,
+                               maxAtomRadius=maxAtomRadius,
+                               bondMargin=bondMargin,
+                               boxMargin=boxMargin)
+    
+        ref_bonds = [(0, 1), (0, 2), (0, 3), (0, 4)]
+        self.assertEqual(bonds, ref_bonds)
+
+    def testCloseAtoms(self):
+        coords = np.array([[ 0.      ,  0.      ,  0.      ],
+                           [ 0.      ,  0.      ,  1.089   ],
+                           [ 1.026719,  0.      , -0.363   ],
+                           [-0.51336 , -0.889165, -0.363   ],
+                           [-0.51336 ,  0.889165, -0.363   ]])
+        symbols = ['c', 'h', 'h', 'h', 'h']
+        dim = None
+        maxAtomRadius = 0.70380574116999994
+        boxMargin = 1.0
+        close = util.closeAtoms(coords,
+                               symbols,
+                               dim=dim,
+                               maxAtomRadius=maxAtomRadius,
+                               boxMargin=boxMargin)
+    
+        ref_close = [(0, 2), (0, 4), (0, 1), (0, 3), (1, 2), (1, 4), (1, 3), (2, 4), (2, 3), (3, 4)]
+        # order of atoms doesn't 'matter
+        self.assertEqual(set(close), set(ref_close))
+
+    
     def testCellFromPickle(self):
         """Get old pick file from Pierre"""
         pickleFile = os.path.join(AMBUILD_DIR,"tests","oldversion.pkl")
