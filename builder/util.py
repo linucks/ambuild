@@ -1151,21 +1151,11 @@ def vectorAngle(v1, v2):
     # return angle/RADIANS2DEGREES
     return angle
 
-def unWrapCoord(coord, image, ldim, centered=False):
-    """Unwrap a coordinate back into a cell
-    """
-    if centered:
-        # Put it back with origin at corner
-        coord += ldim / 2
-        assert 0.0 <= coord <= ldim, "Coord outside box: {0}".format(coord)
-    # Now move it according to its image
-    coord += ldim * float(image)
-    return coord
-
 def unWrapCoord3(coord, image, ldim, centered=False, inplace=False):
     """Unwrap a coordinate back into a cell
     """
-    if not inplace: coord = numpy.copy(coord)
+    if not inplace:
+        coord = numpy.copy(coord)
     if centered:
         # Put it back with origin at corner
         #coord += ldim / 2
@@ -1174,25 +1164,6 @@ def unWrapCoord3(coord, image, ldim, centered=False, inplace=False):
     # Now move it according to its image
     coord = coord + ldim * image
     return coord
-
-def wrapCoord(coord, ldim, center=False):
-    """Wrap coodinate into a cell of length ldim
-    return the wrapped coordinate and the image index
-    """
-    image = int(math.floor(coord / ldim))
-    # Make the coordinate positive so the math modulo operator works
-    if image < 0: coord += -image * ldim
-
-    # Use fmod to avoid overflow problems with python modulo operater - see stackexchange
-    wcoord = math.fmod(coord, ldim)
-
-    # Should never be negative
-    assert wcoord >= 0.0, "Coord {0} -> {1} : {2}".format(coord, wcoord, image)
-
-    # Change the coord so the origin is at the center of the box (we start from the corner)
-    if center: wcoord -= ldim / 2
-    
-    return wcoord, image
 
 def wrapCoord3(coord, dim, center=False, inplace=False):
     """Wrap coodinate triple into a cell of length dim
@@ -1210,7 +1181,6 @@ def wrapCoord3(coord, dim, center=False, inplace=False):
         wcoord -= dim / 2
     return wcoord, image
 
-
 def writeCml(cmlFilename,
              coords,
              symbols,
@@ -1219,7 +1189,7 @@ def writeCml(cmlFilename,
              cell=None,
              pruneBonds=False,
              prettyPrint=False):
-
+    
     assert len(coords) == len(symbols)
     if pruneBonds:
         assert cell is not None
@@ -1281,17 +1251,13 @@ def writeCml(cmlFilename,
         atomNode = ET.SubElement(atomArrayNode, "atom")
         atomNode.attrib['id'] = "a{0}".format(i)
         atomNode.attrib['elementType'] = symbols[i]
-        if cell is None:
-            x = coord[0]
-            y = coord[1]
-            z = coord[2]
-        else:
-            x, ix = wrapCoord(coord[0], cell[0], center=False)
-            y, iy = wrapCoord(coord[1], cell[1], center=False)
-            z, iz = wrapCoord(coord[2], cell[2], center=False)
+        if cell is not None:
+            coord, _ = wrapCoord3(coord, cell, center=False)
             if pruneBonds:
-                pcoords.append(numpy.array([x, y, z]))
-
+                pcoords.append(coord)
+        x = coord[0]
+        y = coord[1]
+        z = coord[2]
         atomNode.attrib['x3'] = str(x)
         atomNode.attrib['y3'] = str(y)
         atomNode.attrib['z3'] = str(z)

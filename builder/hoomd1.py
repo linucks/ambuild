@@ -889,34 +889,25 @@ class Hoomd1(FFIELD):
     def writeXyz(self, system, filename=None, unwrap=True):
         """Car File
         """
-
         xyz = "{0}\n".format(len(system.particles))
         xyz += "opt.xyz file\n"
-
         xdim = system.box[0]
         ydim = system.box[1]
         zdim = system.box[2]
-
         for p in system.particles:
-
                 label = util.label2symbol(p.type.strip())
                 x, y, z = p.position
                 ix, iy, iz = p.image
-
                 if unwrap:
-                    x = util.unWrapCoord(x, ix, xdim, centered=False)
-                    y = util.unWrapCoord(y, iy, ydim, centered=False)
-                    z = util.unWrapCoord(z, iz, zdim, centered=False)
+                    x, y, z = util.unWrapCoord3(p.position, p.image, system.box, centered=False)
                 else:
                     # Put back with origin at corner
                     x = x + (xdim / 2)
                     y = y + (ydim / 2)
                     z = z + (zdim / 2)
                 xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(label, x, y, z)
-
         with open(filename, 'w') as f:
             f.writelines(xyz)
-
         return
 
 def xml2xyz(xmlFilename, xyzFilename):

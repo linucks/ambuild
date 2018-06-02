@@ -1067,9 +1067,6 @@ class Test(unittest.TestCase):
         return
 
     def testOptimiseGeometryRigid(self):
-        """
-        """
-        # self.testCell.writeCml("foo.cml")
         mycell = self.createTestCell(boxWidth=30)
         mycell.optimiseGeometry(rigidBody=True,
                                         doDihedral=True,
@@ -1081,12 +1078,11 @@ class Test(unittest.TestCase):
                                          )
         self.assertFalse(self.clashes(mycell))
         hxml = "hoomdOpt.xml"
-        if os.path.isfile(hxml): os.unlink(hxml)
+        if os.path.isfile(hxml):
+            os.unlink(hxml)
         return
 
     def testOptimiseGeometryAll(self):
-        """
-        """
         boxDim = [30, 30, 30]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
@@ -1095,19 +1091,6 @@ class Test(unittest.TestCase):
 
         mycell.seed(1, fragmentType='triquin', center=True)
         mycell.growBlocks(toGrow=2, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
-#         ok=mycell.optimiseGeometry(rigidBody=False,
-#                                 doDihedral=True,
-#                                 optCycles=10000,
-#                                 dump=True,
-#                                 quiet=False,
-#                                 dt=0.005,
-#                                 Nmin=5,
-#                                 alpha_start=0.1,
-#                                 ftol=1e-2,
-#                                 Etol=1e-4,
-#                                 finc=1.1,
-#                                 fdec=0.5,
-#                                  )
         ok = mycell.optimiseGeometry(rigidBody=False,
                                 doDihedral=True,
                                 optCycles=10000,
@@ -1119,7 +1102,6 @@ class Test(unittest.TestCase):
         self.assertFalse(self.clashes(mycell))
         # os.unlink("hoomdOpt.xml")
         return
-
 
     def testRunMDAll(self):
         """
@@ -1922,6 +1904,17 @@ class Test(unittest.TestCase):
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare all")
+        os.unlink(fname)
+
+        fname = "test3.cml"
+        mycell.writeCml(fname, periodic=True, rigidBody=False, prettyPrint=True)
+        # Test is same as reference
+        with open(fname) as f:
+            test = f.readlines()
+        with open(os.path.join(AMBUILD_DIR, "tests", "testCellAllPeriodic.cml")) as f:
+            ref = f.readlines()
+
+        self.assertEqual(test, ref, "cml compare all periodic")
         os.unlink(fname)
         return
 
