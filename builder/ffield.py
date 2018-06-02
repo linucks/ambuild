@@ -183,7 +183,7 @@ class FfieldParameters(object):
         """ dummy atoms treated specially """
         if p1.lower() == 'x' or p2.lower() == 'x':
             return True
-        if self.pairs.has_key((p1, p2)) or self.pairs.has_key((p2, p1)):
+        if (p1, p2) in self.pairs or (p2, p1) in self.pairs:
             return True
         return False
 

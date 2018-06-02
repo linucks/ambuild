@@ -79,13 +79,9 @@ class Test(unittest.TestCase):
                            [-0.51336 ,  0.889165, -0.363   ]])
         symbols = ['c', 'h', 'h', 'h', 'h']
         dim = None
-        maxAtomRadius = 0.70380574116999994
-        boxMargin = 1.0
         close = util.closeAtoms(coords,
                                symbols,
-                               dim=dim,
-                               maxAtomRadius=maxAtomRadius,
-                               boxMargin=boxMargin)
+                               dim=dim)
     
         ref_close = [(0, 2), (0, 4), (0, 1), (0, 3), (1, 2), (1, 4), (1, 3), (2, 4), (2, 3), (3, 4)]
         # order of atoms doesn't 'matter

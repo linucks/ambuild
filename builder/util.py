@@ -658,8 +658,7 @@ def closeAtoms(coords, symbols, dim=None, maxAtomRadius=None, boxMargin=1.0):
     """Return a list of which atoms in the cell are close to each other.
     Close is defined by the maxAtomRadius and boxMargin"""
     if maxAtomRadius is None:
-        for s in set(symbols):
-            maxAtomRadius = max(COVALENT_RADII[SYMBOL_TO_NUMBER[s.upper()]] * BOHR2ANGSTROM, maxAtomRadius)
+        maxAtomRadius = max([COVALENT_RADII[SYMBOL_TO_NUMBER[s.upper()]] * BOHR2ANGSTROM for s in set(symbols)])
 
     boxSize = (maxAtomRadius * 2) + boxMargin
     # If we are under PBC calculate the number of boxes in each dimenson
@@ -1063,7 +1062,11 @@ def newFilename(filename, separator="_"):
 def pickleObj(obj, fileName):
     """Pickle an object - required as we can't pickle in the cell as otherwise the open filehandle
     is within the cell which is the object we are trying to pickle..."""
-    with open(fileName, 'w') as pfile:
+    if sys.version_info < (3,0):
+        mode = 'w'
+    else:
+        mode = 'bw'
+    with open(fileName, mode) as pfile:
         pickle.dump(obj, pfile)
     return
 

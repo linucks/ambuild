@@ -205,8 +205,8 @@ class Test(unittest.TestCase):
         mycell.seed(1, fragmentType='cat', center=True)
         
         # Now join the pafs to the cat
-        catid = mycell.blocks.keys()[0]
-        cat = mycell.blocks.values()[0]
+        catid = list(mycell.blocks.keys())[0]
+        cat = list(mycell.blocks.values())[0]
         
         paf1eg = paf1.freeEndGroups()[0]
         paf2eg = paf2.freeEndGroups()[0]
@@ -248,7 +248,7 @@ class Test(unittest.TestCase):
         
         # copy the block and get the two endGroups that we will use to position the two catalysts so they can bond
         #newblock = self.getLibraryBlock(fragmentType=fragmentType) # Create new block
-        b1 = mycell.blocks.values()[0]
+        b1 = list(mycell.blocks.values())[0]
         
         # Make copy of first block
         b2 = b1.copy()
@@ -281,7 +281,7 @@ class Test(unittest.TestCase):
 
         # Remember a coordinate for checking
         mycell = self.createTestCell()
-        test_coord = mycell.blocks[ mycell.blocks.keys()[0] ].coord(4)
+        test_coord = mycell.blocks[list(mycell.blocks.keys())[0] ].coord(4)
 
         outfile = "./testCellIO.pkl"
         mycell.writePickle(outfile)
@@ -292,17 +292,16 @@ class Test(unittest.TestCase):
         with open(outfile, mode) as f:
             newCell = pickle.load(f)
 
-        self.assertTrue(numpy.allclose(test_coord, newCell.blocks[ newCell.blocks.keys()[0] ].coord(4),
-                                         rtol=1e-9, atol=1e-9),
-                         msg="Incorrect testCoordinate of cell.")
+        self.assertTrue(numpy.allclose(test_coord,
+                                       newCell.blocks[list(newCell.blocks.keys())[0] ].coord(4),
+                                       rtol=1e-9,
+                                       atol=1e-9),
+                                       msg="Incorrect testCoordinate of cell.")
 
-        # mycell.growBlocks( 5 )
         os.unlink(outfile)
-
         return
 
     def testCloseAtoms(self):
-
         mycell = Cell([30, 30, 30], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
@@ -449,7 +448,7 @@ class Test(unittest.TestCase):
         
         toDelete = [0,3,5]
         
-        bidxs = [ blockId for i, blockId in enumerate(mycell.blocks.iterkeys()) if i in toDelete]
+        bidxs = [ blockId for i, blockId in enumerate(mycell.blocks.keys()) if i in toDelete]
         removed = mycell.deleteBlocks(indices=toDelete)
         self.assertEqual(len(mycell.blocks), toSeed-len(toDelete))
         
@@ -514,7 +513,7 @@ class Test(unittest.TestCase):
 
         # See if we can delete single blocks
         mycell.seed(1, fragmentType='A', center=True)
-        f1 = mycell.blocks.values()[0].fragments[0]
+        f1 = list(mycell.blocks.values())[0].fragments[0]
         mycell.deleteFragment(f1)
         self.assertEqual(len(mycell.blocks),0)
         return 
@@ -527,7 +526,7 @@ class Test(unittest.TestCase):
 
         # See if we can delete single blocks
         mycell.seed(1, fragmentType='A', center=True)
-        f1 = mycell.blocks.values()[0].fragments[0]
+        f1 = list(mycell.blocks.values())[0].fragments[0]
         mycell.growBlocks(1, cellEndGroups=['A:a'], libraryEndGroups=['A:a'])
         mycell.deleteFragment(f1)
         return 
@@ -540,7 +539,7 @@ class Test(unittest.TestCase):
 
         # See if we can delete single blocks
         mycell.seed(1, fragmentType='A', center=True)
-        f1 = mycell.blocks.values()[0].fragments[0]
+        f1 = list(mycell.blocks.values())[0].fragments[0]
         mycell.growBlocks(20, cellEndGroups=['A:a'], libraryEndGroups=['A:a'])
         mycell.deleteFragment(f1)
         #mycell.writeCml("foo2.cml")
@@ -679,7 +678,7 @@ class Test(unittest.TestCase):
         mycell.seed(1, fragmentType='C')
 
         banned = ['B:a', 'C:a', 'D:a']
-        for _ in xrange(5):
+        for _ in range(5):
             cellEndGroup, libraryEndGroup = mycell.libraryEndGroupPair()
             if cellEndGroup.type() != 'A:a':
                 self.assertNotIn(libraryEndGroup.type(),
@@ -790,7 +789,7 @@ class Test(unittest.TestCase):
         nblocks += 1
         # Need to subtract cap atoms
         self.assertEqual(natoms2, (natoms * nblocks) - (nblocks - 1) * 2)
-        block = mycell.blocks.values()[0]
+        block = list(mycell.blocks.values())[0]
         self.assertTrue(numpy.allclose(block.centroid(), [ 12.91963557,  17.39975016,  11.65120767]))
         self.assertFalse(self.clashes(mycell))
         return
@@ -836,7 +835,7 @@ class Test(unittest.TestCase):
 
         mycell.seed(1, center=True, random=False)
         mycell.growBlocks(10, cellEndGroups=None, maxTries=10, random=False)
-        block = mycell.blocks.values()[0]
+        block = list(mycell.blocks.values())[0]
         self.assertTrue(numpy.allclose(block.centroid(), [ 14.64787487, 15.43129673, 16.00520584]))
         self.assertFalse(self.clashes(mycell))
         return
@@ -850,7 +849,7 @@ class Test(unittest.TestCase):
         mycell.setMaxBond('A:CH', 1)
         mycell.seed(1, center=True, random=False)
         mycell.growBlocks(10, cellEndGroups=['A:CH'], random=False)
-        block = mycell.blocks.values()[0]
+        block = list(mycell.blocks.values())[0]
         self.assertTrue(numpy.allclose(block.centroid(), [  6.17554446, 4.10903953, 17.51814496]))
         self.assertFalse(self.clashes(mycell))
         return
@@ -901,7 +900,7 @@ class Test(unittest.TestCase):
         mycell.growBlocks(nblocks, cellEndGroups=None, libraryEndGroups=None, dihedral=dihedral, maxTries=5)
 
         # Check angle between two specified dihedrals is correct
-        block1 = mycell.blocks[ mycell.blocks.keys()[0] ]
+        block1 = mycell.blocks[list(mycell.blocks.keys())[0] ]
         bond1 = block1._blockBonds[0]
 
         p1 = block1.coord(bond1.endGroup1.dihedralIdx())
@@ -1316,11 +1315,8 @@ class Test(unittest.TestCase):
 
         boxDim = [50, 50, 50]
         mycell = Cell(boxDim)
-
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
-        # mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
         mycell.addBondType('A:a-A:a')
-
         nblocks = 10
         added = mycell.seed(nblocks)
 
@@ -1330,9 +1326,8 @@ class Test(unittest.TestCase):
         # Check no block is outside the unit cell
         # We seed by the centroid so the edges could stick out by radius
         # radius = ch4.radius()
-        
         bad = []
-        for i, b in mycell.blocks.iteritems():
+        for b in mycell.blocks.values():
             radius = b.blockRadius()
             for c in b.iterCoord():
                 if not 0 - radius < c[0] < mycell.dim[0] + radius  or \
@@ -1343,9 +1338,6 @@ class Test(unittest.TestCase):
 
         self.assertEqual(0, len(bad), "Got {} atoms outside cell: {}".format(len(bad), bad))
         self.assertFalse(self.clashes(mycell))
-
-        # mycell.writeXyz("seedTest.xyz")
-
         return
     
     def testSetBoxSize(self):
@@ -1892,11 +1884,7 @@ class Test(unittest.TestCase):
         for b in [ b2, b3, b4]:
             endGroup1 = b1.freeEndGroups()[ 0 ]
             endGroup2 = b.freeEndGroups()[ 0 ]
-
-            # Add b2
             b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
-
-            # bond them
             bond = buildingBlock.Bond(endGroup1, endGroup2)
             b1.bondBlock(bond)
 
@@ -1911,25 +1899,21 @@ class Test(unittest.TestCase):
         for b in [ b2, b3, b4]:
             endGroup1 = b1.freeEndGroups()[ 0 ]
             endGroup2 = b.freeEndGroups()[ 0 ]
-
-            # Add b2
             b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
-
-            # bond them
             bond = buildingBlock.Bond(endGroup1, endGroup2)
             b1.bondBlock(bond)
 
-        fname = "test.cml"
+        fname = "test1.cml"
         mycell.writeCml(fname, periodic=False, rigidBody=True, prettyPrint=True)
-        # Test is same as reference
         with open(fname) as f:
             test = f.readlines()
         with open(os.path.join(AMBUILD_DIR, "tests", "testCellRigid.cml")) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare rigid")
+        os.unlink(fname)
 
-        fname = "test.cml"
+        fname = "test2.cml"
         mycell.writeCml(fname, periodic=False, rigidBody=False, prettyPrint=True)
         # Test is same as reference
         with open(fname) as f:
@@ -2007,7 +1991,6 @@ class Test(unittest.TestCase):
                          "coords don't match")
 
         os.unlink(xmlFilename)
-
         return
 
 if __name__ == '__main__':

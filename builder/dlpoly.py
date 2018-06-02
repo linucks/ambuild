@@ -114,7 +114,7 @@ finish
 
         atomCount = 0  # Global count in cell
         bodyCount = -1
-        for idxBlock, block in cell.blocks.iteritems():
+        for idxBlock, block in cell.blocks.items():
 
             blockBonds = []
             blockBondTypes = []

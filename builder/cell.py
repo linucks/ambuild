@@ -254,6 +254,8 @@ class Cell():
         self.lastAdded = None
 
         self.newBonds = [] # Tracks recently added bonds
+        
+        self.MDENGINE = None
 
         # Holds possible bond after checkMove is run
         self._possibleBonds = []
@@ -1185,7 +1187,7 @@ class Cell():
         logger.debug("cellEndGroupPair got cell/library endGroups: {0}".format(cell2cell))
 
         # Select a random block/endGroup from the list
-        eg1Type = _random.choice(cell2cell.keys())
+        eg1Type = _random.choice(list(cell2cell.keys()))
         block1 = _random.choice(list(endGroupTypes2Block[ eg1Type ]))
         endGroup1 = block1.selectEndGroup(endGroupTypes=[eg1Type])
 
@@ -1519,13 +1521,11 @@ class Cell():
         if addCount:
             self._fileCount += 1
             prefix = prefix + "_{0}".format(self._fileCount)
-
         # self.writeXyz(prefix+".xyz",data=data, periodic=False)
         # self.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
         # self.writeCar(prefix+"_P.car",data=data,periodic=True)
         # self.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
         # self.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
-
         pklFile = os.path.abspath(prefix + ".pkl")
         self.writePickle(pklFile)
         return pklFile
@@ -1572,6 +1572,9 @@ class Cell():
                   xmlFilename="hoomdCalc.xml",
                   **kw
                   ):
+        
+        if not self.MDENGINE:
+            raise RuntimeError("No MD Engine available!")
 
         # Loop through all blocks, fragments and atoms creating the labels
         # do this in dataDict - create list of labels and start:stop indices
@@ -2037,7 +2040,7 @@ class Cell():
             # Convert to a set - make sure is a list first
             if isinstance(cellEndGroups, str):
                 cellEndGroups = [ cellEndGroups ]
-            for ceg in cell2Library.keys():
+            for ceg in list(cell2Library.keys()):
                 if ceg not in cellEndGroups:
                     del cell2Library[ ceg ]
             if len(cell2Library.keys()) == 0:
@@ -2072,7 +2075,7 @@ class Cell():
         logger.debug("libraryEndGroupPair got cell/library endGroups: {0}".format(cell2Library))
         if random:
             # Now we can pick a random endGroup from the cell, get the corresponding library group
-            cellEgT = _random.choice(cell2Library.keys())
+            cellEgT = _random.choice(list(cell2Library.keys()))
 
             # First get a block that contains this type of endGroup
             # Need to use sample as sets don't support random.choice
@@ -2096,7 +2099,9 @@ class Cell():
             i = self._deterministicState % len(cell2Library.keys())
             cellEgT = sorted(cell2Library.keys())[i]
             i = self._deterministicState % len(endGroupTypes2Block[cellEgT])
-            cellBlock = sorted(list(endGroupTypes2Block[cellEgT]))[i]
+            # sort blocks by id - what we use is irrelevant, it just needs to be consistent
+            cellBlock = sorted(list(endGroupTypes2Block[cellEgT]),
+                               key=lambda block: block.id)[i]
             cellEndGroup = cellBlock.selectEndGroup(endGroupTypes=[cellEgT], random=random)
             i = self._deterministicState % len(cell2Library[cellEgT])
             libEgT = sorted(list(cell2Library[cellEgT]))[i]
@@ -2578,13 +2583,14 @@ class Cell():
                 raise RuntimeError("Static block doesn't fit in the cell! First failing coord is #{0}: {1}".format(i, coord))
 
         if replace:
-            self.delBlock(self.blocks.keys()[0]) # Assumes a static block is always the first
+            self.delBlock(list(self.blocks.keys())[0]) # Assumes a static block is always the first
         idxBlock = self.addBlock(block)
         if len(self.blocks) > 1:
             # If the cell already has blocks in, we need to remove them all and then add this as the first one
             d = collections.OrderedDict()
             d[idxBlock] = block
-            for k, v in self.blocks.items(): d[k] = v
+            for k, v in self.blocks.items():
+                d[k] = v
             del self.blocks
             self.blocks = d
 
@@ -2751,7 +2757,6 @@ class Cell():
 
     def writePickle(self, fileName="cell.pkl"):
         """Pickle ourselves"""
-
         # Need to close all open filehandles and the logger handlers
         # for l in logger.handlers:
         #    print "GOT HANDLER1 ",l
@@ -2767,7 +2772,6 @@ class Cell():
             del self._flLogHandler
 
         fileName = os.path.abspath(fileName)
-
         # Create the pickle file
         util.pickleObj(self, fileName)
 
