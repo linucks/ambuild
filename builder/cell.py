@@ -360,7 +360,7 @@ class Cell():
             b1FragmentType = b1EndGroupType.split(ENDGROUPSEP)[0]
             b2FragmentType = b2EndGroupType.split(ENDGROUPSEP)[0]
         except ValueError:
-            raise RuntimeError, "Error adding BondType {0} - string needs to be of form 'A:a-B:b'".format(bondType)
+            raise RuntimeError("Error adding BondType {0} - string needs to be of form 'A:a-B:b'".format(bondType))
 
         # Checks
         # HACK FOR ADDING * TO SHOW BONDED GROUPS
@@ -382,7 +382,7 @@ class Cell():
 
         bt = (b1EndGroupType, b2EndGroupType)
         if bt in self.bondTypes:
-            raise RuntimeError, "Adding an existing bond type: {0}".format(bt)
+            raise RuntimeError("Adding an existing bond type: {0}".format(bt))
 
         self.bondTypes.append(bt)
 
@@ -520,7 +520,7 @@ class Cell():
         """Check if any atoms are clashDist from bond.
         """
         if  clashDist > self.boxSize:
-            raise RuntimeError,"clashDist needs to be less than the boxSize: {0}".format(self.boxSize)
+            raise RuntimeError("clashDist needs to be less than the boxSize: {0}".format(self.boxSize))
 
         # Create bond coordinates method
         idxAtom1 = bond.endGroup1.endGroupIdx()
@@ -831,8 +831,8 @@ class Cell():
         # Check length
         bond_length = util.bondLength(addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom))
         if bond_length < 0:
-            raise RuntimeError, "Missing bond distance for: {0}-{1}".format(addBlock.symbol(idxAddAtom),
-                                                                            staticBlock.symbol(idxStaticAtom))
+            raise RuntimeError("Missing bond distance for: {0}-{1}".format(addBlock.symbol(idxAddAtom),
+                                                                            staticBlock.symbol(idxStaticAtom)))
 
         # See if the distance between them is acceptable
         # print "CHECKING BOND ATOMS ",bond_length,self.distance( addCoord, staticCoord )
@@ -1578,8 +1578,6 @@ class Cell():
         # do this in dataDict - create list of labels and start:stop indices
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
 
-        print "GOT TAGS ", data.tagIndices
-
         # in hoomdblue. loopt through list of labels and create groups and computes for each one
         # opt must hold the list of groups and computes
         if 'rCut' in kw:
@@ -1595,8 +1593,6 @@ class Cell():
                                                     doDihedral=doDihedral,
                                                     doImproper=doImproper,
                                                     **kw)
-
-        print "GOT ", maxe, idxBlock, idxFragment
 
         return
 
@@ -1632,7 +1628,7 @@ class Cell():
 
         # sanity check
         if not self._fragmentLibrary.has_key(fragmentType):
-            raise RuntimeError, "Asking for a non-existing initBlock type: {0}".format(fragmentType)
+            raise RuntimeError("Asking for a non-existing initBlock type: {0}".format(fragmentType))
 
         # Copy the init fragment
         f = self._fragmentLibrary[ fragmentType ].copy()
@@ -2156,7 +2152,7 @@ class Cell():
         logger.info("Running optimisation")
 
         if doDihedral and doImproper:
-            raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
+            raise RuntimeError("Cannot have impropers and dihedrals at the same time")
 
         if 'rCut' in kw:
             self.rCut = kw['rCut']
@@ -2194,7 +2190,7 @@ class Cell():
 
         # Check there is enough space
         if oradius >= self.dim[0] or oradius >= self.dim[1] or oradius >= self.dim[2]:
-            raise RuntimeError, "Cannot fit block with radius {0} into cell {1}!".format(bradius, self.dim)
+            raise RuntimeError("Cannot fit block with radius {0} into cell {1}!".format(bradius, self.dim))
 
         # get a range for x, y and z that would fit the block in the cell, pick random values within that
         # and stick the block there
@@ -2254,18 +2250,18 @@ class Cell():
             assert len(point) == 3,"Point needs to be a list of three floats!"
             if not (0 <= point[0] <= self.dim[0] and 0 <= point[1] <= self.dim[1] and \
                     0 <= point[2] <= self.dim[2] ):
-                raise RuntimeError,"Point needs to be inside the cell."
+                raise RuntimeError("Point needs to be inside the cell.")
             if radius:
                 coord = self.randomSpherePoint(point, radius)
             else:
                 coord = numpy.array(point, dtype=numpy.float64)
         elif zone:
             if not len(zone) == 6:
-                raise RuntimeError,"Zone needs to be a list of 6 floats: [x0,x1,y1,y2,z1,z1]"
+                raise RuntimeError("Zone needs to be a list of 6 floats: [x0,x1,y1,y2,z1,z1]")
             if not zone[0] >= 0 and zone[1] <= self.dim[0] and\
                 zone[2] >= 0 and zone[3] <= self.dim[1] and \
                 zone[4] >= 0 and zone[5] <= self.dim[2]:
-                raise RuntimeError,"Zone needs to be within the cell"
+                raise RuntimeError("Zone needs to be within the cell")
             #bmargin = block.blockRadius()
             bmargin = 0
             x = _random.uniform(zone[0] + bmargin, zone[1] - bmargin)
@@ -2371,7 +2367,7 @@ class Cell():
         """
 
         if doDihedral and doImproper:
-            raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
+            raise RuntimeError("Cannot have impropers and dihedrals at the same time")
 
         if 'rCut' in kw:
             self.rCut = kw['rCut']
@@ -2412,7 +2408,7 @@ class Cell():
         assert rigidBody, "FIX runMD FOR ALL ATOM!!"
 
         if doDihedral and doImproper:
-            raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
+            raise RuntimeError("Cannot have impropers and dihedrals at the same time")
 
         if 'rCut' in kw: self.rCut = kw['rCut']
         else: self.rCut = self.MDENGINE.rCut
@@ -2463,12 +2459,12 @@ class Cell():
         the number of blocks added
         """
         if self.dim[0] is None or self.dim[1] is None or self.dim[2] is None:
-            raise RuntimeError, "Need to specify cell before seeding"
+            raise RuntimeError("Need to specify cell before seeding")
 
         # if not len( self._fragmentLibrary ) or not len( self.bondTypes):
         #    raise RuntimeError,"Must have set an initBlock and bondType before seeding."
         if not len(self._fragmentLibrary):
-            raise RuntimeError, "Must have set an initBlock before seeding."
+            raise RuntimeError("Must have set an initBlock before seeding.")
 
         logger.info("seed adding {0} block of type {1}".format(nblocks, fragmentType))
 
@@ -2540,7 +2536,7 @@ class Cell():
             if not (self.dim[0] >= old_dim[0] and \
                 self.dim[1] >= old_dim[1] and
                 self.dim[2] >= old_dim[2]):
-                raise RuntimeError, "Can currently only increase box size!"
+                raise RuntimeError("Can currently only increase box size!")
 
             # If we've made the cell bigger we need to shift all blocks so that they sit
             # in the centre again
@@ -2558,7 +2554,7 @@ class Cell():
         f = fragment.Fragment(filePath, fragmentType=name, static=True)
         p = f.cellParameters()
         if not p:
-            raise RuntimeError, "car file needs to have PBC=ON and a PBC line defining the cell!"
+            raise RuntimeError("car file needs to have PBC=ON and a PBC line defining the cell!")
 
         logger.info("Read cell parameters A={0}, B={1}, C={2} from car file: {3}".format(
             p['A'],p['B'],p['C'],filePath))
@@ -2574,7 +2570,7 @@ class Cell():
             if coord[0] < 0 or coord[0] > self.dim[0] or \
                coord[1] < 0 or coord[1] > self.dim[1] or \
                coord[2] < 0 or coord[2] > self.dim[2]:
-                raise RuntimeError, "Static block doesn't fit in the cell! First failing coord is #{0}: {1}".format(i, coord)
+                raise RuntimeError("Static block doesn't fit in the cell! First failing coord is #{0}: {1}".format(i, coord))
 
         if replace:
             self.delBlock(self.blocks.keys()[0]) # Assumes a static block is always the first
@@ -2589,9 +2585,9 @@ class Cell():
 
             # Also need to test for Clashes with other molecules
             if not self.checkMove(idxBlock):
-                raise RuntimeError, "Problem adding static block: got clashes!"
+                raise RuntimeError("Problem adding static block: got clashes!")
             if self.processBonds() > 0:
-                raise RuntimeError, "Problem adding static block-we made bonds!"
+                raise RuntimeError("Problem adding static block-we made bonds!")
 
         logger.info("Added static block to cell")
         return

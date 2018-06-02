@@ -6,7 +6,12 @@ Created on Feb 3, 2013
 
 Utility functions
 '''
-import cPickle
+import sys
+if sys.version_info < (3,0):
+    import cPickle as pickle
+else:
+    import pickle
+    
 import logging
 import os
 import numpy
@@ -746,9 +751,13 @@ def cellFromPickle(pickleFile, paramsDir=None):
                 e.bonded = e._isBonded
             if not hasattr(e,'blocked'): e.blocked = False
         return
-        
-    with open(pickleFile) as f:
-        myCell = cPickle.load(f)
+    
+    if sys.version_info < (3,0):
+        mode = 'r'
+    else:
+        mode = 'br'
+    with open(pickleFile, mode) as f:
+        myCell = pickle.load(f)
         
     # Need to hack to work with older versions
     if not hasattr(myCell, 'dim'):
@@ -998,7 +1007,7 @@ def label2symbol(name):
     # If it was a valid 2 character symbol we should have picked it up so now only 1 symbol
     name = name[0]
     if not name.isalpha():
-        raise RuntimeError, "label2symbol first character of name is not a character: {0}".format(origName)
+        raise RuntimeError("label2symbol first character of name is not a character: {0}".format(origName))
 
     # Hack - for x return x
     if name.lower() == 'x': return 'x'
@@ -1008,7 +1017,7 @@ def label2symbol(name):
 
     if name in sym1c: return name.capitalize()
 
-    raise RuntimeError, "label2symbol cannot convert name {0} to symbol!".format(origName)
+    raise RuntimeError("label2symbol cannot convert name {0} to symbol!".format(origName))
     return
 
 def hoomdVersion():
@@ -1019,7 +1028,6 @@ def hoomdVersion():
 def momentOfInertia(coords, masses):
     """Moment of Inertia Tensor"""
     totalMass = numpy.sum(masses)
-    #masses = numpy.array(masses())
     centreOfMass = numpy.sum(coords * masses[:,numpy.newaxis], axis=0) / totalMass
     # Coords relative to centre of mass
     coords = coords - centreOfMass
@@ -1045,9 +1053,8 @@ def newFilename(filename, separator="_"):
 def pickleObj(obj, fileName):
     """Pickle an object - required as we can't pickle in the cell as otherwise the open filehandle
     is within the cell which is the object we are trying to pickle..."""
-    with open(fileName, 'w') as pfile: cPickle.dump(obj , pfile)
-    #import pickle
-    #with open(fileName, 'w') as pfile: pickle.dump(obj , pfile)
+    with open(fileName, 'w') as pfile:
+        pickle.dump(obj, pfile)
     return
 
 def readMol2(filename):

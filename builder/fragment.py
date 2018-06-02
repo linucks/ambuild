@@ -25,20 +25,33 @@ class Body(object):
     def __init__(self, fragment, bodyIndex):
         self.fragment = fragment
         self.bodyIndex = bodyIndex
+        self.indexes = self._setup_indexes()
+        self.natoms = numpy.sum(self.indexes)
         return
 
+    def _setup_indexes(self):
+        # Can't do: self.fragment._bodies == self.bodyIndex &~ self.fragment.masked
+        # Not sure why - have posted on stack exchange
+        bi = self.fragment._bodies == self.bodyIndex
+        return bi &~ self.fragment.masked
+        #return numpy.array([True if self.fragment._bodies[i] == self.bodyIndex else False for i in self.fragment._ext2int.values()])
+
     def atomTypes(self):
-        return [ self.fragment._atomTypes[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
+        return list(numpy.compress(self.indexes, self.fragment._atomTypes, axis=0))
+#         return [ self.fragment._atomTypes[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
 
     def bodies(self):
-        return [ self.bodyIndex ] * len(self.fragment._ext2int.values())
+#         return [ self.bodyIndex ] * len(self.fragment._ext2int.values())
+        return [ self.bodyIndex ] * self.natoms
 
     def charges(self):
-        return [ self.fragment._charges[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
+#         return [ self.fragment._charges[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
+        return list(numpy.compress(self.indexes, self.fragment._charges, axis=0))
 
     def coords(self, dim=None, center=True):
         # Get list of the internal indices of unmasked atoms that belong to body self.bodyIndex
-        coords = self.fragment._coords[ [ i for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] ]
+        #coords = self.fragment._coords[ [ i for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] ]
+        coords = numpy.compress(self.indexes, self.fragment._coords, axis=0)
         if dim is not None:
             coords, images = util.wrapCoord3(coords, dim, center=center)
             return coords, images
@@ -49,7 +62,7 @@ class Body(object):
         return [c - centroid for c in coords]
 
     def diameters(self):
-        return [ util.DUMMY_DIAMETER ] * len(self.fragment._ext2int.values())
+        return [ util.DUMMY_DIAMETER ] * self.natoms
 
     def masked(self):
         mask = []
@@ -64,17 +77,17 @@ class Body(object):
         return numpy.sum(self.masses())
 
     def masses(self):
-        return [ self.fragment._masses[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
+        return list(numpy.compress(self.indexes, self.fragment._masses, axis=0))
 
     def static(self):
         if hasattr(self.fragment, 'static') and self.fragment.static:
             v = True
         else:
             v = False
-        return [ v ] * len(self.fragment._ext2int.values())
+        return [ v ] * self.natoms
 
     def symbols(self):
-        return [ self.fragment._symbols[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
+        return list(numpy.compress(self.indexes, self.fragment._symbols, axis=0))
 
 class EndGroup(object):
 
@@ -171,7 +184,7 @@ class EndGroup(object):
         self.fragment.unBonded[self.fragmentCapIdx] = True
 
         if self.fragmentUwIdx != -1:
-            raise RuntimeError, "Cannot unbond masked endGroups yet!"
+            raise RuntimeError("Cannot unbond masked endGroups yet!")
             self.fragment.masked[ self.fragmentUwIdx ] = True
         self.fragment.update()
         return
@@ -693,7 +706,7 @@ class Fragment(object):
                     row[1].lower() == "endgroup" and \
                     row[2].lower() == "capatom" and \
                     row[3].lower() == "delatom":
-                        raise RuntimeError, "First line of csv file must contain header line:\ntype,endgroup,capatom,dihedral,delatom"
+                        raise RuntimeError("First line of csv file must contain header line:\ntype,endgroup,capatom,dihedral,delatom")
                     continue
 
                 # skip blank lines
@@ -715,7 +728,7 @@ class Fragment(object):
                     uwAtoms.append(-1)
 
             if self.fragmentType == 'cap' and len(endGroups) != 1:
-                raise RuntimeError, "Capfile had >1 endGroup specified!"
+                raise RuntimeError("Capfile had >1 endGroup specified!")
 
         return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
 

@@ -128,7 +128,7 @@ class Block(object):
 
         # Check neither is zero
         if numpy.array_equal(refVector, [0, 0, 0]) or numpy.array_equal(pos2, [0, 0, 0]):
-            raise RuntimeError, "alignBlock - one of the vectors is zero!\nrefVector: {0} endGroup: {1}".format(refVector, pos2)
+            raise RuntimeError("alignBlock - one of the vectors is zero!\nrefVector: {0} endGroup: {1}".format(refVector, pos2))
 
         # Makes no sense if they are already aligned
         if numpy.array_equal(pos2 / numpy.linalg.norm(pos2), refVector / numpy.linalg.norm(refVector)):
@@ -496,7 +496,7 @@ class Block(object):
                 f1bonds.append(b)
             elif b.endGroup1.fragment in f2list and b.endGroup2.fragment in f2list:
                 f2bonds.append(b)
-            else: raise RuntimeError,"Bond crosses set: {0}".format(b)
+            else: raise RuntimeError("Bond crosses set: {0}".format(b))
             
         bond.endGroup1.unBond(bond.endGroup2)
         bond.endGroup2.unBond(bond.endGroup1)
@@ -518,7 +518,7 @@ class Block(object):
     
     def deleteFragment(self, frag):
         if frag not in self.fragments:
-            raise RuntimeError,"Cannot find fragment {0} in block".format(frag.fragmentType)
+            raise RuntimeError("Cannot find fragment {0} in block".format(frag.fragmentType))
         
         if len(self.fragments) == 1:
             # This is the only fragment in the block, so we need to be deleted - return an empty list
@@ -839,7 +839,7 @@ class Block(object):
             # See if any in common
             common = frozenset(self.freeEndGroupTypes()).intersection(frozenset(endGroupTypes))
             if not bool(common):
-                raise RuntimeError, "Cannot find {0} in available types {1}".format(endGroupTypes, self.freeEndGroupTypes())
+                raise RuntimeError("Cannot find {0} in available types {1}".format(endGroupTypes, self.freeEndGroupTypes()))
 
             # We can definitely return something so pick a random fragment type and get a random endGroup
             if random:

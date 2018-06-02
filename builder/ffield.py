@@ -50,14 +50,14 @@ class FfieldParameters(object):
     
     def _processAngles(self, angle_file):
         # REM: angles are stored in degrees in the parameter file, but we convert to radians for our uses
-        if not os.path.isfile(angle_file): raise RuntimeError, "Cannot find angle parameter file: {0}".format(angle_file)
+        if not os.path.isfile(angle_file): raise RuntimeError("Cannot find angle parameter file: {0}".format(angle_file))
         header = ['angle', 'k', 't0', 'comments']
         angles = {}
         with open(angle_file) as f:
             reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
-                    if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(angle_file, ",".join(header))
+                    if row != header: raise RuntimeError("Header for {0} file, should be: {1}".format(angle_file, ",".join(header)))
                     else: continue
                 try:
                     angle = row[0]
@@ -71,14 +71,14 @@ class FfieldParameters(object):
         return angles
 
     def _processDihedrals(self, dihedral_file):
-        if not os.path.isfile(dihedral_file): raise RuntimeError, "Cannot find dihedral parameter file: {0}".format(dihedral_file)
+        if not os.path.isfile(dihedral_file): raise RuntimeError("Cannot find dihedral parameter file: {0}".format(dihedral_file))
         header = ['dihedral', 'k', 'd', 'n', 'comments']
         dihedrals = {}
         with open(dihedral_file) as f:
             reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
-                    if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(dihedral_file, ",".join(header))
+                    if row != header: raise RuntimeError("Header for {0} file, should be: {1}".format(dihedral_file, ",".join(header)))
                     else: continue
                 if row[0].startswith('#'): continue
                 try:
@@ -94,14 +94,14 @@ class FfieldParameters(object):
         return dihedrals
     
     def _processImpropers(self,improper_file):
-        if not os.path.isfile(improper_file): raise RuntimeError, "Cannot find dihedral parameter file: {0}".format(improper_file)
+        if not os.path.isfile(improper_file): raise RuntimeError("Cannot find dihedral parameter file: {0}".format(improper_file))
         header = ['improper', 'k', 'chi', 'comments']
         impropers = {}
         with open(improper_file) as f:
             reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
-                    if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(improper_file, ",".join(header))
+                    if row != header: raise RuntimeError("Header for {0} file, should be: {1}".format(improper_file, ",".join(header)))
                     else: continue
                 try:
                     improper = row[0]
@@ -115,14 +115,14 @@ class FfieldParameters(object):
         return impropers
     
     def _readPairs(self,pairs_file):
-        if not os.path.isfile(pairs_file): raise RuntimeError, "Cannot find pair parameter file: {0}".format(pairs_file)
+        if not os.path.isfile(pairs_file): raise RuntimeError("Cannot find pair parameter file: {0}".format(pairs_file))
         header = ['atom1', 'atom2', 'epsilon', 'sigma', 'comments']
         pairs = {}
         with open(pairs_file) as f:
             reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
-                    if row != header: raise RuntimeError, "Header for {0} file, should be: {1}".format(pairs_file, ",".join(header))
+                    if row != header: raise RuntimeError("Header for {0} file, should be: {1}".format(pairs_file, ",".join(header)))
                     else: continue
                 try:
                     atom1 = row[0]
@@ -149,7 +149,7 @@ class FfieldParameters(object):
         elif (b, a) in self.bonds.keys():
             return self.bonds[(b, a)]
         else:
-            raise RuntimeError, "Missing bond parameter for: {0} {1}".format(a, b)
+            raise RuntimeError("Missing bond parameter for: {0} {1}".format(a, b))
 
     def hasBond(self, bond):
         a, b = bond.split('-')

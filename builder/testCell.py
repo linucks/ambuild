@@ -1,6 +1,9 @@
 """The tests for the cell class"""
-
-import cPickle
+import sys
+if sys.version_info < (3,0):
+    import cPickle as pickle
+else:
+    import pickle
 import math
 import os
 import unittest
@@ -282,10 +285,14 @@ class Test(unittest.TestCase):
 
         outfile = "./testCellIO.pkl"
         mycell.writePickle(outfile)
-        with open(outfile) as f:
-            newCell = cPickle.load(f)
+        if sys.version_info < (3,0):
+            mode = 'r'
+        else:
+            mode = 'br'
+        with open(outfile, mode) as f:
+            newCell = pickle.load(f)
 
-        self.assertTrue(numpy.allclose(test_coord, mycell.blocks[ mycell.blocks.keys()[0] ].coord(4),
+        self.assertTrue(numpy.allclose(test_coord, newCell.blocks[ newCell.blocks.keys()[0] ].coord(4),
                                          rtol=1e-9, atol=1e-9),
                          msg="Incorrect testCoordinate of cell.")
 
@@ -468,7 +475,6 @@ class Test(unittest.TestCase):
         mycell.seed(toSeed, fragmentType='A')
         toDelete = toSeed - 1
         removed = mycell.deleteBlocks(fragmentTypes='A', numBlocks=toDelete)
-        print 'GOT REMOVED ',removed
         self.assertEqual(len(removed), toDelete)
         self.assertEqual(mycell.numBlocks(), toSeed - len(removed))
 
@@ -1863,13 +1869,13 @@ class Test(unittest.TestCase):
         b1.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
         mycell.addBlock(b1)
 
-        for b in [ b2, b3, b4]:
+        for b in [b2, b3, b4]:
             endGroup1 = b1.freeEndGroups()[ 0 ]
             endGroup2 = b.freeEndGroups()[ 0 ]
-
+ 
             # Add b2
             b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
-
+ 
             # bond them
             bond = buildingBlock.Bond(endGroup1, endGroup2)
             b1.bondBlock(bond)
@@ -1911,7 +1917,6 @@ class Test(unittest.TestCase):
             # bond them
             bond = buildingBlock.Bond(endGroup1, endGroup2)
             b1.bondBlock(bond)
-
 
         fname = "test.cml"
         mycell.writeCml(fname, periodic=False, rigidBody=True)
