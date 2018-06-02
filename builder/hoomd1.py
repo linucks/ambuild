@@ -87,7 +87,7 @@ class Hoomd1(FFIELD):
             self.rCut = rCut
 
         if doDihedral and doImproper:
-            raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
+            raise RuntimeError("Cannot have impropers and dihedrals at the same time")
 
         self.system = self.setupSystem(data,
                                        xmlFilename=xmlFilename,
@@ -116,9 +116,7 @@ class Hoomd1(FFIELD):
         i=0 # hack
         for i, (idxBlock, idxFragment, start, end) in enumerate(data.tagIndices):
             label = "potential_energy_{0}:{1}".format(start, end)
-            print "LABEL ", label
             e = self.toStandardUnits(self.hlog.query(label))
-            print "GOT E ", e
             if e > maxe:
                 maxe = e
                 maxi = i
@@ -147,7 +145,7 @@ class Hoomd1(FFIELD):
             self.rCut = rCut
 
         if doDihedral and doImproper:
-            raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
+            raise RuntimeError("Cannot have impropers and dihedrals at the same time")
 
         self.system = self.setupSystem(data,
                                        xmlFilename=xmlFilename,
@@ -292,7 +290,7 @@ class Hoomd1(FFIELD):
             self.rCut = rCut
 
         if doDihedral and doImproper:
-            raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
+            raise RuntimeError("Cannot have impropers and dihedrals at the same time")
 
         self.system = self.setupSystem(data,
                                        xmlFilename=xmlFilename,
@@ -344,7 +342,7 @@ class Hoomd1(FFIELD):
             self.rCut = rCut
 
         if doDihedral and doImproper:
-            raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
+            raise RuntimeError("Cannot have impropers and dihedrals at the same time")
 
         self.system = self.setupSystem(data,
                                        xmlFilename=xmlFilename,
@@ -648,7 +646,6 @@ class Hoomd1(FFIELD):
                 # create the group
                 l = "{0}:{1}".format(start, end)
                 g = group.tag_list(name=l, tags=range(start, end))
-                print "SET GROUP ", start, end
                 # create the compute for this group
                 c = compute.thermo(group=g)
                 # self.labels.append(l)
@@ -734,7 +731,7 @@ class Hoomd1(FFIELD):
                 atomCount += 1
 
         if atomCount != len(self.system.particles):
-            raise RuntimeError, "Read {0} positions but there were {1} particles!".format(atomCount, len(self.system.particles))
+            raise RuntimeError("Read {0} positions but there were {1} particles!".format(atomCount, len(self.system.particles)))
 
         # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update
         # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks
@@ -929,7 +926,6 @@ def xml2xyz(xmlFilename, xyzFilename):
     tree = ET.parse(xmlFilename)
     root = tree.getroot()
 
-    atomTypes = []
     atext = root.findall(".//type")[0].text
     atomTypes = [ line.strip() for line in atext.split(os.linesep) if line.strip() ]
 
@@ -960,7 +956,7 @@ def xml2xyz(xmlFilename, xyzFilename):
 #
 #         o.write("\n")
 
-    print "Wrote file: {0}".format(xyzFilename)
+    logger.info("Wrote file: {0}".format(xyzFilename))
 
     return
 

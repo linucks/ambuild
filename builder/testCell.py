@@ -53,10 +53,10 @@ class Test(unittest.TestCase):
     
     def clashes(self, mycell, minDist=1.0, pbc=[True, True, True]):
         """Return True of if any atoms are < minDist apart"""
-        # coords=[ c for b in cell.blocks.itervalues() for i, c in enumerate(b.iterCoord())]
+        # coords=[ c for b in cell.blocks.values() for i, c in enumerate(b.iterCoord())]
         symbols = []
         coords = []
-        for b in mycell.blocks.itervalues():
+        for b in mycell.blocks.values():
             for i, c in enumerate(b.iterCoord()):
                 coords.append(c)
                 symbols.append(b.symbol(i))
@@ -1049,7 +1049,7 @@ class Test(unittest.TestCase):
         added = mycell.seed(toAdd, center=True)
         self.assertEqual(added, toAdd, 'seed')
         nc = 0
-        for block in mycell.blocks.itervalues():
+        for block in mycell.blocks.values():
             nc += block.numAtoms()
 
         toJoin = 4
@@ -1058,7 +1058,7 @@ class Test(unittest.TestCase):
         self.assertEqual(1, len(mycell.blocks), "joinBlocks found {0} blocks".format(len(mycell.blocks)))
 
         nc2 = 0
-        for block in mycell.blocks.itervalues():
+        for block in mycell.blocks.values():
             nc2 += block.numAtoms()
 
         # Need to subtract cap atoms
@@ -1234,7 +1234,7 @@ class Test(unittest.TestCase):
         mycell = self.createTestCell()
         # Grab coords
         coords = []
-        for block in mycell.blocks.itervalues():
+        for block in mycell.blocks.values():
             for i, coord in enumerate(block.iterCoord()):
                 coords.append(coord)
         # Wrap them
@@ -1445,7 +1445,8 @@ class Test(unittest.TestCase):
         u = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[100,300,100], direction=1, random=True)
         from collections import Counter
         s = ''
-        for _ in xrange(10000): s += u.randomMonomerType()
+        for _ in range(10000):
+            s += u.randomMonomerType()
         c = Counter(s)
         count = [ c[m] for m in monomers ]
         sumall = sum(count)
@@ -1968,7 +1969,7 @@ class Test(unittest.TestCase):
         mycell.addBlock(b1)
 
         initcoords = []
-        for block in mycell.blocks.itervalues():
+        for block in mycell.blocks.values():
             for c in block.iterCoord():
                 initcoords.append(c)
 
@@ -1998,7 +1999,7 @@ class Test(unittest.TestCase):
         mycell.MDENGINE.system = system
         mycell.MDENGINE.updateCell(mycell)
         finalcoords = []
-        for block in mycell.blocks.itervalues():
+        for block in mycell.blocks.values():
             for c in block.iterCoord():
                 finalcoords.append(c)
 

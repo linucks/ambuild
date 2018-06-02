@@ -794,7 +794,7 @@ class Cell():
 
     def clearUnbonded(self):
         "Run after we have optimised to unset the unBonded flag and add capatoms back into the cell"
-        for idxBlock, block in self.blocks.iteritems():
+        for idxBlock, block in self.blocks.items():
             if hasattr(block, '_fragments'):
                 fragments = block._fragments
             else:
@@ -907,7 +907,7 @@ class Cell():
         # Get a list of blocks - need to do it this way or else we are changing the list of blocks while
         # we iterate through them
         cblocks = self.blocks.copy()
-        for blockId, block in cblocks.iteritems():
+        for blockId, block in cblocks.items():
 
             if block.numFreeEndGroups() == 0:
                 logger.info("capBlocks block {0} already has no free endGroups".format(blockId))
@@ -1231,7 +1231,7 @@ class Cell():
         atomCount = 0  # Global count in cell
         bodyCount = -1
 
-        for block in self.blocks.itervalues():
+        for block in self.blocks.values():
 
             # Do bonds first as counting starts from atomCount and goes up through the blocks
             if not rigidBody:
@@ -1312,7 +1312,7 @@ class Cell():
                 for body in frag.bodies():
                     # Body count always increments with fragment although it may go up within a fragment too
                     bodyCount += 1
-                    if HOOMDVERSION[0] > 1 and rigidBody:
+                    if HOOMDVERSION and HOOMDVERSION[0] > 1 and rigidBody:
                         bcoords = body.coords(dim=None, center=False)
                         centroid = util.centroid(bcoords)
                         coords = body.body_coordinates(bcoords, centroid)
@@ -1333,7 +1333,7 @@ class Cell():
                     d.masses += body.masses()
                     d.static += body.static()
                     d.symbols += body.symbols()
-                    if HOOMDVERSION[0] > 1 and rigidBody:
+                    if HOOMDVERSION and HOOMDVERSION[0] > 1 and rigidBody:
                         d.rigid_centre.append(centroid)
                         d.rigid_image.append(centroid_image)
                         d.rigid_mass.append(body.mass())
@@ -1374,7 +1374,7 @@ class Cell():
         # Might think about keeping the surrounding boxes as they could be use by other atoms?
         # print "now checking keys"
         for key in keys:
-            if self.box1.has_key(key) and len(self.box1[key]) == 0:
+            if key in self.box1 and len(self.box1[key]) == 0:
                 del self.box1[key]
                 del self.box3[key]
         del self.blocks[blockId]
@@ -1414,7 +1414,7 @@ class Cell():
             if not (type(idx) is int and (0 <= idx < len(self.blocks))):
                 raise RuntimeError("Bad value for index {0} : {1}".format(i,idx))
 
-        toRemove = [ (blockId, block) for i, (blockId, block) in enumerate(self.blocks.iteritems())  if i in indices ]
+        toRemove = [ (blockId, block) for i, (blockId, block) in enumerate(self.blocks.items())  if i in indices ]
         removed = []
         for blockId, block in toRemove:
             self.delBlock(blockId)
@@ -1436,7 +1436,7 @@ class Cell():
 
         allBlocks = []
         # First get a list of all the blocks that contain fragments that match the fragment type
-        for blockId, block in self.blocks.iteritems():
+        for blockId, block in self.blocks.items():
 
             # Check if is multiple or not
             if maxFrags > 0 and len(block.fragments) > maxFrags: continue
@@ -1476,7 +1476,7 @@ class Cell():
         logger.info("Deleting fragment: {0}".format(frag.fragmentType))
         if block is None:
             # Find the fekker
-            for b in self.blocks.itervalues():
+            for b in self.blocks.values():
                 for f in b.fragments:
                     if f is frag:
                         block = b
@@ -1499,7 +1499,7 @@ class Cell():
 
     def density(self):
         """The density of the cell"""
-        d = (sum([ b.blockMass() for b in self.blocks.itervalues() ]) / (self.dim[0] * self.dim[1] * self.dim[2]))
+        d = (sum([ b.blockMass() for b in self.blocks.values() ]) / (self.dim[0] * self.dim[1] * self.dim[2]))
         return d * (10 / 6.022)
 
     def dihedral(self, p1, p2, p3, p4):
@@ -1534,7 +1534,7 @@ class Cell():
         """Return the name of the last pkl file and the endGroupConfig (number of bonded endGroups) for
         blocks containing the fragmentType"""
         s = ""
-        for i, b in enumerate(self.blocks.itervalues()):
+        for i, b in enumerate(self.blocks.values()):
             c = b.endGroupConfig(fragmentType)
             if c is not None:
                 if len(s) == 0:
@@ -1556,7 +1556,7 @@ class Cell():
         We don't check if any are available just return an empty dictionary if not
         """
         endGroupTypes2Block = {}
-        for block in self.blocks.itervalues():
+        for block in self.blocks.values():
             # numFreeEndGroups += block.numFreeEndGroups()
             # Get a list of the free endGroup types in the block
             for endGroupType in block.freeEndGroupTypes():
@@ -1597,9 +1597,9 @@ class Cell():
 
     def fragmentTypes(self):
         ft = {}
-        for b in self.blocks.itervalues():
+        for b in self.blocks.values():
             d = b.fragmentTypeDict()
-            for k, v in d.iteritems():
+            for k, v in d.items():
                 try:
                     ft[ k ] += v
                 except:
@@ -1626,7 +1626,7 @@ class Cell():
                 self._deterministicState += 1
 
         # sanity check
-        if not self._fragmentLibrary.has_key(fragmentType):
+        if not fragmentType in self._fragmentLibrary:
             raise RuntimeError("Asking for a non-existing initBlock type: {0}".format(fragmentType))
 
         # Copy the init fragment
@@ -1706,7 +1706,7 @@ class Cell():
                 added += 1
                 logger.info("growBlocks added block {0} after {1} tries.".format(added, tries))
                 self.analyse.stop('grow', d={'num_tries':tries})
-                # print "GOT BLOCK ",[ b  for b in self.blocks.itervalues() ][0]
+                # print "GOT BLOCK ",[ b  for b in self.blocks.values() ][0]
                 tries = 0
             else:
                 # del initBlock?
@@ -1990,7 +1990,7 @@ class Cell():
         solvent - specify that this fragmentType is solvent and so won't be clash-checked in Zip steps
         """
 
-        if self._fragmentLibrary.has_key(fragmentType):
+        if fragmentType in self._fragmentLibrary:
             raise RuntimeError("Adding existing ftype {0} again!".format(fragmentType))
 
         # For now don't allow adding blocks when the cell has blocks in
@@ -2052,7 +2052,7 @@ class Cell():
             libraryEndGroups = set(libraryEndGroups)  # Save old so we can warn user and also find matching
             tmp = cell2Library
             cell2Library = {}
-            for ceg, leg in tmp.iteritems():
+            for ceg, leg in tmp.items():
                 # Only select those that are in the libraryEndGroups
                 pleg = libraryEndGroups.intersection(leg)
                 if len(pleg) > 0:
@@ -2113,19 +2113,19 @@ class Cell():
         return len(self.blocks)
 
     def numFragments(self):
-        # return sum([len(b.fragments) for b in self.blocks.itervalues()])
+        # return sum([len(b.fragments) for b in self.blocks.values()])
         # Hack for old interface
         try:
-            n = sum([len(b.fragments) for b in self.blocks.itervalues()])
+            n = sum([len(b.fragments) for b in self.blocks.values()])
         except AttributeError:
-            n = sum([len(b._fragments) for b in self.blocks.itervalues()])
+            n = sum([len(b._fragments) for b in self.blocks.values()])
         return n
 
     def numFreeEndGroups(self):
-        return sum([ b.numFreeEndGroups() for b in self.blocks.itervalues() ])
+        return sum([ b.numFreeEndGroups() for b in self.blocks.values() ])
 
     def numAtoms(self):
-        return sum([ b.numAtoms() for b in self.blocks.itervalues() ])
+        return sum([ b.numAtoms() for b in self.blocks.values() ])
 
     def optimiseGeometry(self,
                          rigidBody=True,
@@ -2149,6 +2149,8 @@ class Cell():
         """
 
         logger.info("Running optimisation")
+        if not self.MDENGINE:
+            raise RuntimeError("No MDENGINE defined - cannot run MD.")
 
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
@@ -2317,7 +2319,7 @@ class Cell():
 
         if len(blocks):
             logger.debug("repopulateCells, adding blocks into new cells")
-            for idxBlock, block in blocks.iteritems():
+            for idxBlock, block in blocks.items():
                 if boxShift: block.translate(boxShift)  # Need to move if box has been resizes
                 self.addBlock(block, idxBlock=idxBlock)
             del blocks
@@ -2364,6 +2366,8 @@ class Cell():
         tau - nvt_rigid tau
         dt - nvt_rigid timestep
         """
+        if not self.MDENGINE:
+            raise RuntimeError("No MDENGINE defined - cannot run MD.")
 
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
@@ -2403,6 +2407,8 @@ class Cell():
         Args:
         See runMD and optimiseGeometry for acceptable arguments.
         """
+        if not self.MDENGINE:
+            raise RuntimeError("No MDENGINE defined - cannot run MD.")
 
         assert rigidBody, "FIX runMD FOR ALL ATOM!!"
 
@@ -2578,7 +2584,7 @@ class Cell():
             # If the cell already has blocks in, we need to remove them all and then add this as the first one
             d = collections.OrderedDict()
             d[idxBlock] = block
-            for k, v in self.blocks.iteritems(): d[k] = v
+            for k, v in self.blocks.items(): d[k] = v
             del self.blocks
             self.blocks = d
 
@@ -2734,7 +2740,7 @@ class Cell():
 
         atomCount = 0  # Global count in cell
         bodyCount = -1
-        for idxBlock, block in self.blocks.iteritems():
+        for idxBlock, block in self.blocks.items():
             for idxFrag, frag in enumerate(block.fragments):  # need index of fragment in block
                 bodyCount += frag.numBodies()
                 atomCount += frag.lenData()
@@ -2789,7 +2795,7 @@ class Cell():
             car += "PBC  {0: < 9.4F} {1: < 9.4F} {2: < 9.4F}  90.0000   90.0000   90.0000 (P1)\n".format(data['A'],
                                                                                                           data['B'],
                                                                                                           data['C'])
-#         for i, ( idxBlock, block ) in enumerate( self.blocks.iteritems() ):
+#         for i, ( idxBlock, block ) in enumerate( self.blocks.items() ):
 #             for j, coord in enumerate( block.iterCoord() ):
         for i, coord in enumerate(data['coord']):
                 if periodic:
@@ -2816,7 +2822,7 @@ class Cell():
 #         symbols   = []
 #         bonds     = []
 #         count     = 0
-#         for block in self.blocks.itervalues():
+#         for block in self.blocks.values():
 #             bonds += [ (b1+count, b2+count) for (b1, b2 ) in block.bonds() ]
 #             for i, c in enumerate(block.iterCoord() ):
 #                 coords.append(c)
@@ -2908,7 +2914,7 @@ class Cell():
 
         # Get a list of all block, endGroups
         endGroups = []
-        for block in self.blocks.itervalues():
+        for block in self.blocks.values():
             egs = block.freeEndGroups()
             if len(egs):
                 block.zipCell = {}
