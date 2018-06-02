@@ -2820,20 +2820,6 @@ class Cell():
         return
 
     def writeCml(self, cmlFilename, data=None, rigidBody=True, periodic=True, pruneBonds=False, prettyPrint=False):
-
-#         atomTypes = []
-#         coords    = []
-#         symbols   = []
-#         bonds     = []
-#         count     = 0
-#         for block in self.blocks.values():
-#             bonds += [ (b1+count, b2+count) for (b1, b2 ) in block.bonds() ]
-#             for i, c in enumerate(block.iterCoord() ):
-#                 coords.append(c)
-#                 symbols.append(block.symbol(i))
-#                 atomTypes.append(block.type(i))
-#                 count += 1
-
         if data is None:
             d = self.dataDict(periodic=periodic, rigidBody=rigidBody, fragmentType=None)
         else:

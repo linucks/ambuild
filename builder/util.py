@@ -16,7 +16,6 @@ import logging
 import os
 import numpy
 import math
-import sys
 import warnings
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
@@ -603,10 +602,8 @@ def angle(c1, c2, c3, dim=None, pbc=None):
         theta = numpy.arccos(x)
     return theta
 
-def calcBondsHACK(coords, symbols, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0):
+def calcBondsHACK(coords, symbols, bondMargin=0.2):
     """HACK FOR NETWORK"""
-
-    # print "s ",symbols
     bonds = []
     for i, coord1 in enumerate(coords):
         symbol1 = symbols[ i ]
@@ -889,7 +886,7 @@ def dumpPkl(pickleFile, split=None, nonPeriodic=False):
 
     fpath = os.path.abspath(pickleFile)
     logger.info("Dumping pkl file: {0}".format(fpath))
-    dname, fname = os.path.split(fpath)
+    _, fname = os.path.split(fpath)
     prefix = os.path.splitext(fname)[0]
 
     mycell = cellFromPickle(pickleFile)
@@ -935,10 +932,18 @@ def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
     logger.info("Dumping DLPOLY files from pkl file: {0}".format(fpath))
     mycell = cellFromPickle(pickleFile)
 
-    # Need to do this here or else hoomdblue gets the command line arguments on import of the module
-    import opt
+    # Set parameter Directory
+    if hasattr(mycell, 'paramsDir'):
+        paramsDir = mycell.paramsDir
+    else:
+        paramsDir = PARAMS_DIR
+    if not os.path.isdir(paramsDir):
+        raise RuntimeError("Cannot find cell paramsDir: {0}".format(paramsDir))
+    logger.info("Getting parameter files from directory: {0}".format(paramsDir))
 
-    d = opt.DLPOLY()
+    # Need to do this here or else hoomdblue gets the command line arguments on import of the module
+    import dlpoly
+    d = dlpoly.DLPOLY(paramsDir=paramsDir)
     d.writeCONTROL()
     d.writeFIELDandCONFIG(mycell, rigidBody=rigidBody, skipDihedrals=skipDihedrals)
     return
@@ -1069,30 +1074,6 @@ def pickleObj(obj, fileName):
     with open(fileName, mode) as pfile:
         pickle.dump(obj, pfile)
     return
-
-def readMol2(filename):
-    coords = []
-    symbols = []
-    # bonds=[]
-    with open(filename) as f:
-        captureAtom = False
-        for line in f:
-            line = line.strip()
-            if line.startswith("@<TRIPOS>ATOM"):
-                captureAtom = True
-                continue
-            if line.startswith("@<TRIPOS>BOND"):
-                captureAtom = False
-                break
-                captureBond = False
-                continue
-            if captureAtom:
-                f = line.split()
-                symbols.append(label2symbol(f[1]))
-                coords.append([float(f[2]), float(f[3]), float(f[4])])
-#             if captureBond:
-#                 f=line.split()
-    return coords, symbols
 
 def rotation_matrix(axis, angle):
     """
@@ -1352,8 +1333,8 @@ def writeXyz(fileName, coords, symbols, cell=None):
     """Write out an xyz file to fileName
     if cell is a list of 3 floats, write out a periodic cell using the 3 floats as the cell parameters
     """
-
-    if cell is not None: assert len(cell) == 3
+    if cell is not None:
+        assert len(cell) == 3
 
     xyz = "{}\n".format(len(coords))
     if cell is None:
@@ -1365,16 +1346,12 @@ def writeXyz(fileName, coords, symbols, cell=None):
         if cell is None:
             x, y, z = coord
         else:
-            x, ix = wrapCoord(coord[0], cell[0], center=False)
-            y, iy = wrapCoord(coord[1], cell[1], center=False)
-            z, iz = wrapCoord(coord[2], cell[2], center=False)
-
+            coord, _ = wrapCoord3(coord, cell, center=False)
         xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(symbols[i], x, y, z)
 
     with open(fileName, 'w') as f:
         fpath = os.path.abspath(f.name)
         f.writelines(xyz)
-
     return fpath
 
 def hoomdCml(xmlFilename):
@@ -1404,7 +1381,7 @@ def hoomdCml(xmlFilename):
     for line in ptext.split(os.linesep):
         line = line.strip()
         if line:
-            label, b1, b2 = line.split()
+            _, b1, b2 = line.split()
             bonds.append((b1, b2))
 
     writeCml(xmlFilename + ".cml",
@@ -1414,66 +1391,6 @@ def hoomdCml(xmlFilename):
              atomTypes=None,
              cell=None,
              pruneBonds=False)
-
-    return
-
-def hoomdContacts(xmlFilename):
-
-    tree = ET.parse(xmlFilename)
-    root = tree.getroot()
-
-    coords = []
-    x = root.findall(".//position")
-    ptext = x[0].text
-    for line in ptext.split(os.linesep):
-        line = line.strip()
-        if line:
-            x, y, z = line.split()
-            coords.append(numpy.array([ float(x), float(y), float(z) ]))
-
-    symbols = []
-    atext = root.findall(".//type")[0].text
-    for line in atext.split(os.linesep):
-        atomType = line.strip()
-        if atomType:
-            symbols.append(label2symbol(atomType))
-
-
-    # Strip x-atoms
-    toGo = []
-    for i, s in enumerate(symbols):
-        if s.lower() == 'x':
-            toGo.append(i)
-
-    gone = 0
-    for i in toGo:
-        coords.pop(i - gone)
-        symbols.pop(i - gone)
-        gone += 1
-
-    assert len(coords) == len(symbols)
-    bonds, md = _calcBonds(coords, symbols)
-
-    return
-
-def xyzContacts(xyzFile):
-
-    symbols = []
-    coords = []
-
-    with open(xyzFile, 'r') as f:
-        natoms = int(f.readline().strip())
-        f.readline()
-        line = f.readline()
-        while line:
-            s, x, y, z = line.strip().split()
-            symbols.append(s)
-            coords.append(numpy.array([ float(x), float(y), float(z) ]))
-            line = f.readline()
-
-    assert len(coords) == natoms
-
-    bonds, md = _calcBonds(coords, symbols)
 
     return
 
@@ -1507,8 +1424,10 @@ if __name__ == '__main__':
         dlpoly = True
         rigid = True
         
-    if args.non_periodic: nonPeriodic = True
-    if args.ignore_dihedrals: skipDihedrals = True     
+    if args.non_periodic:
+        nonPeriodic = True
+    if args.ignore_dihedrals:
+        skipDihedrals = True     
 
     # Need to reset sys.argv as otherwise hoomdblue eats it and complains
     sys.argv = [sys.argv[0]]

@@ -89,7 +89,7 @@ class Test(unittest.TestCase):
 
     
     def testCellFromPickle(self):
-        """Get old pick file from Pierre"""
+        """Get old pickle file from Pierre"""
         pickleFile = os.path.join(AMBUILD_DIR,"tests","oldversion.pkl")
         mycell = util.cellFromPickle(pickleFile)
         self.assertEqual(len(mycell.blocks), 20, "Incorrect number of blocks: {0}".format(len(mycell.blocks)))
@@ -98,6 +98,18 @@ class Test(unittest.TestCase):
         toGrow = 2
         grown = mycell.growBlocks(toGrow)
         self.assertEqual(toGrow,grown,"Failed to grow blocks after unpickling")
+        return
+
+    def testDumpDLPOLY(self):
+        """Get old pickle file from Pierre"""
+        pickleFile = os.path.join(AMBUILD_DIR,"tests","oldversion.pkl")
+        rigidBody = True
+        skipDihedrals = True
+        util.dumpDLPOLY(pickleFile, rigidBody=rigidBody, skipDihedrals=skipDihedrals)
+        # For now just make sure we write something out...
+        for fname in  ['CONFIG', 'CONTROL', 'FIELD']:
+            self.assertTrue(os.path.isfile(fname))
+            os.unlink(fname)
         return
 
     def testVectorAngle(self):
