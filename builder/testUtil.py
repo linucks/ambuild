@@ -45,6 +45,11 @@ class Test(unittest.TestCase):
                          msg="Incorrect with partial cell: {0}".format(result))
         return
     
+    def testLabel2Symbol(self):
+        label = 'hc'
+        self.assertEqual(util.label2symbol(label), 'H')
+        
+    
     def testCellFromPickle(self):
         """Get old pick file from Pierre"""
         pickleFile = os.path.join(AMBUILD_DIR,"tests","oldversion.pkl")

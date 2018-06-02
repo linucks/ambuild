@@ -558,7 +558,7 @@ class BondLength(object):
         elif atomType2 in self.ATOM_TYPE_BOND_LENGTHS and atomType1 in self.ATOM_TYPE_BOND_LENGTHS[ atomType2 ]:
             #print "ATOM TYPE"
             return self.ATOM_TYPE_BOND_LENGTHS[ atomType2 ][ atomType1 ]
-            
+        
         symbol1 = label2symbol(atomType1).upper()
         symbol2 = label2symbol(atomType2).upper()
         if symbol1 in ELEMENT_TYPE_BOND_LENGTHS and symbol2 in ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ]:
@@ -985,9 +985,7 @@ def frange(start, stop, step):
 def label2symbol(name):
     """ Determine the element type of an atom from its name, e.g. Co_2b -> Co
         Returns a capitalised element name
-        Originally written by Jens Thomas in the CCP1GUI
     """
-
     origName = name
     name = name.strip().upper()
 
@@ -997,7 +995,7 @@ def label2symbol(name):
 
     if len(name) == 2 and name[0].isalpha() and name[1].isalpha():
         # 2 Character name, so see if it matches any 2-character elements
-        sym2c = filter(lambda x: len(x) == 2, SYMBOL_TO_NUMBER.keys())
+        sym2c = list(filter(lambda x: len(x) == 2, SYMBOL_TO_NUMBER.keys()))
         # HACK: NEED TO REMOVE NP and NB
         sym2c.remove('NP')
         sym2c.remove('NB')
@@ -1010,18 +1008,23 @@ def label2symbol(name):
         raise RuntimeError("label2symbol first character of name is not a character: {0}".format(origName))
 
     # Hack - for x return x
-    if name.lower() == 'x': return 'x'
+    if name.lower() == 'x':
+        return 'x'
 
     # Get 1 character element names
-    sym1c = filter(lambda x: len(x) == 1 and x != 'X', SYMBOL_TO_NUMBER.keys())
+    sym1c = list(filter(lambda x: len(x) == 1 and x != 'X', SYMBOL_TO_NUMBER.keys()))
 
-    if name in sym1c: return name.capitalize()
+    if name in sym1c:
+        return name.capitalize()
 
     raise RuntimeError("label2symbol cannot convert name {0} to symbol!".format(origName))
     return
 
 def hoomdVersion():
-    import hoomd
+    try:
+        import hoomd
+    except Exception:
+        return None
     #del hoomd
     return hoomd.__version__
 

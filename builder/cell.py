@@ -277,6 +277,9 @@ class Cell():
         # Use the parameters to set the bond lengts in the util module
         util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
 
+        self.version = VERSION # Save as attribute so we can query pickle files
+        logger.info("AMBUILD version: {0}".format(VERSION))
+
         global HOOMDVERSION
         self.setMdEngine(HOOMDVERSION, paramsDir)
 
@@ -286,10 +289,6 @@ class Cell():
             self.setBoxSize(boxDim)
 
         assert self.dim[0] > 0 and self.dim[1] > 0 and self.dim[2] > 0
-
-        self.version = VERSION # Save as attribute so we can query pickle files
-        logger.info("AMBUILD version: {0}".format(VERSION))
-        logger.info("Using HOOMD-BLUE version: {0}.{1}.{2}".format(*HOOMDVERSION))
 
         return
 
@@ -2608,12 +2607,16 @@ class Cell():
         return fragment.setMaxBond(bondType, count)
 
     def setMdEngine(self, hoomdVersion, paramsDir):
+        if hoomdVersion is None:
+            logger.critical("HOOMD-BLUE could not be found! MD functionality will be unavaiable.")
+            return
         if hoomdVersion[0] < 2:
             from hoomd1 import Hoomd1
             self.MDENGINE = Hoomd1(paramsDir)
         else:
             from hoomd2 import Hoomd2
             self.MDENGINE = Hoomd2(paramsDir)
+        logger.info("Using HOOMD-BLUE version: {0}.{1}.{2}".format(*HOOMDVERSION))
 
     def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType='c'):
         """Create walls along the specified sides.
