@@ -10,15 +10,17 @@ PARAM_SEP=','
 
 # Needs to be defined here to avoid circular import in util.py
 def read_bond_params(bond_file):
-    if not os.path.isfile(bond_file): raise RuntimeError("Cannot find bond parameter file: {0}".format(bond_file))
+    if not os.path.isfile(bond_file):
+        raise RuntimeError("Cannot find bond parameter file: {0}".format(bond_file))
     BondParams = collections.namedtuple('BondParams', ['A', 'B', 'k', 'r0', 'comments'])
     params = []
-    for i, bp in enumerate(map(BondParams._make, csv.reader(open(bond_file, "r"), delimiter=PARAM_SEP, quotechar='"'))):
-        if i == 0: # check header ok
-            if bp.A != 'A' and bp.B != 'B' and bp.k != 'k' and bp.r0 != 'r0':
-                raise RuntimeError("Incorrect header for bond param file: {0}".format(bond_file))
-            continue
-        params.append(bp)
+    with open(bond_file) as fh:
+        for i, bp in enumerate(map(BondParams._make, csv.reader(fh, delimiter=PARAM_SEP, quotechar='"'))):
+            if i == 0: # check header ok
+                if bp.A != 'A' and bp.B != 'B' and bp.k != 'k' and bp.r0 != 'r0':
+                    raise RuntimeError("Incorrect header for bond param file: {0}".format(bond_file))
+                continue
+            params.append(bp)
     return params
 
 class FfieldParameters(object):

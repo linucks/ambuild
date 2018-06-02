@@ -659,7 +659,8 @@ class Block(object):
         fragment: only return the endGroups that are part of fragment
         """
         if endGroupTypes is not None:
-            if isinstance(endGroupTypes, str): endGroupTypes = [ endGroupTypes ]
+            if isinstance(endGroupTypes, str):
+                endGroupTypes = [ endGroupTypes ]
             endGroups = []
             for eType in endGroupTypes:
                 if eType in self._endGroupType2EndGroups:
@@ -670,7 +671,9 @@ class Block(object):
         
         if fragment is not None:
             endGroups = [endGroup for endGroup in endGroups if endGroup.fragment == fragment]
-        return endGroups
+        
+        # return sorted for consistency to faciliate testing
+        return sorted(endGroups, key=lambda eg: eg.fragmentEndGroupIdx)
 
     def freeEndGroupTypes(self):
         """Return a list of the fragmentTypes for the available endGroups"""
@@ -990,7 +993,8 @@ class Block(object):
                                     bonds=self.bonds(),
                                     atomTypes=atomTypes,
                                     cell=cell,
-                                    pruneBonds=False)
+                                    pruneBonds=False,
+                                    prettyPrint=True)
 
         logger.info("wrote block CML file: {0}".format(cmlFilename))
         return

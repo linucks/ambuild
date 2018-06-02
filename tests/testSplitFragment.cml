@@ -1,2 +1,21 @@
-<?xml version='1.0' encoding='utf-8'?>
-<molecule id="mymolecule" xmlns="http://www.xml-cml.org/schema" xmlns:cml="http://www.xml-cml.org/dict/cml" xmlns:iupac="http://www.iupac.org" xmlns:units="http://www.xml-cml.org/units/units" xmlns:xsd="http://www.w3c.org/2001/XMLSchema"><atomArray><atom elementType="C" id="a0" x3="11.916965906" y3="6.84327397162" z3="-2.87449324264" /><atom elementType="H" id="a1" x3="10.8367703307" y3="6.85825712492" z3="-2.73711082344" /><atom elementType="H" id="a2" x3="12.2995174907" y3="7.86268770994" z3="-2.85521107422" /><atom elementType="H" id="a3" x3="12.1546441796" y3="6.38443437326" z3="-3.8330844736" /><atom elementType="C" id="a4" x3="14.5059799004" y3="3.57324427874" z3="1.62986145371" /><atom elementType="H" id="a5" x3="13.7318670168" y3="3.20234408693" z3="2.30001307543" /><atom elementType="H" id="a6" x3="15.0460688314" y3="2.73188055181" z3="1.198198492" /><atom elementType="H" id="a7" x3="15.1987085675" y3="4.20147288518" z3="2.18787372839" /></atomArray><bondArray><bond atomRefs2="a0 a1" order="1" /><bond atomRefs2="a0 a2" order="1" /><bond atomRefs2="a0 a3" order="1" /><bond atomRefs2="a4 a5" order="1" /><bond atomRefs2="a4 a6" order="1" /><bond atomRefs2="a4 a7" order="1" /></bondArray></molecule>
+<?xml version="1.0" ?>
+<molecule id="mymolecule" xmlns="http://www.xml-cml.org/schema" xmlns:cml="http://www.xml-cml.org/dict/cml" xmlns:iupac="http://www.iupac.org" xmlns:units="http://www.xml-cml.org/units/units" xmlns:xsd="http://www.w3c.org/2001/XMLSchema">
+	<atomArray>
+		<atom elementType="C" id="a0" x3="11.916965906" y3="6.84327397162" z3="-2.87449324264"/>
+		<atom elementType="H" id="a1" x3="10.8367703307" y3="6.85825712492" z3="-2.73711082344"/>
+		<atom elementType="H" id="a2" x3="12.2995174907" y3="7.86268770994" z3="-2.85521107422"/>
+		<atom elementType="H" id="a3" x3="12.1546441796" y3="6.38443437326" z3="-3.8330844736"/>
+		<atom elementType="C" id="a4" x3="14.5059799004" y3="3.57324427874" z3="1.62986145371"/>
+		<atom elementType="H" id="a5" x3="13.7318670168" y3="3.20234408693" z3="2.30001307543"/>
+		<atom elementType="H" id="a6" x3="15.0460688314" y3="2.73188055181" z3="1.198198492"/>
+		<atom elementType="H" id="a7" x3="15.1987085675" y3="4.20147288518" z3="2.18787372839"/>
+	</atomArray>
+	<bondArray>
+		<bond atomRefs2="a0 a1" order="1"/>
+		<bond atomRefs2="a0 a2" order="1"/>
+		<bond atomRefs2="a0 a3" order="1"/>
+		<bond atomRefs2="a4 a5" order="1"/>
+		<bond atomRefs2="a4 a6" order="1"/>
+		<bond atomRefs2="a4 a7" order="1"/>
+	</bondArray>
+</molecule>

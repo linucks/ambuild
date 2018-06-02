@@ -19,6 +19,8 @@ import math
 import sys
 import warnings
 import xml.etree.ElementTree as ET
+import xml.dom.minidom
+
 
 from ffield import read_bond_params
 from paths import PARAMS_DIR
@@ -1231,7 +1233,8 @@ def writeCml(cmlFilename,
              bonds=None,
              atomTypes=None,
              cell=None,
-             pruneBonds=False):
+             pruneBonds=False,
+             prettyPrint=False):
 
     assert len(coords) == len(symbols)
     if pruneBonds:
@@ -1331,12 +1334,14 @@ def writeCml(cmlFilename,
             bondNode.attrib['atomRefs2'] = "a{0} a{1}".format(b[0], b[1])
             bondNode.attrib['order'] = "1"
 
-    tree = ET.ElementTree(root)
-    # ET.dump(tree)
-
     cmlFilename = os.path.abspath(cmlFilename)
-    # tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
-    tree.write(cmlFilename, encoding="utf-8", xml_declaration=True)
+    if prettyPrint:
+        estring = xml.dom.minidom.parseString(ET.tostring(root))
+        with open(cmlFilename, 'w') as w:
+            w.write(estring.toprettyxml())
+    else:
+        tree = ET.ElementTree(root)
+        tree.write(cmlFilename, encoding="utf-8", xml_declaration=True)
 
     return cmlFilename
 

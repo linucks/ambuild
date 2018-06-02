@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class Test(unittest.TestCase):
 
     def setUp(self):
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.INFO)
 
         self.ch4Xyz = os.path.join(BLOCKS_DIR, "ch4.xyz")
         self.ch4Car = os.path.join(BLOCKS_DIR, "ch4.car")
@@ -458,6 +458,43 @@ class Test(unittest.TestCase):
 
         return
     
+    def testFreeEndGroups(self):
+
+        ch4_1 = Block(filePath=self.ch4Car, fragmentType='A')
+        ch4_2 = ch4_1.copy()
+        b1 = Block(filePath=self.benzeneCar, fragmentType='B')
+
+        # create a chain of ch4 - c6h6 - ch4
+        eg1 = b1.freeEndGroups()[0]
+        eg2 = ch4_1.freeEndGroups()[0]
+        b1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
+        bond = Bond(eg1, eg2)
+        b1.bondBlock(bond)
+
+        eg1s = b1.freeEndGroups()
+        self.assertEqual(len(eg1s), 4)
+        eg = eg1s[0]
+        ref_idxs = [0, 11, 2, 12]
+        idxs = [eg.fragmentEndGroupIdx, eg.blockEndGroupIdx, eg.fragmentCapIdx, eg.blockCapIdx]
+        self.assertEqual(idxs, ref_idxs)
+        
+        eg = eg1s[-1]
+        ref_idxs = [3, 3, 7, 7]
+        idxs = [eg.fragmentEndGroupIdx, eg.blockEndGroupIdx, eg.fragmentCapIdx, eg.blockCapIdx]
+        self.assertEqual(idxs, ref_idxs)
+        
+        eg2s = ch4_2.freeEndGroups()
+        self.assertEqual(len(eg2s), 4)
+        eg = eg2s[0]
+        ref_idxs = [0, 0, 1, 1]
+        idxs = [eg.fragmentEndGroupIdx, eg.blockEndGroupIdx, eg.fragmentCapIdx, eg.blockCapIdx]
+        self.assertEqual(idxs, ref_idxs)
+        
+        eg = eg2s[-1]
+        ref_idxs = [0, 0, 4, 4]
+        idxs = [eg.fragmentEndGroupIdx, eg.blockEndGroupIdx, eg.fragmentCapIdx, eg.blockCapIdx]       
+        self.assertEqual(idxs, ref_idxs)
+    
     def testMaxBond(self):
         carfile = os.path.join(BLOCKS_DIR, "DCX.car")
         f = fragment.Fragment(filePath=carfile, fragmentType='A')
@@ -747,11 +784,12 @@ class Test(unittest.TestCase):
         # b1.writeXyz("foo.xyz")
 
         coords, symbols, bonds = b1.dataByFragment('A')
-        cmlFilename = "foo.cml"
+        cmlFilename = "test.cml"
         util.writeCml(cmlFilename,
                       coords,
                       symbols,
-                      bonds=bonds)
+                      bonds=bonds,
+                      prettyPrint=True)
 
         with open(cmlFilename) as f:
             test = f.readlines()
