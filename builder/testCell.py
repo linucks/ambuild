@@ -1919,7 +1919,7 @@ class Test(unittest.TestCase):
             b1.bondBlock(bond)
 
         fname = "test.cml"
-        mycell.writeCml(fname, periodic=False, rigidBody=True)
+        mycell.writeCml(fname, periodic=False, rigidBody=True, prettyPrint=True)
         # Test is same as reference
         with open(fname) as f:
             test = f.readlines()
@@ -1929,7 +1929,7 @@ class Test(unittest.TestCase):
         self.assertEqual(test, ref, "cml compare rigid")
 
         fname = "test.cml"
-        mycell.writeCml(fname, periodic=False, rigidBody=False)
+        mycell.writeCml(fname, periodic=False, rigidBody=False, prettyPrint=True)
         # Test is same as reference
         with open(fname) as f:
             test = f.readlines()

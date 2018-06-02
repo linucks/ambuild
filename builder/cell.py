@@ -2809,7 +2809,7 @@ class Cell():
         logger.info("Wrote car file: {0}".format(fpath))
         return
 
-    def writeCml(self, cmlFilename, data=None, rigidBody=True, periodic=True, pruneBonds=False):
+    def writeCml(self, cmlFilename, data=None, rigidBody=True, periodic=True, pruneBonds=False, prettyPrint=False):
 
 #         atomTypes = []
 #         coords    = []
@@ -2839,7 +2839,8 @@ class Cell():
                                     bonds=d.bonds,
                                     atomTypes=d.atomTypes,
                                     cell=cell,
-                                    pruneBonds=pruneBonds)
+                                    pruneBonds=pruneBonds,
+                                    prettyPrint=prettyPrint)
 
         logger.info("Wrote cml file: {0}".format(cmlFilename))
         return
