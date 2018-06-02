@@ -3,7 +3,6 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 '''
-
 import collections
 import copy
 import csv
@@ -38,14 +37,11 @@ class Body(object):
 
     def atomTypes(self):
         return list(numpy.compress(self.indexes, self.fragment._atomTypes, axis=0))
-#         return [ self.fragment._atomTypes[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
 
     def bodies(self):
-#         return [ self.bodyIndex ] * len(self.fragment._ext2int.values())
         return [ self.bodyIndex ] * self.natoms
 
     def charges(self):
-#         return [ self.fragment._charges[i] for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ]
         return list(numpy.compress(self.indexes, self.fragment._charges, axis=0))
 
     def coords(self, dim=None, center=True):
@@ -310,11 +306,11 @@ class Fragment(object):
             }
 
         # Set as attributes of self
-        for a, v in sharedAttrs.iteritems():
+        for a, v in sharedAttrs.items():
             setattr(self, a, v)
 
         # Set as attributes of self
-        for a, v in individualAttrs.iteritems():
+        for a, v in individualAttrs.items():
             setattr(self, a, v)
 
         # Set these manually
@@ -392,7 +388,7 @@ class Fragment(object):
     def _calcBonded(self):
         assert len(self._bonds)
         # Create empty lists for all
-        self._bonded = [ [] for _ in xrange(len(self._coords)) ]
+        self._bonded = [ [] for _ in range(len(self._coords)) ]
         for b1, b2 in self._bonds:
             if b1 not in self._bonded[ b2 ]:
                 self._bonded[ b2 ].append(b1)

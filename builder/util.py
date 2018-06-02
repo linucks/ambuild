@@ -552,19 +552,19 @@ class BondLength(object):
         """
         # We first see if we can find the bond length in the ATOM_TYPE_BOND_LENGTHS table
         # If not we fall back to using the bonds calculated from element types
-        if self.ATOM_TYPE_BOND_LENGTHS.has_key(atomType1) and self.ATOM_TYPE_BOND_LENGTHS[ atomType1 ].has_key(atomType2):
+        if atomType1 in self.ATOM_TYPE_BOND_LENGTHS and atomType2 in self.ATOM_TYPE_BOND_LENGTHS[ atomType1 ]:
             #print "ATOM TYPE"
             return self.ATOM_TYPE_BOND_LENGTHS[ atomType1 ][ atomType2 ]
-        elif self.ATOM_TYPE_BOND_LENGTHS.has_key(atomType2) and self.ATOM_TYPE_BOND_LENGTHS[ atomType2 ].has_key(atomType1):
+        elif atomType2 in self.ATOM_TYPE_BOND_LENGTHS and atomType1 in self.ATOM_TYPE_BOND_LENGTHS[ atomType2 ]:
             #print "ATOM TYPE"
             return self.ATOM_TYPE_BOND_LENGTHS[ atomType2 ][ atomType1 ]
             
         symbol1 = label2symbol(atomType1).upper()
         symbol2 = label2symbol(atomType2).upper()
-        if ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol1) and ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ].has_key(symbol2):
+        if symbol1 in ELEMENT_TYPE_BOND_LENGTHS and symbol2 in ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ]:
             #print "ELEMENT TYPE"
             return ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ][ symbol2 ]
-        elif ELEMENT_TYPE_BOND_LENGTHS.has_key(symbol2) and ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ].has_key(symbol1):
+        elif symbol2 in ELEMENT_TYPE_BOND_LENGTHS and symbol1 in ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ]:
             #print "ELEMENT TYPE"
             return ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ][ symbol1 ]
         warnings.warn('No data for bond length for %s-%s' % (atomType1, atomType2))
@@ -676,7 +676,7 @@ def closeAtoms(coords, symbols, dim=None, maxAtomRadius=None, boxMargin=1.0):
     for idxAtom1, coord in enumerate(coords):
         key = getCell(coord, boxSize, dim=dim)
         atomCells.append(key)
-        if cells.has_key(key):
+        if key in cells:
             cells[ key ].append(idxAtom1)
         else:
             # Add to main list
