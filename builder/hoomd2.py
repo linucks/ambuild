@@ -36,6 +36,7 @@ class Hoomd2(object):
     def __init__(self, paramsDir):
         self.ffield = FfieldParameters(paramsDir)
         self.debug = False
+        self.rCut = 5.0
         self.system = None
         self.exclusions = []  # particle tags to be ignored in pair-pair interactions
 
