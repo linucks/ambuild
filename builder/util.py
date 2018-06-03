@@ -7,11 +7,7 @@ Created on Feb 3, 2013
 Utility functions
 '''
 import sys
-if sys.version_info < (3,0):
-    import cPickle as pickle
-else:
-    import pickle
-    
+PYTHONFLAVOUR = sys.version_info[0]
 import logging
 import os
 import numpy
@@ -19,15 +15,24 @@ import math
 import warnings
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
+if PYTHONFLAVOUR < 3:
+    import cPickle as pickle
+else:
+    import pickle
 
 
 from ffield import read_bond_params
 from paths import PARAMS_DIR
 
-logger = logging.getLogger()
+HOOMDVERSION = None
+try:
+    import hoomd
+    HOOMDVERSION = hoomd.__version__
+    del hoomd
+except Exception:
+    pass
 
-# Bits stolen from the CCP1GUI: http://sourceforge.net/projects/ccp1gui/
-# However, I wrote bits of that so I assume its ok
+logger = logging.getLogger()
 
 DUMMY_DIAMETER = 0.1
 
@@ -754,11 +759,9 @@ def cellFromPickle(pickleFile, paramsDir=None):
                 e.bonded = e._isBonded
             if not hasattr(e,'blocked'): e.blocked = False
         return
-    
-    if sys.version_info < (3,0):
-        mode = 'r'
-    else:
-        mode = 'br'
+    mode = 'r'
+    if PYTHONFLAVOUR == 3:
+        mode += 'b'
     with open(pickleFile, mode) as f:
         myCell = pickle.load(f)
         
@@ -784,7 +787,7 @@ def cellFromPickle(pickleFile, paramsDir=None):
     setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
     
     # Set the MD enginge
-    myCell.setMdEngine(hoomdVersion(), paramsDir)
+    myCell.setMdEngine(HOOMDVERSION, paramsDir)
     
     # Fix all the fragments
     for fragment in myCell._fragmentLibrary.values():
@@ -946,6 +949,8 @@ def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
     d = dlpoly.DLPOLY(paramsDir=paramsDir)
     d.writeCONTROL()
     d.writeFIELDandCONFIG(mycell, rigidBody=rigidBody, skipDihedrals=skipDihedrals)
+    os.unlink(mycell.logfile)
+    os.unlink(mycell.logcsv)
     return
 
 def haloCells(key, boxNum=None, pbc=[True, True, True]):
@@ -1031,14 +1036,6 @@ def label2symbol(name):
     raise RuntimeError("label2symbol cannot convert name {0} to symbol!".format(origName))
     return
 
-def hoomdVersion():
-    try:
-        import hoomd
-    except Exception:
-        return None
-    #del hoomd
-    return hoomd.__version__
-
 def momentOfInertia(coords, masses):
     """Moment of Inertia Tensor"""
     totalMass = numpy.sum(masses)
@@ -1067,10 +1064,9 @@ def newFilename(filename, separator="_"):
 def pickleObj(obj, fileName):
     """Pickle an object - required as we can't pickle in the cell as otherwise the open filehandle
     is within the cell which is the object we are trying to pickle..."""
-    if sys.version_info < (3,0):
-        mode = 'w'
-    else:
-        mode = 'bw'
+    mode = 'w'
+    if PYTHONFLAVOUR == 3:
+        mode += 'b'
     with open(fileName, mode) as pfile:
         pickle.dump(obj, pfile)
     return

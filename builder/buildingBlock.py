@@ -223,10 +223,6 @@ class Block(object):
         return frag.type(idxData)
 
     def anglesAndDihedrals(self):
-        """
-        Borrowed from openMM
-        """
-        # Make a list of all unique angles
         uniqueAngles = set()
         for atom1, atom2 in self._bonds:
             for atom in self._bondedToAtom[atom1]:
@@ -242,10 +238,7 @@ class Block(object):
                     else:
                         uniqueAngles.add((atom, atom2, atom1))
 
-        # Sort and reindex
         angles = sorted(list(uniqueAngles))
-
-        # Make a list of all unique proper torsions
 
         uniquePropers = set()
         for angle in angles:
@@ -261,12 +254,9 @@ class Block(object):
                         uniquePropers.add((angle[0], angle[1], angle[2], atom))
                     else:
                         uniquePropers.add((atom, angle[2], angle[1], angle[0]))
-
         propers = sorted(list(uniquePropers))
 
-        # Make a list of all unique improper torsions
         impropers = []
-        # for atom in range(len(bondedToAtom)):
         for atom in range(len(self._dataMap)):
             bondedTo = self._bondedToAtom[atom]
             if len(bondedTo) > 2:

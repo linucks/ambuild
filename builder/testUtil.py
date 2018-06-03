@@ -9,7 +9,6 @@ import numpy as np
 # our imports
 import util
 from paths import AMBUILD_DIR, PARAMS_DIR
-from numpy.core.multiarray_tests import incref_elide
 
 class Test(unittest.TestCase):
 
@@ -87,7 +86,7 @@ class Test(unittest.TestCase):
         # order of atoms doesn't 'matter
         self.assertEqual(set(close), set(ref_close))
 
-    
+    @unittest.skipUnless(util.PYTHONFLAVOUR == 2, "pkl file created with Python2")
     def testCellFromPickle(self):
         """Get old pickle file from Pierre"""
         pickleFile = os.path.join(AMBUILD_DIR,"tests","oldversion.pkl")
@@ -98,8 +97,11 @@ class Test(unittest.TestCase):
         toGrow = 2
         grown = mycell.growBlocks(toGrow)
         self.assertEqual(toGrow,grown,"Failed to grow blocks after unpickling")
+        os.unlink(mycell.logfile)
+        os.unlink(mycell.logcsv)
         return
 
+    @unittest.skipUnless(util.PYTHONFLAVOUR == 2, "pkl file created with Python2")
     def testDumpDLPOLY(self):
         """Get old pickle file from Pierre"""
         pickleFile = os.path.join(AMBUILD_DIR,"tests","oldversion.pkl")

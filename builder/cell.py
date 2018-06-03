@@ -3,7 +3,6 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 '''
-
 VERSION = "a842475a64c9"
 import collections
 import copy
@@ -25,9 +24,6 @@ import fragment
 from paths import PARAMS_DIR
 import util
 import warnings
-
-# Our hoomd modules handle loading hoomd-blue so this is just to determine which version we are using
-HOOMDVERSION = util.hoomdVersion()
 
 BONDTYPESEP = "-"  # Character for separating bonds
 ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
@@ -261,6 +257,8 @@ class Cell():
         self._possibleBonds = []
 
         # Logging functions
+        self.logfile = None
+        self.logcsv = None
         self.setupLogging(doLog=doLog)
 
         # For analysis csv
@@ -282,8 +280,7 @@ class Cell():
         self.version = VERSION # Save as attribute so we can query pickle files
         logger.info("AMBUILD version: {0}".format(VERSION))
 
-        global HOOMDVERSION
-        self.setMdEngine(HOOMDVERSION, paramsDir)
+        self.setMdEngine(util.HOOMDVERSION, paramsDir)
 
         if filePath: # Init from a car file
             self.setStaticBlock(filePath)
@@ -1212,13 +1209,12 @@ class Cell():
 
     def dataDict(self, rigidBody=True, periodic=True, center=False, fragmentType=None):
 
-        global HOOMDVERSION
         # Object to hold the cell data
         d = CellData()
         d.cell = self.dim
 
         if fragmentType is not None:
-            if rigidBody and HOOMDVERSION[0] > 1: assert False,"Need to update for HOOMD2"
+            if rigidBody and util.HOOMDVERSION[0] > 1: assert False,"Need to update for HOOMD2"
             # Only returning data for one type of fragment
             assert fragmentType in self.fragmentTypes(), "FragmentType {0} not in cell!".format(fragmentType)
             atomCount = 0
@@ -1314,7 +1310,7 @@ class Cell():
                 for body in frag.bodies():
                     # Body count always increments with fragment although it may go up within a fragment too
                     bodyCount += 1
-                    if HOOMDVERSION and HOOMDVERSION[0] > 1 and rigidBody:
+                    if util.HOOMDVERSION and util.HOOMDVERSION[0] > 1 and rigidBody:
                         bcoords = body.coords(dim=None, center=False)
                         centroid = util.centroid(bcoords)
                         coords = body.body_coordinates(bcoords, centroid)
@@ -1335,7 +1331,7 @@ class Cell():
                     d.masses += body.masses()
                     d.static += body.static()
                     d.symbols += body.symbols()
-                    if HOOMDVERSION and HOOMDVERSION[0] > 1 and rigidBody:
+                    if util.HOOMDVERSION and util.HOOMDVERSION[0] > 1 and rigidBody:
                         d.rigid_centre.append(centroid)
                         d.rigid_image.append(centroid_image)
                         d.rigid_mass.append(body.mass())
@@ -2628,7 +2624,7 @@ class Cell():
         else:
             from hoomd2 import Hoomd2
             self.MDENGINE = Hoomd2(paramsDir)
-        logger.info("Using HOOMD-BLUE version: {0}.{1}.{2}".format(*HOOMDVERSION))
+        logger.info("Using HOOMD-BLUE version: {0}.{1}.{2}".format(*util.HOOMDVERSION))
 
     def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType='c'):
         """Create walls along the specified sides.
@@ -3060,7 +3056,7 @@ class Cell():
 
         # Return everything bar our logger
         d = dict(self.__dict__)
-        d['analyseLogfile'] = d['analyse'].logfile
+        d['logcsv'] = d['analyse'].logfile
         del d['analyse']
         if 'MDENGINE' in d: del d['MDENGINE'] # Contains a reference to the hood-blue logger
         return d
@@ -3074,9 +3070,9 @@ class Cell():
             logfile = 'ambuild_1.log'
         self.setupLogging(logfile=logfile)
 
-        if 'analyseLogfile' in d:
-            logfile = util.newFilename(d['analyseLogfile'])
+        if 'logcsv' in d:
+            self.logcsv = util.newFilename(d['logcsv'])
         else:
-            logfile = 'ambuild_1.csv'
-        self._setupAnalyse(logfile=logfile)
+            self.logcsv = 'ambuild_1.csv'
+        self._setupAnalyse(logfile=self.logcsv)
         return
