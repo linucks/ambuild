@@ -1305,10 +1305,9 @@ def writeXyz(fileName, coords, symbols, cell=None):
         xyz += "ambuld xyz file. Axes:{}:{}:{}\n".format(cell[0], cell[1], cell[2])
 
     for i, coord in enumerate(coords):
-        if cell is None:
-            x, y, z = coord
-        else:
+        if cell is not None:
             coord, _ = wrapCoord3(coord, cell, center=False)
+        x, y, z = coord
         xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(symbols[i], x, y, z)
 
     with open(fileName, 'w') as f:
