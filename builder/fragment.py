@@ -26,13 +26,11 @@ class Body(object):
         self.bodyIndex = bodyIndex
         self.indexes = self._setup_indexes()
         self.natoms = numpy.sum(self.indexes)
+        self._centroid = util.centroid(self.coords())
         return
 
     def _setup_indexes(self):
-        # Can't do: self.fragment._bodies == self.bodyIndex &~ self.fragment.masked
-        # Not sure why - have posted on stack exchange
-        bi = self.fragment._bodies == self.bodyIndex
-        return bi &~ self.fragment.masked
+        return (self.fragment._bodies == self.bodyIndex) &~ self.fragment.masked
         #return numpy.array([True if self.fragment._bodies[i] == self.bodyIndex else False for i in self.fragment._ext2int.values()])
 
     def atomTypes(self):
@@ -40,22 +38,26 @@ class Body(object):
 
     def bodies(self):
         return [ self.bodyIndex ] * self.natoms
+    
+    def centroid(self, dim=None, center=False):
+        if dim is not None:
+            centroid, centroid_image = util.wrapCoord3(self._centroid, dim, center=center)
+            return centroid, centroid_image
+        else:
+            return self._centroid
 
     def charges(self):
         return list(numpy.compress(self.indexes, self.fragment._charges, axis=0))
 
-    def coords(self, dim=None, center=True):
-        # Get list of the internal indices of unmasked atoms that belong to body self.bodyIndex
-        #coords = self.fragment._coords[ [ i for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex ] ]
+    def coords(self, dim=None, center=False, bodyCentred=False):
         coords = numpy.compress(self.indexes, self.fragment._coords, axis=0)
+        if bodyCentred:
+            coords = coords - self._centroid
         if dim is not None:
             coords, images = util.wrapCoord3(coords, dim, center=center)
             return coords, images
         else:
             return coords
-
-    def body_coordinates(self, coords, centroid):
-        return [c - centroid for c in coords]
 
     def diameters(self):
         return [ util.DUMMY_DIAMETER ] * self.natoms
@@ -73,7 +75,16 @@ class Body(object):
         return numpy.sum(self.masses())
 
     def masses(self):
-        return list(numpy.compress(self.indexes, self.fragment._masses, axis=0))
+        return numpy.compress(self.indexes, self.fragment._masses, axis=0)
+    
+    def momentOfInertia(self):
+        return util.momentOfInertia(self.coords(), self.masses())
+    
+    def orientation(self):
+        raise NotImplementedError()
+
+    def rigidType (self):
+        raise NotImplementedError()
 
     def static(self):
         if hasattr(self.fragment, 'static') and self.fragment.static:

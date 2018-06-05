@@ -7,6 +7,7 @@ import unittest
 import numpy as np
 
 # our imports
+import cell # need for pytest so that we can unpickle cell items
 import util
 from paths import AMBUILD_DIR, PARAMS_DIR
 

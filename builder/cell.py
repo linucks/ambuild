@@ -156,6 +156,7 @@ class CellData(object):
         self.rigid_centre = []
         self.rigid_type = []
         self.rigid_moment_inertia = []
+        self.rigid_orientation = []
         self.rigid_fragments = {} # key fragmentType -> {'atomTypes': list, 'coords' : list}
         return
 
@@ -1208,13 +1209,16 @@ class Cell():
         return endGroup1, endGroup2
 
     def dataDict(self, rigidBody=True, periodic=True, center=False, fragmentType=None):
+        
+        RIGIDPARTICLES = rigidBody and util.HOOMDVERSION and util.HOOMDVERSION[0] > 1
 
         # Object to hold the cell data
         d = CellData()
         d.cell = self.dim
 
         if fragmentType is not None:
-            if rigidBody and util.HOOMDVERSION[0] > 1: assert False,"Need to update for HOOMD2"
+            if RIGIDPARTICLES:
+                assert False,"Need to update for HOOMD2"
             # Only returning data for one type of fragment
             assert fragmentType in self.fragmentTypes(), "FragmentType {0} not in cell!".format(fragmentType)
             atomCount = 0
@@ -1310,13 +1314,10 @@ class Cell():
                 for body in frag.bodies():
                     # Body count always increments with fragment although it may go up within a fragment too
                     bodyCount += 1
-                    if util.HOOMDVERSION and util.HOOMDVERSION[0] > 1 and rigidBody:
-                        bcoords = body.coords(dim=None, center=False)
-                        centroid = util.centroid(bcoords)
-                        coords = body.body_coordinates(bcoords, centroid)
-                        moment_of_inertia = util.momentOfInertia(coords, numpy.array(body.masses()))
-                        centroid, centroid_image = util.wrapCoord3(centroid, self.dim, center=center)
-                        # images are those of the centroid particle
+                    if RIGIDPARTICLES:
+                        centroid, centroid_image = body.centroid(dim=self.dim, center=center)
+                        coords = body.coords(bodyCentred=True)
+                        # images are those of the centroid particle as coords all relative to cenotrid
                         images = [centroid_image for _ in range(len(coords))]
                     else:
                         coords, images = body.coords(self.dim, center=center)
@@ -1328,20 +1329,23 @@ class Cell():
                     d.charges += body.charges()
                     d.diameters += body.diameters()
                     d.masked += body.masked()
-                    d.masses += body.masses()
+                    d.masses += list(body.masses())
                     d.static += body.static()
                     d.symbols += body.symbols()
-                    if util.HOOMDVERSION and util.HOOMDVERSION[0] > 1 and rigidBody:
+                    if RIGIDPARTICLES:
                         d.rigid_centre.append(centroid)
                         d.rigid_image.append(centroid_image)
                         d.rigid_mass.append(body.mass())
                         d.rigid_body.append(bodyCount)
                         ftype = "{0}_{1}".format(frag.fragmentType, bodyCount)
+                        #ftype = body.rigidType()
                         d.rigid_type.append(ftype)
-                        d.rigid_moment_inertia.append([moment_of_inertia[0][0], moment_of_inertia[1][1], moment_of_inertia[2][2]])
+                        moi = body.momentOfInertia()
+                        d.rigid_moment_inertia.append([moi[0][0], moi[1][1], moi[2][2]])
+                        #d.rigid_orientation = body.orientation()
                         d.rigid_fragments[ftype] = { 'coord_idxs' : (atomCount, atomCount + len(coords)), 'atomTypes' : btypes}
                     atomCount += len(coords)
-
+                        
                 # Work out which fragment this is in
                 warnings.warn("JMHT FIX i")
                 #d.tagIndices.append((idxBlock, idxFrag, atomCount - i - 1, atomCount))
@@ -2640,6 +2644,24 @@ class Cell():
         r = util.COVALENT_RADII[z] * util.BOHR2ANGSTROM
         self.wallRadius = r
         return
+    
+    def _setupRigidBodies(self):
+        """Horror required to set up rigid bodies with HOOMD-BLUE 2
+        
+        Loop through each body and determine the type, based on the configuration of the endGroups and 
+        build up a list of distinct types
+        For each type calculate the principal axes (from the moment of inertia, which should be the same
+        for each type regardless of orientation
+        Create a data structure to hold data about this type of rigid body:
+        * constituent particle types
+        * relative positions
+        
+        Loop back through all the bodies and for each one create a particle with the following properties
+        * 
+        
+        WON"T WORK AS NO WAY TO DEFINE BONDS 
+        
+        """
 
     def _setupAnalyse(self, logfile='ambuild.csv'):
         self.analyse = Analyse(self, logfile=logfile)
