@@ -1339,8 +1339,8 @@ class Cell():
                         d.rigid_body.append(bodyCount)
                         ftype = body.rigidType()
                         d.rigid_type.append(ftype)
-                        moi = body.momentOfInertia()
-                        d.rigid_moment_inertia.append([moi[0][0], moi[1][1], moi[2][2]])
+                        moi = body.principalMoments(bodyFrame=True)
+                        d.rigid_moment_inertia.append(moi)
                         #d.rigid_orientation = body.orientation()
                         d.rigid_fragments[ftype] = { 'coord_idxs' : (atomCount, atomCount + len(coords)), 'atomTypes' : btypes}
                     atomCount += len(coords)

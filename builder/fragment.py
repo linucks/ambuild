@@ -83,6 +83,9 @@ class Body(object):
     def orientation(self):
         raise NotImplementedError()
 
+    def principalMoments(self, bodyFrame=False):
+        return util.principalMoments(self.coords(bodyFrame=bodyFrame), self.masses())
+    
     def rigidType(self):
         """return the type of this body based on the endGroup configuration"""
         return "{}{}{}".format(self.fragment.fragmentType, self.fragment.configStr, self.bodyIndex)

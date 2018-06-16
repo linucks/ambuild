@@ -1007,11 +1007,9 @@ def label2symbol(name):
     """
     origName = name
     name = name.strip().upper()
-
     # Determine the element from the first 2 chars of the name
     if len(name) > 2:
         name = name[0:2]
-
     if len(name) == 2 and name[0].isalpha() and name[1].isalpha():
         # 2 Character name, so see if it matches any 2-character elements
         sym2c = list(filter(lambda x: len(x) == 2, SYMBOL_TO_NUMBER.keys()))
@@ -1020,22 +1018,17 @@ def label2symbol(name):
         sym2c.remove('NB')
         if name in sym2c:
             return name.capitalize()
-
     # If it was a valid 2 character symbol we should have picked it up so now only 1 symbol
     name = name[0]
     if not name.isalpha():
         raise RuntimeError("label2symbol first character of name is not a character: {0}".format(origName))
-
     # Hack - for x return x
     if name.lower() == 'x':
         return 'x'
-
     # Get 1 character element names
     sym1c = list(filter(lambda x: len(x) == 1 and x != 'X', SYMBOL_TO_NUMBER.keys()))
-
     if name in sym1c:
         return name.capitalize()
-
     raise RuntimeError("label2symbol cannot convert name {0} to symbol!".format(origName))
     return
 
@@ -1043,24 +1036,40 @@ def momentOfInertia(coords, masses):
     """Moment of Inertia Tensor"""
     totalMass = numpy.sum(masses)
     centreOfMass = numpy.sum(coords * masses[:,numpy.newaxis], axis=0) / totalMass
-    # Coords relative to centre of mass
-    coords = coords - centreOfMass
-    I = numpy.dot(coords.transpose(), coords)
+    coords = coords - centreOfMass # Coords relative to centre of mass
+    if True:
+        # Below from Pierre but doesn't seem to replicate results of doing it 'manually'
+        I = numpy.dot(coords.transpose(), coords)
+    else:
+        x = 0
+        y = 1
+        z = 2
+        I2 = numpy.zeros(shape=(3, 4))
+        I2[x, x] = numpy.sum((numpy.square(coords[:, y]) + numpy.square(coords[:, z])) * masses)
+        I2[y, y] = numpy.sum((numpy.square(coords[:, x]) + numpy.square(coords[:, z])) * masses)
+        I2[z, z] = numpy.sum((numpy.square(coords[:, x]) + numpy.square(coords[:, y])) * masses)
+        I2[x, y] = numpy.sum(coords[:, x] * coords[:, y] * masses)
+        I2[y, z] = numpy.sum(coords[:, y] * coords[:, z] * masses)
+        I2[x, z] = numpy.sum(coords[:, x] * coords[:, z] * masses)
+        I2[y, x] = I2[x, y]
+        I2[z, y] = I2[y, z]
+        I2[z, x] = I2[x, z]
+        I = I2
     return I
 
+def principalMoments(coords, masses):
+    I = momentOfInertia(coords, masses)
+    eigval, eigvec = numpy.linalg.eig(I)
+    return numpy.sort(eigval)
+
 def newFilename(filename, separator="_"):
-
     dname, name = os.path.split(filename)
-
-    # Create a new filename using _1 etc
     name, suffix = os.path.splitext(name)
-
     try:
         basename, num = name.split(separator)
     except ValueError:
         # No separator so assume is an un-numbered file
         return os.path.join(dname, name + separator + "1" + suffix)
-
     num = int(num) + 1
     return os.path.join(dname, basename + separator + str(num) + suffix)
 
