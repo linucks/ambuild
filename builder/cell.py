@@ -1315,8 +1315,8 @@ class Cell():
                     # Body count always increments with fragment although it may go up within a fragment too
                     bodyCount += 1
                     if RIGIDPARTICLES:
-                        centroid, centroid_image = body.centroid(dim=self.dim, center=center)
-                        coords = body.coords(bodyCentred=True)
+                        centroid, centroid_image = body.centreOfMass(dim=self.dim, center=center)
+                        coords = body.coords(bodyFrame=True)
                         # images are those of the centroid particle as coords all relative to cenotrid
                         images = [centroid_image for _ in range(len(coords))]
                     else:
@@ -1325,7 +1325,7 @@ class Cell():
                     d.images += list(images)
                     btypes = body.atomTypes()
                     d.atomTypes += btypes
-                    d.bodies += [ bodyCount for b in body.bodies() ]
+                    d.bodies += [bodyCount for b in body.bodies()]
                     d.charges += body.charges()
                     d.diameters += body.diameters()
                     d.masked += body.masked()
@@ -1337,8 +1337,7 @@ class Cell():
                         d.rigid_image.append(centroid_image)
                         d.rigid_mass.append(body.mass())
                         d.rigid_body.append(bodyCount)
-                        ftype = "{0}_{1}".format(frag.fragmentType, bodyCount)
-                        #ftype = body.rigidType()
+                        ftype = body.rigidType()
                         d.rigid_type.append(ftype)
                         moi = body.momentOfInertia()
                         d.rigid_moment_inertia.append([moi[0][0], moi[1][1], moi[2][2]])

@@ -725,6 +725,9 @@ def getCell(coord, boxSize, dim=None, pbc=[True, True, True]):
 def centroid(coords):
     return numpy.sum(coords, axis=0) / numpy.size(coords, axis=0)
 
+def centreOfMass(coords, masses):
+    return numpy.sum(coords * masses[:,numpy.newaxis], axis=0) / numpy.sum(masses)
+
 def cellFromPickle(pickleFile, paramsDir=None):
     """Recreate a cell from a pickled file and apply any hacks so that we can work with older versions"""
     def fixFragment(fragment):

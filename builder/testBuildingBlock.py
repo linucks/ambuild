@@ -27,6 +27,7 @@ class Test(unittest.TestCase):
         self.ch4Ca2Car = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
         
         util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
+        fragment.configManager.reset()
         return
 
     def catBlocks(self, blocks, filename):
@@ -174,7 +175,7 @@ class Test(unittest.TestCase):
         ch4_1.bondBlock(bond)
         
         #ch4_1.writeCml("foo1.cml")
-        x = ch4_1.deleteBond(bond)
+        ch4_1.deleteBond(bond)
         #ch4_1.writeCml("foo2.cml")
         #x.writeCml("foo3.cml")
         return
@@ -240,15 +241,10 @@ class Test(unittest.TestCase):
         """Create a central block with 4 attached blocks and the split one of the bonds so we get 2 blocks"""
 
         ch4_1 = Block(filePath=self.ch4Car, fragmentType='A')
-        f1 = ch4_1.fragments[0]
         ch4_2 = Block(filePath=self.ch4Car, fragmentType='A')
-        f2 = ch4_2.fragments[0]
         ch4_3 = Block(filePath=self.ch4Car, fragmentType='A')
-        f3 = ch4_3.fragments[0]
         ch4_4 = Block(filePath=self.ch4Car, fragmentType='A')
-        f4 = ch4_4.fragments[0]
         ch4_5 = Block(filePath=self.ch4Car, fragmentType='A')
-        f5 = ch4_5.fragments[0]
 
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
@@ -283,13 +279,9 @@ class Test(unittest.TestCase):
         ch4_1 = Block(filePath=self.ch4Car, fragmentType='A')
         f1 = ch4_1.fragments[0]
         ch4_2 = Block(filePath=self.ch4Car, fragmentType='A')
-        f2 = ch4_2.fragments[0]
         ch4_3 = Block(filePath=self.ch4Car, fragmentType='A')
-        f3 = ch4_3.fragments[0]
         ch4_4 = Block(filePath=self.ch4Car, fragmentType='A')
-        f4 = ch4_4.fragments[0]
         ch4_5 = Block(filePath=self.ch4Car, fragmentType='A')
-        f5 = ch4_5.fragments[0]
 
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
@@ -370,7 +362,6 @@ class Test(unittest.TestCase):
 
     def testAlignAtoms(self):
         block = Block(filePath=self.benzeneCar, fragmentType='A')
-        bcopy = block.copy()
 
         # Check atoms are not aligned along axis
         c1Idx = 2
@@ -424,7 +415,6 @@ class Test(unittest.TestCase):
 
         ch4_1 = Block(filePath=self.benzeneCar, fragmentType='A')
         ch4_2 = ch4_1.copy()
-        ch4_3 = ch4_1.copy()
 
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
@@ -686,10 +676,8 @@ class Test(unittest.TestCase):
         endGroup2 = growBlock.freeEndGroups()[ 0 ]
 
         # Get position to check
-        newPos = staticBlock.newBondPosition(endGroup1,
-                                              growBlock.symbol(endGroup2.blockEndGroupIdx),
-                                               )
-
+        staticBlock.newBondPosition(endGroup1,
+                                    growBlock.symbol(endGroup2.blockEndGroupIdx))
         # Position the block
         staticBlock.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi / 2)
 
@@ -806,7 +794,6 @@ class Test(unittest.TestCase):
         """foo"""
         ch4_1 = Block(filePath=self.benzeneCar, fragmentType='A')
         ch4_2 = ch4_1.copy()
-        ch4_3 = ch4_1.copy()
 
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
@@ -822,10 +809,8 @@ class Test(unittest.TestCase):
 
         with open(os.path.join(AMBUILD_DIR, "tests", "benzeneBond.cml")) as f:
             ref = f.readlines()
-
         self.assertEqual(test, ref, "cml compare")
         os.unlink(fname)
-
         return
 if __name__ == '__main__':
     """

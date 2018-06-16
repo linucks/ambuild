@@ -26,7 +26,7 @@ class Body(object):
         self.bodyIndex = bodyIndex
         self.indexes = self._setup_indexes()
         self.natoms = numpy.sum(self.indexes)
-        self._centroid = util.centroid(self.coords())
+        self._centreOfMass = util.centreOfMass(self.coords(), self.masses())
         return
 
     def _setup_indexes(self):
@@ -38,21 +38,21 @@ class Body(object):
 
     def bodies(self):
         return [ self.bodyIndex ] * self.natoms
-    
-    def centroid(self, dim=None, center=False):
+        
+    def centreOfMass(self, dim=None, center=False):
         if dim is not None:
-            centroid, centroid_image = util.wrapCoord3(self._centroid, dim, center=center)
-            return centroid, centroid_image
+            com, com_image = util.wrapCoord3(self._centreOfMass, dim, center=center)
+            return com, com_image
         else:
-            return self._centroid
+            return self._centreOfMass
 
     def charges(self):
         return list(numpy.compress(self.indexes, self.fragment._charges, axis=0))
 
-    def coords(self, dim=None, center=False, bodyCentred=False):
+    def coords(self, dim=None, center=False, bodyFrame=False):
         coords = numpy.compress(self.indexes, self.fragment._coords, axis=0)
-        if bodyCentred:
-            coords = coords - self._centroid
+        if bodyFrame:
+            coords = coords - self._centreOfMass
         if dim is not None:
             coords, images = util.wrapCoord3(coords, dim, center=center)
             return coords, images
@@ -77,14 +77,15 @@ class Body(object):
     def masses(self):
         return numpy.compress(self.indexes, self.fragment._masses, axis=0)
     
-    def momentOfInertia(self):
-        return util.momentOfInertia(self.coords(), self.masses())
+    def momentOfInertia(self, bodyFrame=False):
+        return util.momentOfInertia(self.coords(bodyFrame=bodyFrame), self.masses())
     
     def orientation(self):
         raise NotImplementedError()
 
-    def rigidType (self):
-        raise NotImplementedError()
+    def rigidType(self):
+        """return the type of this body based on the endGroup configuration"""
+        return "{}{}{}".format(self.fragment.fragmentType, self.fragment.configStr, self.bodyIndex)
 
     def static(self):
         if hasattr(self.fragment, 'static') and self.fragment.static:
@@ -253,6 +254,42 @@ class EndGroup(object):
 
         return s
 
+
+class FragmentConfigManager(object):
+    """Manages the configuration of each individual fragmentType
+    
+    As Fragments have their own class/instance managment machinary, we can't use standard class variables
+    to track variables that are shared across all fragments of a given fragmentType. This class provides
+    the functionality to track attributes that are shared by all fragments of a given type, but also need
+    to be updated as the simulation progress.
+    
+    Need to think about how to reset this when running simulations and when unpickling
+    """
+    
+    def __init__(self):
+        self.configs = {}
+    
+    @staticmethod
+    def calcConfigStr(i):
+        import string
+        alph = string.ascii_uppercase
+        num_chars = 26 # letters in alphabet - unlikely to change...
+        assert i < num_chars * num_chars, "Too many configurations!"
+        return alph[int(i/num_chars)] + alph[i%num_chars]
+    
+    def reset(self):
+        self.configs = {}
+
+    def updateConfig(self, fragment):
+        if fragment.fragmentType not in self.configs:
+            self.configs[fragment.fragmentType] = []
+        if fragment.config not in self.configs[fragment.fragmentType]:
+            self.configs[fragment.fragmentType].append(fragment.config)
+        idx = self.configs[fragment.fragmentType].index(fragment.config)
+        return self.calcConfigStr(idx)
+            
+configManager = FragmentConfigManager()
+
 class Fragment(object):
     '''
     classdocs
@@ -268,7 +305,6 @@ class Fragment(object):
         '''
         Constructor
         '''
-
         # This first set of variables are shared by all fragments
         # When we copy a fragment the new fragment gets references to the variables
         # that were created for the first fragment (see copy)
@@ -301,6 +337,8 @@ class Fragment(object):
         # and is involved in bonds - each fragment gets its own copy of these
         individualAttrs = {
             'block'           : None,
+            'config'          : None,
+            'configStr'     : None,
             '_coords'         : [],
             '_centroid'       : None,
             '_centerOfMass'   : None,
@@ -329,7 +367,8 @@ class Fragment(object):
         self._sharedAttrs = sharedAttrs
 
         # Create from the file
-        if filePath: self.fromFile(filePath)
+        if filePath:
+            self.fromFile(filePath)
         return
 
     def _markBonded(self, endGroup, bond):
@@ -354,10 +393,7 @@ class Fragment(object):
         # Hack for starred endGroups
         if not endGroupType.endswith(ENDGROUPBONDED):
             self._endGroupBonded[ endGroupType] += 1
-
             # Handle maxBonds here
-            #if self._maxBonds[ endGroupType ] is not None and \
-            #self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]
             if self._maxBonds[ endGroupType ] is not None:
                 if self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]:
                     # We have exceeded the bonding limit for these endGroupTypes, so we set any free ones
@@ -367,7 +403,8 @@ class Fragment(object):
                             eg.blocked = True
 
         # The user may have supplied a custom bonding function, so we call that here
-        if self.onbondFunction: self.onbondFunction(endGroup)
+        if self.onbondFunction:
+            self.onbondFunction(endGroup)
 
         if  hasattr(self,'markBonded') and self.markBonded:
             self._markBonded(endGroup, bond)
@@ -379,7 +416,8 @@ class Fragment(object):
         return
 
     def bodies(self):
-        for bodyIdx in set(self._bodies): yield Body(self, bodyIdx)
+        for bodyIdx in set(self._bodies):
+            yield Body(self, bodyIdx)
 
     def body(self, idxAtom):
         return self._bodies[self._ext2int[idxAtom]]
@@ -413,7 +451,7 @@ class Fragment(object):
         self._centroid = numpy.sum(self._coords, axis=0) / numpy.size(self._coords, axis=0)
         self._totalMass = numpy.sum(self._masses)
         # Centre of mass is sum of the products of the individual coordinates multiplied by the mass, divded by the total mass
-        self._centerOfMass = numpy.sum(self._coords * self._masses[:,numpy.newaxis], axis=0) / self._totalMass
+        self._centerOfMass = util.centreOfMass(self._coords, self._masses)
         return
 
     def _calcRadius(self):
@@ -491,16 +529,12 @@ class Fragment(object):
                 msg = "Missing attribute in fragment copy: {0}".format(a)
                 logger.critical(msg)
                 raise RuntimeError(msg)
-
             # Update fragment references in the endGroups
             for e in f._endGroups:
                 e.fragment = f
-
         return f
 
     def endGroups(self):
-        # Not sure why this construct - why not just return self._endGroups?
-        # return [ eg for eg in self._endGroups ]
         return self._endGroups
 
     def endGroupTypes(self):
@@ -520,7 +554,7 @@ class Fragment(object):
         return
 
     def freeEndGroups(self):
-         return [ eg for eg in self._endGroups if eg.free() ]
+        return [eg for eg in self._endGroups if eg.free()]
 
     def fromCarFile(self, carFile):
         """"Abbie did this.
@@ -648,24 +682,19 @@ class Fragment(object):
                   )
 
         self.processBodies(filePath)
-
         self.update()
-
         self._calcProperties()
-
         return
 
     def iterAtomTypes(self):
         """Generator to return the atomTypes"""
         for i in range(len(self._ext2int)):
             yield self.type(i)
-        return
 
     def iterCoord(self):
         """Generator to return the coordinates"""
         for i in range(len(self._ext2int)):
             yield self.coord(i)
-        return
 
     def label(self, idxAtom):
         return self._labels[self._ext2int[idxAtom]]
@@ -741,21 +770,18 @@ class Fragment(object):
 
     def processBodies(self, filepath):
         """See if we split the fragment into bodies or not"""
-
         assert len(self._coords) > 0, "Coordinates must have been read before processing bodies"
-
         dirname, filename = os.path.split(filepath)
         basename, suffix = os.path.splitext(filename)
-
         bodyFile = os.path.join(dirname, basename + ".ambody")
         if os.path.isfile(bodyFile):
-            self._bodies = numpy.array([ int(l.strip()) for l in open(bodyFile) ])
+            self._bodies = numpy.array([ int(l.strip()) for l in open(bodyFile) ], dtype=numpy.int)
             assert len(self._bodies) == len(self._coords), \
             "Must have as many bodies as coordinates: {0} - {1}!".format(len(self.bodies), self._dataLen)
             assert self._bodies[0] == 0, "Bodies must start with zero!"
         else:
             # Just create an array with 0
-            self._bodies = numpy.zeros(len(self._coords))
+            self._bodies = numpy.zeros(len(self._coords), dtype=numpy.int)
         return
 
     def radius(self, idxAtom):
@@ -895,6 +921,8 @@ class Fragment(object):
                 self._ext2int[ecount] = i
                 self._int2ext[i] = ecount
                 ecount += 1
+        self.config = [True if eg.free() else False for eg in self._endGroups]
+        self.configStr = configManager.updateConfig(self)
         return
 
     def __str__(self):
