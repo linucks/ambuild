@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 import xml.dom.minidom
 
 import xyz_core
-from ffield import read_bond_params
+from ab_ffield import read_bond_params
 
 logger = logging.getLogger()
 

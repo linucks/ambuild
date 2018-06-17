@@ -11,7 +11,7 @@ import numpy as np
 import context
 BLOCKS_DIR = context.paths.BLOCKS_DIR
 PARAMS_DIR = context.paths.PARAMS_DIR
-from context import fragment
+from context import ab_fragment
 from context import xyz_core
 from context import xyz_util
 
@@ -20,9 +20,13 @@ xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
 
 class Test(unittest.TestCase):
     
+    def setUp(self):
+        ab_fragment.configManager.reset()
+        return
+    
     def testBodyConfig(self):
         ch4ca = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
-        f1 = fragment.Fragment(filePath=ch4ca, fragmentType='A')
+        f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType='A')
         self.assertEqual(len(list(f1.bodies())), 3)
         self.assertEqual(list(f1.bodies())[-1].rigidType(), "AAA2")
     
@@ -32,7 +36,7 @@ class Test(unittest.TestCase):
                         [  3.63000000e-07,   1.36956935e-17,   1.58122800e+00]])
 
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
-        frag = fragment.Fragment(filePath=ch4, fragmentType='A')
+        frag = ab_fragment.Fragment(filePath=ch4, fragmentType='A')
         if False:
                 axis = [0,0,1]
                 angle = math.pi/3
@@ -90,7 +94,7 @@ class Test(unittest.TestCase):
         
     def testMomentOfInertia2(self):
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
-        frag = fragment.Fragment(filePath=ch4, fragmentType='A')
+        frag = ab_fragment.Fragment(filePath=ch4, fragmentType='A')
  
         body = list(frag.bodies())[0]
         com1 = body.momentOfInertia()

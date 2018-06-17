@@ -74,9 +74,23 @@ def cellFromPickle(pickleFile, paramsDir=None):
     mode = 'r'
     if PYTHONFLAVOUR == 3:
         mode += 'b'
+    
+    # This is another terrible hack for dealing with old pkl files that used the old class names
+    import ab_block
+    import ab_cell
+    import ab_fragment
+    sys.modules['buildingBlock'] = ab_block
+    sys.modules['cell'] = ab_cell
+    sys.modules['fragment'] = ab_fragment
+    
+    # Renamed cell class so need to alias here for old files
     with open(pickleFile, mode) as f:
         myCell = pickle.load(f)
-        
+
+    del sys.modules['buildingBlock']
+    del sys.modules['cell']
+    del sys.modules['fragment']
+    
     # Need to hack to work with older versions
     if not hasattr(myCell, 'dim'):
         myCell.dim = numpy.array([myCell.A, myCell.B, myCell.C])

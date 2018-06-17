@@ -1,7 +1,7 @@
 import logging
 import math
 
-from ffield import FFIELD
+from ab_ffield import FFIELD
 from xyz_core import wrapCoord3
 logger = logging.getLogger(__name__)
 PARAM_SEP=','

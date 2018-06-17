@@ -44,7 +44,7 @@ import time
 import xml.etree.ElementTree as ET
 
 # our imports
-from ffield import FFIELD, FfieldParameters
+from ab_ffield import FFIELD, FfieldParameters
 import xyz_core
 import xyz_util
 

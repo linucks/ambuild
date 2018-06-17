@@ -11,12 +11,11 @@ AMBUILD_DIR = context.paths.AMBUILD_DIR
 BLOCKS_DIR = context.paths.BLOCKS_DIR
 PARAMS_DIR = context.paths.PARAMS_DIR
 Bond = context.ab_bond.Bond
-Block = context.buildingBlock.Block
-Cell = context.cell.Cell
-from context import ambuild_subunit
-from context import buildingBlock
+Block = context.ab_block.Block
+Cell = context.ab_cell.Cell
+from context import ab_subunit
+from context import ab_block
 from context import dlpoly
-from context import fragment
 from context import util
 from context import xyz_core
 from context import xyz_util
@@ -539,9 +538,9 @@ class Test(unittest.TestCase):
         mycell.addBondType('A:a-A:a')
 
         # Create block manually
-        b1 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
-        b2 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
-        b3 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
+        b1 = ab_block.Block(filePath=ch4Car, fragmentType='A')
+        b2 = ab_block.Block(filePath=ch4Car, fragmentType='A')
+        b3 = ab_block.Block(filePath=ch4Car, fragmentType='A')
 
         # b1 in center
         b1.translateCentroid([ 25, 25, 25 ])
@@ -724,9 +723,9 @@ class Test(unittest.TestCase):
         mycell.addBondType('A:a-A:a')
 
         # Create block manually
-        b1 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
-        b2 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
-        b3 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
+        b1 = ab_block.Block(filePath=ch4Car, fragmentType='A')
+        b2 = ab_block.Block(filePath=ch4Car, fragmentType='A')
+        b3 = ab_block.Block(filePath=ch4Car, fragmentType='A')
 
 
         # b1 in center
@@ -1394,22 +1393,22 @@ class Test(unittest.TestCase):
 
     def testSubunit(self):
         xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR,'bond_params.csv'))
-        b1 = buildingBlock.Block(filePath=self.ch4Car, fragmentType='A')
+        b1 = ab_block.Block(filePath=self.ch4Car, fragmentType='A')
         fragment = b1.fragments[0]
         
         monomers = ['A','B','C']
         ratio = [1,3,1]
         # Handle zero totalTally
-        u = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[0,0,0], direction=1, random=True)
+        u = ab_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[0,0,0], direction=1, random=True)
         self.assertIn(u.randomMonomerType(),monomers)
         
         # Make sure we can upweight a low one
-        u = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[100,300,1], direction=1, random=True)
+        u = ab_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[100,300,1], direction=1, random=True)
         self.assertEqual(u.randomMonomerType(),'C')
         
         
         # See if the overall ratio approaches the ideal
-        u = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[100,300,100], direction=1, random=True)
+        u = ab_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[100,300,100], direction=1, random=True)
         from collections import Counter
         s = ''
         for _ in range(10000):
@@ -1512,10 +1511,10 @@ class Test(unittest.TestCase):
         mycell.addBondType('A:a-A:a')
 
         # Create block manually
-        b1 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
-        b2 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
-        b3 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
-        b4 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
+        b1 = ab_block.Block(filePath=ch4Car, fragmentType='A')
+        b2 = ab_block.Block(filePath=ch4Car, fragmentType='A')
+        b3 = ab_block.Block(filePath=ch4Car, fragmentType='A')
+        b4 = ab_block.Block(filePath=ch4Car, fragmentType='A')
 
         # b1 in center of cell
         b1.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
@@ -1555,8 +1554,8 @@ class Test(unittest.TestCase):
         mycell.addBondType('A:a-A:a')
 
         # Create block manually
-        b1 = buildingBlock.Block(filePath=self.benzeneCar, fragmentType='A')
-        b2 = buildingBlock.Block(filePath=self.benzeneCar, fragmentType='A')
+        b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
+        b2 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
 
         # Position block so that it's aligned along x-axis
         # - use two opposing C-atoms 0 & 3
@@ -1592,8 +1591,8 @@ class Test(unittest.TestCase):
         mycell.addBondType('A:a-A:a')
 
         # Create block manually
-        b1 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
-        b2 = buildingBlock.Block(filePath=ch4Car, fragmentType='A')
+        b1 = ab_block.Block(filePath=ch4Car, fragmentType='A')
+        b2 = ab_block.Block(filePath=ch4Car, fragmentType='A')
 
         # Align bond along x-axis
         b1.alignAtoms(0, 1, [ 1, 0, 0 ])
@@ -1632,9 +1631,9 @@ class Test(unittest.TestCase):
         mycell.addBondType('A:a-A:a')
 
         # Create blocks manually
-        b1 = buildingBlock.Block(filePath=self.benzeneCar, fragmentType='A')
-        # b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
-        # b3 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
+        # b2 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
+        # b3 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
 
         # Align bond along x-axis
         b1.alignAtoms(0, 3, [ 0, 0, 1 ])
@@ -1675,9 +1674,9 @@ class Test(unittest.TestCase):
         mycell.addBondType('A:a-A:a')
 
         # Create blocks manually
-        b1 = buildingBlock.Block(filePath=self.benzeneCar, fragmentType='A')
-        # b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
-        # b3 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
+        # b2 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
+        # b3 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
 
         # Align bond along x-axis
         b1.alignAtoms(0, 3, [ 0, 0, 1 ])
@@ -1723,9 +1722,9 @@ class Test(unittest.TestCase):
         mycell.addBondType('A:a-A:a')
 
         # Create blocks manually
-        b1 = buildingBlock.Block(filePath=self.benzeneCar, fragmentType='A')
-        # b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
-        # b3 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
+        # b2 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
+        # b3 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
 
         # Align bond along x-axis
         b1.alignAtoms(0, 3, [ 0, 0, 1 ])
@@ -1772,9 +1771,9 @@ class Test(unittest.TestCase):
         mycell.addBondType('A:a-A:a')
 
         # Create blocks manually
-        b1 = buildingBlock.Block(filePath=self.benzeneCar, fragmentType='A')
-        # b2 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
-        # b3 = buildingBlock.Block( filePath=self.benzeneCar, fragmentType='A' )
+        b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
+        # b2 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
+        # b3 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
 
         # Align bond along x-axis
         b1.alignAtoms(0, 3, [ 0, 0, 1 ])
@@ -1825,7 +1824,7 @@ class Test(unittest.TestCase):
         mycell.addBondType('C:a-C:a')
 
         # Create block manually - this is so we have reproducible results
-        b1 = buildingBlock.Block(filePath=self.benzeneCar, fragmentType='A')
+        b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
         b2 = b1.copy()
         b3 = b1.copy()
         b4 = b1.copy()
@@ -1841,7 +1840,7 @@ class Test(unittest.TestCase):
             bond.engage()
 
         # Add another block that's not overlapping with the first
-        b1 = buildingBlock.Block(filePath=self.ch4Car, fragmentType='B')
+        b1 = ab_block.Block(filePath=self.ch4Car, fragmentType='B')
         b2 = b1.copy()
         b3 = b1.copy()
         b4 = b1.copy()
@@ -1855,7 +1854,7 @@ class Test(unittest.TestCase):
             bond.engage()
 
         # Add another block that's not overlapping with the others
-        b1 = buildingBlock.Block(filePath=self.ch4Car, fragmentType='C')
+        b1 = ab_block.Block(filePath=self.ch4Car, fragmentType='C')
         b2 = b1.copy()
         b3 = b1.copy()
         b4 = b1.copy()
@@ -1915,8 +1914,8 @@ class Test(unittest.TestCase):
         mycell.addBondType('A:a-A:a')
 
         # Create block manually - this is so we have reproducible results
-        b1 = buildingBlock.Block(filePath=self.benzeneCar, fragmentType='A')
-        b2 = buildingBlock.Block(filePath=self.benzeneCar, fragmentType='A')
+        b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
+        b2 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
 
         # b1 in center of cell
         b1.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])

@@ -19,10 +19,10 @@ import warnings
 import numpy
 
 # Our modules
-import ambuild_subunit
+import ab_block
 import ab_bond
-import buildingBlock
-import fragment
+import ab_fragment
+import ab_subunit
 from paths import PARAMS_DIR
 import util
 import xyz_core
@@ -368,14 +368,14 @@ class Cell():
         # HACK FOR ADDING * TO SHOW BONDED GROUPS
         assert b1FragmentType in self._fragmentLibrary, \
         "No fragment type {0} in fragmentLibrary".format(b1FragmentType)
-        if not b1EndGroupType.endswith(fragment.ENDGROUPBONDED):
+        if not b1EndGroupType.endswith(ab_fragment.ENDGROUPBONDED):
             assert b1EndGroupType in self._fragmentLibrary[ b1FragmentType ].endGroupTypes(), \
             "Fragment type {0} has no endGroup type {1}".format(b1FragmentType, b1EndGroupType)
 
             assert b1EndGroupType in self._endGroup2LibraryFragment.keys(), \
             "No endGroup type {0} in fragmentLibrary!".format(b1EndGroupType)
         assert b2FragmentType in self._fragmentLibrary, "No fragment type {0} in fragmentLibrary".format(b2FragmentType)
-        if not b2EndGroupType.endswith(fragment.ENDGROUPBONDED):
+        if not b2EndGroupType.endswith(ab_fragment.ENDGROUPBONDED):
             assert b2EndGroupType in self._fragmentLibrary[ b2FragmentType ].endGroupTypes(), \
             "Fragment type {0} has no endGroup type {1}".format(b2FragmentType, b2EndGroupType)
 
@@ -897,7 +897,7 @@ class Cell():
     def capBlocks(self, fragmentType=None, filename=None):
 
         # Create the cap block
-        capBlock = buildingBlock.Block(filePath=filename, fragmentType='cap')
+        capBlock = ab_block.Block(filePath=filename, fragmentType='cap')
 
         # The endgroup is always the first only endGroup
         capEndGroup = capBlock.freeEndGroups()[0]
@@ -1632,7 +1632,7 @@ class Cell():
         # Copy the init fragment
         f = self._fragmentLibrary[ fragmentType ].copy()
 
-        return buildingBlock.Block(initFragment=f)
+        return ab_block.Block(initFragment=f)
 
     def growBlocks(self,
                    toGrow,
@@ -1762,7 +1762,7 @@ class Cell():
         fragment = polymer.fragments[0]
 
         # Create subunit going forward
-        subunit = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer=polymer, totalTally=totalTally, direction=1, fragment=fragment, random=random)
+        subunit = ab_subunit.subUnit(monomers=monomers, ratio=ratio, polymer=polymer, totalTally=totalTally, direction=1, fragment=fragment, random=random)
 
         switched = False
         for _ in range(length-1):
@@ -1772,7 +1772,7 @@ class Cell():
                     break
                 logger.debug("Failed to add Monomer to intial endPoint - switching end")
                 # Switch to other end of the chain -set switched flag so we know wev've done this
-                subunit = ambuild_subunit.subUnit(monomers=monomers, ratio=ratio, polymer=polymer, totalTally=totalTally, direction=-1, random=random)
+                subunit = ab_subunit.subUnit(monomers=monomers, ratio=ratio, polymer=polymer, totalTally=totalTally, direction=-1, random=random)
                 switched = True
         logger.info("growPolymer finalTally ({0} % {1}): {2}".format(ratio, length, subunit.totalTally))
 
@@ -2001,7 +2001,7 @@ class Cell():
             raise RuntimeError("fragmentType cannot containing {0} or {1} characters!".format(BONDTYPESEP, ENDGROUPSEP))
 
         # Create fragment
-        frag = fragment.Fragment(filename, fragmentType, solvent=solvent, markBonded=markBonded, catalyst=catalyst)
+        frag = ab_fragment.Fragment(filename, fragmentType, solvent=solvent, markBonded=markBonded, catalyst=catalyst)
 
         # Update cell parameters for this fragment
         maxAtomRadius = frag.maxAtomRadius()
@@ -2558,7 +2558,7 @@ class Cell():
     def setStaticBlock(self, filePath, replace=False):
         # Create fragment
         name = os.path.splitext(os.path.basename(filePath))[0]
-        f = fragment.Fragment(filePath, fragmentType=name, static=True)
+        f = ab_fragment.Fragment(filePath, fragmentType=name, static=True)
         p = f.cellParameters()
         if not p:
             raise RuntimeError("car file needs to have PBC=ON and a PBC line defining the cell!")
@@ -2571,7 +2571,7 @@ class Cell():
         if  maxAtomRadius > self.maxAtomRadius:
             self.updateCellSize(maxAtomRadius=maxAtomRadius)
 
-        block = buildingBlock.Block(initFragment=f)
+        block = ab_block.Block(initFragment=f)
         # Check the molecule fits in the cell
         for i, coord in enumerate(block.iterCoord()):
             if coord[0] < 0 or coord[0] > self.dim[0] or \

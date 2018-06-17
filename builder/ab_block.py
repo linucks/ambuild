@@ -25,10 +25,9 @@ import random as _random
 import numpy
 
 # local imports
-import fragment
+from ab_fragment import Fragment
 import xyz_core
 import xyz_util
-import util
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +49,12 @@ class Block(object):
         # Need to change so cannot create block withough fragmentType
         if filePath:
             assert os.path.isfile(filePath) and fragmentType
-            initFragment = fragment.Fragment(filePath, fragmentType)
+            initFragment = Fragment(filePath, fragmentType)
 
         # List of the fragments contained in this one
         self.fragments = []
-        if initFragment: self.fragments.append(initFragment )
+        if initFragment:
+            self.fragments.append(initFragment)
 
         # List of bond objects between blocks
         self._blockBonds = []

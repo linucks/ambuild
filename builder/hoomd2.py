@@ -11,7 +11,7 @@ import hoomd.md
 import numpy
 
 # Our imports
-from ffield import FfieldParameters
+from ab_ffield import FfieldParameters
 import util
 
 logger = logging.getLogger(__name__)
