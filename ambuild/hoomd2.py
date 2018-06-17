@@ -32,7 +32,6 @@ class Hoomd2(object):
     - calc centre for the body -> need coords and atomTypes for each body in a fragment
 
     """
-
     def __init__(self, paramsDir):
         self.ffield = FfieldParameters(paramsDir)
         self.debug = False
@@ -41,10 +40,8 @@ class Hoomd2(object):
         self.exclusions = []  # particle tags to be ignored in pair-pair interactions
 
     def checkParameters(self, skipDihedrals=False):
-
         assert self.ffield
         assert self.particle_types
-
         ok = True
         missingBonds = []
         for bond in self.bond_types:
@@ -67,14 +64,13 @@ class Hoomd2(object):
 #                 if not self.ffield.hasImproper(improper):
 #                     ok = False
 #                     missingImpropers.append(improper)
-
         missingPairs = []
         for atype, btype in itertools.combinations_with_replacement(self.particle_types, 2):
-            if atype in self.exclusions or btype in self.exclusions: continue
+            if atype in self.exclusions or btype in self.exclusions:
+                continue
             if not self.ffield.hasPair(atype, btype):
                 ok = False
                 missingPairs.append((atype, btype))
-
         if not ok:
             msg = "The following parameters could not be found:\n"
             if missingBonds:
@@ -87,7 +83,6 @@ class Hoomd2(object):
                 msg += "Impropers: {0}\n".format(missingImpropers)
             if missingPairs:
                 msg += "Pairs: {0}\n".format(missingPairs)
-
             msg += "Please add these to the files in the directory: {0}\n".format(self.ffield.paramsDir)
             raise RuntimeError(msg)
         return
@@ -97,10 +92,8 @@ class Hoomd2(object):
 
         Rigid body will require creating the central particles so we'll do this later
         """
-
         # Reset exclusions here for time being
         self.exclusions = []
-
         # Create snapshot
         # snap attributes: angles, bonds, box, constraints, dihedrals, impropers, pairs, particles
         if rigidBody:
@@ -210,12 +203,13 @@ class Hoomd2(object):
                           walls=None,
                           wallAtomType=None,
                           **kw):
-        if rCut is not None: self.rCut = rCut
-        if doDihedral and doImproper: raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
+        if rCut is not None:
+            self.rCut = rCut
+        if doDihedral and doImproper:
+            raise RuntimeError("Cannot have impropers and dihedrals at the same time")
         self.setupContext(quiet=quiet)
         snapshot = self.createSnapshot(data, rigidBody=rigidBody, doCharges=doCharges, doDihedral=doDihedral)
         self.setupSimulation(snapshot, data, rCut, rigidBody=rigidBody, walls=walls, wallAtomType=wallAtomType)
-
         hlog = self._createLog('geomopt.tsv')
         optimised = self._optimiseGeometry(rigidBody=rigidBody, **kw)
         # Extract the energy
@@ -290,10 +284,6 @@ class Hoomd2(object):
                 else:
                     # If we're not going to try again we re-raise the last exception that we caught
                     raise
-            # if float( self.hlog.query( 'potential_energy' ) ) < 1E-2:
-            #    print "!!!!!!!!!!!HACK CONVERGENCE CRITERIA!!!!!!"
-            #    optimised=True
-            #    break
         # Delete variables before we return to stop memory leaks
         # del fire
         if dump and False:
@@ -312,8 +302,10 @@ class Hoomd2(object):
               walls=None,
               wallAtomType=None,
               **kw):
-        if rCut is not None: self.rCut = rCut
-        if doDihedral and doImproper: raise RuntimeError, "Cannot have impropers and dihedrals at the same time"
+        if rCut is not None:
+            self.rCut = rCut
+        if doDihedral and doImproper:
+            raise RuntimeError("Cannot have impropers and dihedrals at the same time")
         self.setupContext(quiet=quiet)
         snapshot = self.createSnapshot(data, rigidBody=rigidBody, doCharges=doCharges, doDihedral=doDihedral)
         self.setupSimulation(snapshot, data, rCut, rigidBody=rigidBody, walls=walls, wallAtomType=wallAtomType)
@@ -337,7 +329,6 @@ class Hoomd2(object):
                dump=False,
                dumpPeriod=100,
                **kw):
-
         # Added **kw arguments so that we don't get confused by arguments intended for the optimise
         # when MD and optimiser run together
         integrator_mode = hoomd.md.integrate.mode_standard(dt=dt)
@@ -353,10 +344,8 @@ class Hoomd2(object):
                                   period=dumpPeriod,
                                   group=self.groupAll,
                                   overwrite=True)
-
         # run mdCycles time steps
         hoomd.run(mdCycles)
-
         integ.disable()
         if dump:
             dgsd.disable()
@@ -370,7 +359,10 @@ class Hoomd2(object):
         bond_harmonic = hoomd.md.bond.harmonic(name="bond_harmonic")
         for bond in self.bond_types:
             param = self.ffield.bondParameter(bond)
-            if self.debug: logger.info("DEBUG: bond_harmonic.bond_coeff.set( '{0}',  k={1}, r0={2} )".format(bond, param['k'], param['r0']))
+            if self.debug:
+                logger.info("DEBUG: bond_harmonic.bond_coeff.set( '{0}',  k={1}, r0={2} )".format(bond,
+                                                                                                  param['k'],
+                                                                                                  param['r0']))
             bond_harmonic.bond_coeff.set(bond, k=param['k'], r0=param['r0'])
         return
 
@@ -379,7 +371,10 @@ class Hoomd2(object):
         angle_harmonic = hoomd.md.angle.harmonic()
         for angle in self.angle_types:
             param = self.ffield.angleParameter(angle)
-            if self.debug: logger.info("DEBUG: angle_harmonic.angle_coeff.set( '{0}',  k={1}, t0={2} )".format(angle, param['k'], param['t0']))
+            if self.debug:
+                logger.info("DEBUG: angle_harmonic.angle_coeff.set( '{0}',  k={1}, t0={2} )".format(angle,
+                                                                                                    param['k'],
+                                                                                                    param['t0']))
             angle_harmonic.angle_coeff.set(angle, k=param['k'], t0=param['t0'])
         return
 
@@ -388,7 +383,10 @@ class Hoomd2(object):
         dihedral_harmonic = hoomd.md.dihedral.harmonic()
         for dihedral in self.dihedral_types:
             param = self.ffield.dihedralParameter(dihedral)
-            if self.debug:logger.info("DEBUG: dihedral_harmonic.dihedral_coeff.set('{0}',  k={1}, d={2}, n={3})".format(dihedral, param['k'], param['d'], param['n']))
+            if self.debug:
+                logger.info("DEBUG: dihedral_harmonic.dihedral_coeff.set('{0}',  k={1}, d={2}, n={3})".format(dihedral,
+                                                                                                              param['k'],
+                                                                                                              param['d'], param['n']))
             dihedral_harmonic.dihedral_coeff.set(dihedral, k=param['k'], d=param['d'], n=param['n'])
         return
 
@@ -410,12 +408,14 @@ class Hoomd2(object):
                 epsilon = param['epsilon']
                 sigma = param['sigma']
             lj.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
-            if self.debug: logger.info("DEBUG: lj.pair_coeff.set( '{0}', '{1}', epsilon={2}, sigma={3} )".format(atype, btype, epsilon, sigma))
-
+            if self.debug:
+                logger.info("DEBUG: lj.pair_coeff.set('{0}', '{1}', epsilon={2}, sigma={3} )".format(atype,
+                                                                                                     btype,
+                                                                                                     epsilon,
+                                                                                                     sigma))
         # Don't think we need to include body any more for rigid bodies, as these are already excluded by default?
         # nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
         # nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
-
         nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body'])
         return
 
@@ -449,26 +449,14 @@ class Hoomd2(object):
         return
 
     def setupSimulation(self, snapshot, data, rCut=None, rigidBody=False, walls=None, wallAtomType=None):
-
-        # Init the sytem from the snapshot
         self.system = hoomd.init.read_snapshot(snapshot)
-
-        # Create any rigid bodies and get list of central particle types to exclude
         self.setupRigidBody(rigidBody, data)
-
-        # Check we have all the parameters for this snapshot
         self.checkParameters()
-
-        # Set the parameters
         self.setBonds()
         self.setAngles()
         self.setDihedrals()
         self.setPairs(rCut, rigidBody)
-
-        # Specify the groups
         self.setupGroups(data, rigidBody)
-
-        # Add any walls
         self.setupWalls(walls, wallAtomType, rCut)
         return
 
@@ -491,9 +479,11 @@ class Hoomd2(object):
         The origin of the wall is the centre of plane but then back half a cell along the axis
         that isn't part of the wall.
         """
-        if walls is None: return
+        if walls is None:
+            return
         assert len(walls) is 3  # array of three booleans - one per wall
-        if not any(walls): return
+        if not any(walls):
+            return
         assert wallAtomType is not None, "Need to set a wallAtomType!"
         wtypes = ['XOY', 'XOZ', 'YOZ']  # Order of walls
         wallstructure = None
@@ -537,7 +527,6 @@ class Hoomd2(object):
         """Reset the particle positions from hoomdblue system"""
         box = numpy.array([self.system.box.Lx, self.system.box.Ly, self.system.box.Lz])
         snapshot = self.system.take_snapshot()
-
         # If we are running under rigid bodies we need to exclude the center particles,
         # which will be at the start of the particle list
         nrigid_centers = len(hoomd.group.rigid_center())
@@ -551,16 +540,14 @@ class Hoomd2(object):
                                           centered=True)
                 block.coord(k, coord)
                 atomCount += 1
-
         if atomCount != snapshot.particles.N:
-            raise RuntimeError, "Read {0} positions but there were {1} particles!".format(atomCount, len(self.system.particles))
+            raise RuntimeError("Read {0} positions but there were {1} particles!".format(atomCount, len(self.system.particles)))
 
         # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update
         # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks
         if not numpy.allclose(box, cell.dim):
             logger.info("Changing cell dimensions after HOOMD-blue simulation from: {0} to: {1}".format(cell.dim, box))
             cell.dim = box
-
         # Now have the new coordinates, so we need to put the atoms in their new cells
         cell.repopulateCells()
         return
@@ -590,14 +577,12 @@ def snap2xyz(snapshot, fpath='foo.xyz'):
     print("JMHT WROTE SNAPSHOT: %s" % fpath)
     return
 
-
 if __name__ == "__main__":
     from ab_paths import PARAMS_DIR
     import ab_util
     mycell = ab_util.cellFromPickle(sys.argv[1])
     rigidBody = True
     data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)
-
     hmd = Hoomd2(PARAMS_DIR)
     if False:
         ok = hmd.optimiseGeometry(data,
