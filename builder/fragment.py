@@ -15,6 +15,8 @@ import numpy
 # our imports
 from paths import BLOCKS_DIR
 import util
+import xyz_core
+import xyz_util
 
 ENDGROUPBONDED = '*'
 logger = logging.getLogger()
@@ -26,7 +28,7 @@ class Body(object):
         self.bodyIndex = bodyIndex
         self.indexes = self._setup_indexes()
         self.natoms = numpy.sum(self.indexes)
-        self._centreOfMass = util.centreOfMass(self.coords(), self.masses())
+        self._centreOfMass = xyz_core.centreOfMass(self.coords(), self.masses())
         return
 
     def _setup_indexes(self):
@@ -41,7 +43,7 @@ class Body(object):
         
     def centreOfMass(self, dim=None, center=False):
         if dim is not None:
-            com, com_image = util.wrapCoord3(self._centreOfMass, dim, center=center)
+            com, com_image = xyz_core.wrapCoord3(self._centreOfMass, dim, center=center)
             return com, com_image
         else:
             return self._centreOfMass
@@ -54,7 +56,7 @@ class Body(object):
         if bodyFrame:
             coords = coords - self._centreOfMass
         if dim is not None:
-            coords, images = util.wrapCoord3(coords, dim, center=center)
+            coords, images = xyz_core.wrapCoord3(coords, dim, center=center)
             return coords, images
         else:
             return coords
@@ -78,13 +80,13 @@ class Body(object):
         return numpy.compress(self.indexes, self.fragment._masses, axis=0)
     
     def momentOfInertia(self, bodyFrame=False):
-        return util.momentOfInertia(self.coords(bodyFrame=bodyFrame), self.masses())
+        return xyz_core.momentOfInertia(self.coords(bodyFrame=bodyFrame), self.masses())
     
     def orientation(self):
         raise NotImplementedError()
 
     def principalMoments(self, bodyFrame=False):
-        return util.principalMoments(self.coords(bodyFrame=bodyFrame), self.masses())
+        return xyz_core.principalMoments(self.coords(bodyFrame=bodyFrame), self.masses())
     
     def rigidType(self):
         """return the type of this body based on the endGroup configuration"""
@@ -454,7 +456,7 @@ class Fragment(object):
         self._centroid = numpy.sum(self._coords, axis=0) / numpy.size(self._coords, axis=0)
         self._totalMass = numpy.sum(self._masses)
         # Centre of mass is sum of the products of the individual coordinates multiplied by the mass, divded by the total mass
-        self._centerOfMass = util.centreOfMass(self._coords, self._masses)
+        self._centerOfMass = xyz_core.centreOfMass(self._coords, self._masses)
         return
 
     def _calcRadius(self):
@@ -470,7 +472,7 @@ class Fragment(object):
         Should move to use scipy as detailed here:
         http://stackoverflow.com/questions/6430091/efficient-distance-calculation-between-n-points-and-a-reference-in-numpy-scipy
         """
-        distances = [util.distance(self._centroid, coord) for coord in self._coords]
+        distances = [xyz_core.distance(self._centroid, coord) for coord in self._coords]
         imax = numpy.argmax(distances)
         dist = distances[ imax ]
         # Add on the radius of the largest atom
@@ -549,9 +551,9 @@ class Fragment(object):
 
         self.masked = numpy.array([ False ] * len(self._coords))
         self.unBonded = [ False ] * len(self._coords)
-        self._masses = numpy.array([ util.ATOMIC_MASS[ symbol ] for symbol in self._symbols ])
+        self._masses = numpy.array([ xyz_core.ATOMIC_MASS[ symbol ] for symbol in self._symbols ])
         self._totalMass = numpy.sum(self._masses)
-        self._radii = numpy.array([ util.COVALENT_RADII[util.SYMBOL_TO_NUMBER[s.upper()]] * util.BOHR2ANGSTROM \
+        self._radii = numpy.array([ xyz_core.COVALENT_RADII[xyz_core.SYMBOL_TO_NUMBER[s.upper()]] * xyz_core.BOHR2ANGSTROM \
                                    for s in self._symbols])
         self._maxAtomRadius = numpy.max(self._radii)
         return
@@ -650,7 +652,7 @@ class Fragment(object):
                 label = fields[0]
                 labels.append(label)
                 coords.append(numpy.array(fields[1:4], dtype=numpy.float64))
-                symbol = util.label2symbol(label)
+                symbol = xyz_util.label2symbol(label)
                 symbols.append(symbol)
                 atomTypes.append(symbols)
                 charges.append(0.0)
@@ -837,11 +839,11 @@ class Fragment(object):
 
         # Specify internal bonds - bond margin probably too big...
         logger.debug("Calculating bonds for fragmentType: {0}".format(self.fragmentType))
-        self._bonds = util.calcBonds(self._coords,
-                                     atomTypes,
-                                     dim=dim,
-                                     maxAtomRadius=self.maxAtomRadius(),
-                                     bondMargin=0.25)
+        self._bonds = xyz_util.calcBonds(self._coords,
+                                         atomTypes,
+                                         dim=dim,
+                                         maxAtomRadius=self.maxAtomRadius(),
+                                         bondMargin=0.25)
 
         # Create list of which atoms are bonded to each atom
         self._calcBonded()
@@ -867,7 +869,7 @@ class Fragment(object):
             eg.fragmentDihedralIdx = dihedralAtoms[ i ]
             eg.fragmentUwIdx = uwAtoms[ i ]
 
-            eg.capBondLength =  util.distance(self._coords[eg.fragmentCapIdx], self._coords[eg.fragmentEndGroupIdx ])
+            eg.capBondLength =  xyz_core.distance(self._coords[eg.fragmentCapIdx], self._coords[eg.fragmentEndGroupIdx ])
 
             if eg.type() not in self._maxBonds:
                 self._maxBonds[ eg.type() ] = None

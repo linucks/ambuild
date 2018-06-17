@@ -13,6 +13,7 @@ import os
 import random as _random
 import sys
 import time
+import warnings
 
 # External modules
 import numpy
@@ -24,7 +25,8 @@ import buildingBlock
 import fragment
 from paths import PARAMS_DIR
 import util
-import warnings
+import xyz_core
+import xyz_util
 
 BONDTYPESEP = "-"  # Character for separating bonds
 ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
@@ -277,7 +279,7 @@ class Cell():
         else:
             paramsDir = PARAMS_DIR
         # Use the parameters to set the bond lengts in the util module
-        util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
+        xyz_util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
 
         self.version = VERSION # Save as attribute so we can query pickle files
         logger.info("AMBUILD version: {0}".format(VERSION))
@@ -408,7 +410,7 @@ class Cell():
         """Return the angle in radians c1---c2---c3
         where c are the coordinates in a numpy array
         """
-        return util.angle(c1, c2, c3, dim=self.dim, pbc=self.pbc)
+        return xyz_core.angle(c1, c2, c3, dim=self.dim, pbc=self.pbc)
 
     def attachBlock(self, growEndGroup, staticEndGroup, dihedral=None):
         """
@@ -824,7 +826,7 @@ class Cell():
                 ):
         # The check should have been made before this is called on whether the two atoms are endGroup
         # Check length
-        bond_length = util.bondLength(addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom))
+        bond_length = xyz_util.bondLength(addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom))
         if bond_length < 0:
             raise RuntimeError("Missing bond distance for: {0}-{1}".format(addBlock.symbol(idxAddAtom),
                                                                             staticBlock.symbol(idxStaticAtom)))
@@ -1500,7 +1502,7 @@ class Cell():
         return d * (10 / 6.022)
 
     def dihedral(self, p1, p2, p3, p4):
-        return util.dihedral(p1, p2, p3, p4, dim=self.dim, pbc=self.pbc)
+        return xyz_core.dihedral(p1, p2, p3, p4, dim=self.dim, pbc=self.pbc)
 
     def distance(self, v1, v2):
         """Distance with numpy taking PBC into account
@@ -1508,7 +1510,7 @@ class Cell():
         Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
         Changed so that it can cope with distances across more than one cell
         """
-        return util.distance(v1, v2, dim=self.dim, pbc=self.pbc)
+        return xyz_core.distance(v1, v2, dim=self.dim, pbc=self.pbc)
 
     def dump(self, prefix="step", addCount=True):
         """Write out our current state"""
@@ -1609,7 +1611,7 @@ class Cell():
 
     def _getBox(self, coord):
         """Return the box that the coord is in under periodic boundaries"""
-        return util.getCell(coord, self.boxSize, dim=self.dim, pbc=self.pbc)
+        return xyz_util.getCell(coord, self.boxSize, dim=self.dim, pbc=self.pbc)
 
     def getLibraryBlock(self, fragmentType=None, random=True):
         """Return an initBlock"""
@@ -1779,7 +1781,7 @@ class Cell():
         return
 
     def haloCells(self, key):
-        return util.haloCells(key, self.numBoxes, pbc=self.pbc)
+        return xyz_util.haloCells(key, self.numBoxes, pbc=self.pbc)
 
     def _intersectedCells(self, p1, p2, endPointCells=True):
         """Return a list of the cells intersected by the vector passing from p1 to p2.
@@ -2633,10 +2635,10 @@ class Cell():
 
         self.wallAtomType = wallAtomType
         symbol = wallAtomType.upper()
-        if symbol not in util.SYMBOL_TO_NUMBER:
-            raise RuntimeError("Data for atomType {0} not available. Supported atomTypes are: {1}".format(wallAtomType,sorted(util.SYMBOL_TO_NUMBER.keys())))
-        z = util.SYMBOL_TO_NUMBER[ symbol ]
-        r = util.COVALENT_RADII[z] * util.BOHR2ANGSTROM
+        if symbol not in xyz_core.SYMBOL_TO_NUMBER:
+            raise RuntimeError("Data for atomType {0} not available. Supported atomTypes are: {1}".format(wallAtomType,sorted(xyz_core.SYMBOL_TO_NUMBER.keys())))
+        z = xyz_core.SYMBOL_TO_NUMBER[ symbol ]
+        r = xyz_core.COVALENT_RADII[z] * xyz_core.BOHR2ANGSTROM
         self.wallRadius = r
         return
     
@@ -2766,7 +2768,7 @@ class Cell():
         return
 
     def vecDiff(self, p1, p2):
-        return util.vecDiff(p1, p2, dim=self.dim, pbc=self.pbc)
+        return xyz_core.vecDiff(p1, p2, dim=self.dim, pbc=self.pbc)
 
     def writePickle(self, fileName="cell.pkl"):
         """Pickle ourselves"""
@@ -2816,7 +2818,7 @@ class Cell():
 #             for j, coord in enumerate( block.iterCoord() ):
         for i, coord in enumerate(data['coord']):
                 if periodic:
-                    coord, _ = util.wrapCoord3(coord, numpy.array([data['A'], data['B'], data['C']]), center=False)
+                    coord, _ = xyz_core.wrapCoord3(coord, numpy.array([data['A'], data['B'], data['C']]), center=False)
                 atype = data['type'][ i ]
                 charge = data['charge'][ i ]
                 label = data['label'][ i ][:5]
@@ -2842,14 +2844,14 @@ class Cell():
         if periodic:
             cell = self.dim
 
-        cmlFilename = util.writeCml(cmlFilename,
-                                    d.coords,
-                                    d.symbols,
-                                    bonds=d.bonds,
-                                    atomTypes=d.atomTypes,
-                                    cell=cell,
-                                    pruneBonds=pruneBonds,
-                                    prettyPrint=prettyPrint)
+        cmlFilename = xyz_util.writeCml(cmlFilename,
+                                        d.coords,
+                                        d.symbols,
+                                        bonds=d.bonds,
+                                        atomTypes=d.atomTypes,
+                                        cell=cell,
+                                        pruneBonds=pruneBonds,
+                                        prettyPrint=prettyPrint)
 
         logger.info("Wrote cml file: {0}".format(cmlFilename))
         return
@@ -2863,14 +2865,14 @@ class Cell():
 
         if periodic:
             if atomTypes:
-                fpath = util.writeXyz(ofile, d.coords, d.atomTypes, cell=self.dim)
+                fpath = xyz_util.writeXyz(ofile, d.coords, d.atomTypes, cell=self.dim)
             else:
-                fpath = util.writeXyz(ofile, d.coords, d.symbols, cell=self.dim)
+                fpath = xyz_util.writeXyz(ofile, d.coords, d.symbols, cell=self.dim)
         else:
             if atomTypes:
-                fpath = util.writeXyz(ofile, d.coords,d.atomTypes)
+                fpath = xyz_util.writeXyz(ofile, d.coords,d.atomTypes)
             else:
-                fpath = util.writeXyz(ofile, d.coords, d.symbols)
+                fpath = xyz_util.writeXyz(ofile, d.coords, d.symbols)
 
         logger.info("Wrote cell file: {0}".format(fpath))
         return
@@ -2952,7 +2954,7 @@ class Cell():
                 # Add the cell to the list and then add the atom
                 cell1[ key ] = [ (block, idxEndGroup) ]
                 # Map the cells surrounding this one
-                cell3[ key ] = util.haloCells(key, numBoxes, pbc=self.pbc)
+                cell3[ key ] = xyz_util.haloCells(key, numBoxes, pbc=self.pbc)
 
         # Loop through all the end groups and run canBond
         egPairs = []

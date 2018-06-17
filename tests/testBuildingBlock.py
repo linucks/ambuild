@@ -5,11 +5,15 @@ import unittest
 
 import numpy
 
-from ab_bond import Bond
-from buildingBlock import Block
-import fragment
-import util
-from paths import AMBUILD_DIR, BLOCKS_DIR, PARAMS_DIR
+import context
+AMBUILD_DIR = context.paths.AMBUILD_DIR
+BLOCKS_DIR = context.paths.BLOCKS_DIR
+PARAMS_DIR = context.paths.PARAMS_DIR
+Bond = context.ab_bond.Bond
+Block = context.buildingBlock.Block
+from context import fragment
+from context import xyz_util
+
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +31,7 @@ class Test(unittest.TestCase):
         self.benzene2Car = os.path.join(BLOCKS_DIR, "benzene2.car")
         self.ch4Ca2Car = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
         
-        util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
+        xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
         fragment.configManager.reset()
         return
 
@@ -748,16 +752,16 @@ class Test(unittest.TestCase):
 
         coords, symbols, bonds = b1.dataByFragment('A')
         cmlFilename = "test.cml"
-        util.writeCml(cmlFilename,
-                      coords,
-                      symbols,
-                      bonds=bonds,
-                      prettyPrint=True)
+        xyz_util.writeCml(cmlFilename,
+                          coords,
+                          symbols,
+                          bonds=bonds,
+                          prettyPrint=True)
 
         with open(cmlFilename) as f:
             test = f.readlines()
 
-        with open(os.path.join(AMBUILD_DIR, "tests", "testSplitFragment.cml")) as f:
+        with open(os.path.join(AMBUILD_DIR, 'tests', 'test_data', 'testSplitFragment.cml')) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare")
@@ -782,7 +786,7 @@ class Test(unittest.TestCase):
         with open(fname) as f:
             test = f.readlines()
 
-        with open(os.path.join(AMBUILD_DIR, "tests", "benzeneBond.cml")) as f:
+        with open(os.path.join(AMBUILD_DIR, "tests", 'test_data', "benzeneBond.cml")) as f:
             ref = f.readlines()
         self.assertEqual(test, ref, "cml compare")
         os.unlink(fname)

@@ -6,13 +6,22 @@ import unittest
 
 import numpy
 
-from ab_bond import Bond
-import dlpoly
-from cell import Cell
-import buildingBlock
-from paths import AMBUILD_DIR, BLOCKS_DIR, PARAMS_DIR
-import ambuild_subunit
-import util
+import context
+AMBUILD_DIR = context.paths.AMBUILD_DIR
+BLOCKS_DIR = context.paths.BLOCKS_DIR
+PARAMS_DIR = context.paths.PARAMS_DIR
+Bond = context.ab_bond.Bond
+Block = context.buildingBlock.Block
+Cell = context.cell.Cell
+from context import ambuild_subunit
+from context import buildingBlock
+from context import dlpoly
+from context import fragment
+from context import util
+from context import xyz_core
+from context import xyz_util
+
+
 if util.PYTHONFLAVOUR < 3:
     import cPickle as pickle
 else:
@@ -62,13 +71,13 @@ class Test(unittest.TestCase):
                 coords.append(c)
                 symbols.append(b.symbol(i))
         dim = numpy.array([mycell.dim[0], mycell.dim[1], mycell.dim[2]])
-        close = util.closeAtoms(coords, symbols, dim=dim, boxMargin=1.0)
+        close = xyz_util.closeAtoms(coords, symbols, dim=dim, boxMargin=1.0)
         v1 = []
         v2 = []
         for idxAtom1, idxAtom2 in close:
             v1.append(coords[idxAtom1])
             v2.append(coords[idxAtom2])
-        distances = util.distance(numpy.array(v1), numpy.array(v2), dim=dim, pbc=pbc)
+        distances = xyz_core.distance(numpy.array(v1), numpy.array(v2), dim=dim, pbc=pbc)
         return any(map(lambda x: x < minDist, distances))
 
     def testCX4(self):
@@ -82,34 +91,6 @@ class Test(unittest.TestCase):
         mycell.growBlocks(1)
 
         return
-
-#     def XXXtimeCheck(self):
-#         """NOT A TEST JUST CODE TO TIME CHECKMOVE"""
-#
-#         def cellFromPickle(pickleFile):
-#             with open(pickleFile) as f:
-#                 myCell=cPickle.load(f)
-#             return myCell
-#
-#         mycell = cellFromPickle("step_1.pkl")
-#         # Get the last block
-#         idxb = mycell.blocks.keys()[-1]
-#         b = mycell.blocks[ idxb ]
-#         be = b.freeEndGroups()[0]
-#
-#         i =  mycell.getLibraryBlock()
-#         ie = i.freeEndGroups()[0]
-#
-#         def run():
-#             global b, be, i, ie
-#             for _ in xrange( 1000):
-#                 b.positionGrowBlock( be, ie, dihedral=None )
-#                 blockId = mycell.addBlock( i )
-#                 mycell.checkMove( blockId )
-#                 mycell.delBlock(blockId)
-#
-#         cProfile.run('run()','restats')
-#         return
 
     def testAmbody(self):
 
@@ -631,7 +612,7 @@ class Test(unittest.TestCase):
         p2 = numpy.array([ 10.0, 0.0, 0.0 ])
         p3 = numpy.array([ 10.0, 10.0, 0.0 ])
         p4 = numpy.array([ 20.0, 10.0, 10.0 ])
-        ref = util.dihedral(p1, p2, p3, p4)
+        ref = xyz_core.dihedral(p1, p2, p3, p4)
         self.assertEqual(ref, mycell.dihedral(p1, p2, p3, p4))
 
         # Move by a full cell along x-axis - result should be the same
@@ -911,7 +892,7 @@ class Test(unittest.TestCase):
         p3 = block1.coord(bond1.endGroup2.endGroupIdx())
         p4 = block1.coord(bond1.endGroup2.dihedralIdx())
 
-        self.assertAlmostEqual(math.degrees(util.dihedral(p1, p2, p3, p4)), dihedral)
+        self.assertAlmostEqual(math.degrees(xyz_core.dihedral(p1, p2, p3, p4)), dihedral)
         self.assertFalse(self.clashes(mycell))
 
         return
@@ -1234,25 +1215,25 @@ class Test(unittest.TestCase):
         wcoords = []
         images = []
         for i, c in enumerate(coords):
-            cw, ic = util.wrapCoord3(c, mycell.dim, center=False)
+            cw, ic = xyz_core.wrapCoord3(c, mycell.dim, center=False)
             wcoords.append(cw)
             images.append(ic)
 
         # Now umwrap them
         for i, c in enumerate(wcoords):
-            c = util.unWrapCoord3(c, images[i], mycell.dim, centered=False)
+            c = xyz_core.unWrapCoord3(c, images[i], mycell.dim, centered=False)
             self.assertTrue(numpy.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
 
         # Now wrap them with centering
         wcoords = []
         images = []
         for c in coords:
-            c, i = util.wrapCoord3(c, mycell.dim, center=True)
+            c, i = xyz_core.wrapCoord3(c, mycell.dim, center=True)
             wcoords.append(c)
             images.append(i)
         # Now umwrap them
         for i, c in enumerate(wcoords):
-            c = util.unWrapCoord3(c, images[i], mycell.dim, centered=True)
+            c = xyz_core.unWrapCoord3(c, images[i], mycell.dim, centered=True)
             self.assertTrue(numpy.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
 
         # Now test with HOOMD-Blue
@@ -1274,7 +1255,7 @@ class Test(unittest.TestCase):
         for i, p in enumerate(system.particles):
             #x, y, z = p.position
             #ix, iy, iz = p.image
-            c = util.unWrapCoord3(p.position, p.image, mycell.dim, centered=True)
+            c = xyz_core.unWrapCoord3(p.position, p.image, mycell.dim, centered=True)
             self.assertTrue(numpy.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
         os.unlink(filename)
         return
@@ -1412,7 +1393,7 @@ class Test(unittest.TestCase):
         pass
 
     def testSubunit(self):
-        util.setModuleBondLength(os.path.join(PARAMS_DIR,'bond_params.csv'))
+        xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR,'bond_params.csv'))
         b1 = buildingBlock.Block(filePath=self.ch4Car, fragmentType='A')
         fragment = b1.fragments[0]
         
@@ -1834,16 +1815,12 @@ class Test(unittest.TestCase):
         """
         write out cml
         """
-
         boxDim = [100, 100, 100]
         mycell = Cell(boxDim)
-
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
         mycell.addBondType('B:a-B:a')
-
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='C')
         mycell.addBondType('C:a-C:a')
 
@@ -1856,15 +1833,10 @@ class Test(unittest.TestCase):
         # b1 in center of cell
         b1.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
         mycell.addBlock(b1)
-
         for b in [b2, b3, b4]:
-            endGroup1 = b1.freeEndGroups()[ 0 ]
-            endGroup2 = b.freeEndGroups()[ 0 ]
- 
-            # Add b2
+            endGroup1 = b1.freeEndGroups()[0]
+            endGroup2 = b.freeEndGroups()[0]
             b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
- 
-            # bond them
             bond = Bond(endGroup1, endGroup2)
             bond.engage()
 
@@ -1875,7 +1847,6 @@ class Test(unittest.TestCase):
         b4 = b1.copy()
         b1.translateCentroid([ 10, 10, 10])
         mycell.addBlock(b1)
-
         for b in [ b2, b3, b4]:
             endGroup1 = b1.freeEndGroups()[ 0 ]
             endGroup2 = b.freeEndGroups()[ 0 ]
@@ -1890,7 +1861,6 @@ class Test(unittest.TestCase):
         b4 = b1.copy()
         b1.translateCentroid([ 90, 90, 90])
         mycell.addBlock(b1)
-
         for b in [ b2, b3, b4]:
             endGroup1 = b1.freeEndGroups()[ 0 ]
             endGroup2 = b.freeEndGroups()[ 0 ]
@@ -1902,7 +1872,7 @@ class Test(unittest.TestCase):
         mycell.writeCml(fname, periodic=False, rigidBody=True, prettyPrint=True)
         with open(fname) as f:
             test = f.readlines()
-        with open(os.path.join(AMBUILD_DIR, "tests", "testCellRigid.cml")) as f:
+        with open(os.path.join(AMBUILD_DIR, "tests", "test_data", "testCellRigid.cml")) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare rigid")
@@ -1913,7 +1883,7 @@ class Test(unittest.TestCase):
         # Test is same as reference
         with open(fname) as f:
             test = f.readlines()
-        with open(os.path.join(AMBUILD_DIR, "tests", "testCellAll.cml")) as f:
+        with open(os.path.join(AMBUILD_DIR, "tests", "test_data", "testCellAll.cml")) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare all")
@@ -1924,7 +1894,7 @@ class Test(unittest.TestCase):
         # Test is same as reference
         with open(fname) as f:
             test = f.readlines()
-        with open(os.path.join(AMBUILD_DIR, "tests", "testCellAllPeriodic.cml")) as f:
+        with open(os.path.join(AMBUILD_DIR, "tests", "test_data", "testCellAllPeriodic.cml")) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare all periodic    ")

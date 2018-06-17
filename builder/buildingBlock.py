@@ -26,6 +26,8 @@ import numpy
 
 # local imports
 import fragment
+import xyz_core
+import xyz_util
 import util
 
 logger = logging.getLogger(__name__)
@@ -133,7 +135,7 @@ class Block(object):
             self.translate(pos1)  # NEW - put it back
         else:
             # Find angle
-            angle = util.vectorAngle(refVector, pos2)
+            angle = xyz_core.vectorAngle(refVector, pos2)
             # Normalised cross to rotate about
             ncross = cross / numpy.linalg.norm(cross)
             # Rotate
@@ -310,7 +312,7 @@ class Block(object):
         self._maxAtomRadius = 0.0
         for f in self.fragments:
             for coord in f.iterCoord():
-                distances.append(util.distance(self._centroid, coord))
+                distances.append(xyz_core.distance(self._centroid, coord))
                 self._maxAtomRadius = max(f.maxAtomRadius(), self._maxAtomRadius)
 
         assert distances
@@ -658,7 +660,7 @@ class Block(object):
         targetCapAtom = self.coord(endGroup.blockCapIdx)
 
         # Get the bond length between these two atoms
-        bondLength = util.bondLength(targetSymbol, symbol)
+        bondLength = xyz_util.bondLength(targetSymbol, symbol)
 
         # Find unit vector pointing from targetAngleAtom to targetEndGroup
 
@@ -717,7 +719,7 @@ class Block(object):
             assert endGroup.blockDihedralIdx != -1 and growEndGroup.blockDihedralIdx != -1, \
             "Need to have specified dihedrals as 3rd column in ambi file first!"
             # Get current angle
-            current = util.dihedral(self.coord(endGroup.blockDihedralIdx),
+            current = xyz_core.dihedral(self.coord(endGroup.blockDihedralIdx),
                                      self.coord(endGroup.blockEndGroupIdx),
                                      growBlock.coord(growEndGroup.blockEndGroupIdx),
                                      growBlock.coord(growEndGroup.blockDihedralIdx))
@@ -758,7 +760,7 @@ class Block(object):
 
     def rotate(self, axis, angle, center=None):
         if center is None: center = numpy.array([ 0, 0, 0 ])
-        rotationMatrix = util.rotation_matrix(axis, angle)
+        rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         for f in self.fragments:
             f.rotate(rotationMatrix, center)
         return
@@ -768,7 +770,7 @@ class Block(object):
         position = self.centroid()
         origin = numpy.array([ 0, 0, 0 ])
         self.translateCentroid(origin)
-        rotationMatrix = util.rotation_matrix(axis, angle)
+        rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         for f in self.fragments:
             f.rotate(rotationMatrix, origin)
         self.translateCentroid(position)
@@ -937,14 +939,14 @@ class Block(object):
             symbols.append(self.symbol(i))
             atomTypes.append(self.type(i))
 
-        cmlFilename = util.writeCml(cmlFilename,
-                                    coords,
-                                    symbols,
-                                    bonds=self.bonds(),
-                                    atomTypes=atomTypes,
-                                    cell=cell,
-                                    pruneBonds=False,
-                                    prettyPrint=True)
+        cmlFilename = xyz_util.writeCml(cmlFilename,
+                                        coords,
+                                        symbols,
+                                        bonds=self.bonds(),
+                                        atomTypes=atomTypes,
+                                        cell=cell,
+                                        pruneBonds=False,
+                                        prettyPrint=True)
 
         logger.info("wrote block CML file: {0}".format(cmlFilename))
         return
@@ -955,7 +957,7 @@ class Block(object):
         for i, c in enumerate(self.iterCoord()):
             coords.append(c)
             symbols.append(self.symbol(i))
-        fpath = util.writeXyz(name, coords, symbols, cell=cell)
+        fpath = xyz_util.writeXyz(name, coords, symbols, cell=cell)
         logger.info("Wrote block xyz file: {0}".format(fpath))
         return
 

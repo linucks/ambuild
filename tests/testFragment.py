@@ -3,20 +3,25 @@ Created on 4 Mar 2018
 
 @author: jmht
 '''
-import math
 import os
 import unittest
 
-from paths import BLOCKS_DIR, PARAMS_DIR
-import fragment
-import numpy as np
-import util
+import context
+BLOCKS_DIR = context.paths.BLOCKS_DIR
+PARAMS_DIR = context.paths.PARAMS_DIR
+from context import ab_bond
+from context import fragment
+from context import xyz_util
 
 
 # Not sure where best to do this
-util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
+xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
 
 class Test(unittest.TestCase):
+
+    def setUp(self):
+        fragment.configManager.reset()
+        return
     
     def testFragmentConfig(self):
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
@@ -29,15 +34,14 @@ class Test(unittest.TestCase):
 
         eg1 = f1.freeEndGroups()[0]
         eg2 = f2.freeEndGroups()[0]
-        import buildingBlock
-        bond = buildingBlock.Bond(eg1, eg2)
+        bond = ab_bond.Bond(eg1, eg2)
         bond.endGroup1.setBonded(bond)
         bond.endGroup2.setBonded(bond)
         self.assertTrue(len(fragment.configManager.configs[f1.fragmentType]) == 2)
 
         eg1 = f1.freeEndGroups()[-1]
         eg2 = f2.freeEndGroups()[0]
-        bond = buildingBlock.Bond(eg1, eg2)
+        bond = ab_bond.Bond(eg1, eg2)
         bond.endGroup1.setBonded(bond)
         bond.endGroup2.setBonded(bond)
         self.assertTrue(len(fragment.configManager.configs[f1.fragmentType]) == 4)

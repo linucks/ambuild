@@ -6,14 +6,17 @@ Created on 4 Mar 2018
 import math
 import os
 import unittest
-
-from paths import BLOCKS_DIR, PARAMS_DIR
-import fragment
 import numpy as np
-import util
+
+import context
+BLOCKS_DIR = context.paths.BLOCKS_DIR
+PARAMS_DIR = context.paths.PARAMS_DIR
+from context import fragment
+from context import xyz_core
+from context import xyz_util
 
 # Not sure where best to do this
-util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
+xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
 
 class Test(unittest.TestCase):
     
@@ -33,7 +36,7 @@ class Test(unittest.TestCase):
         if False:
                 axis = [0,0,1]
                 angle = math.pi/3
-                rotationMatrix = util.rotation_matrix(axis, angle)
+                rotationMatrix = xyz_core.rotation_matrix(axis, angle)
                 center = np.array([ 0, 0, 0 ])
                 frag.rotate(rotationMatrix, center)
 
@@ -76,7 +79,7 @@ class Test(unittest.TestCase):
 
         axis = [0,0,1]
         angle = math.pi/3
-        rotationMatrix = util.rotation_matrix(axis, angle)
+        rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         center = np.array([ 0, 0, 0 ])
         frag.rotate(rotationMatrix, center)
         frag.translate([10.0,5.0, 3.0])
@@ -94,7 +97,7 @@ class Test(unittest.TestCase):
         
         axis = [1, 0, 1]
         angle = math.pi/3
-        rotationMatrix = util.rotation_matrix(axis, angle)
+        rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         center = body.centreOfMass()
         frag.rotate(rotationMatrix, center)
         

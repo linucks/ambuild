@@ -42,9 +42,11 @@ import numpy
 import os
 import time
 import xml.etree.ElementTree as ET
+
 # our imports
 from ffield import FFIELD, FfieldParameters
-import util
+import xyz_core
+import xyz_util
 
 logger = logging.getLogger(__name__)
 
@@ -726,7 +728,7 @@ class Hoomd1(FFIELD):
         for block in cell.blocks.itervalues():
             for k in range(block.numAtoms()):
                 p = self.system.particles[ atomCount ]
-                coord = util.unWrapCoord3(p.position, p.image, box, centered=True)
+                coord = xyz_core.unWrapCoord3(p.position, p.image, box, centered=True)
                 block.coord(k, coord)
                 atomCount += 1
 
@@ -765,12 +767,12 @@ class Hoomd1(FFIELD):
                 if label[0].lower() == 'x':
                     symbol = 'x'
                 else:
-                    symbol = util.label2symbol(label)
+                    symbol = xyz_util.label2symbol(label)
 
                 charge = float(p.charge)
 
                 if unwrap:
-                    coord = util.unWrapCoord3(p.position, p.image, system.box, centered=False)
+                    coord = xyz_core.unWrapCoord3(p.position, p.image, system.box, centered=False)
                 else:
                     pass
                     # Put back with origin at corner
@@ -895,11 +897,11 @@ class Hoomd1(FFIELD):
         ydim = system.box[1]
         zdim = system.box[2]
         for p in system.particles:
-                label = util.label2symbol(p.type.strip())
+                label = xyz_util.label2symbol(p.type.strip())
                 x, y, z = p.position
                 ix, iy, iz = p.image
                 if unwrap:
-                    x, y, z = util.unWrapCoord3(p.position, p.image, system.box, centered=False)
+                    x, y, z = xyz_core.unWrapCoord3(p.position, p.image, system.box, centered=False)
                 else:
                     # Put back with origin at corner
                     x = x + (xdim / 2)
@@ -931,10 +933,10 @@ def xml2xyz(xmlFilename, xyzFilename):
         if at.lower()[0] == 'x':
             symbols.append('x')
         else:
-            symbols.append(util.label2symbol(at))
+            symbols.append(xyz_util.label2symbol(at))
 
     # Now write out xyz
-    util.writeXyz(xyzFilename, positions, symbols)
+    xyz_util.writeXyz(xyzFilename, positions, symbols)
 #     with open( xyzFilename, 'w') as o:
 #         o.write("{0}\n".format( len( positions ) ) )
 #         o.write("XYZ file created from: {0}\n".format( xmlFilename ) )
@@ -953,6 +955,7 @@ def xml2xyz(xmlFilename, xyzFilename):
 
 if __name__ == "__main__":
     from paths import PARAMS_DIR
+    import util
     mycell = util.cellFromPickle(sys.argv[1])
     rigidBody = True
     data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)
