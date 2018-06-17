@@ -6,7 +6,6 @@ Created on Jan 15, 2013
 VERSION = "a842475a64c9"
 import collections
 import copy
-import csv
 import logging
 import math
 import os
@@ -19,12 +18,14 @@ import warnings
 import numpy
 
 # Our modules
+import ab_analyse
 import ab_block
 import ab_bond
+import ab_celldata
 import ab_fragment
 import ab_subunit
-from paths import PARAMS_DIR
-import util
+import ab_util
+from ab_paths import PARAMS_DIR
 import xyz_core
 import xyz_util
 
@@ -32,136 +33,7 @@ BONDTYPESEP = "-"  # Character for separating bonds
 ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
 
 logger = logging.getLogger(__name__)
-class Analyse():
-    def __init__(self, cell, logfile="ambuild.csv"):
 
-        self.fieldnames = ['step',
-                           'type',
-                           'tot_time',
-                           'time',
-                           'num_frags',
-                           'num_particles',
-                           'num_blocks',
-                           'density',
-                           'num_free_endGroups',
-                           'potential_energy',
-                           'num_tries',
-                           'fragment_types',
-                           'file_count',
-                            ]
-        self.cell = cell
-
-        self.step = 0
-        self._startTime = time.time()
-        self._stepTime = time.time()
-
-        # Need to create an initial entry as we query the previous one for any data we don't have
-        d = {}
-        for f in self.fieldnames:
-            if f == 'time':
-                d[ f ] = self._startTime
-            # elif f == 'file_count':
-            elif f == 'type':
-                d[ f ] = 'init'
-            else:
-                d[ f ] = 0
-
-        self.last = d
-
-        self.logfile = logfile
-        self._logWriter = csv.DictWriter(open(self.logfile, 'w'), self.fieldnames)
-
-        self._logWriter.writeheader()
-
-        return
-
-    def start(self):
-        """Called whenever we start a step"""
-        assert self._stepTime == None
-        assert self.last
-        self.step += 1
-        self._stepTime = time.time()
-        return
-
-    def stop(self, stype, d={}):
-        """Called at the end of a step with the data to write to the csv file"""
-
-        new = {}
-
-        for f in self.fieldnames:
-            if f == 'type':
-                new[ f ] = stype
-            elif f == 'step':
-                new [ f ] = self.step
-            elif f == 'time':
-                new[ f ] = time.time() - self._stepTime
-            elif f == 'tot_time':
-                new[ f ] = time.time() - self._startTime
-                self._stepTime
-            elif f == 'num_blocks':
-                new[ f ] = self.cell.numBlocks()
-            elif f == 'num_frags':
-                new[ f ] = self.cell.numFragments()
-            elif f == 'num_particles':
-                new[ f ] = self.cell.numAtoms()
-            elif f == 'num_free_endGroups':
-                new[ f ] = self.cell.numFreeEndGroups()
-            elif f == 'density':
-                new[ f ] = self.cell.density()
-            elif f == 'fragment_types':
-                new[ f ] = str(self.cell.fragmentTypes())
-            elif f == 'file_count':
-                new[ f ] = self.cell._fileCount
-            elif f in d:
-                new[ f ] = d[ f ]
-            else:
-                new[ f ] = self.last[ f ]
-
-        self._logWriter.writerow(new)
-
-        self.last = new
-        self._stepTime = None
-        self.start()
-        return
-
-class CellData(object):
-    def __init__(self):
-
-        self.cell = []
-
-        self.atomTypes = []
-        self.bodies = []
-        self.coords = []
-        self.charges = []
-        self.diameters = []
-        self.images = []
-        self.masses = []
-        self.masked = [] # Atoms that are to be ignored in MD/optimisation
-        self.symbols = []
-        self.static = []  # If this atom is part of a group that isn't to be moved
-
-        self.bonds = []
-        self.bondLabels = []
-        self.angles = []
-        self.angleLabels = []
-        self.propers = []
-        self.properLabels = []
-        self.impropers = []
-        self.improperLabels = []
-
-        # for computing block/fragment enegies
-        self.tagIndices = []
-
-        # Central particles for hoomd-blue rigid bodies
-        self.rigid_body = []
-        self.rigid_image = []
-        self.rigid_mass = []
-        self.rigid_centre = []
-        self.rigid_type = []
-        self.rigid_moment_inertia = []
-        self.rigid_orientation = []
-        self.rigid_fragments = {} # key fragmentType -> {'atomTypes': list, 'coords' : list}
-        return
 
 class Cell():
     '''
@@ -284,7 +156,7 @@ class Cell():
         self.version = VERSION # Save as attribute so we can query pickle files
         logger.info("AMBUILD version: {0}".format(VERSION))
 
-        self.setMdEngine(util.HOOMDVERSION, paramsDir)
+        self.setMdEngine(ab_util.HOOMDVERSION, paramsDir)
 
         if filePath: # Init from a car file
             self.setStaticBlock(filePath)
@@ -454,7 +326,7 @@ class Cell():
 
             # step = math.pi/18 # 10 degree increments
             step = math.pi / 9  # 20 degree increments
-            for angle in util.frange(step, math.pi * 2, step):
+            for angle in ab_util.frange(step, math.pi * 2, step):
                 # print "attachBlock rotating as clash: {}".format(angle*util.RADIANS2DEGREES)
                 # remove the growBlock from the cell
                 self.delBlock(blockId)
@@ -504,9 +376,9 @@ class Cell():
         if bond.isInternalBond() and not selfBond:
             logger.info("bondBlock skipped self-bonded Block")
             return False
-        self.delBlock(bond.rootId())
+        self.delBlock(bond.rootId)
         if not bond.isInternalBond():
-            self.delBlock(bond.targetId())
+            self.delBlock(bond.targetId)
         else:
             logger.info("self-bonded block1: {0}".format(bond))
         bond.engage()
@@ -589,10 +461,10 @@ class Cell():
 
         # See if either of the blocks connected is the cat
         cfrag = None
-        if bond.endGroup1.fragment.catalyst and bond.endGroup2.fragment.fragmentType in fragmentTypes:
-            cfrag = bond.endGroup1.fragment
-        elif bond.endGroup2.fragment.catalyst and bond.endGroup1.fragment.fragmentType in fragmentTypes:
-            cfrag = bond.endGroup2.fragment
+        if bond.rootFragment.catalyst and bond.targetFragment.fragmentType in fragmentTypes:
+            cfrag = bond.rootFragment
+        elif bond.targetFragment.catalyst and bond.rootFragment.fragmentType in fragmentTypes:
+            cfrag = bond.targetFragment
         else: return False # Nothing to do
 
         # The block may have multiple fragments, but we are only interested in this cat fragment
@@ -609,13 +481,13 @@ class Cell():
         cat = catEG1.block()
         bond1, bond2 = None, None
         for bond in cat._blockBonds:
-            if bond.endGroup1 in [catEG1, catEG2] and bond.endGroup2.fragment.fragmentType in fragmentTypes:
+            if bond.endGroup1 in [catEG1, catEG2] and bond.targetFragment.fragmentType in fragmentTypes:
                 if bond1:
                     assert not bond2
                     bond2 = bond
                 else:
                     bond1 = bond
-            elif bond.endGroup2 in [catEG1, catEG2] and bond.endGroup1.fragment.fragmentType in fragmentTypes:
+            elif bond.endGroup2 in [catEG1, catEG2] and bond.rootFragment.fragmentType in fragmentTypes:
                 if bond1:
                     assert not bond2
                     bond2 = bond
@@ -672,19 +544,18 @@ class Cell():
         self.delBlock(cat1.id)
 
         # Find the two PAF endgroups that are bonded to the two cat fragments
-        got = False
         paf1EG = None
         paf2EG = None
         for bond in cat1._blockBonds:
-            if bond.endGroup1.fragment.fragmentType in fragmentTypes and bond.endGroup2.fragment in [cat1EG.fragment,cat2EG.fragment]:
-                if bond.endGroup2.fragment == cat1EG.fragment:
+            if bond.rootFragment.fragmentType in fragmentTypes and bond.endGroup2.fragment in [cat1EG.fragment, cat2EG.fragment]:
+                if bond.targetFragment == cat1EG.fragment:
                     paf1EG = bond.endGroup1
                     bond1 = bond
                 else:
                     paf2EG = bond.endGroup1
                     bond2 = bond
-            elif bond.endGroup2.fragment.fragmentType in fragmentTypes and bond.endGroup1.fragment in [cat1EG.fragment,cat2EG.fragment]:
-                if bond.endGroup1.fragment == cat1EG.fragment:
+            elif bond.targetFragment.fragmentType in fragmentTypes and bond.rootFragment in [cat1EG.fragment,cat2EG.fragment]:
+                if bond.rootFragment == cat1EG.fragment:
                     paf1EG = bond.endGroup2
                     bond1 = bond
                 else:
@@ -694,7 +565,7 @@ class Cell():
         assert paf1EG and paf2EG,"Could not find PAF endGroups"
 
         # Break the bond between the two cat blocks
-        cat2 = cat1.deleteBond(cc_bond,root=cat1EG.fragment)
+        cat2 = cat1.deleteBond(cc_bond, root=cat1EG.fragment)
 
         # The initial assumption was that breaking the cat-cat bond would create two blocks, but if the PAF bonded to the cat
         # blocks are part of a chain, then this won't happen
@@ -727,17 +598,16 @@ class Cell():
         # Need to select the other cat-paf bond
         cp_bond2 = None
         for bond in cat1._blockBonds:
-            if bond.endGroup1.fragment.catalyst and bond.endGroup2 == paf1EG:
+            if bond.rootFragment.catalyst and bond.endGroup2 == paf1EG:
                 cp_bond2 = bond
                 break
-            if bond.endGroup2.fragment.catalyst and bond.endGroup1 == paf1EG:
+            if bond.targetFragment.catalyst and bond.endGroup1 == paf1EG:
                 cp_bond2 = bond
                 break
         assert cp_bond2,"Could not find second cat/PAF bond"
         self._joinPaf(fragmentTypes, cp_bond1, cp_bond2)
         return True
 
-    #def _joinPaf(self, catEG, paf1EG, paf2EG):
     def _joinPaf(self, fragmentTypes, bond1, bond2):
         """Given a cat bonded to two PAF groups, break the PAF bonds and form a PAF-PAF bond"""
 
@@ -746,17 +616,17 @@ class Cell():
         # Get the PAF endgroups and the block
         catBlock = bond1.endGroup1.block() # should all be part of the same block
         catEG, paf1EG, paf2EG = None, None, None
-        if bond1.endGroup1.fragment.fragmentType in fragmentTypes and bond1.endGroup2.fragment.catalyst:
+        if bond1.rootFragment.fragmentType in fragmentTypes and bond1.targetFragment.catalyst:
             paf1EG = bond1.endGroup1
             catEG = bond1.endGroup2
-        elif bond1.endGroup1.fragment.catalyst and bond1.endGroup2.fragment.fragmentType in fragmentTypes:
+        elif bond1.rootFragment.catalyst and bond1.targetFragment.fragmentType in fragmentTypes:
             paf1EG = bond1.endGroup2
             catEG = bond1.endGroup1
 
-        if bond2.endGroup1.fragment.fragmentType in fragmentTypes and bond2.endGroup2.fragment.catalyst:
+        if bond2.rootFragment.fragmentType in fragmentTypes and bond2.targetFragment.catalyst:
             paf2EG = bond2.endGroup1
             #catEG = bond2.endGroup2
-        elif bond2.endGroup1.fragment.catalyst and bond2.endGroup2.fragment.fragmentType in fragmentTypes:
+        elif bond2.rootFragment.catalyst and bond2.targetFragment.fragmentType in fragmentTypes:
             paf2EG = bond2.endGroup2
             #catEG = bond2.endGroup1
 
@@ -774,8 +644,10 @@ class Cell():
         # Add the unbonded blocks back to the cell
         self.addBlock(catBlock)
         # Possibly need to think more about what happens when blocks are parts of chains
-        if paf1: self.addBlock(paf1)
-        if paf2: self.addBlock(paf2)
+        if paf1:
+            self.addBlock(paf1)
+        if paf2:
+            self.addBlock(paf2)
 
         # We now need to bond the two PAF groups
         assert paf1EG.free() and paf2EG.free(),"PAF endgroups aren't free!"
@@ -792,7 +664,7 @@ class Cell():
 
     def clearUnbonded(self):
         "Run after we have optimised to unset the unBonded flag and add capatoms back into the cell"
-        for idxBlock, block in self.blocks.items():
+        for block in self.blocks.values():
             if hasattr(block, '_fragments'):
                 fragments = block._fragments
             else:
@@ -1207,13 +1079,11 @@ class Cell():
         return endGroup1, endGroup2
 
     def dataDict(self, rigidBody=True, periodic=True, center=False, fragmentType=None):
+        RIGIDPARTICLES = rigidBody and ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] > 1
         
-        RIGIDPARTICLES = rigidBody and util.HOOMDVERSION and util.HOOMDVERSION[0] > 1
-
         # Object to hold the cell data
-        d = CellData()
+        d = ab_celldata.CellData()
         d.cell = self.dim
-
         if fragmentType is not None:
             if RIGIDPARTICLES:
                 assert False,"Need to update for HOOMD2"
@@ -1230,7 +1100,6 @@ class Cell():
 
         atomCount = 0  # Global count in cell
         bodyCount = -1
-
         for block in self.blocks.values():
 
             # Do bonds first as counting starts from atomCount and goes up through the blocks
@@ -1531,7 +1400,7 @@ class Cell():
         """Return the name of the last pkl file and the endGroupConfig (number of bonded endGroups) for
         blocks containing the fragmentType"""
         s = ""
-        for i, b in enumerate(self.blocks.values()):
+        for b in self.blocks.values():
             c = b.endGroupConfig(fragmentType)
             if c is not None:
                 if len(s) == 0:
@@ -1739,14 +1608,12 @@ class Cell():
         gives: [ABBAAAB]
 
         """
-
         logger.info("growPolymer, building polymer with monomers: {0}, ratio: {1}, length: {2}, random={3}".format(monomers,
                                                                                                                     ratio,
                                                                                                                     length,
                                                                                                                     random))
 
         totalTally = [0] * len(monomers) # Trakcs the overall number of fragments in the polymer
-
         # Determine the first endGroup type
         if random:
             monomer = _random.choice(monomers)
@@ -2625,7 +2492,7 @@ class Cell():
         else:
             from hoomd2 import Hoomd2
             self.MDENGINE = Hoomd2(paramsDir)
-        logger.info("Using HOOMD-BLUE version: {0}.{1}.{2}".format(*util.HOOMDVERSION))
+        logger.info("Using HOOMD-BLUE version: {0}.{1}.{2}".format(*ab_util.HOOMDVERSION))
 
     def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType='c'):
         """Create walls along the specified sides.
@@ -2661,7 +2528,7 @@ class Cell():
         """
 
     def _setupAnalyse(self, logfile='ambuild.csv'):
-        self.analyse = Analyse(self, logfile=logfile)
+        self.analyse = ab_analyse.Analyse(self, logfile=logfile)
         return
 
     def setupLogging(self, logfile="ambuild.log", mode='w', doLog=False):
@@ -2756,17 +2623,6 @@ class Cell():
 
         return
 
-    def XupdateIndices(self):
-        """Update the index where the data for each block starts in the overall cell list"""
-
-        atomCount = 0  # Global count in cell
-        bodyCount = -1
-        for idxBlock, block in self.blocks.items():
-            for idxFrag, frag in enumerate(block.fragments):  # need index of fragment in block
-                bodyCount += frag.numBodies()
-                atomCount += frag.lenData()
-        return
-
     def vecDiff(self, p1, p2):
         return xyz_core.vecDiff(p1, p2, dim=self.dim, pbc=self.pbc)
 
@@ -2788,7 +2644,7 @@ class Cell():
 
         fileName = os.path.abspath(fileName)
         # Create the pickle file
-        util.pickleObj(self, fileName)
+        ab_util.pickleObj(self, fileName)
 
         # Restart logging with append mode
         # self.setupLogging( mode='a' )
@@ -2798,7 +2654,8 @@ class Cell():
     def writeCar(self, ofile="ambuild.car", data=None, periodic=True, skipDummy=False):
         """Car File
         """
-        if not data: data = self.dataDict()
+        if not data:
+            data = self.dataDict()
 
         car = "!BIOSYM archive 3\n"
         if periodic:
@@ -2897,7 +2754,8 @@ class Cell():
                      see the atom.
         selfBond  - boolean to specify if zip will allow a block to bond to itself (True) or not (False) [default: True]
         """
-        if bondMargin > max(self.dim): raise RuntimeError("bondMargin is greater then the cell")
+        if bondMargin > max(self.dim):
+            raise RuntimeError("bondMargin is greater then the cell")
 
         logger.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin))
 
@@ -2932,9 +2790,7 @@ class Cell():
 
         # Add all (block, idxEndGroup) tuples to the cells
         for (block, idxEndGroup) in endGroups:
-
             coord = block.coord(idxEndGroup)
-
             # Periodic Boundaries
             x = coord[0] % self.dim[0] if self.pbc[0] else coord[0]
             y = coord[1] % self.dim[1] if self.pbc[1] else coord[1]
@@ -2946,7 +2802,6 @@ class Cell():
             c = int(math.floor(z / boxSize))
             key = (a, b, c)
             block.zipCell[ idxEndGroup ] = key
-
             try:
                 # Add the atom to the cell
                 cell1[ key ].append((block, idxEndGroup))
@@ -2970,16 +2825,13 @@ class Cell():
 
             # For each box loop through all its atoms
             for i, sbox in enumerate(surrounding):
-
                 # Check if we have a box with anything in it
                 # use exception so we don't have to search through the whole list
                 try:
                     alist = cell1[ sbox ]
                 except KeyError:
                     continue
-
                 for (block2, idxEndGroup2) in alist:
-
                     # Self-bonded blocks need special care
                     if block1 == block2:
                         if not selfBond: continue
@@ -3005,11 +2857,9 @@ class Cell():
         if not len(egPairs) > 0:
             logger.info("zipBlocks: no endGroups close enough to bond")
             return 0
-
         # Calculate distances between all pairs
         # distances = util.distance(c1, c2)
         distances = self.distance(numpy.array(c1), numpy.array(c2))
-
         # Now check for bonds
         self._possibleBonds = []
         for i, (block1, idxEndGroup1, block2, idxEndGroup2) in enumerate(egPairs):
@@ -3084,13 +2934,13 @@ class Cell():
         """Called when we are unpickled """
         self.__dict__.update(d)
         if 'logfile' in d:  # Hack for older versions with no logfile attribute
-            logfile = util.newFilename(d['logfile'])
+            logfile = ab_util.newFilename(d['logfile'])
         else:
             logfile = 'ambuild_1.log'
         self.setupLogging(logfile=logfile)
 
         if 'logcsv' in d:
-            self.logcsv = util.newFilename(d['logcsv'])
+            self.logcsv = ab_util.newFilename(d['logcsv'])
         else:
             self.logcsv = 'ambuild_1.csv'
         self._setupAnalyse(logfile=self.logcsv)

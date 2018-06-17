@@ -954,7 +954,7 @@ def xml2xyz(xmlFilename, xyzFilename):
     return
 
 if __name__ == "__main__":
-    from paths import PARAMS_DIR
+    from ab_paths import PARAMS_DIR
     import util
     mycell = util.cellFromPickle(sys.argv[1])
     rigidBody = True

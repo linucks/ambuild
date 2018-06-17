@@ -9,8 +9,8 @@ import unittest
 import numpy as np
 
 import context
-BLOCKS_DIR = context.paths.BLOCKS_DIR
-PARAMS_DIR = context.paths.PARAMS_DIR
+BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
+PARAMS_DIR = context.ab_paths.PARAMS_DIR
 from context import ab_fragment
 from context import xyz_core
 from context import xyz_util

@@ -13,8 +13,7 @@ import unittest
 import numpy
 
 # our imports
-from paths import BLOCKS_DIR
-import util
+from ab_paths import BLOCKS_DIR
 import xyz_core
 import xyz_util
 
@@ -62,7 +61,7 @@ class Body(object):
             return coords
 
     def diameters(self):
-        return [ util.DUMMY_DIAMETER ] * self.natoms
+        return [ xyz_util.DUMMY_DIAMETER ] * self.natoms
 
     def masked(self):
         mask = []

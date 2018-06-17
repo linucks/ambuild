@@ -6,9 +6,9 @@ import unittest
 import numpy
 
 import context
-AMBUILD_DIR = context.paths.AMBUILD_DIR
-BLOCKS_DIR = context.paths.BLOCKS_DIR
-PARAMS_DIR = context.paths.PARAMS_DIR
+AMBUILD_DIR = context.ab_paths.AMBUILD_DIR
+BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
+PARAMS_DIR = context.ab_paths.PARAMS_DIR
 Bond = context.ab_bond.Bond
 Block = context.ab_block.Block
 from context import ab_fragment

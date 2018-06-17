@@ -592,7 +592,7 @@ def snap2xyz(snapshot, fpath='foo.xyz'):
 
 
 if __name__ == "__main__":
-    from paths import PARAMS_DIR
+    from ab_paths import PARAMS_DIR
     mycell = util.cellFromPickle(sys.argv[1])
     rigidBody = True
     data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)

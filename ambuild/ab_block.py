@@ -378,8 +378,8 @@ class Block(object):
         assert bond in self._blockBonds
         
         # Take the two fragments on either side of the bond
-        f1 = bond.rootFragment()
-        f2 = bond.targetFragment()
+        f1 = bond.rootFragment
+        f2 = bond.targetFragment
         if root:
             assert root in [f1, f2],"Root must be attached to the bond"
         self._blockBonds.remove(bond)
@@ -387,12 +387,12 @@ class Block(object):
         # Create dictionary of which fragments are bonded to which fragments
         bondedToFragment = { f1 : set(), f2 : set() } # Need to add those from bond as might not be connected
         for b in self._blockBonds:
-            if b.rootFragment() not in bondedToFragment:
-                bondedToFragment[b.rootFragment()] = set()
-            if b.targetFragment() not in bondedToFragment:
-                bondedToFragment[b.targetFragment()] = set()
-            bondedToFragment[b.rootFragment()].add(b.targetFragment())
-            bondedToFragment[b.targetFragment()].add(b.rootFragment())
+            if b.rootFragment not in bondedToFragment:
+                bondedToFragment[b.rootFragment] = set()
+            if b.targetFragment not in bondedToFragment:
+                bondedToFragment[b.targetFragment] = set()
+            bondedToFragment[b.rootFragment].add(b.targetFragment)
+            bondedToFragment[b.targetFragment].add(b.rootFragment)
         
         def addFragments(startf, f1set):
             # Trundle through the bond topology for f1 and set True for all fragments we reach
@@ -448,9 +448,9 @@ class Block(object):
         f1bonds = []
         f2bonds = []
         for b in self._blockBonds:
-            if b.rootFragment() in f1list and b.targetFragment() in f1list:
+            if b.rootFragment in f1list and b.targetFragment in f1list:
                 f1bonds.append(b)
-            elif b.rootFragment() in f2list and b.targetFragment() in f2list:
+            elif b.rootFragment in f2list and b.targetFragment in f2list:
                 f2bonds.append(b)
             else: raise RuntimeError("Bond crosses set: {0}".format(b))
         bond.separate()
@@ -477,8 +477,7 @@ class Block(object):
             return []
             
         # Get the list of bonds that this fragment makes
-        dbonds = [ b for b in self._blockBonds if b.endGroup1.fragment == frag or b.endGroup2.fragment == frag ]
-        
+        dbonds = [ b for b in self._blockBonds if b.rootFragment == frag or b.targetFragment == frag ]
         assert len(dbonds),"Fragment is not involved in any bonds!"
         
         # Loop through deleting all bonds and returning any blocks created
@@ -486,7 +485,8 @@ class Block(object):
         blocks = []
         for bond in dbonds:
             block = self.deleteBond(bond, root=frag)
-            if block: blocks.append(block)
+            if block:
+                blocks.append(block)
             
         # Now we need to delete the fragment from ourself and update
         if len(self.fragments) > 1:

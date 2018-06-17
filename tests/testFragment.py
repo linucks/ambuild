@@ -7,8 +7,8 @@ import os
 import unittest
 
 import context
-BLOCKS_DIR = context.paths.BLOCKS_DIR
-PARAMS_DIR = context.paths.PARAMS_DIR
+BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
+PARAMS_DIR = context.ab_paths.PARAMS_DIR
 from context import ab_bond
 from context import ab_fragment
 from context import xyz_util

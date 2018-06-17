@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 
 import context
-PARAMS_DIR = context.paths.PARAMS_DIR
+PARAMS_DIR = context.ab_paths.PARAMS_DIR
 from context import xyz_util
 
 class Test(unittest.TestCase):

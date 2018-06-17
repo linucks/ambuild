@@ -16,7 +16,7 @@ if PYTHONFLAVOUR < 3:
 else:
     import pickle
 
-from paths import PARAMS_DIR
+from ab_paths import PARAMS_DIR
 import xyz_util
 
 HOOMDVERSION = None
@@ -28,8 +28,6 @@ except Exception:
     pass
 
 logger = logging.getLogger()
-
-DUMMY_DIAMETER = 0.1
 
 def cellFromPickle(pickleFile, paramsDir=None):
     """Recreate a cell from a pickled file and apply any hacks so that we can work with older versions"""

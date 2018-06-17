@@ -7,9 +7,9 @@ import ab_bond
 import ab_cell
 import ab_ffield
 import ab_fragment
+import ab_paths
 import ab_subunit
+import ab_util
 import dlpoly
-import paths
-import util
 import xyz_core
 import xyz_util
