@@ -12,7 +12,7 @@ import numpy
 
 # Our imports
 from ab_ffield import FfieldParameters
-import util
+import xyz_core
 
 logger = logging.getLogger(__name__)
 
@@ -545,7 +545,7 @@ class Hoomd2(object):
         atomCount = nrigid_centers
         for block in cell.blocks.itervalues():
             for k in range(block.numAtoms()):
-                coord = util.unWrapCoord3(snapshot.particles.position[ atomCount ],
+                coord = xyz_core.unWrapCoord3(snapshot.particles.position[ atomCount ],
                                           snapshot.particles.image[ atomCount ],
                                           box,
                                           centered=True)
@@ -593,7 +593,8 @@ def snap2xyz(snapshot, fpath='foo.xyz'):
 
 if __name__ == "__main__":
     from ab_paths import PARAMS_DIR
-    mycell = util.cellFromPickle(sys.argv[1])
+    import ab_util
+    mycell = ab_util.cellFromPickle(sys.argv[1])
     rigidBody = True
     data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)
 

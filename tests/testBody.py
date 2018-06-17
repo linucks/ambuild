@@ -104,14 +104,12 @@ class Test(unittest.TestCase):
         rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         center = body.centreOfMass()
         frag.rotate(rotationMatrix, center)
-        
         com2 = body.momentOfInertia()
-        
-        print com1
-        print com2
+        print(com1)
+        print(com2)
         for x, y in zip(com1, com2):
             for a, b in zip(x, y):
-                print abs(a - b)
+                print(abs(a - b))
         print body.rigidType()
 
 
