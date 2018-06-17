@@ -57,7 +57,6 @@ class Test(unittest.TestCase):
         # was seed 5 grow 8
         mycell.seed(3, fragmentType='A', point=[boxWidth/2, boxWidth/2, boxWidth/2], radius=5)
         mycell.growBlocks(4)
-        mycell.dump()
         return mycell
     
     def clashes(self, mycell, minDist=1.0, pbc=[True, True, True]):
