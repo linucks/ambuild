@@ -731,11 +731,17 @@ def centreOfMass(coords, masses):
 def cellFromPickle(pickleFile, paramsDir=None):
     """Recreate a cell from a pickled file and apply any hacks so that we can work with older versions"""
     def fixFragment(fragment):
+        for e in fragment._endGroups:
+            # More horrible hacks for old versions
+            if hasattr(e,'_isBonded'):
+                e.bonded = e._isBonded
+            if not hasattr(e,'blocked'):
+                e.blocked = False
+
         # Need to make sure coords and masses are numpy arrays
         if type(fragment._coords) is list:
             fragment._coords = numpy.array(fragment._coords)
             fragment._masses = numpy.array(fragment._masses)
-    
         if not hasattr(fragment,'_atomTypes'):
             fragment._atomTypes = fragment._types
             fragment._sharedAttrs['_atomTypes'] = None
@@ -755,12 +761,12 @@ def cellFromPickle(pickleFile, paramsDir=None):
         if not hasattr(fragment,'catalyst'):
             fragment.catalyst = False
             fragment._sharedAttrs['catalyst'] = False
-            
-        for e in fragment._endGroups:
-            # More horrible hacks for old versions
-            if hasattr(e,'_isBonded'):
-                e.bonded = e._isBonded
-            if not hasattr(e,'blocked'): e.blocked = False
+        if not hasattr(fragment,'config'):
+            fragment.config = [True if eg.free() else False for eg in fragment._endGroups]
+            fragment._individualAttrs['config'] = fragment.config
+        if not hasattr(fragment,'configStr'):
+            fragment.configStr = 'XX' # Not sure if worth recalculating these 
+            fragment._individualAttrs['configStr'] = fragment.configStr
         return
     mode = 'r'
     if PYTHONFLAVOUR == 3:
@@ -1049,15 +1055,17 @@ def momentOfInertia(coords, masses):
         I2[y, y] = numpy.sum((numpy.square(coords[:, x]) + numpy.square(coords[:, z])) * masses)
         I2[z, z] = numpy.sum((numpy.square(coords[:, x]) + numpy.square(coords[:, y])) * masses)
         I2[x, y] = numpy.sum(coords[:, x] * coords[:, y] * masses)
-        I2[y, z] = numpy.sum(coords[:, y] * coords[:, z] * masses)
-        I2[x, z] = numpy.sum(coords[:, x] * coords[:, z] * masses)
         I2[y, x] = I2[x, y]
+        I2[y, z] = numpy.sum(coords[:, y] * coords[:, z] * masses)
         I2[z, y] = I2[y, z]
+        I2[x, z] = numpy.sum(coords[:, x] * coords[:, z] * masses)
         I2[z, x] = I2[x, z]
         I = I2
     return I
 
 def principalMoments(coords, masses):
+    """http://farside.ph.utexas.edu/teaching/336k/Newtonhtml/node67.html
+    """
     I = momentOfInertia(coords, masses)
     eigval, eigvec = numpy.linalg.eig(I)
     return numpy.sort(eigval)

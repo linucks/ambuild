@@ -6,6 +6,7 @@ import unittest
 
 import numpy
 
+from ab_bond import Bond
 import dlpoly
 from cell import Cell
 import buildingBlock
@@ -214,15 +215,14 @@ class Test(unittest.TestCase):
         
         cat1eg = cat.freeEndGroups()[0]
         cat.positionGrowBlock(cat1eg,paf1eg )
-        bond = buildingBlock.Bond(cat1eg, paf1eg)
-        cat.bondBlock(bond)
+        bond = Bond(cat1eg, paf1eg)
+        bond.engage()
         
         cat2eg = cat.freeEndGroups()[0]
         cat.positionGrowBlock(cat2eg,paf2eg )
-        bond = buildingBlock.Bond(cat2eg, paf2eg)
-        cat.bondBlock(bond)
-        # Hack to set newBonds
-        mycell.newBonds = [bond]
+        bond = Bond(cat2eg, paf2eg)
+        bond.engage()
+        mycell.newBonds = [bond] # Hack to set newBonds
         
         self.assertEqual(len(mycell.blocks),1)
         mycell.cat1Paf2(['PAF'])
@@ -568,8 +568,8 @@ class Test(unittest.TestCase):
         endGroup2 = b2.freeEndGroups()[ 0 ]
         b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
 
-        bond = buildingBlock.Bond(endGroup1, endGroup2)
-        b1.bondBlock(bond)
+        bond = Bond(endGroup1, endGroup2)
+        bond.engage()
         mycell.addBlock(b1)
 
         b3.translateCentroid([ 25, 25, 20 ])
@@ -754,8 +754,8 @@ class Test(unittest.TestCase):
         endGroup2 = b2.freeEndGroups()[ 0 ]
         b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
 
-        bond = buildingBlock.Bond(endGroup1, endGroup2)
-        b1.bondBlock(bond)
+        bond = Bond(endGroup1, endGroup2)
+        bond.engage()
         mycell.addBlock(b1)
 
         b3.translateCentroid([ 25, 25, 20 ])
@@ -1590,8 +1590,8 @@ class Test(unittest.TestCase):
         b1.positionGrowBlock(endGroup1, endGroup2)
 
         # and bond
-        bond = buildingBlock.Bond(endGroup1, endGroup2)
-        b1.bondBlock(bond)
+        bond = Bond(endGroup1, endGroup2)
+        bond.engage()
         mycell.addBlock(b1)
         
         made = mycell.zipBlocks(bondMargin=5, bondAngleMargin=5)
@@ -1865,8 +1865,8 @@ class Test(unittest.TestCase):
             b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
  
             # bond them
-            bond = buildingBlock.Bond(endGroup1, endGroup2)
-            b1.bondBlock(bond)
+            bond = Bond(endGroup1, endGroup2)
+            bond.engage()
 
         # Add another block that's not overlapping with the first
         b1 = buildingBlock.Block(filePath=self.ch4Car, fragmentType='B')
@@ -1880,8 +1880,8 @@ class Test(unittest.TestCase):
             endGroup1 = b1.freeEndGroups()[ 0 ]
             endGroup2 = b.freeEndGroups()[ 0 ]
             b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
-            bond = buildingBlock.Bond(endGroup1, endGroup2)
-            b1.bondBlock(bond)
+            bond = Bond(endGroup1, endGroup2)
+            bond.engage()
 
         # Add another block that's not overlapping with the others
         b1 = buildingBlock.Block(filePath=self.ch4Car, fragmentType='C')
@@ -1895,8 +1895,8 @@ class Test(unittest.TestCase):
             endGroup1 = b1.freeEndGroups()[ 0 ]
             endGroup2 = b.freeEndGroups()[ 0 ]
             b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
-            bond = buildingBlock.Bond(endGroup1, endGroup2)
-            b1.bondBlock(bond)
+            bond = Bond(endGroup1, endGroup2)
+            bond.engage()
 
         fname = "test1.cml"
         mycell.writeCml(fname, periodic=False, rigidBody=True, prettyPrint=True)
@@ -1955,8 +1955,8 @@ class Test(unittest.TestCase):
 
         # Bond b2 to it
         b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
-        bond = buildingBlock.Bond(endGroup1, endGroup2)
-        b1.bondBlock(bond)
+        bond = Bond(endGroup1, endGroup2)
+        bond.engage()
         mycell.addBlock(b1)
 
         initcoords = []

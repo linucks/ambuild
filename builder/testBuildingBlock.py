@@ -5,7 +5,8 @@ import unittest
 
 import numpy
 
-from buildingBlock import Bond, Block
+from ab_bond import Bond
+from buildingBlock import Block
 import fragment
 import util
 from paths import AMBUILD_DIR, BLOCKS_DIR, PARAMS_DIR
@@ -50,16 +51,13 @@ class Test(unittest.TestCase):
         return
 
     def testBodies(self):
-
         b1 = Block(filePath=self.ch4Ca2Car, fragmentType='A')
         b2 = b1.copy()
-
         eg1 = b1.freeEndGroups()[0]
         eg2 = b2.freeEndGroups()[0]
         b1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        b1.bondBlock(bond)
-
+        bond.engage()
         ref = [0, 0, 0, 0, 1, 2, 4, 4, 4, 4, 5, 6]
         self.assertEqual(b1._bodies, ref)
 
@@ -67,15 +65,11 @@ class Test(unittest.TestCase):
 
     def testCH4(self):
         """Test the creation of a CH4 molecule"""
-
         ch4 = Block(filePath=self.ch4Car, fragmentType='A')
-
         endGroups = [ 0, 0, 0, 0 ]
         self.assertEqual(endGroups, [ e.blockEndGroupIdx for e in ch4.freeEndGroups() ])
-
         angleAtoms = [ 1, 2, 3, 4 ]
         self.assertEqual(angleAtoms, [ e.blockCapIdx for e in ch4.freeEndGroups() ])
-
         return
 
     def testCX4(self):
@@ -94,7 +88,7 @@ class Test(unittest.TestCase):
 
         cx4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        cx4_1.bondBlock(bond)
+        bond.engage()
         return
 
     def testCH4_Fragmentbond(self):
@@ -121,13 +115,12 @@ class Test(unittest.TestCase):
 
         ch4_1 = Block(filePath=self.ch4Car, fragmentType='A')
         ch4_2 = Block(filePath=self.ch4Car, fragmentType='A')
-
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
 
         ch4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         self.assertEqual([0, 0, 0, 4, 4, 4], [ eg.blockEndGroupIdx for eg in ch4_1.freeEndGroups() ])
 
@@ -154,30 +147,24 @@ class Test(unittest.TestCase):
         eg2 = ch4_2.freeEndGroups()[2]
         ch4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_1.freeEndGroups()[-1]
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
-
+        bond.engage()
         return
 
     def testDeleteBondSimple(self):
         """Bfoo"""
         ch4_1 = Block(filePath=self.ch4Car, fragmentType='A')
         ch4_2 = Block(filePath=self.ch4Car, fragmentType='A')
-
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
-        
-        #ch4_1.writeCml("foo1.cml")
+        bond.engage()
         ch4_1.deleteBond(bond)
-        #ch4_1.writeCml("foo2.cml")
-        #x.writeCml("foo3.cml")
         return
 
     def testDeleteBondCircular(self):
@@ -204,33 +191,31 @@ class Test(unittest.TestCase):
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         eg1 = egFromF(ch4_1, f2)
         eg2 = ch4_3.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2)
         bondM = Bond(eg1, eg2)
-        ch4_1.bondBlock(bondM)
+        bondM.engage()
 
         eg1 = egFromF(ch4_1, f3)
         eg2 = ch4_4.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         eg1 = egFromF(ch4_1, f4)
         eg2 = ch4_5.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
-
-        #ch4_1.writeCml("foo1.cml")
+        bond.engage()
 
         # Now just bond into a loop
         eg1 = egFromF(ch4_1, f1)
         eg2 = egFromF(ch4_1, f5)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         #ch4_1.writeCml("foo2.cml")
         self.assertFalse(ch4_1.deleteBond(bondM))
@@ -250,25 +235,25 @@ class Test(unittest.TestCase):
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_3.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_4.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_5.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         #ch4_1.writeCml("foo1.cml")
         self.assertTrue(bool(ch4_1.deleteBond(bond)))
@@ -287,25 +272,25 @@ class Test(unittest.TestCase):
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_3.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_4.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_5.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
 #         ch4_1.writeXyz("foo.xyz")
         blocks = ch4_1.deleteFragment(f1)
@@ -420,9 +405,9 @@ class Test(unittest.TestCase):
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
-#         # Check just across bonds
+        # Check just across bonds
         ref = [ (1, 0, 11, 16),
                 (1, 0, 11, 12),
                 (5, 0, 11, 16),
@@ -449,7 +434,6 @@ class Test(unittest.TestCase):
         return
     
     def testFreeEndGroups(self):
-
         ch4_1 = Block(filePath=self.ch4Car, fragmentType='A')
         ch4_2 = ch4_1.copy()
         b1 = Block(filePath=self.benzeneCar, fragmentType='B')
@@ -459,7 +443,7 @@ class Test(unittest.TestCase):
         eg2 = ch4_1.freeEndGroups()[0]
         b1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        b1.bondBlock(bond)
+        bond.engage()
 
         eg1s = b1.freeEndGroups()
         self.assertEqual(len(eg1s), 4)
@@ -501,7 +485,7 @@ class Test(unittest.TestCase):
         eg1 = block1.freeEndGroups(endGroupTypes='A:CH')[0]
         eg2 = block2.freeEndGroups()[0]
         bond = Bond(eg1, eg2)
-        block1.bondBlock(bond)
+        bond.engage()
         
         # Now see if the other three are blocked - we need to include the three from the second block
         self.assertEqual(len(block1.freeEndGroups()),5)
@@ -547,7 +531,7 @@ class Test(unittest.TestCase):
         eg1 = block1.freeEndGroups(endGroupTypes='A:a')[0]
         eg2 = block2.freeEndGroups()[0]
         bond = Bond(eg1, eg2)
-        block1.bondBlock(bond)
+        bond.engage()
         
         # Now see if the other two are blocked - we need to include the three from the second block
         self.assertEqual(len(block1.freeEndGroups()),6)
@@ -555,20 +539,15 @@ class Test(unittest.TestCase):
 
     def testMultiEndGroups(self):
         """Test we can move correctly"""
-
-
         # Try with no settings
         f = fragment.Fragment(filePath=self.ch4_1Car, fragmentType='A')
         m1 = Block(initFragment=f)
         m2 = m1.copy()
-
         eg1 = m1.freeEndGroups()[0]
         eg2 = m2.freeEndGroups()[0]
-
         m1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        m1.bondBlock(bond)
-
+        bond.engage()
         self.assertEqual(6, len(m1.freeEndGroups()))
 
         # Try with specifying bond
@@ -576,16 +555,12 @@ class Test(unittest.TestCase):
         m1 = Block(initFragment=f)
         f.setMaxBond('A:a', 1)
         m2 = m1.copy()
-
         eg1 = m1.freeEndGroups()[0]
         eg2 = m2.freeEndGroups()[0]
-
         m1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        m1.bondBlock(bond)
-
+        bond.engage()
         self.assertEqual(4, len(m1.freeEndGroups()))
-
         return
 
     def testMove(self):
@@ -760,13 +735,13 @@ class Test(unittest.TestCase):
         eg2 = ch4_1.freeEndGroups()[0]
         b1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        b1.bondBlock(bond)
+        bond.engage()
 
         eg1 = b1.freeEndGroups()[-1]
         eg2 = ch4_2.freeEndGroups()[0]
         b1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        b1.bondBlock(bond)
+        bond.engage()
 
         # b1.writeCml("foo1.cml")
         # b1.writeXyz("foo.xyz")
@@ -799,7 +774,7 @@ class Test(unittest.TestCase):
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         # Write out the cml and see if it matches what we've saved
         fname = "test.cml"

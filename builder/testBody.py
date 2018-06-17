@@ -105,7 +105,7 @@ class Test(unittest.TestCase):
         for x, y in zip(com1, com2):
             for a, b in zip(x, y):
                 print abs(a - b)
-        print body.bodyType()
+        print body.rigidType()
 
 
 if __name__ == "__main__":

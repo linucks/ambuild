@@ -30,20 +30,6 @@ import util
 
 logger = logging.getLogger(__name__)
 
-class Bond(object):
-    """An object to hold all info on a bond
-    """
-    def __init__(self, endGroup1, endGroup2):
-        self.endGroup1 = endGroup1
-        self.endGroup2 = endGroup2
-        return
-    def __str__(self):
-        """List the data attributes of this object"""
-        s = "Bond {0}: {1}:{2} -> {3}:{4}".format(id(self),
-                                                  self.endGroup1.block().id, self.endGroup1,
-                                                     self.endGroup2.block().id, self.endGroup2)
-        return s
-
 class Block(object):
     '''
     Structure is:
@@ -284,27 +270,15 @@ class Block(object):
     def bondBlock(self, bond):
         """ Add newBlock to this one
         """
-        assert bond.endGroup1 != bond.endGroup2
         assert bond.endGroup1.block() == self
-        assert bond.endGroup1.free()
-        assert bond.endGroup2.free()
-        assert not bond.endGroup1.fragment == bond.endGroup2.fragment
-
-        # Mark both endGroups as used
-        bond.endGroup1.setBonded(bond)
-        bond.endGroup2.setBonded(bond)
-
         # Tried optimising this by passing in the bond to update and only updating those fragments/
         # endGroups that had changed but it rapidly got rather complicated so we keep to a simple
         # update and add the data for the new block here
         # Append fragments and bonds of other block to this one
-        if bond.endGroup1.block() != bond.endGroup2.block():
+        if not bond.isInternalBond():
             self.fragments += bond.endGroup2.block().fragments
             self._blockBonds += bond.endGroup2.block()._blockBonds
-
-        # add the new bond
         self._blockBonds.append(bond)
-
         return self._update()
     
     def blockRadius(self):
@@ -397,29 +371,26 @@ class Block(object):
 
     def deleteBond(self, bond, root=None):
         """root is an optional fragment which we want to stay in this block"""
-        if not len(self._blockBonds): return None
+        if not len(self._blockBonds):
+            return None
         assert bond in self._blockBonds
         
         # Take the two fragments on either side of the bond
-        f1 = bond.endGroup1.fragment
-        f2 = bond.endGroup2.fragment
-        if root: assert root in [f1, f2],"Root must be attached to the bond"
-        
-        # Delete the bond
+        f1 = bond.rootFragment()
+        f2 = bond.targetFragment()
+        if root:
+            assert root in [f1, f2],"Root must be attached to the bond"
         self._blockBonds.remove(bond)
 
         # Create dictionary of which fragments are bonded to which fragments
         bondedToFragment = { f1 : set(), f2 : set() } # Need to add those from bond as might not be connected
         for b in self._blockBonds:
-            if b.endGroup1.fragment not in bondedToFragment:
-                bondedToFragment[b.endGroup1.fragment] = set()
-            if b.endGroup2.fragment not in bondedToFragment:
-                bondedToFragment[b.endGroup2.fragment] = set()
-#             if (b.endGroup1.blockEndGroupIdx==idxAtom1 and b.endGroup2.blockEndGroupIdx==idxAtom2) or \
-#                 (b.endGroup1.blockEndGroupIdx==idxAtom2 and b.endGroup2.blockEndGroupIdx==idxAtom1):
-#                 bond=b
-            bondedToFragment[b.endGroup1.fragment].add(b.endGroup2.fragment)
-            bondedToFragment[b.endGroup2.fragment].add(b.endGroup1.fragment)
+            if b.rootFragment() not in bondedToFragment:
+                bondedToFragment[b.rootFragment()] = set()
+            if b.targetFragment() not in bondedToFragment:
+                bondedToFragment[b.targetFragment()] = set()
+            bondedToFragment[b.rootFragment()].add(b.targetFragment())
+            bondedToFragment[b.targetFragment()].add(b.rootFragment())
         
         def addFragments(startf, f1set):
             # Trundle through the bond topology for f1 and set True for all fragments we reach
@@ -434,17 +405,10 @@ class Block(object):
         # ALGORITHM NEEDS MORE WORK!
         f1set = addFragments(f1, set([f1]))
         f2set = addFragments(f2, set([f2]))
-        
         if bool(f1set.intersection(f2set)):
             logger.info("deleteBond broke internal bond")
             # Fragments in common with both, so just delete the bond
-            #print "Block remains contiguous"
-            # Need to unmask the fragment atoms
-            bond.endGroup1.unBond(bond.endGroup2)
-            bond.endGroup2.unBond(bond.endGroup1)
-
-            # Now delete the bond from the block
-            #self._blockBonds.remove(bond)
+            bond.separate()
             self._update()
             return None
         
@@ -482,15 +446,12 @@ class Block(object):
         f1bonds = []
         f2bonds = []
         for b in self._blockBonds:
-            if b.endGroup1.fragment in f1list and b.endGroup2.fragment in f1list:
+            if b.rootFragment() in f1list and b.targetFragment() in f1list:
                 f1bonds.append(b)
-            elif b.endGroup1.fragment in f2list and b.endGroup2.fragment in f2list:
+            elif b.rootFragment() in f2list and b.targetFragment() in f2list:
                 f2bonds.append(b)
             else: raise RuntimeError("Bond crosses set: {0}".format(b))
-            
-        bond.endGroup1.unBond(bond.endGroup2)
-        bond.endGroup2.unBond(bond.endGroup1)
-        
+        bond.separate()
         # Create a new block with the smaller fragments
         newBlock = Block()
         newBlock.fragments = f2list
@@ -503,7 +464,6 @@ class Block(object):
         self._blockBonds = f1bonds
         self._update()
         assert self.id,"self has no id!"
-        
         return newBlock
     
     def deleteFragment(self, frag):

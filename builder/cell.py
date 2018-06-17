@@ -19,6 +19,7 @@ import numpy
 
 # Our modules
 import ambuild_subunit
+import ab_bond
 import buildingBlock
 import fragment
 from paths import PARAMS_DIR
@@ -496,22 +497,17 @@ class Cell():
         """
         logger.debug("cell bondBlock: {0}".format(bond))
         # logger.debug("before bond: {0} - {1}".format( bond.idxBlock1, bond.block1._bondObjects) )
-
-        # HACK
-        selfBond=True
+        selfBond = True# HACK
         # We need to remove the block even if we are bonding to self as we need to recalculate the atomCell list
-        if bond.endGroup1.block() == bond.endGroup2.block() and not selfBond:
+        if bond.isInternalBond() and not selfBond:
             logger.info("bondBlock skipped self-bonded Block")
             return False
-        self.delBlock(bond.endGroup1.block().id)
-        if bond.endGroup1.block() != bond.endGroup2.block():
-            self.delBlock(bond.endGroup2.block().id)
+        self.delBlock(bond.rootId())
+        if not bond.isInternalBond():
+            self.delBlock(bond.targetId())
         else:
             logger.info("self-bonded block1: {0}".format(bond))
-
-        # bond.block1.bondBlock( bond )
-        bond.endGroup1.block().bondBlock(bond)
-        # logger.debug("after bond: {0} - {1}".format( idxBlock1, block1._bondObjects) )
+        bond.engage()
         self.addBlock(bond.endGroup1.block())
         return True
 
@@ -714,7 +710,7 @@ class Cell():
         self.addBlock(cat2)
 
         # Now bond the PAF to the first catalyst
-        cp_bond1 = buildingBlock.Bond(cat1EG,paf2EG)
+        cp_bond1 = ab_bond.Bond(cat1EG,paf2EG)
         cat1.bondBlock(cp_bond1)
 
         # Put the newly bonded cat block back in the cell
@@ -781,7 +777,7 @@ class Cell():
 
         # We now need to bond the two PAF groups
         assert paf1EG.free() and paf2EG.free(),"PAF endgroups aren't free!"
-        bond = buildingBlock.Bond(paf1EG, paf2EG)
+        bond = ab_bond.Bond(paf1EG, paf2EG)
         self.bondBlock(bond)
 
         # Now optimise the geometry
@@ -888,7 +884,7 @@ class Cell():
                                                                                     distance))
 
                 # Create bond object and set the parameters
-                bond = buildingBlock.Bond(staticEndGroup, addEndGroup)
+                bond = ab_bond.Bond(staticEndGroup, addEndGroup)
                 self._possibleBonds.append(bond)
                 logger.debug("canBond returning True with bonds: {0}".format([str(b) for b in self._possibleBonds]))
                 return True
@@ -2234,7 +2230,7 @@ class Cell():
         for count, bond in enumerate(self._possibleBonds):
             # With the bonding rules some endGroups may become not free when other endGroups in that fragment
             # are involved in bonds so we need to make sure they are free before we do
-            if bond.endGroup1.free() and bond.endGroup2.free():
+            if bond.isPossible():
                 made = self.bondBlock(bond, selfBond=selfBond)
                 if made:
                     logger.debug("Added bond: {0}".format(self._possibleBonds[count]))
