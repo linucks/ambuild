@@ -2632,6 +2632,7 @@ class Cell():
                         egPairsLookup.add(pair1)
                         c1.append(block1.coord(idxEndGroup1))
                         c2.append(block2.coord(idxEndGroup2))
+        del egPairsLookup
         if len(egPairs) < 1:
             logger.info("zipBlocks: no endGroups close enough to bond")
             return 0
