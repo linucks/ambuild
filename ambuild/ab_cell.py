@@ -2597,10 +2597,7 @@ class Cell():
                 # Map the cells surrounding this one
                 cell3[key] = xyz_util.haloCells(key, numBoxes, pbc=self.pbc)
         # Loop through all the end groups and run canBond
-        egPairs = []
-        # we keep a second list as a set as it massively speeds the lookup - we can't
-        # use this as we need to maintain the order to match the coords - hence using 2 structures
-        egPairsLookup = set() 
+        egPairs = collections.OrderedDict() # Use dict keys as effectively implements an ordered set
         c1 = []
         c2 = []
         for block1, idxEndGroup1 in endGroups:
@@ -2626,21 +2623,17 @@ class Cell():
                             continue
                     pair1 = (block1, idxEndGroup1, block2, idxEndGroup2)
                     pair2 = (block2, idxEndGroup2, block1, idxEndGroup1)
-                    if pair1 not in egPairsLookup and pair2 not in egPairsLookup:
+                    if pair1 not in egPairs and pair2 not in egPairs:
                         # Check if it is already present as we loop over all endGroups so we will have both sides twice
-                        egPairs.append(pair1)
-                        egPairsLookup.add(pair1)
+                        egPairs[pair1] = None
                         c1.append(block1.coord(idxEndGroup1))
                         c2.append(block2.coord(idxEndGroup2))
-        del egPairsLookup
-        if len(egPairs) < 1:
+        if len(egPairs.keys()) < 1:
             logger.info("zipBlocks: no endGroups close enough to bond")
             return 0
-        # Calculate distances between all pairs
         distances = self.distance(numpy.array(c1), numpy.array(c2))
-        # Now check for bonds
         self._possibleBonds = []
-        for i, (block1, idxEndGroup1, block2, idxEndGroup2) in enumerate(egPairs):
+        for i, (block1, idxEndGroup1, block2, idxEndGroup2) in enumerate(egPairs.keys()):
             got = self.canBond(block1,
                                 idxEndGroup1,
                                 block2,
@@ -2662,7 +2655,7 @@ class Cell():
                 if not len(self._possibleBonds):
                     logger.info("zipBlocks: No bonds remaining after clash checks")
                     return 0
-        logger.info("zipBlocks found {0} additional bonds:\n{1}".format(len(self._possibleBonds),[str(b) for b in self._possibleBonds]))
+        logger.info("zipBlocks found {0} additional bonds:\n".format(len(self._possibleBonds)))
 #         for b in self._possibleBonds:
 #             print "Attempting to bond: {0} {1} {2} -> {3} {4} {5}".format( b.block1.id(),
 #                                                                    b.endGroup1.blockEndGroupIdx,
