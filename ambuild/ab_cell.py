@@ -2553,8 +2553,7 @@ class Cell():
         logger.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin))
         # Convert to radians
         bondAngleMargin = math.radians(bondAngleMargin)
-        # Calculate the number of boxes
-        # Should calculate max possible bond length
+        # Calculate the number of boxes - should calculate max possible bond length
         maxBondLength = 2.5
         boxSize = maxBondLength + bondMargin
         numBoxes = [None, None, None]
@@ -2588,26 +2587,26 @@ class Cell():
             b = int(math.floor(y / boxSize))
             c = int(math.floor(z / boxSize))
             key = (a, b, c)
-            block.zipCell[ idxEndGroup ] = key
+            block.zipCell[idxEndGroup] = key
             try:
                 # Add the atom to the cell
-                cell1[ key ].append((block, idxEndGroup))
+                cell1[key].append((block, idxEndGroup))
             except KeyError:
                 # Add the cell to the list and then add the atom
-                cell1[ key ] = [ (block, idxEndGroup) ]
+                cell1[key] = [(block, idxEndGroup)]
                 # Map the cells surrounding this one
-                cell3[ key ] = xyz_util.haloCells(key, numBoxes, pbc=self.pbc)
+                cell3[key] = xyz_util.haloCells(key, numBoxes, pbc=self.pbc)
         # Loop through all the end groups and run canBond
-        egPairs = set()
+        egPairs = []
+        # we keep a second list as a set as it massively speeds the lookup - we can't
+        # use this as we need to maintain the order to match the coords - hence using 2 structures
+        egPairsLookup = set() 
         c1 = []
         c2 = []
         for block1, idxEndGroup1 in endGroups:
-            # Get the box this atom is in
-            key = block1.zipCell[ idxEndGroup1 ]
-            # Get a list of the boxes surrounding this one
-            surrounding = cell3[ key ]
-            # For each box loop through all its atoms
-            for i, sbox in enumerate(surrounding):
+            key = block1.zipCell[idxEndGroup1] # Get the box this atom is in
+            surroundingCells = cell3[key]
+            for sbox in surroundingCells:
                 # Check if we have a box with anything in it
                 # use exception so we don't have to search through the whole list
                 try:
@@ -2615,28 +2614,25 @@ class Cell():
                 except KeyError:
                     continue
                 for (block2, idxEndGroup2) in alist:
-                    # Self-bonded blocks need special care
-                    if block1 == block2:
+                    if block1 == block2: 
+                        # Self-bonded blocks need special care
                         if not selfBond:
                             continue
-                        # Don't check endGroups against themselves
-                        if idxEndGroup1 == idxEndGroup2:
+                        if idxEndGroup1 == idxEndGroup2: # Don't check endGroups against themselves
                             continue
-                        # Make sure the two atoms are separated by at least 3 bonds - could
-                        # probably put this check in canBond but it would slow the normal
-                        # bonding down - need to think about best way to do this
+                        # Make sure the two atoms are separated by at least 3 bonds.
+                        # Could put this check in canBond but it would slow the normal bonding down
                         if idxEndGroup2 in block1.atomBonded3(idxEndGroup1):
                             continue
-                    # PROBABLY A BETTER WAY OF DOING THIS
-                    p1 = (block1, idxEndGroup1, block2, idxEndGroup2)
-                    p2 = (block2, idxEndGroup2, block1, idxEndGroup1)
-                    if p1 not in egPairs and p2 not in egPairs:
-                        # Need to check if it is already in there as we loop over all endGroups
-                        # so we will have both sides twice
-                        egPairs.add(p1)
+                    pair1 = (block1, idxEndGroup1, block2, idxEndGroup2)
+                    pair2 = (block2, idxEndGroup2, block1, idxEndGroup1)
+                    if pair1 not in egPairsLookup and pair2 not in egPairsLookup:
+                        # Check if it is already present as we loop over all endGroups so we will have both sides twice
+                        egPairs.append(pair1)
+                        egPairsLookup.add(pair1)
                         c1.append(block1.coord(idxEndGroup1))
                         c2.append(block2.coord(idxEndGroup2))
-        if not len(egPairs) > 0:
+        if len(egPairs) < 1:
             logger.info("zipBlocks: no endGroups close enough to bond")
             return 0
         # Calculate distances between all pairs

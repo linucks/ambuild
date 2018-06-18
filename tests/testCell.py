@@ -1500,48 +1500,39 @@ class Test(unittest.TestCase):
         return
 
     def testZipBlocks(self):
-
         boxDim = [12.0, 12.0, 12.0]
         mycell = Cell(boxDim)
-
         ch4Car = self.ch4Car
         # mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.libraryAddFragment(filename=ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-
         # Create block manually
         b1 = ab_block.Block(filePath=ch4Car, fragmentType='A')
         b2 = ab_block.Block(filePath=ch4Car, fragmentType='A')
         b3 = ab_block.Block(filePath=ch4Car, fragmentType='A')
         b4 = ab_block.Block(filePath=ch4Car, fragmentType='A')
-
         # b1 in center of cell
         b1.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
         mycell.addBlock(b1)
         endGroup1 = b1.freeEndGroups()[ 0 ]
         endGroup2 = b2.freeEndGroups()[ 0 ]
-
         # Position b2 - all blocks will be positioned around this one
         b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
         mycell.addBlock(b2)
-
         # Position b3
         endGroup1 = b2.freeEndGroups()[ 1 ]
         endGroup2 = b3.freeEndGroups()[ 0 ]
         b2.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
         mycell.addBlock(b3)
-
         # Position b4
         endGroup1 = b2.freeEndGroups()[ 2 ]
         endGroup2 = b4.freeEndGroups()[ 0 ]
         b2.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
         mycell.addBlock(b4)
-
+        mycell.dump()
         made = mycell.zipBlocks(bondMargin=0.5, bondAngleMargin=0.5)
-
         self.assertEqual(made, 3)
         self.assertFalse(self.clashes(mycell))
-
         return
 
     def testZipBlocks2(self):
