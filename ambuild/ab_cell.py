@@ -2550,12 +2550,9 @@ class Cell():
         """
         if bondMargin > max(self.dim):
             raise RuntimeError("bondMargin is greater then the cell")
-
         logger.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin))
-
         # Convert to radians
         bondAngleMargin = math.radians(bondAngleMargin)
-
         # Calculate the number of boxes
         # Should calculate max possible bond length
         maxBondLength = 2.5
@@ -2564,11 +2561,9 @@ class Cell():
         numBoxes[0] = int(math.ceil(self.dim[0] / boxSize))
         numBoxes[1] = int(math.ceil(self.dim[1] / boxSize))
         numBoxes[2] = int(math.ceil(self.dim[2] / boxSize))
-
         # Create empty cells to hold data
         cell1 = {}
         cell3 = {}
-
         # Get a list of all block, endGroups
         endGroups = []
         for block in self.blocks.values():
@@ -2581,7 +2576,6 @@ class Cell():
         if not len(endGroups) > 0:
             logger.warn("zipBlocks found no free endGroups!")
             return 0
-
         # Add all (block, idxEndGroup) tuples to the cells
         for (block, idxEndGroup) in endGroups:
             coord = block.coord(idxEndGroup)
@@ -2589,7 +2583,6 @@ class Cell():
             x = coord[0] % self.dim[0] if self.pbc[0] else coord[0]
             y = coord[1] % self.dim[1] if self.pbc[1] else coord[1]
             z = coord[1] % self.dim[2] if self.pbc[2] else coord[2]
-
             # Calculate which cell the atom is in
             a = int(math.floor(x / boxSize))
             b = int(math.floor(y / boxSize))
@@ -2604,31 +2597,28 @@ class Cell():
                 cell1[ key ] = [ (block, idxEndGroup) ]
                 # Map the cells surrounding this one
                 cell3[ key ] = xyz_util.haloCells(key, numBoxes, pbc=self.pbc)
-
         # Loop through all the end groups and run canBond
-        egPairs = []
+        egPairs = set()
         c1 = []
         c2 = []
         for block1, idxEndGroup1 in endGroups:
-
             # Get the box this atom is in
             key = block1.zipCell[ idxEndGroup1 ]
-
             # Get a list of the boxes surrounding this one
             surrounding = cell3[ key ]
-
             # For each box loop through all its atoms
             for i, sbox in enumerate(surrounding):
                 # Check if we have a box with anything in it
                 # use exception so we don't have to search through the whole list
                 try:
-                    alist = cell1[ sbox ]
+                    alist = cell1[sbox]
                 except KeyError:
                     continue
                 for (block2, idxEndGroup2) in alist:
                     # Self-bonded blocks need special care
                     if block1 == block2:
-                        if not selfBond: continue
+                        if not selfBond:
+                            continue
                         # Don't check endGroups against themselves
                         if idxEndGroup1 == idxEndGroup2:
                             continue
@@ -2637,22 +2627,19 @@ class Cell():
                         # bonding down - need to think about best way to do this
                         if idxEndGroup2 in block1.atomBonded3(idxEndGroup1):
                             continue
-
                     # PROBABLY A BETTER WAY OF DOING THIS
                     p1 = (block1, idxEndGroup1, block2, idxEndGroup2)
                     p2 = (block2, idxEndGroup2, block1, idxEndGroup1)
                     if p1 not in egPairs and p2 not in egPairs:
                         # Need to check if it is already in there as we loop over all endGroups
                         # so we will have both sides twice
-                        egPairs.append(p1)
+                        egPairs.add(p1)
                         c1.append(block1.coord(idxEndGroup1))
                         c2.append(block2.coord(idxEndGroup2))
-
         if not len(egPairs) > 0:
             logger.info("zipBlocks: no endGroups close enough to bond")
             return 0
         # Calculate distances between all pairs
-        # distances = util.distance(c1, c2)
         distances = self.distance(numpy.array(c1), numpy.array(c2))
         # Now check for bonds
         self._possibleBonds = []
@@ -2663,14 +2650,11 @@ class Cell():
                                 idxEndGroup2,
                                 distances[i],
                                 bondMargin,
-                                bondAngleMargin,
-                                )
-
+                                bondAngleMargin)
         # Process any bonds
         if len(self._possibleBonds) == 0:
             logger.info("zipBlocks: no acceptable bonds found")
             return 0
-
         # Check the bonds don't clash with anything
         if clashCheck:
             logger.info("zipBlocks: checking for clashes with bonds...")
@@ -2681,7 +2665,6 @@ class Cell():
                 if not len(self._possibleBonds):
                     logger.info("zipBlocks: No bonds remaining after clash checks")
                     return 0
-
         logger.info("zipBlocks found {0} additional bonds:\n{1}".format(len(self._possibleBonds),[str(b) for b in self._possibleBonds]))
 #         for b in self._possibleBonds:
 #             print "Attempting to bond: {0} {1} {2} -> {3} {4} {5}".format( b.block1.id(),
@@ -2692,7 +2675,7 @@ class Cell():
 #                                                                    b.block2.atomCoord( b.endGroup2.blockEndGroupIdx),
 #                                                                 )
 #
-        todo=len(self._possibleBonds)
+        todo = len(self._possibleBonds)
         bondsMade = self.processBonds(selfBond=selfBond)
         if bondsMade != todo: logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(todo,bondsMade))
         self.analyse.stop('zip')

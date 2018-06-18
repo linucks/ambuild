@@ -148,18 +148,18 @@ class Block(object):
     def atomBonded1(self, idxAtom):
         """Return the indices of all atoms directly bonded to idxAtom"""
         # We return a copy or else modifying the list changes the actual bond list
-        return copy.copy(self._bondedToAtom[ idxAtom ])
+        return set(self._bondedToAtom[idxAtom ])
 
     def atomBonded2(self, idxAtom):
         """Return the indices of all atoms bonded by <= 2 bonds to idxAtom"""
-        bonded = copy.copy(self.atomBonded1(idxAtom))
+        bonded = set(self.atomBonded1(idxAtom))
         for a1 in list(bonded):  # Copy to list so we're not changing while looping thru it
             bonded.update(self.atomBonded1(a1))
         return bonded
 
     def atomBonded3(self, idxAtom):
         """Return the indices of all atoms bonded by <= 3 bonds to idxAtom"""
-        bonded = copy.copy(self.atomBonded2(idxAtom))
+        bonded = set(self.atomBonded2(idxAtom))
         for a1 in list(bonded):  # Copy to list so we're not changing while looping thru it
             bonded.update(self.atomBonded1(a1))
         return bonded

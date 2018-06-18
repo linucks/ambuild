@@ -31,7 +31,7 @@ def make_cell():
     mycell.seed(1, random=False, point=[17.5, 12.5, 17.5])
     mycell.seed(1, random=False, point=[17.5, 17.5, 12.5])
     mycell.seed(1, random=False, point=[17.5, 17.5, 17.5])
-    mycell.growBlocks(8*20, random=False)
+    mycell.growBlocks(8*30, random=False)
     mycell.dump()
     return mycell
 
