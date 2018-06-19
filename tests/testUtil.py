@@ -15,11 +15,23 @@ class Test(unittest.TestCase):
         pickleFile = os.path.join(AMBUILD_DIR,"tests", "test_data", "oldversion.pkl")
         mycell = ab_util.cellFromPickle(pickleFile)
         self.assertEqual(len(mycell.blocks), 20, "Incorrect number of blocks: {0}".format(len(mycell.blocks)))
-        
         # Just check we can build onto the cell as it demonstrates all the values are ok
         toGrow = 2
         grown = mycell.growBlocks(toGrow)
         self.assertEqual(toGrow,grown,"Failed to grow blocks after unpickling")
+        os.unlink(mycell.logfile)
+        os.unlink(mycell.logcsv)
+        return
+
+    @unittest.skipUnless(ab_util.PYTHONFLAVOUR == 2, "pkl file created with Python2")
+    def testCellFromPickleGzip(self):
+        pickleFile = os.path.join(AMBUILD_DIR,"tests", "test_data", "new.pklz")
+        mycell = ab_util.cellFromPickle(pickleFile)
+        self.assertEqual(len(mycell.blocks), 3, "Incorrect number of blocks: {0}".format(len(mycell.blocks)))
+        # Just check we can build onto the cell as it demonstrates all the values are ok
+        toGrow = 2
+        grown = mycell.growBlocks(toGrow)
+        self.assertEqual(toGrow, grown,"Failed to grow blocks after unpickling")
         os.unlink(mycell.logfile)
         os.unlink(mycell.logcsv)
         return

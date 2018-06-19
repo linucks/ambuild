@@ -1289,8 +1289,7 @@ class Cell():
         # self.writeCar(prefix+"_P.car",data=data,periodic=True)
         # self.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
         # self.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
-        pklFile = os.path.abspath(prefix + ".pkl")
-        self.writePickle(pklFile)
+        pklFile = self.writePickle(prefix)
         return pklFile
 
     def endGroupConfig(self, fragmentType):
@@ -2426,7 +2425,7 @@ class Cell():
     def vecDiff(self, p1, p2):
         return xyz_core.vecDiff(p1, p2, dim=self.dim, pbc=self.pbc)
 
-    def writePickle(self, fileName="cell.pkl"):
+    def writePickle(self, fileStem, compress=True):
         """Pickle ourselves"""
         # No idea why I can't get the log to close and then reopen with append mode
         # see _get_state_ and _set_state_ in this class
@@ -2437,13 +2436,16 @@ class Cell():
             logger.removeHandler(self._flLogHandler)
             del self._clLogHandler
             del self._flLogHandler
-        fileName = os.path.abspath(fileName)
-        # Create the pickle file
-        ab_util.pickleObj(self, fileName)
+        if compress:
+            suffix = ab_util.GZIP_PKL_SUFFIX
+        else:
+            suffix = ab_util.PKL_SUFFIX
+        fileName = os.path.abspath(fileStem + suffix)
+        fileName = ab_util.pickleObj(self, fileName, compress=compress)
         # Restart logging with append mode
         # self.setupLogging( mode='a' )
         logger.info("Wrote pickle file: {0}".format(fileName))
-        return
+        return fileName
 
     def writeCar(self, ofile="ambuild.car", data=None, periodic=True, skipDummy=False):
         """Car File

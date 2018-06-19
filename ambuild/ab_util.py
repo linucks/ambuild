@@ -8,6 +8,7 @@ Utility functions
 '''
 import sys
 PYTHONFLAVOUR = sys.version_info[0]
+import gzip
 import logging
 import os
 import numpy
@@ -27,6 +28,9 @@ try:
 except Exception:
     pass
 
+PKL_SUFFIX = '.pkl'
+GZIP_PKL_SUFFIX = '.pklz'
+
 logger = logging.getLogger()
 
 def cellFromPickle(pickleFile, paramsDir=None):
@@ -38,7 +42,6 @@ def cellFromPickle(pickleFile, paramsDir=None):
                 e.bonded = e._isBonded
             if not hasattr(e,'blocked'):
                 e.blocked = False
-
         # Need to make sure coords and masses are numpy arrays
         if type(fragment._coords) is list:
             fragment._coords = numpy.array(fragment._coords)
@@ -69,10 +72,18 @@ def cellFromPickle(pickleFile, paramsDir=None):
             fragment.configStr = 'XX' # Not sure if worth recalculating these 
             fragment._individualAttrs['configStr'] = fragment.configStr
         return
-    mode = 'r'
-    if PYTHONFLAVOUR == 3:
-        mode += 'b'
     
+    if pickleFile.endswith(GZIP_PKL_SUFFIX):
+        compressed = True
+        popen = gzip.open
+    elif pickleFile.endswith(PKL_SUFFIX):
+        compressed = False
+        popen = open
+    else:
+        raise RuntimeError('Unrecognised pkl file suffix for file {}. Use pkl or pklz.'.format(pickleFile))
+    mode = 'r'
+    if compressed or PYTHONFLAVOUR == 3:
+        mode += 'b'
     # This is another terrible hack for dealing with old pkl files that used the old class names
     import ab_block
     import ab_bond
@@ -83,15 +94,12 @@ def cellFromPickle(pickleFile, paramsDir=None):
     sys.modules['buildingBlock'] = ab_block
     sys.modules['cell'] = ab_cell
     sys.modules['fragment'] = ab_fragment
-    
     # Renamed cell class so need to alias here for old files
-    with open(pickleFile, mode) as f:
+    with popen(pickleFile, mode) as f:
         myCell = pickle.load(f)
-
     del sys.modules['buildingBlock']
     del sys.modules['cell']
     del sys.modules['fragment']
-    
     # Need to hack to work with older versions
     if not hasattr(myCell, 'dim'):
         myCell.dim = numpy.array([myCell.A, myCell.B, myCell.C])
@@ -101,7 +109,6 @@ def cellFromPickle(pickleFile, paramsDir=None):
     if not hasattr(myCell, 'pbc'):
         myCell.pbc = [True, True, True]
         myCell.walls = [False, False, False]
-    
     # Set parameter Directory
     if paramsDir is None:
         if hasattr(myCell, 'paramsDir'):
@@ -112,18 +119,13 @@ def cellFromPickle(pickleFile, paramsDir=None):
         raise RuntimeError("Cannot find cell paramsDir: {0}".format(paramsDir))
     logger.info("Getting parameter files from directory: {0}".format(paramsDir))
     xyz_util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
-    
-    # Set the MD enginge
     myCell.setMdEngine(HOOMDVERSION, paramsDir)
-    
     # Fix all the fragments
     for fragment in myCell._fragmentLibrary.values():
         fixFragment(fragment)
-        
     for block in myCell.blocks.values():
         for fragment in block.fragments:
             fixFragment(fragment)
-        
     return myCell
 
 
@@ -219,15 +221,23 @@ def newFilename(filename, separator="_"):
     return os.path.join(dname, basename + separator + str(num) + suffix)
 
 
-def pickleObj(obj, fileName):
+def pickleObj(obj, fileName, compress=True):
     """Pickle an object - required as we can't pickle in the cell as otherwise the open filehandle
     is within the cell which is the object we are trying to pickle..."""
+    if compress:
+        assert fileName.endswith(GZIP_PKL_SUFFIX), 'Wrong suffix for gzip pkl file'
+    else:
+        assert fileName.endswith(PKL_SUFFIX), 'Wrong suffix for pkl file'
     mode = 'w'
-    if PYTHONFLAVOUR == 3:
-        mode += 'b'
-    with open(fileName, mode) as pfile:
-        pickle.dump(obj, pfile)
-    return
+    if compress:
+        popen = gzip.open
+    else:
+        popen = open
+        if PYTHONFLAVOUR == 3:
+            mode += 'b'
+    with popen(fileName, mode) as pfile:
+            pickle.dump(obj, pfile)
+    return fileName
 
 if __name__ == '__main__':
     import argparse
