@@ -75,8 +75,11 @@ def cellFromPickle(pickleFile, paramsDir=None):
     
     # This is another terrible hack for dealing with old pkl files that used the old class names
     import ab_block
+    import ab_bond
     import ab_cell
     import ab_fragment
+    # Patch the buildingBlock module so it has a reference to Bond
+    ab_block.Bond = ab_bond.Bond
     sys.modules['buildingBlock'] = ab_block
     sys.modules['cell'] = ab_cell
     sys.modules['fragment'] = ab_fragment
