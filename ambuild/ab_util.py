@@ -29,7 +29,7 @@ except Exception:
     pass
 
 PKL_SUFFIX = '.pkl'
-GZIP_PKL_SUFFIX = '.pklz'
+GZIP_PKL_SUFFIX = '.pkl.gz'
 
 logger = logging.getLogger()
 
@@ -73,6 +73,8 @@ def cellFromPickle(pickleFile, paramsDir=None):
             fragment._individualAttrs['configStr'] = fragment.configStr
         return
     
+    if not os.path.isfile(pickleFile):
+        raise RuntimeError("Cannot find file: {}".format(pickleFile))
     if pickleFile.endswith(GZIP_PKL_SUFFIX):
         compressed = True
         popen = gzip.open
@@ -97,6 +99,7 @@ def cellFromPickle(pickleFile, paramsDir=None):
     # Renamed cell class so need to alias here for old files
     with popen(pickleFile, mode) as f:
         myCell = pickle.load(f)
+    del ab_block.Bond
     del sys.modules['buildingBlock']
     del sys.modules['cell']
     del sys.modules['fragment']

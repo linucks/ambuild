@@ -25,7 +25,7 @@ class Test(unittest.TestCase):
 
     @unittest.skipUnless(ab_util.PYTHONFLAVOUR == 2, "pkl file created with Python2")
     def testCellFromPickleGzip(self):
-        pickleFile = os.path.join(AMBUILD_DIR,"tests", "test_data", "new.pklz")
+        pickleFile = os.path.join(AMBUILD_DIR,"tests", "test_data", "new.pkl.gz")
         mycell = ab_util.cellFromPickle(pickleFile)
         self.assertEqual(len(mycell.blocks), 3, "Incorrect number of blocks: {0}".format(len(mycell.blocks)))
         # Just check we can build onto the cell as it demonstrates all the values are ok
