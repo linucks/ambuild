@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #!/opt/hoomd-0.11.3/hoomdblue-install/bin/hoomd
 #!/Applications/HOOMD-blue.app/Contents/MacOS/hoomd
+from hoomd.md._md import FIREEnergyMinimizer
 
 """
 NOTES
@@ -198,12 +199,10 @@ class Hoomd1(FFIELD):
                           retries_on_error=3,
                           **kw):
         """Optimise the geometry with hoomdblue"""
-
         assert max_tries > 0
         if retries_on_error < 1:
             retries_on_error = 0
         retries_on_error += 1
-
         for i in range(retries_on_error):
             # Try optimising and lower the timestep and increasing the number of cycles each time
             try:
@@ -245,10 +244,15 @@ class Hoomd1(FFIELD):
                         break
                     else:
                         logger.info("Optimisation failed to converge on macrocycle {0}".format(j))
-                        if j+1 < max_tries:  logger.info("Attempting another optimisation macrocycle")
+                        if j+1 < max_tries:
+                            logger.info("Attempting another optimisation macrocycle")
                 break # Break out of try/except loop
             except RuntimeError as e:
                 logger.info("Optimisation step {0} failed!\n{1}".format(i,e))
+                fire.disable()
+                del fire
+                del xmld
+                del dcdd
                 if i+1 < retries_on_error:
                     dt_old = dt
                     dt = dt_old * 0.1
@@ -398,11 +402,9 @@ class Hoomd1(FFIELD):
                dt=0.0005,
                dump=False,
                dumpPeriod=100, **kw):
-
         # Added **kw arguments so that we don't get confused by arguments intended for the optimise
         # when MD and optimiser run together
         # T= 0.1
-
         # Convert T
         # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
         # Incoming T is in Kelvin so we multiply by kB
@@ -427,10 +429,7 @@ class Hoomd1(FFIELD):
                             period=dumpPeriod,
                             unwrap_full=True,
                             overwrite=True)
-
-        # run mdCycles time steps
         run(mdCycles)
-
         integ.disable()
         if dump:
             #xmld.disable()
