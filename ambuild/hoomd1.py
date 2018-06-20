@@ -1,34 +1,9 @@
 #!/usr/bin/env python
-#!/opt/hoomd-0.11.3/hoomdblue-install/bin/hoomd
-#!/Applications/HOOMD-blue.app/Contents/MacOS/hoomd
-from hoomd.md._md import FIREEnergyMinimizer
-
-"""
-NOTES
-
-what you are looking for is described here:
-
-http://codeblue.umich.edu/hoomd-blue/doc-master/classhoomd__script_1_1analyze_1_1log.html#a7077167865224233566753fc78aadb36
-
-basically you want to do
-
-#setup logger
-logger=analyze.log(filename='mylog.log', quantities=['pair_lj_energy','pair_lj_energy','potential_energy','potential_energy_b1'],period=10, header_prefix='#')
-
-#run simulation
-run(100)
-
-# query potential energy
-pe_c1 = logger.query('potential_energy_b1')
-pe = logger.query('potential_energy')
-
-"""
 import sys
 from hoomd_script import *
 # Need to avoid name clash with dump now that we've removed the hooomdblue namespace we had earlier
 hdump = dump
 del dump
-
 if __name__ != '__main__' and 'context' in locals().keys():
     # Later versions of hoomd-blue have a context that needs to be updated
     # Context parses the command-line, so we need to make sure there
@@ -37,13 +12,11 @@ if __name__ != '__main__' and 'context' in locals().keys():
     sys.argv = [sys.argv[0]]
     context.initialize()
     sys.argv = _argv
-
 import logging
 import numpy
 import os
 import time
 import xml.etree.ElementTree as ET
-
 # our imports
 from ab_ffield import FFIELD, FfieldParameters
 import xyz_core
@@ -54,7 +27,6 @@ logger = logging.getLogger(__name__)
 class Hoomd1(FFIELD):
 
     def __init__(self, paramsDir):
-
         self.ffield = FfieldParameters(paramsDir)
         self.system = None
         self.bonds = None
@@ -64,13 +36,10 @@ class Hoomd1(FFIELD):
         self.atomTypes = None
         self.masked = None
         self.rCut = 5.0
-
         self.groupActive = None
         self.groupAll = None
         self.groupStatic = None
-
         self.debug = False
-
         # kB = 8.310 * 10**-23 Angstroms**2 g mole**-1 s**-2 K**-1
         # Incoming T is in Kelvin so we multiply by kB
         self.CONVERSIONFACTOR = 8.310E-23
@@ -85,28 +54,21 @@ class Hoomd1(FFIELD):
                       rCut=None,
                       quiet=None,
                        **kw):
-
         if rCut is not None:
             self.rCut = rCut
-
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
-
         self.system = self.setupSystem(data,
                                        xmlFilename=xmlFilename,
                                        doDihedral=doDihedral,
                                        doImproper=doImproper,
                                        rCut=self.rCut,
                                        quiet=quiet,
-                                       maxE=True,
-                                    )
-
+                                       maxE=True)
         quantities = ['potential_energy', 'kinetic_energy']
-
         # see setupSystem for where the groups are created
         for idxBlock, idxFragment, start, end in data.tagIndices:
             quantities.append("potential_energy_{0}:{1}".format(start, end))
-
         self.hlog = analyze.log(filename='mylog1.csv',
                                 quantities=quantities,
                                 period=1,
@@ -123,12 +85,9 @@ class Hoomd1(FFIELD):
             if e > maxe:
                 maxe = e
                 maxi = i
-
         assert i != -1
         idxBlock, idxFragment, start, end = data.tagIndices[maxi]
         return maxe, idxBlock, idxFragment
-
-        # return float(value) * self.CONVERSIONFACTOR
         return float(value)
 
     def optimiseGeometry(self,
@@ -143,13 +102,10 @@ class Hoomd1(FFIELD):
                           walls=None,
                           wallAtomType=None,
                           **kw):
-
         if rCut is not None:
             self.rCut = rCut
-
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
-
         self.system = self.setupSystem(data,
                                        xmlFilename=xmlFilename,
                                        rigidBody=rigidBody,
@@ -158,9 +114,7 @@ class Hoomd1(FFIELD):
                                        rCut=self.rCut,
                                        quiet=quiet,
                                        walls=walls,
-                                       wallAtomType=wallAtomType,
-                                       )
-
+                                       wallAtomType=wallAtomType)
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
         self.hlog = analyze.log(filename='geomopt.tsv',
                                 quantities=[
@@ -171,16 +125,12 @@ class Hoomd1(FFIELD):
                                     ],
                                 period=100,
                                 header_prefix='#',
-                                overwrite=True
-                                )
-
+                                overwrite=True)
         optimised = self._optimiseGeometry(rigidBody=rigidBody, **kw)
-
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
                 kw['d'][ i ] = self.toStandardUnits(self.hlog.query(i))
-
         return optimised
 
     def _optimiseGeometry(self,
@@ -291,13 +241,10 @@ class Hoomd1(FFIELD):
               walls=None,
               wallAtomType=None,
               **kw):
-
         if rCut is not None:
             self.rCut = rCut
-
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
-
         self.system = self.setupSystem(data,
                                        xmlFilename=xmlFilename,
                                        rigidBody=rigidBody,
@@ -306,8 +253,7 @@ class Hoomd1(FFIELD):
                                        rCut=self.rCut,
                                        quiet=quiet,
                                        walls=walls,
-                                       wallAtomType=wallAtomType,
-                                       )
+                                       wallAtomType=wallAtomType)
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
         hlog = analyze.log(filename='runmd.tsv',
@@ -319,16 +265,12 @@ class Hoomd1(FFIELD):
                                ],
                            period=100,
                            header_prefix='#',
-                           overwrite=True
-                           )
-
+                           overwrite=True)
         self._runMD(rigidBody=rigidBody, **kw)
-
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
                 kw['d'][ i ] = self.toStandardUnits(hlog.query(i))
-
         return True
 
     def runMDAndOptimise(self,
@@ -343,13 +285,10 @@ class Hoomd1(FFIELD):
                          walls=None,
                          wallAtomType=None,
                          **kw):
-
         if rCut is not None:
             self.rCut = rCut
-
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
-
         self.system = self.setupSystem(data,
                                        xmlFilename=xmlFilename,
                                        rigidBody=rigidBody,
@@ -358,8 +297,7 @@ class Hoomd1(FFIELD):
                                        rCut=self.rCut,
                                        quiet=quiet,
                                        walls=walls,
-                                       wallAtomType=wallAtomType,
-                                       )
+                                       wallAtomType=wallAtomType)
 
         # Logger - we don't write anything but query the final value - hence period 0 and overwrite
         self.hlog = analyze.log(filename='md_geomopt.tsv',
@@ -371,25 +309,17 @@ class Hoomd1(FFIELD):
                                     ],
                                 period=0,
                                 header_prefix='#',
-                                overwrite=True
-                                )
-
+                                overwrite=True)
         # pre-optimise for preopt steps to make sure the sytem is sane - otherwise the MD
         # blows up
         preOptCycles = 5000
         self._optimiseGeometry(optCycles=preOptCycles, dt=0.0001)
-
-        # Now run the MD steps
         self._runMD(**kw)
-
-        # Finally do a full optimisation
         optimised = self._optimiseGeometry(**kw)
-
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
                 kw['d'][ i ] = self.toStandardUnits(self.hlog.query(i))
-
         return optimised
 
     def _runMD(self, mdCycles=100000,
@@ -494,10 +424,8 @@ class Hoomd1(FFIELD):
 
     def setAttributesFromFile(self, xmlFilename):
         """Parse the xml file to extract the bonds, angles etc."""
-
         tree = ET.parse(xmlFilename)
         root = tree.getroot()
-
         bonds = []
         x = root.findall(".//bond")
         if len(x):
@@ -552,9 +480,7 @@ class Hoomd1(FFIELD):
             atomType = line.strip()
             if atomType and atomType not in atomTypes:
                 atomTypes.append(atomType)
-
         self.atomTypes = atomTypes
-
         return
 
     def setupGroups(self, data):
@@ -650,19 +576,15 @@ class Hoomd1(FFIELD):
                 # create the compute for this group
                 c = compute.thermo(group=g)
                 # self.labels.append(l)
-
-
 # Do we need to think about saving the references and deleting them?
 #         del harmonic
 #         del aharmonic
 #         del improper
 #         del lj
-
         return system
 
     def setupWalls(self, walls, system, wallAtomType, rCut):
         """Set up walls for the simulation
-
         I think that we require two walls. One on the front side with the potential facing in,
         the other on the back wall with the potential facing back towards the other potential.
         The origin of the wall is the centre of plane but then back half a cell along the axis
@@ -721,7 +643,6 @@ class Hoomd1(FFIELD):
             box = numpy.array([self.system.box.Lx, self.system.box.Ly, self.system.box.Lz])
         else:
             box = numpy.array(self.system.box)
-
         # Read back in the particle positions
         atomCount = 0
         for block in cell.blocks.itervalues():
@@ -780,12 +701,9 @@ class Hoomd1(FFIELD):
 #                     z = z + (zdim / 2)
 
                 car += "{0: <5} {1: >15.10} {2: >15.10} {3: >15.10} XXXX 1      {4: <4}    {5: <2} {6: > 2.3f}\n".format(label, coord[0], coord[1], coord[2], atype, symbol, charge)
-
         car += "end\nend\n\n"
-
         with open(filename, 'w') as f:
             f.writelines(car)
-
         return
 
     def writeXml(self,
@@ -799,9 +717,6 @@ class Hoomd1(FFIELD):
         """Write out a HOOMD Blue XML file.
         """
         d = data
-        #
-        # Got data so now put into xml
-        #
         body = "\n" + "\n".join(map(str, d.bodies)) + "\n"
         charge = "\n" + "\n".join(map(str, d.charges)) + "\n"
         diameter = "\n" + "\n".join(map(str, d.diameters)) + "\n"
@@ -839,18 +754,15 @@ class Hoomd1(FFIELD):
 
         root = ET.Element('hoomd_xml', version="1.4")
         config = ET.SubElement(root, "configuration", timestep="0")
-
         # e = ET.SubElement( config, "box",
         ET.SubElement(config, "box",
                         Lx=str(d.cell[0]),
                         Ly=str(d.cell[1]),
                         Lz=str(d.cell[2]))
-
         e = ET.SubElement(config, "position")
         e.text = position
         e = ET.SubElement(config, "image")
         e.text = image
-
         if rigidBody:
             e = ET.SubElement(config, "body")
             e.text = body
@@ -863,7 +775,6 @@ class Hoomd1(FFIELD):
         e.text = ptype
         e = ET.SubElement(config, "mass")
         e.text = mass
-
         if bond:
             e = ET.SubElement(config, "bond")
             e.text = bond
@@ -877,14 +788,9 @@ class Hoomd1(FFIELD):
             elif doImproper:
                 e = ET.SubElement(config, "improper")
                 e.text = dihedral
-
         tree = ET.ElementTree(root)
-
-        # ET.dump(tree)
-
         # tree.write(file_or_filename, encoding, xml_declaration, default_namespace, method)
         tree.write(xmlFilename)
-
         return True
 
     def writeXyz(self, system, filename=None, unwrap=True):
@@ -913,19 +819,13 @@ class Hoomd1(FFIELD):
 
 def xml2xyz(xmlFilename, xyzFilename):
     """Convert a hoomdblue xml file to xyz"""
-
-
     tree = ET.parse(xmlFilename)
     root = tree.getroot()
-
     atext = root.findall(".//type")[0].text
     atomTypes = [ line.strip() for line in atext.split(os.linesep) if line.strip() ]
-
     ptext = root.findall(".//position")[0].text
     positions = [ line.strip().split() for line in ptext.split(os.linesep) if line.strip() ]
-
     assert len(atomTypes) == len(positions)
-
     # Convert atom types to symbols
     symbols = []
     for at in atomTypes:
@@ -933,7 +833,6 @@ def xml2xyz(xmlFilename, xyzFilename):
             symbols.append('x')
         else:
             symbols.append(xyz_util.label2symbol(at))
-
     # Now write out xyz
     xyz_util.writeXyz(xyzFilename, positions, symbols)
 #     with open( xyzFilename, 'w') as o:
@@ -947,9 +846,7 @@ def xml2xyz(xmlFilename, xyzFilename):
 #                                                                            ) )
 #
 #         o.write("\n")
-
     logger.info("Wrote file: {0}".format(xyzFilename))
-
     return
 
 if __name__ == "__main__":
