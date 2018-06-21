@@ -82,7 +82,9 @@ def cellFromPickle(pickleFile, paramsDir=None):
         compressed = False
         popen = open
     else:
-        raise RuntimeError('Unrecognised pkl file suffix for file {}. Use pkl or pklz.'.format(pickleFile))
+        raise RuntimeError('Unrecognised pkl file suffix for file {}. Use {} or {}'.format(pickleFile,
+                                                                                           PKL_SUFFIX,
+                                                                                           GZIP_PKL_SUFFIX))
     mode = 'r'
     if compressed or PYTHONFLAVOUR == 3:
         mode += 'b'
@@ -136,12 +138,17 @@ def cellFromPickle(pickleFile, paramsDir=None):
 
 
 def dumpPkl(pickleFile, split=None, nonPeriodic=False):
-
     fpath = os.path.abspath(pickleFile)
+    basename = os.path.basename(fpath)
     logger.info("Dumping pkl file: {0}".format(fpath))
-    _, fname = os.path.split(fpath)
-    prefix = os.path.splitext(fname)[0]
-
+    if pickleFile.endswith(GZIP_PKL_SUFFIX):
+        prefix = basename.rstrip(GZIP_PKL_SUFFIX)
+    elif pickleFile.endswith(PKL_SUFFIX):
+        prefix = basename.rstrip(PKL_SUFFIX)
+    else:
+        raise RuntimeError('Unrecognised pkl file suffix for file {}. Use {} or {}'.format(pickleFile,
+                                                                                           PKL_SUFFIX,
+                                                                                           GZIP_PKL_SUFFIX))
     mycell = cellFromPickle(pickleFile)
     if split == "fragments":
         for t in mycell.fragmentTypes().keys():
@@ -185,7 +192,6 @@ def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
     fpath = os.path.abspath(pickleFile)
     logger.info("Dumping DLPOLY files from pkl file: {0}".format(fpath))
     mycell = cellFromPickle(pickleFile)
-
     # Set parameter Directory
     if hasattr(mycell, 'paramsDir'):
         paramsDir = mycell.paramsDir

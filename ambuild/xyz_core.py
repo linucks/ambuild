@@ -532,34 +532,16 @@ def centreOfMass(coords, masses):
 
 
 def dihedral(p1, p2, p3, p4, dim=None, pbc=None):
-    """ From the CCP1GUI
-    """
-#     if cell is not None:
-#         # We need to fix all distances between vectors for PBC
-#         dimensions = numpy.array(cell)
-#         vec_ij = numpy.remainder(p1 - p2, dimensions)
-#         vec_kl = numpy.remainder(p3 - p4, dimensions)
-#         vec_kj = numpy.remainder(p3 - p2, dimensions)
-#         vec_ij = numpy.where(numpy.abs(vec_ij) > 0.5 * dimensions, vec_ij - numpy.copysign(dimensions, vec_ij), vec_ij)
-#         vec_kj = numpy.where(numpy.abs(vec_kj) > 0.5 * dimensions, vec_kj - numpy.copysign(dimensions, vec_kj), vec_kj)
-#         vec_kl = numpy.where(numpy.abs(vec_kl) > 0.5 * dimensions, vec_kl - numpy.copysign(dimensions, vec_kl), vec_kl)
-#     else:
-#         vec_ij = p1 - p2
-#         vec_kj = p3 - p2
-#         vec_kl = p3 - p4
-    
+    """Dihedral angle between 4 points"""
     vec_ij = vecDiff(p1, p2, dim=dim, pbc=pbc)
     vec_kj = vecDiff(p3, p2, dim=dim, pbc=pbc)
     vec_kl = vecDiff(p3, p4, dim=dim, pbc=pbc)
-
     # vec1 is the normal to the plane defined by atoms i, j, and k
     vec1 = numpy.cross(vec_ij, vec_kj)
     magvec1 = numpy.dot(vec1, vec1)
-
     #  vec2 is the normal to the plane defined by atoms j, k, and l
     vec2 = numpy.cross(vec_kl, vec_kj)
     magvec2 = numpy.dot(vec2, vec2)
-
     # the definition of a dot product is used to find the angle between
     # vec1 and vec2 and hence the angle between the planes defined by
     # atoms i, j, k and j, k, l
@@ -578,7 +560,6 @@ def dihedral(p1, p2, p3, p4, dim=None, pbc=None):
     fac = max(fac, -1.0)
     # dihed = 180.0 - math.degrees( math.acos(fac ) )
     dihed = math.pi - math.acos(fac)
-
     # the dot product between the bond between atoms i and j and the
     # normal to the plane defined by atoms j, k, and l is used to
     # determine whether or not the dihedral angle is clockwise or
@@ -598,26 +579,6 @@ def distance(v1, v2, dim=None, pbc=[True,True,True]):
     Changed so that it can cope with distances across more than one cell
     """
     return numpy.sqrt((vecDiff(v1, v2, dim=dim, pbc=pbc) ** 2).sum(axis=-1))
-
-
-def XdistanceP(self, v1, v2):
-    """
-    Calculate the distance between two vectors in the cell
-    under periodic boundary conditions - from wikipedia entry
-    """
-
-    # return numpy.linalg.norm(v1-v2)
-    dx = v2[0] - v1[0]
-    if math.fabs(dx) > self.A[0] * 0.5:
-        dx = dx - math.copysign(self.A[0], dx)
-    dy = v2[1] - v1[1]
-    if math.fabs(dy) > self.B[1] * 0.5:
-        dy = dy - math.copysign(self.B[1], dy)
-    dz = v2[2] - v1[2]
-    if math.fabs(dz) > self.C[2] * 0.5:
-        dz = dz - math.copysign(self.C[2], dz)
-
-    return math.sqrt(dx * dx + dy * dy + dz * dz)
 
 
 def momentOfInertia(coords, masses):
@@ -728,8 +689,6 @@ def vectorAngle(v1, v2):
             return 0.0
         else:
             return numpy.pi
-            # return numpy.pi/RADIANS2DEGREES
-    # return angle/RADIANS2DEGREES
     return angle
 
 
