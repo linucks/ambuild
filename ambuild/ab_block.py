@@ -45,42 +45,25 @@ class Block(object):
         '''
         Constructor
         '''
-
         # Need to change so cannot create block withough fragmentType
         if filePath:
             assert os.path.isfile(filePath) and fragmentType
             initFragment = Fragment(filePath, fragmentType)
-
-        # List of the fragments contained in this one
         self.fragments = []
         if initFragment:
             self.fragments.append(initFragment)
-
-        # List of bond objects between blocks
-        self._blockBonds = []
-
-        # List of tuples of atoms that are bonded
-        self._bonds = []
-
-        # List of the bonds within fragments as a tuple (fragmentType, bond)
-        self._bondsByFragmentType = []
-
-        # List of which atom is bonded to which
-        self._bondedToAtom = []
-
-        # list of tuples of ( idFrag, idxData )
-        self._dataMap = []
+        self._blockBonds = [] # List of bond objects between blocks
+        self._bonds = [] # List of tuples of atoms that are bonded
+        self._bondsByFragmentType = [] # List of the bonds within fragments as a tuple (fragmentType, bond)
+        self._bondedToAtom = [] # List of which atom is bonded to which
+        self._dataMap = [] # list of tuples of ( idFrag, idxData )
         self._bodies = []  # List of which body in the block each atom belongs too - frags can contain multiple bodies
-
         # The list of atoms that are endGroups and their corresponding angleAtoms
         self._freeEndGroups = {}
         self._numFreeEndGroups = 0
         self._endGroupType2EndGroups = {}
-
-        # Flag to indicate if block has changed and parameters (such as centerOfMass)
-        # need to be changed
+        # Flag to indicate if block has changed and parameters (such as centerOfMass) need to be changed
         self._changed = True
-
         # Below need to be updated when we move etc
         self._centroid = numpy.zeros(3)
         self._centerOfMass = numpy.zeros(3)
@@ -88,10 +71,9 @@ class Block(object):
         self._radius = None
         self._blockMass = 0
         self.id = id(self)
-        
         self._deterministicState = 0 # For keeping track of things during testing
-
-        if self.fragments: self._update()
+        if self.fragments:
+            self._update()
         return
 
     def alignAtoms(self, atom1Idx, atom2Idx, refVector):
@@ -108,22 +90,16 @@ class Block(object):
 
         pos1 is the coordinate of atom1 and pos2 the coordinate of atom2
         """
-        # Move so that pos1 is at origin so the vector of pos2 can be
-        # aligned with the refVector
+        # Move so that pos1 is at origin so the vector of pos2 can be aligned with the refVector
 
-        # Shift block so angleAtom at center,
-        self.translate(-pos1)
-
-        # Check neither is zero
+        self.translate(-pos1) # Shift block so angleAtom at center,
         if numpy.array_equal(refVector, [0, 0, 0]) or numpy.array_equal(pos2, [0, 0, 0]):
             raise RuntimeError("alignBlock - one of the vectors is zero!\nrefVector: {0} endGroup: {1}".format(refVector, pos2))
 
-        # Makes no sense if they are already aligned
         if numpy.array_equal(pos2 / numpy.linalg.norm(pos2), refVector / numpy.linalg.norm(refVector)):
             logger.debug("alignBlock - block already aligned along vector. May not be a problem, but you should know...")
             self.translate(pos1)  # NEW - put it back
             return
-
         # print "alignBlock BEFORE: {0} | {1}".format( endGroup, refVector )
         # Calculate normalised cross product to find an axis orthogonal
         # to both that we can rotate about
@@ -134,15 +110,11 @@ class Block(object):
             self.flip(refVector)
             self.translate(pos1)  # NEW - put it back
         else:
-            # Find angle
             angle = xyz_core.vectorAngle(refVector, pos2)
             # Normalised cross to rotate about
             ncross = cross / numpy.linalg.norm(cross)
-            # Rotate
             self.rotate(ncross, angle)
-        
-        # Now shift back
-        self.translate(pos1)
+        self.translate(pos1) # Now shift back
         return
 
     def atomBonded1(self, idxAtom):

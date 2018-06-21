@@ -624,18 +624,16 @@ class Cell():
     def clearUnbonded(self):
         "Run after we have optimised to unset the unBonded flag and add capatoms back into the cell"
         for block in self.blocks.values():
-            if hasattr(block, '_fragments'):
-                fragments = block._fragments
-            else:
-                fragments = block.fragments
-            for frag in fragments:
+            for frag in block.fragments:
                 frag.clearUnbonded()
         return
 
     def cat1Paf2(self, fragmentTypes):
         """Function to unbond a Ni-catalyst bonded to two PAF groups"""
-        assert type(fragmentTypes) is list and len(fragmentTypes) > 0 and all([type(f) is str for f in fragmentTypes]),"Need a list of fragmentTypes"
-        if not len(self.newBonds): return False
+        assert type(fragmentTypes) is list and len(fragmentTypes) > 0 and all([type(f) is str for f in fragmentTypes]),\
+            "Need a list of fragmentTypes"
+        if not len(self.newBonds):
+            return False
         #logger.info("ca1tPaf2 got new bonds %s" % [str(b) for b in self.newBonds ])
         return any([self._cat1Paf2(b, fragmentTypes) for b in self.newBonds])
 
@@ -1085,8 +1083,7 @@ class Cell():
                         d.properLabels.append(dlabel)
 
             # Now loop through fragments and coordinates
-            fragments = block._fragments if hasattr(block, '_fragments') else block.fragments
-            for frag in fragments:  # need index of fragment in block
+            for frag in block.fragments:  # need index of fragment in block
                 for body in frag.bodies():
                     # Body count always increments with fragment although it may go up within a fragment too
                     bodyCount += 1
@@ -1857,11 +1854,7 @@ class Cell():
     def numFragments(self):
         # return sum([len(b.fragments) for b in self.blocks.values()])
         # Hack for old interface
-        try:
-            n = sum([len(b.fragments) for b in self.blocks.values()])
-        except AttributeError:
-            n = sum([len(b._fragments) for b in self.blocks.values()])
-        return n
+        return sum([len(b.fragments) for b in self.blocks.values()])
 
     def numFreeEndGroups(self):
         return sum([ b.numFreeEndGroups() for b in self.blocks.values() ])

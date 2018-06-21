@@ -123,10 +123,13 @@ def cellFromPickle(pickleFile, paramsDir=None):
     logger.info("Getting parameter files from directory: {0}".format(paramsDir))
     xyz_util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
     myCell.setMdEngine(HOOMDVERSION, paramsDir)
-    # Fix all the fragments
+    # Fix all the fragments and blocks
     for fragment in myCell._fragmentLibrary.values():
         fixFragment(fragment)
     for block in myCell.blocks.values():
+        if hasattr(block, '_fragments'):
+            block.fragments = block._fragments
+            del block._fragments
         for fragment in block.fragments:
             fixFragment(fragment)
     return myCell
