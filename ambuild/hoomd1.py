@@ -199,8 +199,6 @@ class Hoomd1(FFIELD):
                 break # Break out of try/except loop
             except RuntimeError as e:
                 logger.info("Optimisation step {0} failed!\n{1}".format(i,e))
-                fire.disable()
-                del fire
                 del xmld
                 del dcdd
                 if i+1 < retries_on_error:
