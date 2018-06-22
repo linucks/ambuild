@@ -575,7 +575,7 @@ class Test(unittest.TestCase):
     def testDump(self):
         """Test we can dump a cell"""
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim, doLog=False)
+        mycell = Cell(boxDim, debugLog=False)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         
@@ -702,7 +702,7 @@ class Test(unittest.TestCase):
     def testGrowBlocks(self):
         """Test we can add blocks correctly"""
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim, doLog=False)
+        mycell = Cell(boxDim, debugLog=False)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         # mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
@@ -865,7 +865,7 @@ class Test(unittest.TestCase):
         
     def testGrowPolymer(self):
         boxDim = [15, 15, 15]
-        mycell = Cell(boxDim, doLog=False)
+        mycell = Cell(boxDim, debugLog=False)
 
         mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
         mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
@@ -881,7 +881,7 @@ class Test(unittest.TestCase):
     def testGrowPolymerFail(self):
         """Make sure we only have a single monomer if we don't allow any bonds"""
         boxDim = [15, 15, 15]
-        mycell = Cell(boxDim, doLog=False)
+        mycell = Cell(boxDim, debugLog=False)
 
         mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
         mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
@@ -894,7 +894,7 @@ class Test(unittest.TestCase):
     
     def testGrowPolymerRandom(self):
         boxDim = [20, 20, 20]
-        mycell = Cell(boxDim, doLog=False)
+        mycell = Cell(boxDim, debugLog=False)
 
         mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
         mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
@@ -1292,7 +1292,7 @@ class Test(unittest.TestCase):
         - uses same setup as ZipClash test
         """
         boxDim = [25, 25, 25]
-        mycell = Cell(boxDim, doLog=True)
+        mycell = Cell(boxDim, debugLog=True)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='B', solvent=True)
         mycell.addBondType('A:a-A:a')
@@ -1505,7 +1505,7 @@ class Test(unittest.TestCase):
     def testZipClash1(self):
         """Test no clashes"""
         boxDim = [25, 25, 25]
-        mycell = Cell(boxDim, doLog=True)
+        mycell = Cell(boxDim, debugLog=True)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         # Create blocks manually
@@ -1535,7 +1535,7 @@ class Test(unittest.TestCase):
     def testZipClash2(self):
         """Test clash when bond is through a benzene ring"""
         boxDim = [25, 25, 25]
-        mycell = Cell(boxDim, doLog=True)
+        mycell = Cell(boxDim, debugLog=True)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         # Create blocks manually
@@ -1567,7 +1567,7 @@ class Test(unittest.TestCase):
     def testZipClashPBC1(self):
         """Test clash for bond across PBC"""
         boxDim = [25, 25, 25]
-        mycell = Cell(boxDim, doLog=True)
+        mycell = Cell(boxDim, debugLog=True)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         # Create blocks manually
@@ -1598,7 +1598,7 @@ class Test(unittest.TestCase):
     def testZipClashPBC2(self):
         """Test clash for bond across PBC"""
         boxDim = [25, 25, 25]
-        mycell = Cell(boxDim, doLog=True)
+        mycell = Cell(boxDim, debugLog=True)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         # Create blocks manually
