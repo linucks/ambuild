@@ -45,7 +45,7 @@ class Cell():
                  atomMargin=0.5,
                  bondMargin=0.5,
                  bondAngleMargin=15,
-                 doLog=False,
+                 debugLog=False,
                  paramsDir=None):
         '''Construct an empty cell:
 
@@ -59,7 +59,7 @@ class Cell():
         bondMargin - two atoms are considered close enough to bond if they are within the bond length
                      defined for the two atoms +/- the bondMargin
         bondAngleMargin - the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
-        doLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
+        debugLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
                 and slows the program.
         paramsDir - path to the directory holding the forcefield parameter csv files (default ../params)
         '''
@@ -105,7 +105,7 @@ class Cell():
         # Logging functions
         self.logfile = None
         self.logcsv = None
-        self.setupLogging(doLog=doLog)
+        self.setupLogging(debugLog=debugLog)
         self._setupAnalyse()
         self._fileCount = 0  # for naming output files
         self._deterministicState = 0 # For adding blocks in a non-random manner (for testing)
@@ -2321,12 +2321,12 @@ class Cell():
         self.analyse = ab_analyse.Analyse(self, logfile=logfile)
         return
 
-    def setupLogging(self, logfile="ambuild.log", mode='w', doLog=False):
+    def setupLogging(self, logfile="ambuild.log", mode='w', debugLog=False):
         """
         Set up the various log files/console logging and return the logger
         """
         logger = logging.getLogger()
-        # if not doLog:
+        # if not debugLog:
         #    logging.disable(logging.DEBUG)
 
         # First check if there are any handlers active - if so we remove them
@@ -2339,7 +2339,7 @@ class Cell():
         # create file handler and set level to debug
         self.logfile = logfile
         fl = logging.FileHandler(self.logfile, mode=mode)
-        if doLog:
+        if debugLog:
             fl.setLevel(logging.DEBUG)
         else:
             fl.setLevel(logging.INFO)
