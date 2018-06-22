@@ -124,7 +124,8 @@ def cellFromPickle(pickleFile, paramsDir=None):
         raise RuntimeError("Cannot find cell paramsDir: {0}".format(paramsDir))
     logger.info("Getting parameter files from directory: {0}".format(paramsDir))
     xyz_util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
-    myCell.setMdEngine(HOOMDVERSION, paramsDir)
+    myCell.paramsDir = paramsDir
+    myCell.setMdEngineCls(HOOMDVERSION)
     # Fix all the fragments and blocks
     for fragment in myCell._fragmentLibrary.values():
         fixFragment(fragment)

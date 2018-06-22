@@ -80,56 +80,42 @@ class Test(unittest.TestCase):
 
     def testCX4(self):
         """First pass"""
-
         boxDim = [30, 30, 30]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment(fragmentType='A', filename=self.cx4Car)
         mycell.addBondType('A:a-A:a')
         mycell.seed(1)
         mycell.growBlocks(1)
-
         return
 
     def testAmbody(self):
-
         boxDim = [30, 30, 30]
         mycell = Cell(boxDim)
-
         mycell.libraryAddFragment(filename=self.ch4Ca2Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         added = mycell.seed(3)
         self.assertEqual(added, 3)
-
         return
 
     def testBond(self):
         """First pass"""
-
         boxDim = [30, 30, 30]
         mycell = Cell(boxDim)
-
         fragmentType = 'A'
         mycell.libraryAddFragment(fragmentType=fragmentType, filename=self.benzeneCar)
         mycell.addBondType('A:a-A:a')
-
         centralBlock = mycell.getLibraryBlock(fragmentType=fragmentType)
-
         block1 = mycell.getLibraryBlock(fragmentType=fragmentType)
         block2 = mycell.getLibraryBlock(fragmentType=fragmentType)
-
         centralBlock.positionGrowBlock(centralBlock.freeEndGroups()[ 0 ], block1.freeEndGroups()[ 0 ])
         centralBlock.positionGrowBlock(centralBlock.freeEndGroups()[ 1 ], block2.freeEndGroups()[ 0 ])
-
         # Now add growBlock to the cell so we can check for clashes
         mycell.addBlock(block1)
         mycell.addBlock(block2)
-
         # Now add the central block - it will have 2 bonds to make
         centralId = mycell.addBlock(centralBlock)
-
         self.assertTrue(mycell.checkMove(centralId), "checkMove failed!")
         self.assertEqual(mycell.processBonds(), 2)
-
         return
 
     def testBlockTypes(self):
@@ -259,27 +245,22 @@ class Test(unittest.TestCase):
     def testCellIO(self):
         """Check we can write out and then read in a cell
         """
-
         # Remember a coordinate for checking
         mycell = self.createTestCell()
         test_coord = mycell.blocks[list(mycell.blocks.keys())[0] ].coord(4)
-
-        outfile = "./testCellIO.pkl"
-        mycell.writePickle(outfile)
+        fileStem = 'testCellIO'
+        fileName = mycell.writePickle(fileStem)
         if sys.version_info < (3,0):
             mode = 'r'
         else:
             mode = 'br'
-        with open(outfile, mode) as f:
-            newCell = pickle.load(f)
-
+        newCell = ab_util.cellFromPickle(fileName)
         self.assertTrue(numpy.allclose(test_coord,
                                        newCell.blocks[list(newCell.blocks.keys())[0] ].coord(4),
                                        rtol=1e-9,
                                        atol=1e-9),
                                        msg="Incorrect testCoordinate of cell.")
-
-        os.unlink(outfile)
+        os.unlink(fileName)
         return
 
     def testCloseAtoms(self):
@@ -343,40 +324,32 @@ class Test(unittest.TestCase):
         return
 
     def testCloseAtoms2(self):
-
         mycell = Cell([2.1, 2.1, 2.1], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         block1 = mycell.getLibraryBlock('A')
-
         natoms = block1.numAtoms()
-
         # block radius is 1.8
         block1.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
         block1Idx = mycell.addBlock(block1)
-
         # Alone in cell but in center
         close, wallClash = mycell.closeAtoms(block1Idx)
         self.assertFalse(close)
         self.assertFalse(wallClash)
-
         # Add second block overlapping first but in other image
         block2 = mycell.getLibraryBlock('A')
         block2.translateCentroid([ mycell.dim[0] / 2 + mycell.dim[0],
                                    mycell.dim[1] / 2 + mycell.dim[1],
                                    mycell.dim[2] / 2 + mycell.dim[2] ])
         block2Idx = mycell.addBlock(block2)
-
         # Make sure every atom overlaps with ever other
         close, wallClash = mycell.closeAtoms(block1Idx)
         self.assertFalse(wallClash)
         self.assertEquals(natoms * natoms, len(close))
-        
         # See we have enough clashing atoms - NOT CHECKED THIS NUMBER
         close, wallClash = mycell.closeAtoms(block2Idx)
         self.assertFalse(wallClash)
         self.assertEquals(natoms * natoms, len(close))
-
         return
 
     def testCloseDistance(self):
@@ -385,31 +358,17 @@ class Test(unittest.TestCase):
         """
         boxDim = [30, 30, 30]
         mycell = Cell(boxDim)
-        # mycell.initCell("../ch4_typed.car",incell=False)
-        # block1 = mycell.initBlock.copy()
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         block1 = mycell.getLibraryBlock('A')
-
         b1 = numpy.array([2, 2, 2], dtype=numpy.float64)
         block1.translateCentroid(b1)
         block1_id = mycell.addBlock(block1)
-
         # block2=mycell.initBlock.copy()
         block2 = mycell.getLibraryBlock('A')
         b2 = numpy.array([3, 3, 3], dtype=numpy.float64)
         block2.translateCentroid(b2)
         block2_id = mycell.addBlock(block2)
-
-        # mycell.writeXyz("close1.xyz", label=False)
-
-#        closeList =  mycell.closeAtoms(block1_id)
-#        for iatom, ioblock, ioatom in closeList:
-#            b1c = block1._coords[iatom]
-#            b2c = mycell.blocks[ioblock]._coords[ioatom]
-#            distance = mycell.distance(b1c,b2c)
-#            print "{}: {} -> {}:{} = {}".format(iatom,b1c,ioatom,b2c,distance)
-
         # Distance measured with Avogadro so it MUST be right...
         refd = 0.673354948616
         distance = mycell.distance(block1.coord(1), mycell.blocks[ block2_id ].coord(3))
@@ -417,25 +376,19 @@ class Test(unittest.TestCase):
         return
     
     def testDeleteBlocksIndices(self):
-        
         boxDim = [50, 50, 50]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
-
         # See if we can delete a range of blocks
         toSeed = 10
         seeded = mycell.seed(toSeed)
         self.assertEqual(seeded,toSeed,"Failed to seed all blocks")
-        
         toDelete = [0,3,5]
-        
         bidxs = [ blockId for i, blockId in enumerate(mycell.blocks.keys()) if i in toDelete]
         removed = mycell.deleteBlocks(indices=toDelete)
         self.assertEqual(len(mycell.blocks), toSeed-len(toDelete))
-        
         for idx in bidxs:
             self.assertNotIn(idx, mycell.blocks.keys(), "Block was left in list")
-            
         mycell.restoreBlocks(removed)
         self.assertEqual(len(mycell.blocks), toSeed)
         return
@@ -612,7 +565,6 @@ class Test(unittest.TestCase):
         p4 = numpy.array([ 20.0, 10.0, 10.0 ])
         ref = xyz_core.dihedral(p1, p2, p3, p4)
         self.assertEqual(ref, mycell.dihedral(p1, p2, p3, p4))
-
         # Move by a full cell along x-axis - result should be the same
         p3 = numpy.array([ 10.0 + CELLDIM, 10.0, 0.0 ])
         p4 = numpy.array([ 20.0 + CELLDIM, 10.0, 10.0 ])
@@ -635,7 +587,7 @@ class Test(unittest.TestCase):
         self.assertEqual(added, nblocks, "growBlocks did not return ok")
         mycell.optimiseGeometry(rigidBody=True, optCycles=10)
         mycell.dump()
-        os.unlink('step_1.pkl')
+        os.unlink('step_1' + ab_util.GZIP_PKL_SUFFIX)
         return
 
     def testEndGroupTypes(self):
@@ -1055,7 +1007,7 @@ class Test(unittest.TestCase):
                                         doDihedral=True,
                                         quiet=True,
                                         rCut=5.0,
-                                        optCycles=1000000,
+                                        optCycles=1000,
                                         dt=0.005,
                                         Etol=1e-5,
                                          )
@@ -1077,7 +1029,7 @@ class Test(unittest.TestCase):
         mycell.growBlocks(toGrow=2, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
         ok = mycell.optimiseGeometry(rigidBody=False,
                                 doDihedral=True,
-                                optCycles=10000,
+                                optCycles=1000,
                                 dump=False,
                                 quiet=False
                                  )
@@ -1118,7 +1070,7 @@ class Test(unittest.TestCase):
         """
         """
         mycell = self.createTestCell()
-        mycell.optimiseGeometry(doDihedral=True, quiet=True)
+        mycell.optimiseGeometry(doDihedral=True, quiet=True, optCycles=1000)
         self.assertFalse(self.clashes(mycell))
         os.unlink("hoomdOpt.xml")
         return
@@ -1127,7 +1079,6 @@ class Test(unittest.TestCase):
     def testOptimiseGeometryStatic(self):
         """
         """
-
         mycell = Cell(filePath=self.graphiteCar)
         mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
         mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
@@ -1140,7 +1091,7 @@ class Test(unittest.TestCase):
 
         ok = mycell.optimiseGeometry(rigidBody=False,
                                 doDihedral=True,
-                                optCycles=10000,
+                                optCycles=1000,
                                 dump=False,
                                 quiet=False
                                  )
@@ -1340,72 +1291,52 @@ class Test(unittest.TestCase):
         """Create a block as solvent and then ensure there are no clashes
         - uses same setup as ZipClash test
         """
-
         boxDim = [25, 25, 25]
         mycell = Cell(boxDim, doLog=True)
-
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='B', solvent=True)
         mycell.addBondType('A:a-A:a')
-
         # Create blocks manually
         b1 = mycell.getLibraryBlock(fragmentType='A')
-
         # Align bond along x-axis
         b1.alignAtoms(0, 3, [ 0, 0, 1 ])
         b1.alignAtoms(0, 3, [ 0, 1, 0 ])
         b1.alignAtoms(0, 3, [ 1, 0, 0 ])
-
         b3 = b1.copy()
-        
         # b1 in center of cell -5 on x-axis
         b1.translateCentroid([ (mycell.dim[0] / 2) - 5, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-        
         # Get b2 from library and set up so that it's in the middle
         b2 = mycell.getLibraryBlock(fragmentType='B')
-        
         b2.alignAtoms(0, 3, [ 0, 0, 1 ])
         b2.alignAtoms(0, 3, [ 0, 1, 0 ])
         b2.alignAtoms(0, 3, [ 1, 0, 0 ])
-
         # b2 in center
         b2.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-
         # rotate so ring facing bond axis
         b2.rotate([0, 1, 0], math.pi / 2, center=b2.centroid())
-        
         # b3 + 5 on x
         b3.translateCentroid([ (mycell.dim[0] / 2) + 5, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-
         # Add blocks either side to cell and make sure we can bond
         mycell.addBlock(b1)
         mycell.addBlock(b3)
-
         # Add the pesky middle block and see if it now works
         mycell.addBlock(b2)
-        
         made = mycell.zipBlocks(bondMargin=6, bondAngleMargin=1, clashCheck=True, clashDist=1.8)
-        
         self.assertEqual(made,1)
-
         pass
 
     def testSubunit(self):
         xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR,'bond_params.csv'))
         b1 = ab_block.Block(filePath=self.ch4Car, fragmentType='A')
         fragment = b1.fragments[0]
-        
         monomers = ['A','B','C']
         ratio = [1,3,1]
         # Handle zero totalTally
         u = ab_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[0,0,0], direction=1, random=True)
         self.assertIn(u.randomMonomerType(),monomers)
-        
         # Make sure we can upweight a low one
         u = ab_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[100,300,1], direction=1, random=True)
         self.assertEqual(u.randomMonomerType(),'C')
-        
-        
         # See if the overall ratio approaches the ideal
         u = ab_subunit.subUnit(monomers=monomers, ratio=ratio, polymer = b1, fragment=fragment, totalTally=[100,300,100], direction=1, random=True)
         from collections import Counter
@@ -1416,10 +1347,8 @@ class Test(unittest.TestCase):
         count = [ c[m] for m in monomers ]
         sumall = sum(count)
         current = [float(c)/float(sumall) for c in count ]
-        
         wratio = [float(r)/float(sum(ratio)) for r in ratio]
         self.assertTrue(numpy.allclose(numpy.array(wratio), numpy.array(current), rtol=0.05))
-        
         return
 
     def testSurroundBoxes(self):
@@ -1453,50 +1382,33 @@ class Test(unittest.TestCase):
         
     def testWall(self):
         """Test that we can implement a wall correctly"""
-        
         boxDim = [10, 10, 10]
         mycell = Cell(boxDim)
-
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
-        #mycell.addBondType('A:a-A:a')
-        
-        # Create the wall
         mycell.setWall(XOY=True, XOZ=False, YOZ=False)
-
         # first add a block in the center
         nblocks = 1
         added = mycell.seed(nblocks, center=True)
         self.assertEqual(added, nblocks, "Failed to add central block")
-        
         # Now add a block against the XOY / a wall and confirm it fails
         nblocks = 1
         added = mycell.seed(nblocks, point=[0.0, 5.0, 5.0 ], maxTries=1)
         self.assertEqual(added, 0, "Added block at wall")
-        
-        #mycell.dump()
-        
         return
     
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testWallMd(self):
         """Test that we can implement a wall correctly"""
-        
         boxDim = [20, 20, 20]
         mycell = Cell(boxDim)
-
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
-        #mycell.addBondType('A:a-A:a')
-        
         # Create the wall
         mycell.setWall(XOY=True, XOZ=True, YOZ=True)
-
         # first add a block in the center
         nblocks = 15
         added = mycell.seed(nblocks)
         self.assertEqual(added, nblocks, "Failed to add initial blocks")
-        
         mycell.runMD(dump=True, rCut=5.0)
-
         return
 
     def testZipBlocks(self):
@@ -1536,119 +1448,85 @@ class Test(unittest.TestCase):
         return
 
     def testZipBlocks2(self):
-
         boxDim = [12.0, 12.0, 12.0]
         mycell = Cell(boxDim)
-
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-
         # Create block manually
         b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
         b2 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
-
         # Position block so that it's aligned along x-axis
         # - use two opposing C-atoms 0 & 3
         b1.alignAtoms(0, 3, [ 1, 0, 0 ])
-
         b1.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-
         endGroup1 = b1.freeEndGroups()[ 0 ]
         endGroup2 = b2.freeEndGroups()[ 0 ]
-
         # Position the block
         b1.positionGrowBlock(endGroup1, endGroup2)
-
         # and bond
         bond = Bond(endGroup1, endGroup2)
         bond.engage()
         mycell.addBlock(b1)
-        
         made = mycell.zipBlocks(bondMargin=5, bondAngleMargin=5)
-
         self.assertEqual(made, 1)
         self.assertFalse(self.clashes(mycell))
         return
 
     def testZipBlocks3(self):
         """Bonding with margin"""
-
         boxDim = [12.0, 12.0, 12.0]
         mycell = Cell(boxDim)
-
         ch4Car = self.ch4Car
         mycell.libraryAddFragment(filename=ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-
         # Create block manually
         b1 = ab_block.Block(filePath=ch4Car, fragmentType='A')
         b2 = ab_block.Block(filePath=ch4Car, fragmentType='A')
-
         # Align bond along x-axis
         b1.alignAtoms(0, 1, [ 1, 0, 0 ])
-
         # b1 in center of cell
         b1.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
         mycell.addBlock(b1)
-
         endGroup1 = b1.freeEndGroups()[ 0 ]
         endGroup2 = b2.freeEndGroups()[ 0 ]
-
         # Position b2
         b1.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
         mycell.addBlock(b2)
-
         # Rotate on y-axis so that it's slightly off
         b2.rotateT([0, 1, 0], math.radians(15))
-
         made = mycell.zipBlocks(bondMargin=0.5, bondAngleMargin=5)
         self.assertEqual(made, 0)
-
         made = mycell.zipBlocks(bondMargin=0.5, bondAngleMargin=16)
         self.assertEqual(made, 1)
         self.assertFalse(self.clashes(mycell))
-
         return
 
 
     def testZipClash1(self):
         """Test no clashes"""
-
         boxDim = [25, 25, 25]
         mycell = Cell(boxDim, doLog=True)
-
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-
         # Create blocks manually
         b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
-        # b2 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
-        # b3 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
-
         # Align bond along x-axis
         b1.alignAtoms(0, 3, [ 0, 0, 1 ])
         b1.alignAtoms(0, 3, [ 0, 1, 0 ])
         b1.alignAtoms(0, 3, [ 1, 0, 0 ])
-
         b2 = b1.copy()
         b3 = b1.copy()
-        
         # b1 in center of cell -5 on x-axis
         b1.translateCentroid([ (mycell.dim[0] / 2) - 5, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-
         # b2 in center
         b2.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-
         # rotate so ring facing bond axis
         b2.rotate([0, 1, 0], math.pi / 2, center=b2.centroid())
-        
         # b3 + 5 on x
         b3.translateCentroid([ (mycell.dim[0] / 2) + 5, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-
         # Add blocks either side to cell and make sure we can bond
         mycell.addBlock(b1)
         mycell.addBlock(b3)
-
         made = mycell.zipBlocks(bondMargin=6, bondAngleMargin=1, clashCheck=True)
         self.assertEqual(made, 1)
         self.assertFalse(self.clashes(mycell))
@@ -1656,148 +1534,97 @@ class Test(unittest.TestCase):
     
     def testZipClash2(self):
         """Test clash when bond is through a benzene ring"""
-
         boxDim = [25, 25, 25]
         mycell = Cell(boxDim, doLog=True)
-
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-
         # Create blocks manually
         b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
-        # b2 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
-        # b3 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
-
         # Align bond along x-axis
         b1.alignAtoms(0, 3, [ 0, 0, 1 ])
         b1.alignAtoms(0, 3, [ 0, 1, 0 ])
         b1.alignAtoms(0, 3, [ 1, 0, 0 ])
-
         b2 = b1.copy()
         b3 = b1.copy()
-        
         # b1 in center of cell -5 on x-axis
         b1.translateCentroid([ (mycell.dim[0] / 2) - 5, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-
         # b2 in center
         b2.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-
         # rotate so ring facing bond axis
         b2.rotate([0, 1, 0], math.pi / 2, center=b2.centroid())
-        
         # b3 + 5 on x
         b3.translateCentroid([ (mycell.dim[0] / 2) + 5, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-
         # Add blocks either side to cell and make sure we can bond
         mycell.addBlock(b1)
         mycell.addBlock(b3)
-
         # Add the pesky middle block and see if it now works
         mycell.addBlock(b2)
-        # print "ATOM BLOCK ",sorted(b2.atomCell)
-                
         made = mycell.zipBlocks(bondMargin=6, bondAngleMargin=1, clashCheck=True, clashDist=1.8)
         self.assertEqual(made, 0)
         self.assertFalse(self.clashes(mycell))
-        
         return    
 
     def testZipClashPBC1(self):
         """Test clash for bond across PBC"""
-
         boxDim = [25, 25, 25]
         mycell = Cell(boxDim, doLog=True)
-
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-
         # Create blocks manually
         b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
-        # b2 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
-        # b3 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
-
         # Align bond along x-axis
         b1.alignAtoms(0, 3, [ 0, 0, 1 ])
         b1.alignAtoms(0, 3, [ 0, 1, 0 ])
         b1.alignAtoms(0, 3, [ 1, 0, 0 ])
-
         b2 = b1.copy()
         b3 = b1.copy()
-
         # b1 in center of cell -5 on x-axis
         b1.translateCentroid([ -5, 0, 0 ])
-
         # b2 on cell bounudary
         b2.translateCentroid([ 0, 0, 0 ])
-
         # rotate so ring facing bond axis
         b2.rotate([0, 1, 0], math.pi / 2, center=b2.centroid())
-
         # b3 + 5 on x
         b3.translateCentroid([ 5, 0, 0 ])
-
         # Add blocks either side to cell and make sure we can bond
         mycell.addBlock(b1)
         mycell.addBlock(b3)
-        
         # Add the pesky middle block and see if it now works
         mycell.addBlock(b2)
-        # mycell.dump()
-        # print "ATOM BLOCK ",sorted(b2.atomCell)
-
         made = mycell.zipBlocks(bondMargin=6, bondAngleMargin=1, clashCheck=True, clashDist=1.8)
-        # mycell.dump()
         self.assertEqual(made, 0)
-
         return
     
     def testZipClashPBC2(self):
         """Test clash for bond across PBC"""
-
         boxDim = [25, 25, 25]
         mycell = Cell(boxDim, doLog=True)
-
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
-
         # Create blocks manually
         b1 = ab_block.Block(filePath=self.benzeneCar, fragmentType='A')
-        # b2 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
-        # b3 = ab_block.Block( filePath=self.benzeneCar, fragmentType='A' )
-
         # Align bond along x-axis
         b1.alignAtoms(0, 3, [ 0, 0, 1 ])
         b1.alignAtoms(0, 3, [ 0, 1, 0 ])
         b1.alignAtoms(0, 3, [ 1, 0, 0 ])
-
         b2 = b1.copy()
         b3 = b1.copy()
-
         # b1 in center of cell -5 on x-axis
         b1.translateCentroid([ -5, 0, 0 ])
-
         # b2 on cell bounudary
         b2.translateCentroid([ 0, 0, 0 ])
-
         # rotate so ring facing bond axis
         b2.rotate([0, 1, 0], math.pi / 2, center=b2.centroid())
-
         # b3 + 5 on x
         b3.translateCentroid([ 5, 0, 0 ])
-
         # Add blocks either side to cell and make sure we can bond
         mycell.addBlock(b1)
         mycell.addBlock(b3)
-        
         # Add the pesky middle block and see if it now works
         mycell.addBlock(b2)
-        # mycell.dump()
-        # print "ATOM BLOCK ",sorted(b2.atomCell)
-
         made = mycell.zipBlocks(bondMargin=6, bondAngleMargin=1, clashCheck=False)
         # mycell.dump()
         self.assertEqual(made, 1)
-
         return
 
     def testWriteCml(self):
@@ -1896,10 +1723,8 @@ class Test(unittest.TestCase):
         write out hoomdblue xml
         """
         import hoomd1
-
         boxDim = [20, 20, 20]
         mycell = Cell(boxDim)
-
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
 
@@ -1917,12 +1742,10 @@ class Test(unittest.TestCase):
         bond = Bond(endGroup1, endGroup2)
         bond.engage()
         mycell.addBlock(b1)
-
         initcoords = []
         for block in mycell.blocks.values():
             for c in block.iterCoord():
                 initcoords.append(c)
-
         xmlFilename = "testWriteHoomdblue.xml"
         data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
         hoomd1.Hoomd1(PARAMS_DIR).writeXml(data,
@@ -1930,32 +1753,26 @@ class Test(unittest.TestCase):
                                            rigidBody=True,
                                            doDihedral=True,
                                            doImproper=False,
-                                           doCharges=True,
-                                           )
-
+                                           doCharges=True)
         # Test what we've written out matches the reference file
         with open(xmlFilename) as f:
             test = f.readlines()
         with open(os.path.join(AMBUILD_DIR, "tests", xmlFilename)) as f:
             ref = f.readlines()
         self.assertEqual(test, ref, "xml compare")
-
-        # Init the sytem from the file
         if hoomd1.init.is_initialized():
             hoomd1.init.reset()
         system = hoomd1.init.read_xml(filename=xmlFilename)
-
         # Read it back in to make sure we get the same values
-        mycell.MDENGINE.system = system
-        mycell.MDENGINE.updateCell(mycell)
+        mdEngine = mycell.mdEngineCls(PARAMS_DIR)
+        mdEngine.system = system
+        mdEngine.updateCell(mycell)
         finalcoords = []
         for block in mycell.blocks.values():
             for c in block.iterCoord():
                 finalcoords.append(c)
-
         self.assertTrue(all(map(lambda x : numpy.allclose(x[0], x[1]), zip(initcoords, finalcoords))),
                          "coords don't match")
-
         os.unlink(xmlFilename)
         return
 

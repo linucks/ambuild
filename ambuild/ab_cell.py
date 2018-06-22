@@ -15,7 +15,7 @@ import time
 import warnings
 
 # External modules
-import numpy
+import numpy as np
 
 # Our modules
 import ab_analyse
@@ -63,86 +63,52 @@ class Cell():
                 and slows the program.
         paramsDir - path to the directory holding the forcefield parameter csv files (default ../params)
         '''
-
         # For time being origin always 0,0,0
-        self.origin = numpy.array([0, 0, 0], dtype=numpy.float64)
-
-        # The cell dimensions
-        self.dim = None
-
-        # Whether there are periodic boundaries in this axis
+        self.origin = np.array([0, 0, 0], dtype=np.float64)
+        self.dim = None # The cell dimensions
         self.pbc = [True, True, True]
-
-        # Whether there is a wall along the axis
         self.walls = [False, False, False]
-
-        # the atomType of the atom that constitutes the wall
         self.wallAtomType = None
-
-        # The radius of the wall (determind from the covalent radius of the wallAtomType)
-        self.wallRadius = None
-
+        self.wallRadius = None # (determind from the covalent radius of the wallAtomType)
         # additional distance to add on to the characteristic bond length
         # when checking whether 2 atoms are close enough to bond
         self.bondMargin = bondMargin
-
         # additional distance to add on to the atom covalent radii when checking if two atoms
         # are close enough to clash
         self.atomMargin = atomMargin
-
         # convert bondAngle and bondMargin to angstroms
         # Could check values are in degrees and not radians?
         self.bondAngleMargin = math.radians(bondAngleMargin)
-
         self.targetDensity = 10
         self.targetEndGroups = 100  # number of free endgroups left
-
         # Dict mapping box key to a list of tuples defining the atoms in that box
         self.box1 = {}
-
         # Dict mapping key to list of boxes surrounding the keyed box
         self.box3 = {}
-
         # max atom radius - used to calculate box size
         self.boxSize = None
         self.maxAtomRadius = -1
-
-        # see optimiseGeometry
         self.rCut = 5.0
-
         # number of boxes in A,B,C axes - used for calculating PBC
         self.numBoxes = [None, None, None]
-
         self._fragmentLibrary = {}  # fragmentType -> parentFragment
         self._endGroup2LibraryFragment = {}  # endGroup type -> parentFragment
         self.bondTypes = []
         self._bondTable = {}  # endGroup type -> set of endGroups it can bond to
-
         # dictionary mapping id of the block to the block - can't use a list and indices
         # as we add and remove blocks and need to keep track of them
         self.blocks = collections.OrderedDict()
-
-        # Tracks the id of the last block added to the cell
-        self.lastAdded = None
-
+        self.lastAdded = None # Tracks the id of the last block added to the cell
         self.newBonds = [] # Tracks recently added bonds
-        
-        self.MDENGINE = None
-
-        # Holds possible bond after checkMove is run
-        self._possibleBonds = []
-
+        self.mdEngineCls = None
+        self._possibleBonds = [] # Holds possible bond after checkMove is run
         # Logging functions
         self.logfile = None
         self.logcsv = None
         self.setupLogging(doLog=doLog)
-
-        # For analysis csv
         self._setupAnalyse()
-
         self._fileCount = 0  # for naming output files
         self._deterministicState = 0 # For adding blocks in a non-random manner (for testing)
-
         if paramsDir is not None:
             if not os.path.isdir(paramsDir):
                 msg = "Cannot find parameter directory: {0}".format(paramsDir)
@@ -150,14 +116,12 @@ class Cell():
                 raise RuntimeError(msg)
         else:
             paramsDir = PARAMS_DIR
+        self.paramsDir = paramsDir
         # Use the parameters to set the bond lengts in the util module
         xyz_util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
-
         self.version = VERSION # Save as attribute so we can query pickle files
         logger.info("AMBUILD version: {0}".format(VERSION))
-
-        self.setMdEngine(ab_util.HOOMDVERSION, paramsDir)
-
+        self.setMdEngineCls(ab_util.HOOMDVERSION)
         if filePath: # Init from a car file
             self.setStaticBlock(filePath)
         if boxDim:
@@ -417,9 +381,9 @@ class Cell():
                 p3p1 = self.vecDiff(p3, p1)
                 p3p2 = self.vecDiff(p3, p2)
                 p2p1 = self.vecDiff(p2, p1)
-                t = numpy.dot((p3p1), (p2p1)) / numpy.square(numpy.linalg.norm(p2p1))
+                t = np.dot((p3p1), (p2p1)) / np.square(np.linalg.norm(p2p1))
                 if 0 < t < 1:
-                    dist = numpy.linalg.norm(numpy.cross(p3p1, p3p2)) / numpy.linalg.norm(p2p1)
+                    dist = np.linalg.norm(np.cross(p3p1, p3p2)) / np.linalg.norm(p2p1)
                     if dist < clashDist:
                         return True
         return False
@@ -920,7 +884,7 @@ class Cell():
         if count == 0:
             return [], False
         # Calculate array of distances for all coordinates
-        distances = self.distance(numpy.array(c1), numpy.array(c2))
+        distances = self.distance(np.array(c1), np.array(c2))
         # prune contacts array according to distances
         return [ (c[0], c[1], c[2], distances[i]) for i, c in enumerate(allContacts) if distances[i] < self.boxSize ], False
 
@@ -1040,11 +1004,9 @@ class Cell():
                 # Just add the bonds between blocks. Also add angles for all atoms connected to the bonds
                 # we do this so that we can exclude them from VdW interactions in MD codes
                 for b1, b2 in block.blockBonds():
-
                     # The bonds themselves
                     d.bonds.append((b1 + atomCount, b2 + atomCount))
                     d.bondLabels.append("{0}-{1}".format(block.type(b1), block.type(b2)))
-
                     _angles = set()
                     # Atoms connected to the endGroup that we need to specify as connected so we add as angles
                     for batom in block.atomBonded1(b1):
@@ -1052,13 +1014,11 @@ class Cell():
                         if batom == b2:
                             continue
                         _angles.add((batom, b1, b2))
-
                     for batom in block.atomBonded1(b2):
                         # The opposite endGroup is included in the list bonded to an endGroup so skip
                         if batom == b1:
                             continue
                         _angles.add((b1, b2, batom))
-
                     # Add to overall lists
                     for a1, a2, a3 in _angles:
                         d.angles.append((a1 + atomCount, a2 + atomCount, a3 + atomCount))
@@ -1066,7 +1026,6 @@ class Cell():
                                                   block.type(a2),
                                                   block.type(a3))
                         d.angleLabels.append(l)
-
                     #
                     # Dihedrals
                     #
@@ -1883,30 +1842,31 @@ class Cell():
         ALL OTHER ARGUMENTS ACCEPTED BY mode_minimize_rigid_fire ARE PASSED TO IT
         """
         logger.info("Running optimisation")
-        if not self.MDENGINE:
+        if not self.mdEngineCls:
             raise RuntimeError("No MDENGINE defined - cannot run MD.")
+        mdEngine = self.mdEngineCls(self.paramsDir)
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
-            self.rCut = self.MDENGINE.rCut
+            self.rCut = mdEngine.rCut
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
         d = {}  # for printing results
-        ok = self.MDENGINE.optimiseGeometry(data,
-                                         xmlFilename=xmlFilename,
-                                         rigidBody=rigidBody,
-                                         doDihedral=doDihedral,
-                                         doImproper=doImproper,
-                                         doCharges=doCharges,
-                                         d=d,
-                                         walls=self.walls,
-                                         wallAtomType=self.wallAtomType,
-                                         **kw)
+        ok = mdEngine.optimiseGeometry(data,
+                                        xmlFilename=xmlFilename,
+                                        rigidBody=rigidBody,
+                                        doDihedral=doDihedral,
+                                        doImproper=doImproper,
+                                        doCharges=doCharges,
+                                        d=d,
+                                        walls=self.walls,
+                                        wallAtomType=self.wallAtomType,
+                                        **kw)
         self.analyse.stop('optimiseGeometry', d)
         if ok:
             logger.info("Optimisation succeeded")
-            self.MDENGINE.updateCell(self)
+            mdEngine.updateCell(self)
             return True
         else:
             logger.critical("Optimisation Failed")
@@ -1924,7 +1884,7 @@ class Cell():
         x = _random.uniform(bradius + self.boxMargin, self.dim[0] - bradius - self.boxMargin)
         y = _random.uniform(bradius + self.boxMargin, self.dim[1] - bradius - self.boxMargin)
         z = _random.uniform(bradius + self.boxMargin, self.dim[2] - bradius - self.boxMargin)
-        coord = numpy.array([x, y, z], dtype=numpy.float64)
+        coord = np.array([x, y, z], dtype=np.float64)
         block.translateCentroid(coord)
         logger.debug("positionInCell block moved to: {0}".format(block.centroid()))
         return
@@ -1970,7 +1930,7 @@ class Cell():
             if radius:
                 coord = self.randomSpherePoint(point, radius)
             else:
-                coord = numpy.array(point, dtype=numpy.float64)
+                coord = np.array(point, dtype=np.float64)
         elif zone:
             if not len(zone) == 6:
                 raise RuntimeError("Zone needs to be a list of 6 floats: [x0,x1,y1,y2,z1,z1]")
@@ -1983,7 +1943,7 @@ class Cell():
             x = _random.uniform(zone[0] + bmargin, zone[1] - bmargin)
             y = _random.uniform(zone[2] + bmargin, zone[3] - bmargin)
             z = _random.uniform(zone[4] + bmargin, zone[5] - bmargin)
-            coord = numpy.array([x, y, z], dtype=numpy.float64)
+            coord = np.array([x, y, z], dtype=np.float64)
         else:
             if margin:
                 x = _random.uniform(margin, self.dim[0] - margin)
@@ -1993,7 +1953,7 @@ class Cell():
                 x = _random.uniform(0, self.dim[0])
                 y = _random.uniform(0, self.dim[1])
                 z = _random.uniform(0, self.dim[2])
-            coord = numpy.array([x, y, z], dtype=numpy.float64)
+            coord = np.array([x, y, z], dtype=np.float64)
         # print "Got random coord: {}".format(coord)
         # Move to origin, rotate there and then move to new coord
         # Use the cell axis definitions
@@ -2015,7 +1975,7 @@ class Cell():
         x = rradius * math.cos(theta) * math.sin(phi)
         y = rradius * math.sin(theta) * math.sin(phi)
         z = rradius * math.cos(phi)
-        return numpy.array([x + center[0], y + center[1], z + center[2]], dtype=numpy.float64)
+        return np.array([x + center[0], y + center[1], z + center[2]], dtype=np.float64)
 
     def repopulateCells(self, boxShift=None):
         """Add all the blocks to resized cells"""
@@ -2073,17 +2033,18 @@ class Cell():
         tau - nvt_rigid tau
         dt - nvt_rigid timestep
         """
-        if not self.MDENGINE:
+        if not self.mdEngineCls:
             raise RuntimeError("No MDENGINE defined - cannot run MD.")
+        mdEngine = self.mdEngineCls(self.paramsDir)
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
-            self.rCut = self.MDENGINE.rCut
+            self.rCut = mdEngine.rCut
         d = {}
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
-        ok = self.MDENGINE.runMD(data,
+        ok = mdEngine.runMD(data,
                              xmlFilename=xmlFilename,
                              rigidBody=rigidBody,
                              doDihedral=doDihedral,
@@ -2094,7 +2055,7 @@ class Cell():
                              wallAtomType=self.wallAtomType,
                              **kw)
         self.analyse.stop('runMD', d)
-        self.MDENGINE.updateCell(self)
+        mdEngine.updateCell(self)
         return ok
 
     def runMDAndOptimise(self,
@@ -2110,8 +2071,9 @@ class Cell():
         Args:
         See runMD and optimiseGeometry for acceptable arguments.
         """
-        if not self.MDENGINE:
+        if not self.mdEngineCls:
             raise RuntimeError("No MDENGINE defined - cannot run MD.")
+        mdEngine = self.mdEngineCls(self.paramsDir)
         assert rigidBody, "FIX runMD FOR ALL ATOM!!"
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
@@ -2119,10 +2081,10 @@ class Cell():
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
-            self.rCut = self.MDENGINE.rCut
+            self.rCut = mdEngine.rCut
         d = {}
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
-        ok = self.MDENGINE.runMDAndOptimise(data,
+        ok = mdEngine.runMDAndOptimise(data,
                                         xmlFilename=xmlFilename,
                                         rigidBody=rigidBody,
                                         doDihedral=doDihedral,
@@ -2136,7 +2098,7 @@ class Cell():
         if ok:
             logger.info("runMDAndOptimise succeeded")
         self.analyse.stop('runMDAndOptimise', d)
-        self.MDENGINE.updateCell(self)
+        mdEngine.updateCell(self)
         return ok
 
     def seed(self,
@@ -2236,11 +2198,11 @@ class Cell():
         old_dim = None
         if self.dim is not None: old_dim = self.dim
 
-        self.dim = numpy.array([float(boxDim[0]), float(boxDim[1]), float(boxDim[2])])
+        self.dim = np.array([float(boxDim[0]), float(boxDim[1]), float(boxDim[2])])
         assert self.dim[0] > 0 and self.dim[1] > 0 and self.dim[2] > 0, "Invalid box dimensions: {0}".format(self.dim)
 
         boxShift = None
-        if old_dim is not None and not numpy.allclose(self.dim, old_dim):
+        if old_dim is not None and not np.allclose(self.dim, old_dim):
             if not (self.dim[0] >= old_dim[0] and \
                 self.dim[1] >= old_dim[1] and
                 self.dim[2] >= old_dim[2]):
@@ -2316,16 +2278,28 @@ class Cell():
         fragment = self._fragmentLibrary[ fragmentType ]
         return fragment.setMaxBond(bondType, count)
 
-    def setMdEngine(self, hoomdVersion, paramsDir):
+    def setMdEngineCls(self, hoomdVersion):
+        """Set the class definition for the MdEngine
+        
+        We set a class rather then an instance as otherwise when running mutiple optimisations certain variables
+        get stored in the instance and aren't deleted on restart, generating errors in hoomd1 along the lines of:
+        
+        *Warning*: Not all saved variables were cleared before calling reset()
+        *Warning*: 17 references to the particle data still exist somewhere
+        *Warning*: Going to try and reset anyways, further errors (such as out of memory) may result
+        
+        Whenever we ditch hoomdblue 1, we can (probably) revert to using an instance.
+        """
         if hoomdVersion is None:
             logger.critical("HOOMD-BLUE could not be found! MD functionality will be unavaiable.")
             return
         if hoomdVersion[0] < 2:
             from hoomd1 import Hoomd1
-            self.MDENGINE = Hoomd1(paramsDir)
+            self.mdEngineCls = Hoomd1
+            #self.MDENGINE_CLS = Hoomd1
         else:
             from hoomd2 import Hoomd2
-            self.MDENGINE = Hoomd2(paramsDir)
+            self.mdEngineCls = Hoomd2
         logger.info("Using HOOMD-BLUE version: {0}.{1}.{2}".format(*ab_util.HOOMDVERSION))
 
     def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType='c'):
@@ -2464,7 +2438,7 @@ class Cell():
 #             for j, coord in enumerate( block.iterCoord() ):
         for i, coord in enumerate(data['coord']):
                 if periodic:
-                    coord, _ = xyz_core.wrapCoord3(coord, numpy.array([data['A'], data['B'], data['C']]), center=False)
+                    coord, _ = xyz_core.wrapCoord3(coord, np.array([data['A'], data['B'], data['C']]), center=False)
                 atype = data['type'][ i ]
                 charge = data['charge'][ i ]
                 label = data['label'][ i ][:5]
@@ -2626,7 +2600,7 @@ class Cell():
         if len(egPairs.keys()) < 1:
             logger.info("zipBlocks: no endGroups close enough to bond")
             return 0
-        distances = self.distance(numpy.array(c1), numpy.array(c2))
+        distances = self.distance(np.array(c1), np.array(c2))
         self._possibleBonds = []
         for i, (block1, idxEndGroup1, block2, idxEndGroup2) in enumerate(egPairs.keys()):
             got = self.canBond(block1,
