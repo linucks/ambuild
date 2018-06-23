@@ -2017,6 +2017,7 @@ class Cell():
         tau - nvt_rigid tau
         dt - nvt_rigid timestep
         """
+        logger.info("Running MD")
         if not self.mdEngineCls:
             raise RuntimeError("No MDENGINE defined - cannot run MD.")
         mdEngine = self.mdEngineCls(self.paramsDir)
@@ -2119,9 +2120,7 @@ class Cell():
         #    raise RuntimeError,"Must have set an initBlock and bondType before seeding."
         if not len(self._fragmentLibrary):
             raise RuntimeError("Must have set an initBlock before seeding.")
-
         logger.info("seed adding {0} block of type {1}".format(nblocks, fragmentType))
-
         numBlocksAdded = 0
         # Loop through the nblocks adding the blocks to the cell
         for seedCount in range(nblocks):
