@@ -2033,6 +2033,7 @@ class Cell():
         tau - nvt_rigid tau
         dt - nvt_rigid timestep
         """
+        logger.info("Running MD")
         if not self.mdEngineCls:
             raise RuntimeError("No MDENGINE defined - cannot run MD.")
         mdEngine = self.mdEngineCls(self.paramsDir)
@@ -2135,9 +2136,7 @@ class Cell():
         #    raise RuntimeError,"Must have set an initBlock and bondType before seeding."
         if not len(self._fragmentLibrary):
             raise RuntimeError("Must have set an initBlock before seeding.")
-
         logger.info("seed adding {0} block of type {1}".format(nblocks, fragmentType))
-
         numBlocksAdded = 0
         # Loop through the nblocks adding the blocks to the cell
         for seedCount in range(nblocks):
@@ -2157,10 +2156,8 @@ class Cell():
                 else:
                     # Move the block and rotate it
                     self.positionBlock(newblock, point=point, radius=radius, zone=zone, random=random)
-
                 # Add the block so we can check for clashes/bonds
                 idxBlock = self.addBlock(newblock)
-
                 # Test for Clashes with other molecules
                 if self.checkMove(idxBlock):
                     if self.processBonds() > 0:
@@ -2169,16 +2166,12 @@ class Cell():
                     self.analyse.stop('seed', d={'num_tries':tries})
                     numBlocksAdded += 1
                     break
-
                 # Unsuccessful so remove the block from cell
                 self.delBlock(idxBlock)
-
                 # If seed fails with center need to bail on first one.
                 if center and seedCount == 0 and tries == 0:
                     logger.warn("Seed with center failed to place first block in center!")
-
                 tries += 1 # increment tries counter
-
             # End Clash loop
         # End of loop to seed cell
         logger.info("Seed added {0} blocks. Cell now contains {1} blocks".format(numBlocksAdded, len(self.blocks)))
