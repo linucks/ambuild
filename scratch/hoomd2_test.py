@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys
 sys.path.insert(0, '../ambuild')
+from xyz_util import writeXyz
 import numpy as np
 import hoomd
 import hoomd.md
@@ -8,7 +9,7 @@ import hoomd.md
 def setup():
     from ab_cell import Cell
     from ab_block import Block
-    from xyz_util import writeXyz
+    
     boxDim = [20.0, 20.0, 20.0]
     mycell = Cell(boxDim)
     mycell.libraryAddFragment(filename='../blocks/ch4.car', fragmentType='A')
@@ -75,8 +76,11 @@ boxdim = np.array([20.0, 20.0, 20.0])
 positions = np.fmod(positions, boxdim)
 # Change the coord so the origin is at the center of the box (we start from the corner)
 positions -= boxdim / 2
+#writeXyz('foo.xyz', positions, types)
 
+# Start of hoomd code
 hoomd.context.initialize()
+
 nparticles = positions.shape[0]
 box_width = 20.0
 lx = box_width
@@ -94,28 +98,24 @@ for i in range(nparticles):
     snapshot.particles.typeid[i] = snapshot.particles.types.index(types[i])
     
 system = hoomd.init.read_snapshot(snapshot)
-
 nl = hoomd.md.nlist.cell()
 lj = hoomd.md.pair.lj(r_cut=5.0, nlist=nl)
-# for atype, btype in itertools.combinations_with_replacement(particle_types, 2):
-#     param = self.ffield.pairParameter(atype, btype)
-#     epsilon = param['epsilon']
-#     sigma = param['sigma']
-#     lj.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
 lj.pair_coeff.set('C', 'C', epsilon=0.0968, sigma=3.4)
 lj.pair_coeff.set('C', 'H', epsilon=0.1106, sigma=3.7736)
 lj.pair_coeff.set('H', 'H', epsilon=0.1106, sigma=1.7736)
+
 nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body'])
 
 group_all = hoomd.group.all()
 
-dt=0.005
+dt=0.0001
 Nmin=5
 alpha_start=0.1
 ftol=1e-2
 Etol=1e-5
 finc=1.1
 fdec=0.5
+
 fire = hoomd.md.integrate.mode_minimize_fire(dt=dt,
                                              Nmin=Nmin,
                                              alpha_start=alpha_start,
@@ -123,13 +123,15 @@ fire = hoomd.md.integrate.mode_minimize_fire(dt=dt,
                                              Etol=Etol,
                                              finc=finc,
                                              fdec=fdec)
+
 integrate_nve = hoomd.md.integrate.nve(group=group_all)
+
 dgsd = hoomd.dump.gsd(filename="opt.gsd",
                       period=1,
                       group=group_all,
                       overwrite=True)
 
-opt_cycles=1000000
+opt_cycles=1000
 hoomd.run(opt_cycles,
           callback=lambda x:-1 if fire.has_converged() else 0,
           callback_period=1)
