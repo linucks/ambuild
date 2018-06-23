@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import logging
-import numpy
+import numpy as np
 import math
 
 logger = logging.getLogger()
@@ -512,23 +512,23 @@ def angle(c1, c2, c3, dim=None, pbc=None):
     r2 = distance(c3, c2, dim=dim, pbc=pbc)
     r3 = distance(c3, c1, dim=dim, pbc=pbc)
     x = (r1 * r1 + r2 * r2 - r3 * r3) / (2.0 * r1 * r2)
-    assert not numpy.isnan(x)
+    assert not np.isnan(x)
     # print "r1: {0}, r2: {1}, r3: {2}, x: {3}".format( r1, r2, r3, x )
-    if numpy.allclose(x, 1.0):
+    if np.allclose(x, 1.0):
         theta = 0.0
-    elif numpy.allclose(x, -1.0):
+    elif np.allclose(x, -1.0):
         theta = math.pi
     else:
-        theta = numpy.arccos(x)
+        theta = np.arccos(x)
     return theta
 
 
 def centroid(coords):
-    return numpy.sum(coords, axis=0) / numpy.size(coords, axis=0)
+    return np.sum(coords, axis=0) / np.size(coords, axis=0)
 
 
 def centreOfMass(coords, masses):
-    return numpy.sum(coords * masses[:,numpy.newaxis], axis=0) / numpy.sum(masses)
+    return np.sum(coords * masses[:,np.newaxis], axis=0) / np.sum(masses)
 
 
 def dihedral(p1, p2, p3, p4, dim=None, pbc=None):
@@ -537,11 +537,11 @@ def dihedral(p1, p2, p3, p4, dim=None, pbc=None):
     vec_kj = vecDiff(p3, p2, dim=dim, pbc=pbc)
     vec_kl = vecDiff(p3, p4, dim=dim, pbc=pbc)
     # vec1 is the normal to the plane defined by atoms i, j, and k
-    vec1 = numpy.cross(vec_ij, vec_kj)
-    magvec1 = numpy.dot(vec1, vec1)
+    vec1 = np.cross(vec_ij, vec_kj)
+    magvec1 = np.dot(vec1, vec1)
     #  vec2 is the normal to the plane defined by atoms j, k, and l
-    vec2 = numpy.cross(vec_kl, vec_kj)
-    magvec2 = numpy.dot(vec2, vec2)
+    vec2 = np.cross(vec_kl, vec_kj)
+    magvec2 = np.dot(vec2, vec2)
     # the definition of a dot product is used to find the angle between
     # vec1 and vec2 and hence the angle between the planes defined by
     # atoms i, j, k and j, k, l
@@ -549,11 +549,11 @@ def dihedral(p1, p2, p3, p4, dim=None, pbc=None):
     # the factor of pi (180.0) is present since when we defined the
     # vectors vec1 and vec2, one used the right hand rule while the
     # other used the left hand rule
-    dotprod = numpy.dot(vec1, vec2)
+    dotprod = np.dot(vec1, vec2)
     # print type(magvec1), type(magvec2)
     fac = dotprod / math.sqrt(magvec1 * magvec2)
     # We get a nan when all the atoms are in line - for these we return zero
-    if numpy.isnan(fac):
+    if np.isnan(fac):
         #raise RuntimeError("Nan in dihedral!")
         return 0.0
     fac = min(fac, 1.0)
@@ -566,7 +566,7 @@ def dihedral(p1, p2, p3, p4, dim=None, pbc=None):
     # anti_clockwise
     #
     # if the dot product is positive, the rotation is clockwise
-    sign_check = numpy.dot(vec_ij, vec2)
+    sign_check = np.dot(vec_ij, vec2)
     if(sign_check > 0.0):
         dihed = dihed * -1.0
     return dihed
@@ -578,30 +578,30 @@ def distance(v1, v2, dim=None, pbc=[True,True,True]):
     Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
     Changed so that it can cope with distances across more than one cell
     """
-    return numpy.sqrt((vecDiff(v1, v2, dim=dim, pbc=pbc) ** 2).sum(axis=-1))
+    return np.sqrt((vecDiff(v1, v2, dim=dim, pbc=pbc) ** 2).sum(axis=-1))
 
 
 def momentOfInertia(coords, masses):
     """Moment of Inertia Tensor"""
-    totalMass = numpy.sum(masses)
-    centreOfMass = numpy.sum(coords * masses[:,numpy.newaxis], axis=0) / totalMass
+    totalMass = np.sum(masses)
+    centreOfMass = np.sum(coords * masses[:,np.newaxis], axis=0) / totalMass
     coords = coords - centreOfMass # Coords relative to centre of mass
     if True:
         # Below from Pierre but doesn't seem to replicate results of doing it 'manually'
-        I = numpy.dot(coords.transpose(), coords)
+        I = np.dot(coords.transpose(), coords)
     else:
         x = 0
         y = 1
         z = 2
-        I2 = numpy.zeros(shape=(3, 4))
-        I2[x, x] = numpy.sum((numpy.square(coords[:, y]) + numpy.square(coords[:, z])) * masses)
-        I2[y, y] = numpy.sum((numpy.square(coords[:, x]) + numpy.square(coords[:, z])) * masses)
-        I2[z, z] = numpy.sum((numpy.square(coords[:, x]) + numpy.square(coords[:, y])) * masses)
-        I2[x, y] = numpy.sum(coords[:, x] * coords[:, y] * masses)
+        I2 = np.zeros(shape=(3, 4))
+        I2[x, x] = np.sum((np.square(coords[:, y]) + np.square(coords[:, z])) * masses)
+        I2[y, y] = np.sum((np.square(coords[:, x]) + np.square(coords[:, z])) * masses)
+        I2[z, z] = np.sum((np.square(coords[:, x]) + np.square(coords[:, y])) * masses)
+        I2[x, y] = np.sum(coords[:, x] * coords[:, y] * masses)
         I2[y, x] = I2[x, y]
-        I2[y, z] = numpy.sum(coords[:, y] * coords[:, z] * masses)
+        I2[y, z] = np.sum(coords[:, y] * coords[:, z] * masses)
         I2[z, y] = I2[y, z]
-        I2[x, z] = numpy.sum(coords[:, x] * coords[:, z] * masses)
+        I2[x, z] = np.sum(coords[:, x] * coords[:, z] * masses)
         I2[z, x] = I2[x, z]
         I = I2
     return I
@@ -611,8 +611,8 @@ def principalMoments(coords, masses):
     """http://farside.ph.utexas.edu/teaching/336k/Newtonhtml/node67.html
     """
     I = momentOfInertia(coords, masses)
-    eigval, eigvec = numpy.linalg.eig(I)
-    return numpy.sort(eigval)
+    eigval, eigvec = np.linalg.eig(I)
+    return np.sort(eigval)
 
 
 def rotation_matrix(axis, angle):
@@ -623,10 +623,10 @@ def rotation_matrix(axis, angle):
     http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector
     """
 
-    axis = axis / numpy.sqrt(numpy.dot(axis, axis))
-    a = numpy.cos(angle / 2)
-    b, c, d = -axis * numpy.sin(angle / 2)
-    return numpy.array([[a * a + b * b - c * c - d * d, 2 * (b * c - a * d), 2 * (b * d + a * c)],
+    axis = axis / np.sqrt(np.dot(axis, axis))
+    a = np.cos(angle / 2)
+    b, c, d = -axis * np.sin(angle / 2)
+    return np.array([[a * a + b * b - c * c - d * d, 2 * (b * c - a * d), 2 * (b * d + a * c)],
                      [2 * (b * c + a * d), a * a + c * c - b * b - d * d, 2 * (c * d - a * b)],
                      [2 * (b * d - a * c), 2 * (c * d + a * b), a * a + d * d - b * b - c * c]])
 
@@ -643,28 +643,28 @@ def vecDiff(v1, v2, dim=None, pbc=[True,True,True]):
     # Currently (e.g. cell.dataDict return a list of coordinates rather than a numpy array, so we need to check if we have been given a list
     # or numpy array and convert accordingly
     if type(v1) is list:
-        delta = numpy.array(v1) - numpy.array(v2)
+        delta = np.array(v1) - np.array(v2)
     else:
         delta = v1 - v2
     if dim is not None:
-        assert type(dim) is numpy.ndarray
+        assert type(dim) is np.ndarray
         
         # Account for multiple cells
         if delta.ndim == 1:
-            if pbc[0]: delta[0] = numpy.remainder(delta[0], dim[0])
-            if pbc[1]: delta[1] = numpy.remainder(delta[1], dim[1])
-            if pbc[2]: delta[2] = numpy.remainder(delta[2], dim[2])
+            if pbc[0]: delta[0] = np.remainder(delta[0], dim[0])
+            if pbc[1]: delta[1] = np.remainder(delta[1], dim[1])
+            if pbc[2]: delta[2] = np.remainder(delta[2], dim[2])
         else:
-            if pbc[0]: delta[:,0] = numpy.remainder(delta[:,0], dim[0])
-            if pbc[1]: delta[:,1] = numpy.remainder(delta[:,1], dim[1])
-            if pbc[2]: delta[:,2] = numpy.remainder(delta[:,2], dim[2])
+            if pbc[0]: delta[:,0] = np.remainder(delta[:,0], dim[0])
+            if pbc[1]: delta[:,1] = np.remainder(delta[:,1], dim[1])
+            if pbc[2]: delta[:,2] = np.remainder(delta[:,2], dim[2])
         # Could use below as we don't really need a true cell in that direction - change if slow 
-        #delta = numpy.remainder(delta, dim)
+        #delta = np.remainder(delta, dim)
             
         # Wherever the distance is > half the cell length we subtract the cell length
         # we multiply by the pbc array to only make change where we have pbc
-        delta = numpy.where(numpy.abs(delta) > 0.5 * dim,
-                            delta - (numpy.copysign(dim, delta) * pbc),
+        delta = np.where(np.abs(delta) > 0.5 * dim,
+                            delta - (np.copysign(dim, delta) * pbc),
                             delta)
     return delta
 
@@ -678,17 +678,17 @@ def vectorAngle(v1, v2):
     """
 
     # print "v1: {}".format(v1)
-    # print "v1 norm: {}".format(numpy.linalg.norm(v1))
-    v1_u = v1 / numpy.linalg.norm(v1)
+    # print "v1 norm: {}".format(np.linalg.norm(v1))
+    v1_u = v1 / np.linalg.norm(v1)
     # print "v1_u: {}".format(v1_u)
-    v2_u = v2 / numpy.linalg.norm(v2)
+    v2_u = v2 / np.linalg.norm(v2)
 
-    angle = numpy.arccos(numpy.dot(v1_u, v2_u))
+    angle = np.arccos(np.dot(v1_u, v2_u))
     if math.isnan(angle):
         if (v1_u == v2_u).all():
             return 0.0
         else:
-            return numpy.pi
+            return np.pi
     return angle
 
 
@@ -696,12 +696,12 @@ def unWrapCoord3(coord, image, ldim, centered=False, inplace=False):
     """Unwrap a coordinate back into a cell
     """
     if not inplace:
-        coord = numpy.copy(coord)
+        coord = np.copy(coord)
     if centered:
         # Put it back with origin at corner
         #coord += ldim / 2
         coord =  coord + ldim / 2
-        assert numpy.all((coord >= 0.0) & (coord <= ldim))
+        assert np.all((coord >= 0.0) & (coord <= ldim))
     # Now move it according to its image
     coord = coord + ldim * image
     return coord
@@ -712,12 +712,12 @@ def wrapCoord3(coord, dim, center=False, inplace=False):
     return the wrapped coordinates and the images
     """
     if not inplace:
-        coord = numpy.copy(coord)
-    image = numpy.floor(coord/dim).astype(int)
-    if numpy.any(image < 0):
+        coord = np.copy(coord)
+    image = np.floor(coord/dim).astype(int)
+    if np.any(image < 0):
         coord += -image * dim # Make positive so the modulo operator works
-    wcoord = numpy.fmod(coord, dim)
-    assert numpy.all(wcoord >= 0.0), "-ve Coord!: {0} -> {1} : {2}".format(coord, wcoord, image)
+    wcoord = np.fmod(coord, dim)
+    assert np.all(wcoord >= 0.0), "-ve Coord!: {0} -> {1} : {2}".format(coord, wcoord, image)
     # Change the coord so the origin is at the center of the box (we start from the corner)
     if center:
         wcoord -= dim / 2
