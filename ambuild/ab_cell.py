@@ -1288,33 +1288,26 @@ class Cell():
                   doDihedral=False,
                   doImproper=False,
                   xmlFilename="hoomdCalc.xml",
-                  **kw
-                  ):
-        
-        if not self.MDENGINE:
-            raise RuntimeError("No MD Engine available!")
-
-        # Loop through all blocks, fragments and atoms creating the labels
-        # do this in dataDict - create list of labels and start:stop indices
+                  **kw):
+        if not self.mdEngineCls:
+            raise RuntimeError("No mdEngine defined - cannot run.")
+        mdEngine = self.mdEngineCls(self.paramsDir)
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
-
-        # in hoomdblue. loopt through list of labels and create groups and computes for each one
-        # opt must hold the list of groups and computes
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
             self.rCut = self.MDENGINE.rCut
         logger.info("Running fragMaxEnergy")
-        maxe, idxBlock, idxFragment = self.MDENGINE.fragMaxEnergy(data,
-                                                    xmlFilename,
-                                                    rigidBody=rigidBody,
-                                                    doDihedral=doDihedral,
-                                                    doImproper=doImproper,
-                                                    **kw)
+        maxe, idxBlock, idxFragment = self.mdEngine.fragMaxEnergy(data,
+                                                                  xmlFilename,
+                                                                  rigidBody=rigidBody,
+                                                                  doDihedral=doDihedral,
+                                                                  doImproper=doImproper,
+                                                                  **kw)
         return
 
     def fragmentTypes(self):
-        ft = {}
+        ft = collections.defaultdict(list)
         for b in self.blocks.values():
             d = b.fragmentTypeDict()
             for k, v in d.items():
@@ -1333,7 +1326,6 @@ class Cell():
 
     def getLibraryBlock(self, fragmentType=None, random=True):
         """Return an initBlock"""
-
         if fragmentType is None:
             # Need to determine the fragmentType from the endGroupType
             if random:
@@ -1342,11 +1334,9 @@ class Cell():
                 i = self._deterministicState % len(self._fragmentLibrary.keys())
                 fragmentType = sorted(self._fragmentLibrary.keys())[i]
                 self._deterministicState += 1
-
         # sanity check
         if not fragmentType in self._fragmentLibrary:
             raise RuntimeError("Asking for a non-existing initBlock type: {0}".format(fragmentType))
-
         # Copy the init fragment
         f = self._fragmentLibrary[ fragmentType ].copy()
         return ab_block.Block(initFragment=f)
@@ -1391,9 +1381,7 @@ class Cell():
             if self.numFreeEndGroups() == 0:
                 logger.critical("growBlocks got no free endGroups!")
                 return added
-
             # Select two random blocks that can be bonded
-            # initBlock, newEG, idxStaticBlock, staticEG = self.randomInitAttachments( endGroupType=endGroupType )
             try:
                 endGroupPair = self.libraryEndGroupPair(cellEndGroups=cellEndGroups,
                                                                          libraryEndGroups=libraryEndGroups,
@@ -1409,14 +1397,11 @@ class Cell():
                 continue
             else:
                 attemptedPairs.add(endGroupPair)
-
-            # Unpack the endGroups
             cellEndGroup, libraryEndGroup = endGroupPair
-
             # Apply random rotation in 3 axes to randomise the orientation before we align
             libraryBlock = libraryEndGroup.block()
-            if random: libraryBlock.randomRotate(origin=self.origin)
-
+            if random:
+                libraryBlock.randomRotate(origin=self.origin)
             # Try and attach it
             ok = self.attachBlock(libraryEndGroup, cellEndGroup, dihedral=dihedral)
             if ok:
@@ -1428,7 +1413,6 @@ class Cell():
             else:
                 # del initBlock?
                 tries += 1
-
         logger.info("After growBlocks numBlocks: {0}".format(len(self.blocks)))
         return added
 
@@ -1843,7 +1827,7 @@ class Cell():
         """
         logger.info("Running optimisation")
         if not self.mdEngineCls:
-            raise RuntimeError("No MDENGINE defined - cannot run MD.")
+            raise RuntimeError("No mdEngine defined - cannot run MD.")
         mdEngine = self.mdEngineCls(self.paramsDir)
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
@@ -2149,7 +2133,6 @@ class Cell():
                     logger.critical("Exceeded maxtries when seeding after adding {0}".format(numBlocksAdded))
                     self.analyse.stop('seed', d={'num_tries':tries})
                     return numBlocksAdded
-
                 # if center put the first one in the center of the cell
                 # only if this is the first attempt as otherwise we always fail if there is already something there
                 if center and seedCount == 0 and tries == 0:
@@ -2157,10 +2140,8 @@ class Cell():
                 else:
                     # Move the block and rotate it
                     self.positionBlock(newblock, point=point, radius=radius, zone=zone, random=random)
-
                 # Add the block so we can check for clashes/bonds
                 idxBlock = self.addBlock(newblock)
-
                 # Test for Clashes with other molecules
                 if self.checkMove(idxBlock):
                     if self.processBonds() > 0:
@@ -2169,16 +2150,12 @@ class Cell():
                     self.analyse.stop('seed', d={'num_tries':tries})
                     numBlocksAdded += 1
                     break
-
                 # Unsuccessful so remove the block from cell
                 self.delBlock(idxBlock)
-
                 # If seed fails with center need to bail on first one.
                 if center and seedCount == 0 and tries == 0:
                     logger.warn("Seed with center failed to place first block in center!")
-
                 tries += 1 # increment tries counter
-
             # End Clash loop
         # End of loop to seed cell
         logger.info("Seed added {0} blocks. Cell now contains {1} blocks".format(numBlocksAdded, len(self.blocks)))
@@ -2194,27 +2171,21 @@ class Cell():
         # so they are just floats
         if not type(boxDim) is list and len(boxDim) == 3:
             raise RuntimeError("setBoxSize needs list of 3 numbers setting the cell dimensions!")
-
         old_dim = None
         if self.dim is not None: old_dim = self.dim
-
         self.dim = np.array([float(boxDim[0]), float(boxDim[1]), float(boxDim[2])])
         assert self.dim[0] > 0 and self.dim[1] > 0 and self.dim[2] > 0, "Invalid box dimensions: {0}".format(self.dim)
-
         boxShift = None
         if old_dim is not None and not np.allclose(self.dim, old_dim):
             if not (self.dim[0] >= old_dim[0] and \
                 self.dim[1] >= old_dim[1] and
                 self.dim[2] >= old_dim[2]):
                 raise RuntimeError("Can currently only increase box size!")
-
             # If we've made the cell bigger we need to shift all blocks so that they sit
             # in the centre again
             boxShift = [ (self.dim[0] - old_dim[0]) / 2, \
                          (self.dim[1] - old_dim[1]) / 2, \
-                         (self.dim[2] - old_dim[2]) / 2 \
-                        ]
-
+                         (self.dim[2] - old_dim[2]) / 2 ]
         self.updateCellSize(boxShift=boxShift)
         return
 
@@ -2225,7 +2196,6 @@ class Cell():
         p = f.cellParameters()
         if not p:
             raise RuntimeError("car file needs to have PBC=ON and a PBC line defining the cell!")
-
         logger.info("Read cell parameters A={0}, B={1}, C={2} from car file: {3}".format(
             p['A'],p['B'],p['C'],filePath))
         self.setBoxSize([p['A'], p['B'], p['C']])
@@ -2233,7 +2203,6 @@ class Cell():
         maxAtomRadius = f.maxAtomRadius()
         if  maxAtomRadius > self.maxAtomRadius:
             self.updateCellSize(maxAtomRadius=maxAtomRadius)
-
         block = ab_block.Block(initFragment=f)
         # Check the molecule fits in the cell
         for i, coord in enumerate(block.iterCoord()):
@@ -2241,7 +2210,6 @@ class Cell():
                coord[1] < 0 or coord[1] > self.dim[1] or \
                coord[2] < 0 or coord[2] > self.dim[2]:
                 raise RuntimeError("Static block doesn't fit in the cell! First failing coord is #{0}: {1}".format(i, coord))
-
         if replace:
             self.delBlock(list(self.blocks.keys())[0]) # Assumes a static block is always the first
         idxBlock = self.addBlock(block)
@@ -2253,13 +2221,11 @@ class Cell():
                 d[k] = v
             del self.blocks
             self.blocks = d
-
             # Also need to test for Clashes with other molecules
             if not self.checkMove(idxBlock):
                 raise RuntimeError("Problem adding static block: got clashes!")
             if self.processBonds() > 0:
                 raise RuntimeError("Problem adding static block-we made bonds!")
-
         logger.info("Added static block to cell")
         return
 
@@ -2273,8 +2239,6 @@ class Cell():
 
         """
         fragmentType = bondType.split(ENDGROUPSEP)[0]
-
-        # Now get the library fragment to set it's maxBond parameter
         fragment = self._fragmentLibrary[ fragmentType ]
         return fragment.setMaxBond(bondType, count)
 
@@ -2419,17 +2383,14 @@ class Cell():
         """
         if not data:
             data = self.dataDict()
-
         car = "!BIOSYM archive 3\n"
         if periodic:
             car += "PBC=ON\n"
         else:
             car += "PBC=OFF\n"
-
         car += "ambuild generated car file\n"
         tstr = time.strftime("%a %b %d %H:%M:%S %Y", time.gmtime())
         car += "!DATE {0}\n".format(tstr)
-
         if periodic:
             car += "PBC  {0: < 9.4F} {1: < 9.4F} {2: < 9.4F}  90.0000   90.0000   90.0000 (P1)\n".format(data['A'],
                                                                                                           data['B'],
@@ -2480,9 +2441,10 @@ class Cell():
         """Write out the cell atoms to an xyz file
         If label is true we write out the atom label and block, otherwise the symbol
         """
-        if data is None: d = self.dataDict(periodic=periodic, fragmentType=None)
-        else: d = data
-
+        if data is None:
+            d = self.dataDict(periodic=periodic, fragmentType=None)
+        else:
+            d = data
         if periodic:
             if atomTypes:
                 fpath = xyz_util.writeXyz(ofile, d.coords, d.atomTypes, cell=self.dim)
@@ -2540,7 +2502,6 @@ class Cell():
                 block.zipCell = {}
                 for endGroup in egs:
                     endGroups.append((block, endGroup.endGroupIdx()))
-
         if not len(endGroups) > 0:
             logger.warn("zipBlocks found no free endGroups!")
             return 0
@@ -2641,8 +2602,7 @@ class Cell():
         return bondsMade
 
     def __getstate__(self):
-        """
-        Return a dict of objects we want to pickle.
+        """Return a dict of objects we want to pickle.
 
         This is required as we can't pickle objects containing a logger as they have
         file handles (can remove by calling logging.shutdown() ) and lock objects (not removed
