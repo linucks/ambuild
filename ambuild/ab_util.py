@@ -138,7 +138,7 @@ def cellFromPickle(pickleFile, paramsDir=None):
     return myCell
 
 
-def dumpPkl(pickleFile, split=None, nonPeriodic=False):
+def dumpPkl(pickleFile, split=None, nonPeriodic=False, paramsDir=None):
     fpath = os.path.abspath(pickleFile)
     basename = os.path.basename(fpath)
     logger.info("Dumping pkl file: {0}".format(fpath))
@@ -150,7 +150,7 @@ def dumpPkl(pickleFile, split=None, nonPeriodic=False):
         raise RuntimeError('Unrecognised pkl file suffix for file {}. Use {} or {}'.format(pickleFile,
                                                                                            PKL_SUFFIX,
                                                                                            GZIP_PKL_SUFFIX))
-    mycell = cellFromPickle(pickleFile)
+    mycell = cellFromPickle(pickleFile, paramsDir=paramsDir)
     if split == "fragments":
         for t in mycell.fragmentTypes().keys():
             data = mycell.dataDict(fragmentType=t)
@@ -256,12 +256,13 @@ if __name__ == '__main__':
     import argparse
     p = argparse.ArgumentParser()
     p.add_argument('pkl_file', type=str, metavar='pickle_file.pkl', help='Ambuild pickle file')
-    p.add_argument('-f', '--split_fragments', action='store_true', default=False, help="Split the cell into fragments")
     p.add_argument('-b', '--split_blocks', action='store_true', default=False, help="Split the cell into blocks")
+    p.add_argument('-f', '--split_fragments', action='store_true', default=False, help="Split the cell into fragments")
     p.add_argument('-da', '--dlpoly_allatom', action='store_true', default=False, help="Create all-atom DLPOLY CONFIG and FIELD files")
     p.add_argument('-dr', '--dlpoly_rigid', action='store_true', default=False, help="Create rigid-body DLPOLY CONFIG and FIELD files")
-    p.add_argument('-np', '--non_periodic', action='store_true', default=False, help="Dump a non-periodic system")
     p.add_argument('-id', '--ignore_dihedrals', action='store_true', default=False, help="Ignore missing dihedrals when creating DL-POLY files.")
+    p.add_argument('-np', '--non_periodic', action='store_true', default=False, help="Dump a non-periodic system")
+    p.add_argument('-p', '--params_dir', help="The path to the AMBUILD parameters directory.")
     args=p.parse_args()
     
     split = None
@@ -269,6 +270,7 @@ if __name__ == '__main__':
     rigid = True
     nonPeriodic = False
     skipDihedrals = False
+    paramsDir = None
     
     if args.split_fragments:
         split='fragments'
@@ -285,12 +287,12 @@ if __name__ == '__main__':
     if args.non_periodic:
         nonPeriodic = True
     if args.ignore_dihedrals:
-        skipDihedrals = True     
-
+        skipDihedrals = True    
+    if args.params_dir:
+        paramsDir = args.params_dir     
     # Need to reset sys.argv as otherwise hoomdblue eats it and complains
     sys.argv = [sys.argv[0]]
-
     if dlpoly:
         dumpDLPOLY(args.pkl_file, rigidBody=rigid, skipDihedrals=skipDihedrals)
     else:
-        dumpPkl(args.pkl_file, split=split, nonPeriodic=nonPeriodic)
+        dumpPkl(args.pkl_file, split=split, nonPeriodic=nonPeriodic, paramsDir=paramsDir)
