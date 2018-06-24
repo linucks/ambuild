@@ -6,11 +6,13 @@ import numpy as np
 import hoomd
 import hoomd.md
 
+BOX_WIDTH = 20.0
+
 def setup():
     from ab_cell import Cell
     from ab_block import Block
     
-    boxDim = [20.0, 20.0, 20.0]
+    boxDim = [BOX_WIDTH, BOX_WIDTH, BOX_WIDTH]
     mycell = Cell(boxDim)
     mycell.libraryAddFragment(filename='../blocks/ch4.car', fragmentType='A')
     mycell.addBondType('A:a-A:a')
@@ -47,35 +49,94 @@ def setup():
 
 #setup()
 #sys.exit(1)
-box_width = 20.0
+def wrapBox(positions, boxdim):
+    # Move into centre of cell
+    positions = np.fmod(positions, boxdim)
+    # Change the coord so the origin is at the center of the box (we start from the corner)
+    positions -= boxdim / 2
+    return positions
+
+def centreOfMass(coords, masses):
+    totalMass = np.sum(masses)
+    return np.sum(coords * masses[:,np.newaxis], axis=0) / totalMass
+
+def momentOfInertia(coords, masses):
+    """Moment of Inertia Tensor"""
+    # positions relative to the centre of mass
+    coords = coords - centreOfMass(coords, masses) 
+    x = 0
+    y = 1
+    z = 2
+    I = np.zeros(shape=(3, 4))
+    I[x, x] = np.sum((np.square(coords[:, y]) + np.square(coords[:, z])) * masses)
+    I[y, y] = np.sum((np.square(coords[:, x]) + np.square(coords[:, z])) * masses)
+    I[z, z] = np.sum((np.square(coords[:, x]) + np.square(coords[:, y])) * masses)
+    I[x, y] = np.sum(coords[:, x] * coords[:, y] * masses)
+    I[y, x] = I[x, y]
+    I[y, z] = np.sum(coords[:, y] * coords[:, z] * masses)
+    I[z, y] = I[y, z]
+    I[x, z] = np.sum(coords[:, x] * coords[:, z] * masses)
+    I[z, x] = I[x, z]
+    I = I
+    return I
+
+def principalMoments(coords, masses):
+    I = momentOfInertia(coords, masses)
+    eigval, eigvec = np.linalg.eig(I)
+    return np.sort(eigval)
+
+
+
+symbol2mass = {'C' : 12.0107,
+               'H' :1.00794 }
+
 types1 = np.array(['C', 'H', 'H', 'H', 'H'])
 masses1 = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])
-positions1 = np.array([[  8.,         10.,          9.9999998],
-                       [  9.089,      10.,          9.9999998],
-                       [  7.637,      10.,          8.9732808],
-                       [  7.637,       9.110835,   10.5133598],
-                       [  7.637,      10.889165,   10.5133598]])
+# positions1 = np.array([[  8.,         10.,          9.9999998],
+#                        [  9.089,      10.,          9.9999998],
+#                        [  7.637,      10.,          8.9732808],
+#                        [  7.637,       9.110835,   10.5133598],
+#                        [  7.637,      10.889165,   10.5133598]])
+positions1 = np.array([[ -2.00000000e+00,   0.00000000e+00,  -2.00000001e-07],
+                       [ -9.11000000e-01,   0.00000000e+00,  -2.00000001e-07],
+                       [ -2.36300000e+00,   0.00000000e+00,  -1.02671920e+00],
+                       [ -2.36300000e+00,  -8.89165000e-01,   5.13359800e-01],
+                       [ -2.36300000e+00,   8.89165000e-01,   5.13359800e-01]])
+bodies1 = np.zeros(len(positions1), dtype=np.int)
+
+centralParticle1 = centreOfMass(positions1, masses1)
+# Get positions relative to central particle
+positions1 = positions1 - centralParticle1
+
 
 
 types2 = np.array(['C', 'H', 'H', 'H', 'H'])
 masses2 = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])
-positions2 = np.array([[ 11.53,       10.,          9.9999998],
-                       [ 10.441,      10.,          9.9999998],
-                       [ 11.893,      10.,         11.0267188],
-                       [ 11.893,       9.110835,    9.4866398],
-                       [ 11.893,      10.889165,    9.4866398]])
+# positions2 = np.array([[ 11.53,       10.,          9.9999998],
+#                        [ 10.441,      10.,          9.9999998],
+#                        [ 11.893,      10.,         11.0267188],
+#                        [ 11.893,       9.110835,    9.4866398],
+#                        [ 11.893,      10.889165,    9.4866398]])
+positions2 = np.array([[  1.53000000e+00,   0.00000000e+00,  -2.00000001e-07],
+                       [  4.41000000e-01,   0.00000000e+00,  -2.00000001e-07],
+                       [  1.89300000e+00,   0.00000000e+00,   1.02671880e+00],
+                       [  1.89300000e+00,  -8.89165000e-01,  -5.13360200e-01],
+                       [  1.89300000e+00,   8.89165000e-01,  -5.13360200e-01]])
+
+bodies2 = np.ones(len(positions2), dtype=np.int)
+
+
+
+ snap.particles.moment_inertia[i] = data.rigid_moment_inertia[i]
 
 types = np.concatenate([types1, types2])
 positions = np.concatenate([positions1, positions2])
 masses = np.concatenate([masses1, masses2])
+bodies = np.concatenate([bodies1, bodies2])
+
+boxdim = np.array([BOX_WIDTH, BOX_WIDTH, BOX_WIDTH])
 
 
-boxdim = np.array([20.0, 20.0, 20.0])
-
-# Move into centre of cell
-positions = np.fmod(positions, boxdim)
-# Change the coord so the origin is at the center of the box (we start from the corner)
-positions -= boxdim / 2
 #writeXyz('foo.xyz', positions, types)
 
 # Start of hoomd code
@@ -95,6 +156,7 @@ snapshot = hoomd.data.make_snapshot(N=nparticles,
 for i in range(nparticles):
     snapshot.particles.mass[i] = masses[i]
     snapshot.particles.position[i] = positions[i]
+    snapshot.particles.body[i] = bodies[i]
     snapshot.particles.typeid[i] = snapshot.particles.types.index(types[i])
     
 system = hoomd.init.read_snapshot(snapshot)
