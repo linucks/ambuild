@@ -49,6 +49,29 @@ def setup():
 
 #setup()
 #sys.exit(1)
+
+class CentralParticle(object):
+    def __init__(self, molecule):
+        self.position = None
+        self.principalMoments = None
+        self.type = None
+        self.fromMolecule(molecule)
+    
+    def fromMolecule(self, molecule):
+        self.position = centreOfMass(molecule.positions, molecule.masses)
+        self.principalMoments = principalMoments(molecule.positions, molecule.masses)
+        return self
+
+class Molecule(object):
+    def __init__(self):
+        self.positions = None
+        self.masses = None
+        self.types = None
+    
+    def centralParticle(self):
+        return CentralParticle(self)
+
+
 def wrapBox(positions, boxdim):
     # Move into centre of cell
     positions = np.fmod(positions, boxdim)
@@ -63,11 +86,11 @@ def centreOfMass(coords, masses):
 def momentOfInertia(coords, masses):
     """Moment of Inertia Tensor"""
     # positions relative to the centre of mass
-    coords = coords - centreOfMass(coords, masses) 
+    coords = coords - centreOfMass(coords, masses)
     x = 0
     y = 1
     z = 2
-    I = np.zeros(shape=(3, 4))
+    I = np.zeros(shape=(3, 3))
     I[x, x] = np.sum((np.square(coords[:, y]) + np.square(coords[:, z])) * masses)
     I[y, y] = np.sum((np.square(coords[:, x]) + np.square(coords[:, z])) * masses)
     I[z, z] = np.sum((np.square(coords[:, x]) + np.square(coords[:, y])) * masses)
@@ -77,7 +100,6 @@ def momentOfInertia(coords, masses):
     I[z, y] = I[y, z]
     I[x, z] = np.sum(coords[:, x] * coords[:, z] * masses)
     I[z, x] = I[x, z]
-    I = I
     return I
 
 def principalMoments(coords, masses):
@@ -85,49 +107,52 @@ def principalMoments(coords, masses):
     eigval, eigvec = np.linalg.eig(I)
     return np.sort(eigval)
 
+# Create 2 molecules
+mol1 = Molecule()
+mol1.positions = np.array([[ -2.00000000e+00,   0.00000000e+00,  -2.00000001e-07],
+                           [ -9.11000000e-01,   0.00000000e+00,  -2.00000001e-07],
+                           [ -2.36300000e+00,   0.00000000e+00,  -1.02671920e+00],
+                           [ -2.36300000e+00,  -8.89165000e-01,   5.13359800e-01],
+                           [ -2.36300000e+00,   8.89165000e-01,   5.13359800e-01]])
+mol1.types = np.array(['C', 'H', 'H', 'H', 'H'])
+mol1.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])
 
+mol2 = Molecule()
+mol2.positions = np.array([[  3.53000000e+00,   0.00000000e+00,  -2.00000001e-07],
+                           [  2.44100000e+00,   0.00000000e+00,  -2.00000001e-07],
+                           [  3.89300000e+00,   0.00000000e+00,   1.02671880e+00],
+                           [  3.89300000e+00,  -8.89165000e-01,  -5.13360200e-01],
+                           [  3.89300000e+00,   8.89165000e-01,  -5.13360200e-01]])
+mol2.types = np.array(['C', 'H', 'H', 'H', 'H'])
+mol2.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])
 
-symbol2mass = {'C' : 12.0107,
-               'H' :1.00794 }
+molecules = [mol1, mol2]
 
-types1 = np.array(['C', 'H', 'H', 'H', 'H'])
-masses1 = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])
-# positions1 = np.array([[  8.,         10.,          9.9999998],
-#                        [  9.089,      10.,          9.9999998],
-#                        [  7.637,      10.,          8.9732808],
-#                        [  7.637,       9.110835,   10.5133598],
-#                        [  7.637,      10.889165,   10.5133598]])
-positions1 = np.array([[ -2.00000000e+00,   0.00000000e+00,  -2.00000001e-07],
-                       [ -9.11000000e-01,   0.00000000e+00,  -2.00000001e-07],
-                       [ -2.36300000e+00,   0.00000000e+00,  -1.02671920e+00],
-                       [ -2.36300000e+00,  -8.89165000e-01,   5.13359800e-01],
-                       [ -2.36300000e+00,   8.89165000e-01,   5.13359800e-01]])
-bodies1 = np.zeros(len(positions1), dtype=np.int)
+# Now create the central particles
+centralParticles = []
+for i, mol in enumerate(molecules):
+    cp = mol.centralParticle()
+    cp.type = "CP%d" % i
+    centralParticles.append(cp)
+    
+for cp in centralParticles:
+    print cp.type
+    
+sys.exit()
+    
+
 
 centralParticle1 = centreOfMass(positions1, masses1)
 # Get positions relative to central particle
 positions1 = positions1 - centralParticle1
+prinMom1 = principalMoments(coords1, masses1)
 
 
+centralParticle2 = centreOfMass(positions2, masses2)
+# Get positions relative to central particle
+positions2 = positions2 - centralParticle2
+prinMom2 = principalMoments(coords2, masses2)
 
-types2 = np.array(['C', 'H', 'H', 'H', 'H'])
-masses2 = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])
-# positions2 = np.array([[ 11.53,       10.,          9.9999998],
-#                        [ 10.441,      10.,          9.9999998],
-#                        [ 11.893,      10.,         11.0267188],
-#                        [ 11.893,       9.110835,    9.4866398],
-#                        [ 11.893,      10.889165,    9.4866398]])
-positions2 = np.array([[  1.53000000e+00,   0.00000000e+00,  -2.00000001e-07],
-                       [  4.41000000e-01,   0.00000000e+00,  -2.00000001e-07],
-                       [  1.89300000e+00,   0.00000000e+00,   1.02671880e+00],
-                       [  1.89300000e+00,  -8.89165000e-01,  -5.13360200e-01],
-                       [  1.89300000e+00,   8.89165000e-01,  -5.13360200e-01]])
-
-bodies2 = np.ones(len(positions2), dtype=np.int)
-
-
-
- snap.particles.moment_inertia[i] = data.rigid_moment_inertia[i]
 
 types = np.concatenate([types1, types2])
 positions = np.concatenate([positions1, positions2])
@@ -137,7 +162,10 @@ bodies = np.concatenate([bodies1, bodies2])
 boxdim = np.array([BOX_WIDTH, BOX_WIDTH, BOX_WIDTH])
 
 
-#writeXyz('foo.xyz', positions, types)
+writeXyz('foo.xyz', positions, types)
+sys.exit()
+
+
 
 # Start of hoomd code
 hoomd.context.initialize()
@@ -153,11 +181,22 @@ snapshot = hoomd.data.make_snapshot(N=nparticles,
                                     particle_types=particle_types)
 
 #for i, p in enumerate(snapshot.particles):
+#snap.particles.moment_inertia[i] = data.rigid_moment_inertia[i]
 for i in range(nparticles):
     snapshot.particles.mass[i] = masses[i]
     snapshot.particles.position[i] = positions[i]
     snapshot.particles.body[i] = bodies[i]
     snapshot.particles.typeid[i] = snapshot.particles.types.index(types[i])
+    
+    
+    
+rigid = hoomd.md.constrain.rigid()
+for ftype, fdata in data.rigid_fragments.iteritems():
+    rigid.set_param(ftype,
+                    types='TYPES',
+                    positions='FOO')
+    rigid.validate_bodies()
+
     
 system = hoomd.init.read_snapshot(snapshot)
 nl = hoomd.md.nlist.cell()
