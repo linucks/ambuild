@@ -47,19 +47,30 @@ def setup():
     #mycell.dump()
     #mycell.runMD(rigidBody=False, dump=True)
 
+
+#boxdim = np.array([BOX_WIDTH, BOX_WIDTH, BOX_WIDTH])
 #setup()
 #sys.exit(1)
 
 class CentralParticle(object):
     def __init__(self, molecule):
+        self.mass = None
         self.position = None
         self.principalMoments = None
         self.type = None
+        
+        self.m_positions = None
+        self.m_types = None
+        
         self.fromMolecule(molecule)
     
     def fromMolecule(self, molecule):
+        self.mass = np.sum(molecule.masses)
         self.position = centreOfMass(molecule.positions, molecule.masses)
         self.principalMoments = principalMoments(molecule.positions, molecule.masses)
+        
+        self.m_positions = molecule.positions
+        self.m_types = molecule.types
         return self
 
 class Molecule(object):
@@ -107,6 +118,9 @@ def principalMoments(coords, masses):
     eigval, eigvec = np.linalg.eig(I)
     return np.sort(eigval)
 
+#writeXyz('foo.xyz', positions, types)
+
+
 # Create 2 molecules
 mol1 = Molecule()
 mol1.positions = np.array([[ -2.00000000e+00,   0.00000000e+00,  -2.00000001e-07],
@@ -135,68 +149,47 @@ for i, mol in enumerate(molecules):
     cp.type = "CP%d" % i
     centralParticles.append(cp)
     
+# Need to set the positions to be relative to those of the central particle
+for i, cp in enumerate(centralParticles):
+    mol = molecules[i]
+    mol.positions = mol.positions - cp.position
+
+# Get total number of particles and the set of types
+particle_types = set()
+nparticles = 0
 for cp in centralParticles:
-    print cp.type
-    
-sys.exit()
-    
-
-
-centralParticle1 = centreOfMass(positions1, masses1)
-# Get positions relative to central particle
-positions1 = positions1 - centralParticle1
-prinMom1 = principalMoments(coords1, masses1)
-
-
-centralParticle2 = centreOfMass(positions2, masses2)
-# Get positions relative to central particle
-positions2 = positions2 - centralParticle2
-prinMom2 = principalMoments(coords2, masses2)
-
-
-types = np.concatenate([types1, types2])
-positions = np.concatenate([positions1, positions2])
-masses = np.concatenate([masses1, masses2])
-bodies = np.concatenate([bodies1, bodies2])
-
-boxdim = np.array([BOX_WIDTH, BOX_WIDTH, BOX_WIDTH])
-
-
-writeXyz('foo.xyz', positions, types)
-sys.exit()
-
-
-
+    nparticles += 1
+    particle_types.add(cp.type)
+for mol in molecules:
+    nparticles += mol.positions.shape[0]
+    particle_types.update(set(mol.types))
+particle_types = list(particle_types)
+#
 # Start of hoomd code
+#
 hoomd.context.initialize()
 
-nparticles = positions.shape[0]
-box_width = 20.0
-lx = box_width
-ly = box_width
-lz = box_width
-particle_types = list(set((types)))
+lx = BOX_WIDTH
+ly = BOX_WIDTH
+lz = BOX_WIDTH
 snapshot = hoomd.data.make_snapshot(N=nparticles,
                                     box=hoomd.data.boxdim(Lx=lx, Ly=ly, Lz=lz),
                                     particle_types=particle_types)
 
-#for i, p in enumerate(snapshot.particles):
-#snap.particles.moment_inertia[i] = data.rigid_moment_inertia[i]
-for i in range(nparticles):
-    snapshot.particles.mass[i] = masses[i]
-    snapshot.particles.position[i] = positions[i]
-    snapshot.particles.body[i] = bodies[i]
-    snapshot.particles.typeid[i] = snapshot.particles.types.index(types[i])
+for i, cp in enumerate(centralParticles):
+    snapshot.particles.body[i] = i
+    snapshot.particles.mass[i] = cp.mass
+    snapshot.particles.position[i] = cp.position
+    snapshot.particles.typeid[i] = snapshot.particles.types.index(cp.type)
+    snapshot.particles.moment_inertia[i] = cp.principalMoments
     
-    
-    
-rigid = hoomd.md.constrain.rigid()
-for ftype, fdata in data.rigid_fragments.iteritems():
-    rigid.set_param(ftype,
-                    types='TYPES',
-                    positions='FOO')
-    rigid.validate_bodies()
-
+for j, mol in enumerate(molecules):
+    for k in range(mol.positions.shape[0]):
+        idx = i + k + 1
+        snapshot.particles.body[idx] = j
+        snapshot.particles.mass[idx] = mol.masses[k]
+        snapshot.particles.position[idx] = mol.positions[k]
+        snapshot.particles.typeid[idx] = snapshot.particles.types.index(mol.types[k])
     
 system = hoomd.init.read_snapshot(snapshot)
 nl = hoomd.md.nlist.cell()
@@ -207,7 +200,17 @@ lj.pair_coeff.set('H', 'H', epsilon=0.1106, sigma=1.7736)
 
 nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body'])
 
-group_all = hoomd.group.all()
+rigid = hoomd.md.constrain.rigid()
+for cp in centralParticles:
+    print "GOT T ",cp.m_types
+    rigid.set_param(cp.type,
+                    positions=cp.m_positions,
+                    types=cp.m_types)
+    rigid.validate_bodies()
+
+
+#group_all = hoomd.group.all()
+group_all = hoomd.group.rigid_center()
 
 dt=0.0001
 Nmin=5
@@ -216,7 +219,6 @@ ftol=1e-2
 Etol=1e-5
 finc=1.1
 fdec=0.5
-
 fire = hoomd.md.integrate.mode_minimize_fire(dt=dt,
                                              Nmin=Nmin,
                                              alpha_start=alpha_start,
