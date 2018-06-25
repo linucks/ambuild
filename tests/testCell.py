@@ -4,7 +4,7 @@ import math
 import os
 import unittest
 
-import numpy
+import numpy as np
 
 import context
 AMBUILD_DIR = context.ab_paths.AMBUILD_DIR
@@ -68,14 +68,14 @@ class Test(unittest.TestCase):
             for i, c in enumerate(b.iterCoord()):
                 coords.append(c)
                 symbols.append(b.symbol(i))
-        dim = numpy.array([mycell.dim[0], mycell.dim[1], mycell.dim[2]])
+        dim = np.array([mycell.dim[0], mycell.dim[1], mycell.dim[2]])
         close = xyz_util.closeAtoms(coords, symbols, dim=dim, boxMargin=1.0)
         v1 = []
         v2 = []
         for idxAtom1, idxAtom2 in close:
             v1.append(coords[idxAtom1])
             v2.append(coords[idxAtom2])
-        distances = xyz_core.distance(numpy.array(v1), numpy.array(v2), dim=dim, pbc=pbc)
+        distances = xyz_core.distance(np.array(v1), np.array(v2), dim=dim, pbc=pbc)
         return any(map(lambda x: x < minDist, distances))
 
     def testCX4(self):
@@ -255,7 +255,7 @@ class Test(unittest.TestCase):
         else:
             mode = 'br'
         newCell = ab_util.cellFromPickle(fileName)
-        self.assertTrue(numpy.allclose(test_coord,
+        self.assertTrue(np.allclose(test_coord,
                                        newCell.blocks[list(newCell.blocks.keys())[0] ].coord(4),
                                        rtol=1e-9,
                                        atol=1e-9),
@@ -361,12 +361,12 @@ class Test(unittest.TestCase):
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         block1 = mycell.getLibraryBlock('A')
-        b1 = numpy.array([2, 2, 2], dtype=numpy.float64)
+        b1 = np.array([2, 2, 2], dtype=np.float64)
         block1.translateCentroid(b1)
         block1_id = mycell.addBlock(block1)
         # block2=mycell.initBlock.copy()
         block2 = mycell.getLibraryBlock('A')
-        b2 = numpy.array([3, 3, 3], dtype=numpy.float64)
+        b2 = np.array([3, 3, 3], dtype=np.float64)
         block2.translateCentroid(b2)
         block2_id = mycell.addBlock(block2)
         # Distance measured with Avogadro so it MUST be right...
@@ -528,29 +528,29 @@ class Test(unittest.TestCase):
         v1 = [ 2.46803012, 1.67131881, 1.96745421]
         v2 = [ 1.07988345, 0.10567109, 1.64897769]
 
-        nv1 = numpy.array(v1)
-        nv2 = numpy.array(v2)
+        nv1 = np.array(v1)
+        nv2 = np.array(v2)
 
         dc1 = mycell.distance(nv1, nv2)
-        dn = numpy.linalg.norm(nv2 - nv1)
+        dn = np.linalg.norm(nv2 - nv1)
         self.assertEqual(dc1, dn, "Distance within cell:{} | {}".format(dc1, dn))
 
         x = v2[0] + 2 * CELLA
         y = v2[1] + 2 * CELLB
         z = v2[2] + 2 * CELLC
-        nv2 = numpy.array([ x, y, z ])
+        nv2 = np.array([ x, y, z ])
         dc2 = mycell.distance(nv1, nv2)
         self.assertAlmostEqual(dc1, dc2, 11, "Distance across multiple cells +ve: {} | {}".format(dc1, dc2))
 
         x = v2[0] - 2 * CELLA
         y = v2[1] - 2 * CELLB
         z = v2[2] - 2 * CELLC
-        nv2 = numpy.array([ x, y, z ])
+        nv2 = np.array([ x, y, z ])
         dc3 = mycell.distance(nv1, nv2)
         self.assertAlmostEqual(dc1, dc3, 11, "Distance across multiple cells -ve: {} | {}".format(dc1, dc3))
 
-        v1 = numpy.array([ 0.0, 0.0, 0.0 ])
-        v2 = numpy.array([ 0.0, 0.0, 8.0 ])
+        v1 = np.array([ 0.0, 0.0, 0.0 ])
+        v2 = np.array([ 0.0, 0.0, 8.0 ])
         dc = mycell.distance(v1, v2)
         self.assertEqual(dc, 2.0, "Distance across boundary cell:{}".format(dc))
         return
@@ -559,15 +559,15 @@ class Test(unittest.TestCase):
         CELLDIM = 30
         boxDim = [CELLDIM, CELLDIM, CELLDIM]
         mycell = Cell(boxDim)
-        p1 = numpy.array([ 0.0, 0.0, 0.0 ])
-        p2 = numpy.array([ 10.0, 0.0, 0.0 ])
-        p3 = numpy.array([ 10.0, 10.0, 0.0 ])
-        p4 = numpy.array([ 20.0, 10.0, 10.0 ])
+        p1 = np.array([ 0.0, 0.0, 0.0 ])
+        p2 = np.array([ 10.0, 0.0, 0.0 ])
+        p3 = np.array([ 10.0, 10.0, 0.0 ])
+        p4 = np.array([ 20.0, 10.0, 10.0 ])
         ref = xyz_core.dihedral(p1, p2, p3, p4)
         self.assertEqual(ref, mycell.dihedral(p1, p2, p3, p4))
         # Move by a full cell along x-axis - result should be the same
-        p3 = numpy.array([ 10.0 + CELLDIM, 10.0, 0.0 ])
-        p4 = numpy.array([ 20.0 + CELLDIM, 10.0, 10.0 ])
+        p3 = np.array([ 10.0 + CELLDIM, 10.0, 0.0 ])
+        p4 = np.array([ 20.0 + CELLDIM, 10.0, 10.0 ])
         self.assertEqual(ref, mycell.dihedral(p1, p2, p3, p4))
         return
 
@@ -724,7 +724,7 @@ class Test(unittest.TestCase):
         # Need to subtract cap atoms
         self.assertEqual(natoms2, (natoms * nblocks) - (nblocks - 1) * 2)
         block = list(mycell.blocks.values())[0]
-        self.assertTrue(numpy.allclose(block.centroid(), [ 12.91963557,  17.39975016,  11.65120767]))
+        self.assertTrue(np.allclose(block.centroid(), [ 12.91963557,  17.39975016,  11.65120767]))
         self.assertFalse(self.clashes(mycell))
         return
     
@@ -736,25 +736,25 @@ class Test(unittest.TestCase):
                          int(math.ceil(mycell.dim[1] / boxSize)),
                          int(math.ceil(mycell.dim[2] / boxSize)) ]
         
-        p1 = numpy.array([0, 0, 0])
+        p1 = np.array([0, 0, 0])
         self.assertEqual(mycell._getBox(p1), (0, 0, 0))
         
-        p1 = numpy.array([5.5, 5.5, 5.5])
+        p1 = np.array([5.5, 5.5, 5.5])
         self.assertEqual(mycell._getBox(p1), (5, 5, 5))
         
-        p1 = numpy.array([-5.5, -5.5, -5.5])
+        p1 = np.array([-5.5, -5.5, -5.5])
         self.assertEqual(mycell._getBox(p1), (4, 4, 4))
         
-        p1 = numpy.array([10.5, 10.5, 10.5])
+        p1 = np.array([10.5, 10.5, 10.5])
         self.assertEqual(mycell._getBox(p1), (0, 0, 0))
         
-        p1 = numpy.array([100.5, 100.5, 100.5])
+        p1 = np.array([100.5, 100.5, 100.5])
         self.assertEqual(mycell._getBox(p1), (0, 0, 0))
         
-        p1 = numpy.array([-100.5, -100.5, -100.5])
+        p1 = np.array([-100.5, -100.5, -100.5])
         self.assertEqual(mycell._getBox(p1), (9, 9, 9))
         
-        p1 = numpy.array([-3, 0, 0])
+        p1 = np.array([-3, 0, 0])
         self.assertEqual(mycell._getBox(p1), (7, 0, 0))
         
         return
@@ -770,7 +770,7 @@ class Test(unittest.TestCase):
         mycell.seed(1, center=True, random=False)
         mycell.growBlocks(10, cellEndGroups=None, maxTries=10, random=False)
         block = list(mycell.blocks.values())[0]
-        self.assertTrue(numpy.allclose(block.centroid(), [ 14.64787487, 15.43129673, 16.00520584]))
+        self.assertTrue(np.allclose(block.centroid(), [ 14.64787487, 15.43129673, 16.00520584]))
         self.assertFalse(self.clashes(mycell))
         return
 
@@ -784,7 +784,7 @@ class Test(unittest.TestCase):
         mycell.seed(1, center=True, random=False)
         mycell.growBlocks(10, cellEndGroups=['A:CH'], random=False)
         block = list(mycell.blocks.values())[0]
-        self.assertTrue(numpy.allclose(block.centroid(), [  6.17554446, 4.10903953, 17.51814496]))
+        self.assertTrue(np.allclose(block.centroid(), [  6.17554446, 4.10903953, 17.51814496]))
         self.assertFalse(self.clashes(mycell))
         return
 
@@ -816,7 +816,7 @@ class Test(unittest.TestCase):
         self.assertEqual(added, 5, "growBlocks did not add 5 blocks")
         self.assertEqual(1, len(mycell.blocks), "Growing blocks found {0} blocks".format(len(mycell.blocks)))
         self.assertFalse(self.clashes(mycell))
-        self.assertTrue(numpy.allclose(block1.centroid(), [ 12.69119085, 14.93774993, 14.96541503]))
+        self.assertTrue(np.allclose(block1.centroid(), [ 12.69119085, 14.93774993, 14.96541503]))
         return
 
     def testGrowBlocksDihedral(self):
@@ -922,37 +922,37 @@ class Test(unittest.TestCase):
                          int(math.ceil(mycell.dim[1] / boxSize)),
                          int(math.ceil(mycell.dim[2] / boxSize)) ]
          
-#         p1 = numpy.array([0.5, 0.5, 0.5])
-#         p2 = numpy.array([8.5, 8.5, 8.5])
+#         p1 = np.array([0.5, 0.5, 0.5])
+#         p2 = np.array([8.5, 8.5, 8.5])
 #         ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8), (9, 8, 8), (8, 8, 8)]
 #         self.assertEqual(mycell._intersectedCells(p1, p2), ref)
 #          
-#         p1 = numpy.array([0.5, 0.5, 0.5])
-#         p2 = numpy.array([0.5, 8.5, 8.5])
+#         p1 = np.array([0.5, 0.5, 0.5])
+#         p2 = np.array([0.5, 8.5, 8.5])
 #         ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8)]
 #         self.assertEqual(mycell._intersectedCells(p1, p2), ref)
 #          
-#         p1 = numpy.array([0.5, 0.5, 0.5])
-#         p2 = numpy.array([0.6, 8.5, 8.5])
+#         p1 = np.array([0.5, 0.5, 0.5])
+#         p2 = np.array([0.6, 8.5, 8.5])
 #         ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8), (0, 9, 8), (0, 8, 8)]
 #         self.assertEqual(mycell._intersectedCells(p1, p2), ref)
 #          
-#         p1 = numpy.array([0.5, 0.5, 0.5])
-#         p2 = numpy.array([0.5, 0.5, 8.5])
+#         p1 = np.array([0.5, 0.5, 0.5])
+#         p2 = np.array([0.5, 0.5, 8.5])
 #         ref = [(0, 0, 0), (0, 0, 9), (0, 0, 8)]
 #         self.assertEqual(mycell._intersectedCells(p1, p2), ref)
 #  
-#         p1 = numpy.array([-2.5, -2.5, -2.5])
-#         p2 = numpy.array([8.5, 8.5, 8.5])
+#         p1 = np.array([-2.5, -2.5, -2.5])
+#         p2 = np.array([8.5, 8.5, 8.5])
 #         ref = [(7, 7, 7), (7, 7, 8), (7, 8, 8), (8, 8, 8)]
 #         self.assertEqual(mycell._intersectedCells(p1, p2), ref)
 #      
-#         p1 = numpy.array([5., 0., 0.])
-#         p2 = numpy.array([-3., 0., 0.])
+#         p1 = np.array([5., 0., 0.])
+#         p2 = np.array([-3., 0., 0.])
 #         self.assertEqual(mycell._intersectedCells(p1, p2), [(5, 0, 0), (6, 0, 0), (7, 0, 0)])
          
-        p1 = numpy.array([9., 9., 9.])
-        p2 = numpy.array([1., 1., 1.])
+        p1 = np.array([9., 9., 9.])
+        p2 = np.array([1., 1., 1.])
         self.assertEqual(mycell._intersectedCells(p1, p2), [(9, 9, 9), (9, 9, 0), (9, 0, 0),
                                                           (0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)])
 
@@ -961,8 +961,8 @@ class Test(unittest.TestCase):
         mycell.boxSize = 1.91761148234
         mycell.numBoxes = [14, 14, 14]
 
-        p1 = numpy.array([ -3.46529620e+00, 7.99752596e-03, 1.86788673e-03])
-        p2 = numpy.array([  3.45583501e+00, 7.99752596e-03, 1.86788673e-03])
+        p1 = np.array([ -3.46529620e+00, 7.99752596e-03, 1.86788673e-03])
+        p2 = np.array([  3.45583501e+00, 7.99752596e-03, 1.86788673e-03])
         self.assertEqual(mycell._intersectedCells(p1, p2), [(11, 0, 0), (12, 0, 0), (13, 0, 0),
                                                           (0, 0, 0), (1, 0, 0)])
 
@@ -1171,7 +1171,7 @@ class Test(unittest.TestCase):
         # Now umwrap them
         for i, c in enumerate(wcoords):
             c = xyz_core.unWrapCoord3(c, images[i], mycell.dim, centered=False)
-            self.assertTrue(numpy.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
+            self.assertTrue(np.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
 
         # Now wrap them with centering
         wcoords = []
@@ -1183,7 +1183,7 @@ class Test(unittest.TestCase):
         # Now umwrap them
         for i, c in enumerate(wcoords):
             c = xyz_core.unWrapCoord3(c, images[i], mycell.dim, centered=True)
-            self.assertTrue(numpy.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
+            self.assertTrue(np.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
 
         # Now test with HOOMD-Blue
         filename = "periodicTest.xml"
@@ -1205,7 +1205,7 @@ class Test(unittest.TestCase):
             #x, y, z = p.position
             #ix, iy, iz = p.image
             c = xyz_core.unWrapCoord3(p.position, p.image, mycell.dim, centered=True)
-            self.assertTrue(numpy.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
+            self.assertTrue(np.allclose(c,coords[i],atol=1e-6),msg="{0}->{1}".format(coords[i],c))
         os.unlink(filename)
         return
     
@@ -1348,7 +1348,7 @@ class Test(unittest.TestCase):
         sumall = sum(count)
         current = [float(c)/float(sumall) for c in count ]
         wratio = [float(r)/float(sum(ratio)) for r in ratio]
-        self.assertTrue(numpy.allclose(numpy.array(wratio), numpy.array(current), rtol=0.05))
+        self.assertTrue(np.allclose(np.array(wratio), np.array(current), rtol=0.05))
         return
 
     def testSurroundBoxes(self):
@@ -1771,7 +1771,7 @@ class Test(unittest.TestCase):
         for block in mycell.blocks.values():
             for c in block.iterCoord():
                 finalcoords.append(c)
-        self.assertTrue(all(map(lambda x : numpy.allclose(x[0], x[1]), zip(initcoords, finalcoords))),
+        self.assertTrue(all(map(lambda x : np.allclose(x[0], x[1]), zip(initcoords, finalcoords))),
                          "coords don't match")
         os.unlink(xmlFilename)
         return

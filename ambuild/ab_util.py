@@ -11,7 +11,7 @@ PYTHONFLAVOUR = sys.version_info[0]
 import gzip
 import logging
 import os
-import numpy
+import numpy as np
 if PYTHONFLAVOUR < 3:
     import cPickle as pickle
 else:
@@ -44,8 +44,8 @@ def cellFromPickle(pickleFile, paramsDir=None):
                 e.blocked = False
         # Need to make sure coords and masses are numpy arrays
         if type(fragment._coords) is list:
-            fragment._coords = numpy.array(fragment._coords)
-            fragment._masses = numpy.array(fragment._masses)
+            fragment._coords = np.array(fragment._coords)
+            fragment._masses = np.array(fragment._masses)
         if not hasattr(fragment,'_atomTypes'):
             fragment._atomTypes = fragment._types
             fragment._sharedAttrs['_atomTypes'] = None
@@ -107,10 +107,10 @@ def cellFromPickle(pickleFile, paramsDir=None):
     del sys.modules['fragment']
     # Need to hack to work with older versions
     if not hasattr(myCell, 'dim'):
-        myCell.dim = numpy.array([myCell.A, myCell.B, myCell.C])
+        myCell.dim = np.array([myCell.A, myCell.B, myCell.C])
         myCell.numBoxes = [myCell.numBoxA, myCell.numBoxB, myCell.numBoxC]
-    if not type(myCell.dim) is numpy.ndarray:
-        myCell.dim = numpy.array(myCell.dim)
+    if not type(myCell.dim) is np.ndarray:
+        myCell.dim = np.array(myCell.dim)
     if not hasattr(myCell, 'pbc'):
         myCell.pbc = [True, True, True]
         myCell.walls = [False, False, False]

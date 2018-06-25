@@ -586,24 +586,23 @@ def momentOfInertia(coords, masses):
     totalMass = np.sum(masses)
     centreOfMass = np.sum(coords * masses[:,np.newaxis], axis=0) / totalMass
     coords = coords - centreOfMass # Coords relative to centre of mass
-    if True:
+    if False:
         # Below from Pierre but doesn't seem to replicate results of doing it 'manually'
         I = np.dot(coords.transpose(), coords)
     else:
         x = 0
         y = 1
         z = 2
-        I2 = np.zeros(shape=(3, 4))
-        I2[x, x] = np.sum((np.square(coords[:, y]) + np.square(coords[:, z])) * masses)
-        I2[y, y] = np.sum((np.square(coords[:, x]) + np.square(coords[:, z])) * masses)
-        I2[z, z] = np.sum((np.square(coords[:, x]) + np.square(coords[:, y])) * masses)
-        I2[x, y] = np.sum(coords[:, x] * coords[:, y] * masses)
-        I2[y, x] = I2[x, y]
-        I2[y, z] = np.sum(coords[:, y] * coords[:, z] * masses)
-        I2[z, y] = I2[y, z]
-        I2[x, z] = np.sum(coords[:, x] * coords[:, z] * masses)
-        I2[z, x] = I2[x, z]
-        I = I2
+        I = np.zeros(shape=(3, 3))
+        I[x, x] = np.sum((np.square(coords[:, y]) + np.square(coords[:, z])) * masses)
+        I[y, y] = np.sum((np.square(coords[:, x]) + np.square(coords[:, z])) * masses)
+        I[z, z] = np.sum((np.square(coords[:, x]) + np.square(coords[:, y])) * masses)
+        I[x, y] = np.sum(coords[:, x] * coords[:, y] * masses)
+        I[y, x] = I[x, y]
+        I[y, z] = np.sum(coords[:, y] * coords[:, z] * masses)
+        I[z, y] = I[y, z]
+        I[x, z] = np.sum(coords[:, x] * coords[:, z] * masses)
+        I[z, x] = I[x, z]
     return I
 
 

@@ -13,7 +13,7 @@ if __name__ != '__main__' and 'context' in locals().keys():
     context.initialize()
     sys.argv = _argv
 import logging
-import numpy
+import numpy as np
 import os
 import time
 import xml.etree.ElementTree as ET
@@ -638,9 +638,9 @@ class Hoomd1(FFIELD):
     def updateCell(self, cell):
         """Reset the particle positions from hoomdblue system"""  # Should really check HOOMD version but...
         if hasattr(self.system.box, "Lx"):
-            box = numpy.array([self.system.box.Lx, self.system.box.Ly, self.system.box.Lz])
+            box = np.array([self.system.box.Lx, self.system.box.Ly, self.system.box.Lz])
         else:
-            box = numpy.array(self.system.box)
+            box = np.array(self.system.box)
         # Read back in the particle positions
         atomCount = 0
         for block in cell.blocks.itervalues():
@@ -655,7 +655,7 @@ class Hoomd1(FFIELD):
 
         # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update
         # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks
-        if not numpy.allclose(box, cell.dim):
+        if not np.allclose(box, cell.dim):
             logger.info("Changing cell dimensions after HOOMD-blue simulation from: {0} to: {1}".format(cell.dim,box))
             cell.dim = box
 

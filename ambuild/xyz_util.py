@@ -8,7 +8,7 @@ Utility functions
 '''
 import logging
 import os
-import numpy
+import numpy as np
 import math
 import warnings
 import xml.etree.ElementTree as ET
@@ -117,7 +117,7 @@ def calcBonds(coords, symbols, dim=None, maxAtomRadius=None, bondMargin=0.2, box
         v1.append(coords[idxAtom1])
         v2.append(coords[idxAtom2])
     
-    distances = xyz_core.distance(numpy.array(v1), numpy.array(v2), dim=dim)
+    distances = xyz_core.distance(np.array(v1), np.array(v2), dim=dim)
     bonds = []
     
     for i, (idxAtom1, idxAtom2) in enumerate(close):
@@ -142,7 +142,7 @@ def closeAtoms(coords, symbols, dim=None, maxAtomRadius=None, boxMargin=1.0):
     boxNum = None
     if dim is not None:
         if type(dim) is list:
-            dim = numpy.array(dim)
+            dim = np.array(dim)
         boxNum = [int(math.ceil(dim[0] / boxSize)),
                   int(math.ceil(dim[1] / boxSize)),
                   int(math.ceil(dim[2] / boxSize))]
@@ -418,7 +418,7 @@ def hoomdCml(xmlFilename):
         line = line.strip()
         if line:
             x, y, z = line.split()
-            coords.append(numpy.array([ float(x), float(y), float(z) ]))
+            coords.append(np.array([ float(x), float(y), float(z) ]))
 
     symbols = []
     atext = root.findall(".//type")[0].text

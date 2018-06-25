@@ -8,7 +8,7 @@ import sys
 # 3rd-party imports
 import hoomd
 import hoomd.md
-import numpy
+import numpy as np
 
 # Our imports
 from ab_ffield import FfieldParameters
@@ -525,7 +525,7 @@ class Hoomd2(object):
 
     def updateCell(self, cell):
         """Reset the particle positions from hoomdblue system"""
-        box = numpy.array([self.system.box.Lx, self.system.box.Ly, self.system.box.Lz])
+        box = np.array([self.system.box.Lx, self.system.box.Ly, self.system.box.Lz])
         snapshot = self.system.take_snapshot()
         # If we are running under rigid bodies we need to exclude the center particles,
         # which will be at the start of the particle list
@@ -545,7 +545,7 @@ class Hoomd2(object):
 
         # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update
         # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks
-        if not numpy.allclose(box, cell.dim):
+        if not np.allclose(box, cell.dim):
             logger.info("Changing cell dimensions after HOOMD-blue simulation from: {0} to: {1}".format(cell.dim, box))
             cell.dim = box
         # Now have the new coordinates, so we need to put the atoms in their new cells

@@ -3,7 +3,7 @@ import math
 import os
 import unittest
 
-import numpy
+import numpy as np
 
 import context
 AMBUILD_DIR = context.ab_paths.AMBUILD_DIR
@@ -341,11 +341,11 @@ class Test(unittest.TestCase):
         newVector = blockEndGroup - blockAngleAtom
 
         # Normalise two vectors so we can compare them
-        newNorm = newVector / numpy.linalg.norm(newVector)
-        refNorm = refVector / numpy.linalg.norm(refVector)
+        newNorm = newVector / np.linalg.norm(newVector)
+        refNorm = refVector / np.linalg.norm(refVector)
 
         # Slack tolerances - need to work out why...
-        self.assertTrue(numpy.allclose(newNorm, refNorm),
+        self.assertTrue(np.allclose(newNorm, refNorm),
                          msg="End Group incorrectly positioned: {0} | {1}".format(newNorm, refNorm))
         return
 
@@ -358,8 +358,8 @@ class Test(unittest.TestCase):
         c1 = block.coord(c1Idx)
         c2 = block.coord(c2Idx)
 
-        # self.assertTrue( numpy.allclose( c1-c2 , [ 3.0559,  -0.36295,  0.07825], atol=1E-7  ), "before" )
-        self.assertTrue(numpy.allclose(c1 - c2 , [ 3.0559, -0.36295, 0.07825]), "before")
+        # self.assertTrue( np.allclose( c1-c2 , [ 3.0559,  -0.36295,  0.07825], atol=1E-7  ), "before" )
+        self.assertTrue(np.allclose(c1 - c2 , [ 3.0559, -0.36295, 0.07825]), "before")
 
         # Align along z-axis
         block.alignAtoms(c1Idx, c2Idx, [ 0, 0, 1 ])
@@ -367,9 +367,9 @@ class Test(unittest.TestCase):
         # check it worked
         c1 = block.coord(c1Idx)
         c2 = block.coord(c2Idx)
-        z = numpy.array([  0.0, 0.0, -3.07837304 ])
+        z = np.array([  0.0, 0.0, -3.07837304 ])
 
-        self.assertTrue(numpy.allclose(c1 - c2 , z), "after")
+        self.assertTrue(np.allclose(c1 - c2 , z), "after")
         return
 
     def testCentroid(self):
@@ -379,10 +379,10 @@ class Test(unittest.TestCase):
 
         ch4 = Block(filePath=self.ch4Car, fragmentType='A')
         # We need to move so that all values are not the same or allclose will succeed with a single number
-        ch4.translate(numpy.array([1.0,2.0,3.0]))
+        ch4.translate(np.array([1.0,2.0,3.0]))
         cog = ch4.centroid()
-        correct = numpy.array([  1.000000, 2.000000, 3.000000 ])
-        self.assertTrue(numpy.allclose(correct, cog, rtol=1e-9, atol=1e-6),
+        correct = np.array([  1.000000, 2.000000, 3.000000 ])
+        self.assertTrue(np.allclose(correct, cog, rtol=1e-9, atol=1e-6),
                          msg="testCentroid incorrect: {0} -> {1}.".format(correct, cog))
 
         return
@@ -392,10 +392,10 @@ class Test(unittest.TestCase):
         Test calculation of Center of Mass
         """
         ch4 = Block(filePath=self.ch4Car, fragmentType='A')
-        ch4.translate(numpy.array([1.0,2.0,3.0]))
+        ch4.translate(np.array([1.0,2.0,3.0]))
         com = ch4.centerOfMass()
-        correct = numpy.array([  1.000000, 2.000000, 3.000000 ])
-        self.assertTrue(numpy.allclose(correct, com, rtol=1e-6, atol=1e-6),
+        correct = np.array([  1.000000, 2.000000, 3.000000 ])
+        self.assertTrue(np.allclose(correct, com, rtol=1e-6, atol=1e-6),
                          msg="testCenterOfMass incorrect COM: {0}".format(com))
         return
 
@@ -572,12 +572,12 @@ class Test(unittest.TestCase):
 
         paf = Block(filePath=self.benzeneCar, fragmentType='A')
         m = paf.copy()
-        m.translate(numpy.array([5, 5, 5]))
+        m.translate(np.array([5, 5, 5]))
         c = m.centroid()
         paf.translateCentroid(c)
         p = paf.centroid()
 
-        self.assertTrue(numpy.allclose(p, c, rtol=1e-9, atol=1e-9), "simple move")
+        self.assertTrue(np.allclose(p, c, rtol=1e-9, atol=1e-9), "simple move")
         return
 
     def testPositionGrowBlock(self):
@@ -602,7 +602,7 @@ class Test(unittest.TestCase):
 
         # After move, the endGroup of the growBlock should be at newPos
         endGroupCoord = growBlock.coord(endGroup2.blockEndGroupIdx)
-        self.assertTrue(numpy.allclose(newPos, endGroupCoord, rtol=1e-9, atol=1e-7),
+        self.assertTrue(np.allclose(newPos, endGroupCoord, rtol=1e-9, atol=1e-7),
                          msg="testCenterOfMass incorrect COM.")
 
         return
@@ -636,7 +636,7 @@ class Test(unittest.TestCase):
 
         # After move, the endGroup of the growBlock should be at newPos
         endGroupCoord = growBlock.coord(endGroup2.blockEndGroupIdx)
-        self.assertTrue(numpy.allclose(newPos, endGroupCoord, rtol=1e-9, atol=1e-7),
+        self.assertTrue(np.allclose(newPos, endGroupCoord, rtol=1e-9, atol=1e-7),
                          msg="testCenterOfMass incorrect COM.")
 
         return
@@ -661,9 +661,9 @@ class Test(unittest.TestCase):
         staticBlock.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi / 2)
 
         # Hacky - just use one of the coords I checked manually
-        hcheck = numpy.array([11.98409351860, 8.826721156800, -1.833703434310])
+        hcheck = np.array([11.98409351860, 8.826721156800, -1.833703434310])
         endGroupCoord = growBlock.coord(11)
-        self.assertTrue(numpy.allclose(hcheck, endGroupCoord, rtol=1e-9, atol=1e-7),
+        self.assertTrue(np.allclose(hcheck, endGroupCoord, rtol=1e-9, atol=1e-7),
                          msg="testCenterOfMass incorrect COM.")
 
         # self.catBlocks( [staticBlock, growBlock ], "both2.xyz")
@@ -696,31 +696,31 @@ class Test(unittest.TestCase):
 
         ch4 = Block(filePath=self.ch4Car, fragmentType='A')
 
-        array1 = numpy.array([ -0.51336 , 0.889165, -0.363 ])
-        self.assertTrue(numpy.array_equal(ch4.coord(4), array1),
+        array1 = np.array([ -0.51336 , 0.889165, -0.363 ])
+        self.assertTrue(np.array_equal(ch4.coord(4), array1),
                          msg="testRotate arrays before rotation incorrect.")
 
-        axis = numpy.array([1, 2, 3])
+        axis = np.array([1, 2, 3])
         angle = 2
         ch4.rotate(axis, angle)
 
-        array2 = numpy.array([  1.05612011, -0.04836936, -0.26113713 ])
+        array2 = np.array([  1.05612011, -0.04836936, -0.26113713 ])
 
-        # Need to use assertTrue as we get a numpy.bool returned and need to test this will
+        # Need to use assertTrue as we get a np.bool returned and need to test this will
         # bool - assertIs fails
-        self.assertTrue(numpy.allclose(ch4.coord(4), array2, rtol=1e-9, atol=1e-8),
+        self.assertTrue(np.allclose(ch4.coord(4), array2, rtol=1e-9, atol=1e-8),
                          msg="testRotate arrays after rotation incorrect.")
 
         # Check rotation by 360
-        axis = numpy.array([1, 2, 3])
-        angle = numpy.pi * 2
+        axis = np.array([1, 2, 3])
+        angle = np.pi * 2
         ch4.rotate(axis, angle)
 
-        array2 = numpy.array([  1.05612011, -0.04836936, -0.26113713 ])
+        array2 = np.array([  1.05612011, -0.04836936, -0.26113713 ])
 
-        # Need to use assertTrue as we get a numpy.bool returned and need to test this will
+        # Need to use assertTrue as we get a np.bool returned and need to test this will
         # bool - assertIs fails
-        self.assertTrue(numpy.allclose(ch4.coord(4), array2, rtol=1e-9, atol=1e-8),
+        self.assertTrue(np.allclose(ch4.coord(4), array2, rtol=1e-9, atol=1e-8),
                          msg="testRotate arrays after rotation incorrect.")
 
         return

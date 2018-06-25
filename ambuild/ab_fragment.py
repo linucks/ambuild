@@ -10,7 +10,7 @@ import logging
 import os
 import unittest
 
-import numpy
+import numpy as np
 
 # our imports
 from ab_paths import BLOCKS_DIR
@@ -26,16 +26,16 @@ class Body(object):
         self.fragment = fragment
         self.bodyIndex = bodyIndex
         self.indexes = self._setup_indexes()
-        self.natoms = numpy.sum(self.indexes)
+        self.natoms = np.sum(self.indexes)
         self._centreOfMass = xyz_core.centreOfMass(self.coords(), self.masses())
         return
 
     def _setup_indexes(self):
         return (self.fragment._bodies == self.bodyIndex) &~ self.fragment.masked
-        #return numpy.array([True if self.fragment._bodies[i] == self.bodyIndex else False for i in self.fragment._ext2int.values()])
+        #return np.array([True if self.fragment._bodies[i] == self.bodyIndex else False for i in self.fragment._ext2int.values()])
 
     def atomTypes(self):
-        return list(numpy.compress(self.indexes, self.fragment._atomTypes, axis=0))
+        return list(np.compress(self.indexes, self.fragment._atomTypes, axis=0))
 
     def bodies(self):
         return [ self.bodyIndex ] * self.natoms
@@ -48,10 +48,10 @@ class Body(object):
             return self._centreOfMass
 
     def charges(self):
-        return list(numpy.compress(self.indexes, self.fragment._charges, axis=0))
+        return list(np.compress(self.indexes, self.fragment._charges, axis=0))
 
     def coords(self, dim=None, center=False, bodyFrame=False):
-        coords = numpy.compress(self.indexes, self.fragment._coords, axis=0)
+        coords = np.compress(self.indexes, self.fragment._coords, axis=0)
         if bodyFrame:
             coords = coords - self._centreOfMass
         if dim is not None:
@@ -73,10 +73,10 @@ class Body(object):
         return mask
 
     def mass(self):
-        return numpy.sum(self.masses())
+        return np.sum(self.masses())
 
     def masses(self):
-        return numpy.compress(self.indexes, self.fragment._masses, axis=0)
+        return np.compress(self.indexes, self.fragment._masses, axis=0)
     
     def momentOfInertia(self, bodyFrame=False):
         return xyz_core.momentOfInertia(self.coords(bodyFrame=bodyFrame), self.masses())
@@ -99,7 +99,7 @@ class Body(object):
         return [ v ] * self.natoms
 
     def symbols(self):
-        return list(numpy.compress(self.indexes, self.fragment._symbols, axis=0))
+        return list(np.compress(self.indexes, self.fragment._symbols, axis=0))
 
 class EndGroup(object):
 
@@ -186,7 +186,7 @@ class EndGroup(object):
             egPos = self.fragment._coords[self.fragmentEndGroupIdx]
             v1 = bondEndGroup.coord() - egPos
             # Now get unit vector
-            uv = v1 / numpy.linalg.norm(v1)
+            uv = v1 / np.linalg.norm(v1)
             # calculate noew position
             self.fragment._coords[self.fragmentCapIdx] = egPos + (uv * self.capBondLength)
 
@@ -452,8 +452,8 @@ class Fragment(object):
     def _calcCenters(self):
         """Calculate the center of mass and geometry for this fragment
         """
-        self._centroid = numpy.sum(self._coords, axis=0) / numpy.size(self._coords, axis=0)
-        self._totalMass = numpy.sum(self._masses)
+        self._centroid = np.sum(self._coords, axis=0) / np.size(self._coords, axis=0)
+        self._totalMass = np.sum(self._masses)
         # Centre of mass is sum of the products of the individual coordinates multiplied by the mass, divded by the total mass
         self._centerOfMass = xyz_core.centreOfMass(self._coords, self._masses)
         return
@@ -472,7 +472,7 @@ class Fragment(object):
         http://stackoverflow.com/questions/6430091/efficient-distance-calculation-between-n-points-and-a-reference-in-numpy-scipy
         """
         distances = [xyz_core.distance(self._centroid, coord) for coord in self._coords]
-        imax = numpy.argmax(distances)
+        imax = np.argmax(distances)
         dist = distances[ imax ]
         # Add on the radius of the largest atom
         self._radius = dist + self.maxAtomRadius()
@@ -509,7 +509,7 @@ class Fragment(object):
     def coord(self, idxAtom, coord=None):
         if coord is not None:
             if isinstance(coord, list):
-                coord = numpy.array(coord)
+                coord = np.array(coord)
             self._coords[self._ext2int[idxAtom]] = coord
         return self._coords[self._ext2int[idxAtom]]
 
@@ -548,13 +548,13 @@ class Fragment(object):
     def fillData(self):
         """ Fill the data arrays from the label """
 
-        self.masked = numpy.array([ False ] * len(self._coords))
+        self.masked = np.array([ False ] * len(self._coords))
         self.unBonded = [ False ] * len(self._coords)
-        self._masses = numpy.array([ xyz_core.ATOMIC_MASS[ symbol ] for symbol in self._symbols ])
-        self._totalMass = numpy.sum(self._masses)
-        self._radii = numpy.array([ xyz_core.COVALENT_RADII[xyz_core.SYMBOL_TO_NUMBER[s.upper()]] * xyz_core.BOHR2ANGSTROM \
+        self._masses = np.array([ xyz_core.ATOMIC_MASS[ symbol ] for symbol in self._symbols ])
+        self._totalMass = np.sum(self._masses)
+        self._radii = np.array([ xyz_core.COVALENT_RADII[xyz_core.SYMBOL_TO_NUMBER[s.upper()]] * xyz_core.BOHR2ANGSTROM \
                                    for s in self._symbols])
-        self._maxAtomRadius = numpy.max(self._radii)
+        self._maxAtomRadius = np.max(self._radii)
         return
 
     def freeEndGroups(self):
@@ -612,7 +612,7 @@ class Fragment(object):
                     break
 
                 labels.append(label)
-                coords.append(numpy.array(fields[1:4], dtype=numpy.float64))
+                coords.append(np.array(fields[1:4], dtype=np.float64))
                 atomTypes.append(fields[6])
                 symbols.append(fields[7])
                 charges.append(float(fields[8]))
@@ -650,7 +650,7 @@ class Fragment(object):
                 fields = line.split()
                 label = fields[0]
                 labels.append(label)
-                coords.append(numpy.array(fields[1:4], dtype=numpy.float64))
+                coords.append(np.array(fields[1:4], dtype=np.float64))
                 symbol = xyz_util.label2symbol(label)
                 symbols.append(symbol)
                 atomTypes.append(symbols)
@@ -779,13 +779,13 @@ class Fragment(object):
         basename, suffix = os.path.splitext(filename)
         bodyFile = os.path.join(dirname, basename + ".ambody")
         if os.path.isfile(bodyFile):
-            self._bodies = numpy.array([ int(l.strip()) for l in open(bodyFile) ], dtype=numpy.int)
+            self._bodies = np.array([ int(l.strip()) for l in open(bodyFile) ], dtype=np.int)
             assert len(self._bodies) == len(self._coords), \
             "Must have as many bodies as coordinates: {0} - {1}!".format(len(self.bodies), self._dataLen)
             assert self._bodies[0] == 0, "Bodies must start with zero!"
         else:
             # Just create an array with 0
-            self._bodies = numpy.zeros(len(self._coords), dtype=numpy.int)
+            self._bodies = np.zeros(len(self._coords), dtype=np.int)
         return
 
     def radius(self, idxAtom):
@@ -801,10 +801,10 @@ class Fragment(object):
         """ Rotate the molecule about the given axis by the angle in radians
         """
         self._coords = self._coords - center
-        #self._coords = numpy.array([ numpy.dot(rotationMatrix, c) for c in self._coords ])
+        #self._coords = np.array([ np.dot(rotationMatrix, c) for c in self._coords ])
         # I don't actually undestand why this works at all...
         # From: http://stackoverflow.com/questions/12148351/efficiently-rotate-a-set-of-points-with-a-rotation-matrix-in-numpy
-        self._coords = numpy.dot(self._coords, rotationMatrix.T)
+        self._coords = np.dot(self._coords, rotationMatrix.T)
         self._coords = self._coords  + center
         self._changed = True
         return
@@ -822,8 +822,8 @@ class Fragment(object):
                 uwAtoms=None
                 ):
 
-        self._charges = numpy.array([ c for c in charges])
-        self._coords = numpy.array([ c for c in coords])
+        self._charges = np.array([ c for c in charges])
+        self._coords = np.array([ c for c in coords])
         self._labels = labels
         self._symbols = symbols
         self._atomTypes = atomTypes
@@ -834,7 +834,7 @@ class Fragment(object):
         # If under PBC we need to change how we calculate the bonds
         dim = None
         if self._cellParameters and self.static:
-            dim = numpy.array([self._cellParameters['A'], self._cellParameters['B'], self._cellParameters['C']])
+            dim = np.array([self._cellParameters['A'], self._cellParameters['B'], self._cellParameters['C']])
 
         # Specify internal bonds - bond margin probably too big...
         logger.debug("Calculating bonds for fragmentType: {0}".format(self.fragmentType))

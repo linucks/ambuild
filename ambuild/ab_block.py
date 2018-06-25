@@ -22,7 +22,7 @@ import math
 import random as _random
 
 # external imports
-import numpy
+import numpy as np
 
 # local imports
 from ab_fragment import Fragment
@@ -65,8 +65,8 @@ class Block(object):
         # Flag to indicate if block has changed and parameters (such as centerOfMass) need to be changed
         self._changed = True
         # Below need to be updated when we move etc
-        self._centroid = numpy.zeros(3)
-        self._centerOfMass = numpy.zeros(3)
+        self._centroid = np.zeros(3)
+        self._centerOfMass = np.zeros(3)
         self._maxAtomRadius = -1
         self._radius = None
         self._blockMass = 0
@@ -80,7 +80,7 @@ class Block(object):
         """Move molecule so two atoms are aligned along refVector"""
         atom1 = self.coord(atom1Idx)
         atom2 = self.coord(atom2Idx)
-        if isinstance(refVector, list): refVector = numpy.array(refVector, dtype=numpy.float64)
+        if isinstance(refVector, list): refVector = np.array(refVector, dtype=np.float64)
         return self.alignVector(atom1, atom2, refVector)
 
     def alignVector(self, pos1, pos2, refVector):
@@ -93,18 +93,18 @@ class Block(object):
         # Move so that pos1 is at origin so the vector of pos2 can be aligned with the refVector
 
         self.translate(-pos1) # Shift block so angleAtom at center,
-        if numpy.array_equal(refVector, [0, 0, 0]) or numpy.array_equal(pos2, [0, 0, 0]):
+        if np.array_equal(refVector, [0, 0, 0]) or np.array_equal(pos2, [0, 0, 0]):
             raise RuntimeError("alignBlock - one of the vectors is zero!\nrefVector: {0} endGroup: {1}".format(refVector, pos2))
 
-        if numpy.array_equal(pos2 / numpy.linalg.norm(pos2), refVector / numpy.linalg.norm(refVector)):
+        if np.array_equal(pos2 / np.linalg.norm(pos2), refVector / np.linalg.norm(refVector)):
             logger.debug("alignBlock - block already aligned along vector. May not be a problem, but you should know...")
             self.translate(pos1)  # NEW - put it back
             return
         # print "alignBlock BEFORE: {0} | {1}".format( endGroup, refVector )
         # Calculate normalised cross product to find an axis orthogonal
         # to both that we can rotate about
-        cross = numpy.cross(refVector, pos2)
-        if numpy.array_equal(cross, [0, 0, 0]):
+        cross = np.cross(refVector, pos2)
+        if np.array_equal(cross, [0, 0, 0]):
             # They must be already aligned but anti-parallel, so we flip
             logger.debug("alignBlock - vectors are anti-parallel so flipping")
             self.flip(refVector)
@@ -112,7 +112,7 @@ class Block(object):
         else:
             angle = xyz_core.vectorAngle(refVector, pos2)
             # Normalised cross to rotate about
-            ncross = cross / numpy.linalg.norm(cross)
+            ncross = cross / np.linalg.norm(cross)
             self.rotate(ncross, angle)
         self.translate(pos1) # Now shift back
         return
@@ -148,7 +148,7 @@ class Block(object):
         frag, idxData = self._dataMap[idxAtom]
         if coord is not None:
             if isinstance(coord, list):
-                coord = numpy.array(coord)
+                coord = np.array(coord)
             frag.coord(idxData, coord)
         else:
             return frag.coord(idxData)
@@ -260,8 +260,8 @@ class Block(object):
         return self._radius
     
     def _calcCenters(self):
-        sumG = numpy.zeros(3)
-        sumM = numpy.zeros(3)
+        sumG = np.zeros(3)
+        sumM = np.zeros(3)
         totalMass = 0.0
         for f in self.fragments:
             mass = f.totalMass()
@@ -288,7 +288,7 @@ class Block(object):
                 self._maxAtomRadius = max(f.maxAtomRadius(), self._maxAtomRadius)
 
         assert distances
-        imax = numpy.argmax(distances)
+        imax = np.argmax(distances)
         dist = distances[ imax ]
 
         # Add on the radius of the largest atom
@@ -534,13 +534,13 @@ class Block(object):
         # xu + yv + zw = 0 - set u and v to 1, so w = (x + y)/z
         # vector is 1, 1, w
         w = -1.0 * (fvector[0] + fvector[1]) / fvector[2]
-        orth = numpy.array([1.0, 1.0, w])
+        orth = np.array([1.0, 1.0, w])
 
         # Find axis that we can rotate about
-        rotAxis = numpy.cross(fvector, orth)
+        rotAxis = np.cross(fvector, orth)
 
         # Rotate by 180
-        self.rotate(rotAxis, numpy.pi)
+        self.rotate(rotAxis, np.pi)
 
         return
     
@@ -641,7 +641,7 @@ class Block(object):
         v1 = targetCapAtom - targetEndGroup
 
         # Now get unit vector
-        uv = v1 / numpy.linalg.norm(v1)
+        uv = v1 / np.linalg.norm(v1)
 
         # Multiply unit vector by bond length to get the component to add on
         newPosition = targetEndGroup + (uv * bondLength)
@@ -698,7 +698,7 @@ class Block(object):
 
             # Find how much we need to rotate by
             angle = dihedral - current
-            if not (numpy.allclose(angle, 0.0, rtol=1e-05) or numpy.allclose(angle, math.pi*2, rtol=1e-05)):
+            if not (np.allclose(angle, 0.0, rtol=1e-05) or np.allclose(angle, math.pi*2, rtol=1e-05)):
                 # Need to rotate so get the axis to rotate about
                 axis = self.coord(endGroup.blockEndGroupIdx) - growBlock.coord(growEndGroup.blockEndGroupIdx)
                 growBlock.rotate(axis, angle, center=self.coord(endGroup.blockEndGroupIdx))
@@ -718,20 +718,20 @@ class Block(object):
         yAxis = [ 0, 1, 0 ]
         zAxis = [ 0, 0, 1 ]
 
-        angle = _random.uniform(0, 2 * numpy.pi)
+        angle = _random.uniform(0, 2 * np.pi)
         self.rotate(xAxis, angle)
 
-        angle = _random.uniform(0, 2 * numpy.pi)
+        angle = _random.uniform(0, 2 * np.pi)
         self.rotate(yAxis, angle)
 
-        angle = _random.uniform(0, 2 * numpy.pi)
+        angle = _random.uniform(0, 2 * np.pi)
         self.rotate(zAxis, angle)
 
         if not atOrigin: self.translateCentroid(position)
         return
 
     def rotate(self, axis, angle, center=None):
-        if center is None: center = numpy.array([ 0, 0, 0 ])
+        if center is None: center = np.array([ 0, 0, 0 ])
         rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         for f in self.fragments:
             f.rotate(rotationMatrix, center)
@@ -740,7 +740,7 @@ class Block(object):
     def rotateT(self, axis, angle, center=None):
         """Rotation with translation to center"""
         position = self.centroid()
-        origin = numpy.array([ 0, 0, 0 ])
+        origin = np.array([ 0, 0, 0 ])
         self.translateCentroid(origin)
         rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         for f in self.fragments:
@@ -785,7 +785,7 @@ class Block(object):
         """ translate the molecule by the given vector"""
         # CHANGE SO WE CHECK IF IS A NUMPY ARRAY
         if isinstance(tvector, list):
-            tvector = numpy.array(tvector)
+            tvector = np.array(tvector)
 
         # Loop through each fragment and translate each in turn
         for f in self.fragments:
