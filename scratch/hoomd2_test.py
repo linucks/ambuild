@@ -2,6 +2,7 @@
 import sys
 sys.path.insert(0, '../ambuild')
 from xyz_util import writeXyz
+import itertools
 import numpy as np
 import hoomd
 import hoomd.md
@@ -128,7 +129,7 @@ mol1.positions = np.array([[ -2.00000000e+00,   0.00000000e+00,  -2.00000001e-07
                            [ -2.36300000e+00,   0.00000000e+00,  -1.02671920e+00],
                            [ -2.36300000e+00,  -8.89165000e-01,   5.13359800e-01],
                            [ -2.36300000e+00,   8.89165000e-01,   5.13359800e-01]])
-mol1.types = np.array(['C', 'H', 'H', 'H', 'H'])
+mol1.types = ['C', 'H', 'H', 'H', 'H']
 mol1.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])
 
 mol2 = Molecule()
@@ -137,7 +138,7 @@ mol2.positions = np.array([[  3.53000000e+00,   0.00000000e+00,  -2.00000001e-07
                            [  3.89300000e+00,   0.00000000e+00,   1.02671880e+00],
                            [  3.89300000e+00,  -8.89165000e-01,  -5.13360200e-01],
                            [  3.89300000e+00,   8.89165000e-01,  -5.13360200e-01]])
-mol2.types = np.array(['C', 'H', 'H', 'H', 'H'])
+mol2.types = ['C', 'H', 'H', 'H', 'H']
 mol2.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])
 
 molecules = [mol1, mol2]
@@ -157,9 +158,11 @@ for i, cp in enumerate(centralParticles):
 # Get total number of particles and the set of types
 particle_types = set()
 nparticles = 0
+exclusions = []
 for cp in centralParticles:
     nparticles += 1
     particle_types.add(cp.type)
+    exclusions.append(cp.type)
 for mol in molecules:
     nparticles += mol.positions.shape[0]
     particle_types.update(set(mol.types))
@@ -182,14 +185,15 @@ for i, cp in enumerate(centralParticles):
     snapshot.particles.position[i] = cp.position
     snapshot.particles.typeid[i] = snapshot.particles.types.index(cp.type)
     snapshot.particles.moment_inertia[i] = cp.principalMoments
-    
-for j, mol in enumerate(molecules):
-    for k in range(mol.positions.shape[0]):
-        idx = i + k + 1
-        snapshot.particles.body[idx] = j
-        snapshot.particles.mass[idx] = mol.masses[k]
-        snapshot.particles.position[idx] = mol.positions[k]
-        snapshot.particles.typeid[idx] = snapshot.particles.types.index(mol.types[k])
+
+idx = i + 1
+for i, mol in enumerate(molecules):
+    for j in range(mol.positions.shape[0]):
+        snapshot.particles.body[idx] = i
+        snapshot.particles.mass[idx] = mol.masses[j]
+        snapshot.particles.position[idx] = mol.positions[j]
+        snapshot.particles.typeid[idx] = snapshot.particles.types.index(mol.types[j])
+        idx += 1
     
 system = hoomd.init.read_snapshot(snapshot)
 nl = hoomd.md.nlist.cell()
@@ -197,16 +201,20 @@ lj = hoomd.md.pair.lj(r_cut=5.0, nlist=nl)
 lj.pair_coeff.set('C', 'C', epsilon=0.0968, sigma=3.4)
 lj.pair_coeff.set('C', 'H', epsilon=0.1106, sigma=3.7736)
 lj.pair_coeff.set('H', 'H', epsilon=0.1106, sigma=1.7736)
+for atype, btype in itertools.combinations_with_replacement(particle_types, 2):
+    if atype in exclusions or btype in exclusions:
+        epsilon = 0.0
+        sigma = 1.0
+        lj.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
 
 nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body'])
 
 rigid = hoomd.md.constrain.rigid()
 for cp in centralParticles:
-    print "GOT T ",cp.m_types
     rigid.set_param(cp.type,
                     positions=cp.m_positions,
                     types=cp.m_types)
-    rigid.validate_bodies()
+rigid.validate_bodies()
 
 
 #group_all = hoomd.group.all()
