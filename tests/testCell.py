@@ -1441,7 +1441,7 @@ class Test(unittest.TestCase):
         endGroup2 = b4.freeEndGroups()[ 0 ]
         b2.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi)
         mycell.addBlock(b4)
-        mycell.dump()
+        #mycell.dump()
         made = mycell.zipBlocks(bondMargin=0.5, bondAngleMargin=0.5)
         self.assertEqual(made, 3)
         self.assertFalse(self.clashes(mycell))
