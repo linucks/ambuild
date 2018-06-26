@@ -119,8 +119,6 @@ def principalMoments(coords, masses):
     eigval, eigvec = np.linalg.eig(I)
     return np.sort(eigval)
 
-#writeXyz('foo.xyz', positions, types)
-
 
 # Create 2 molecules
 mol1 = Molecule()
@@ -150,10 +148,12 @@ for i, mol in enumerate(molecules):
     cp.type = "CP%d" % i
     centralParticles.append(cp)
     
-# Need to set the positions to be relative to those of the central particle
+# Need to set the positions of the molcules particles to be relative to those of the central particle
 for i, cp in enumerate(centralParticles):
     mol = molecules[i]
     mol.positions = mol.positions - cp.position
+    print "BETTER WAY TO DO THIS"
+    cp.m_positions = mol.positions
 
 # Get total number of particles and the set of types
 particle_types = set()
@@ -194,6 +194,16 @@ for i, mol in enumerate(molecules):
         snapshot.particles.position[idx] = mol.positions[j]
         snapshot.particles.typeid[idx] = snapshot.particles.types.index(mol.types[j])
         idx += 1
+        
+# print "BODIES ",snapshot.particles.body
+# print "1 ",snapshot.particles.typeid
+# print "2 ",snapshot.particles.types
+# print "3 ",snapshot.particles.position
+# for i, cp in enumerate(centralParticles):
+#     print cp.m_positions
+# sys.exit()
+        
+#writeXyz('foo.xyz', snapshot.particles.position, [snapshot.particles.types[t] for t in snapshot.particles.typeid])
     
 system = hoomd.init.read_snapshot(snapshot)
 nl = hoomd.md.nlist.cell()
@@ -201,6 +211,7 @@ lj = hoomd.md.pair.lj(r_cut=5.0, nlist=nl)
 lj.pair_coeff.set('C', 'C', epsilon=0.0968, sigma=3.4)
 lj.pair_coeff.set('C', 'H', epsilon=0.1106, sigma=3.7736)
 lj.pair_coeff.set('H', 'H', epsilon=0.1106, sigma=1.7736)
+# Ignore all interactions with the central particles
 for atype, btype in itertools.combinations_with_replacement(particle_types, 2):
     if atype in exclusions or btype in exclusions:
         epsilon = 0.0
@@ -209,13 +220,13 @@ for atype, btype in itertools.combinations_with_replacement(particle_types, 2):
 
 nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body'])
 
+# Set up the rigid bodies
 rigid = hoomd.md.constrain.rigid()
 for cp in centralParticles:
     rigid.set_param(cp.type,
                     positions=cp.m_positions,
                     types=cp.m_types)
 rigid.validate_bodies()
-
 
 #group_all = hoomd.group.all()
 group_all = hoomd.group.rigid_center()
