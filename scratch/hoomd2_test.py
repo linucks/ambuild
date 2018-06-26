@@ -69,8 +69,9 @@ class CentralParticle(object):
         self.mass = np.sum(molecule.masses)
         self.position = centreOfMass(molecule.positions, molecule.masses)
         self.principalMoments = principalMoments(molecule.positions, molecule.masses)
-        
-        self.m_positions = molecule.positions
+        # Specify types and position of consituent particles
+        # The positions of the constituent particles need to be relative to the central particle
+        self.m_positions = molecule.positions - self.position
         self.m_types = molecule.types
         return self
 
@@ -147,18 +148,11 @@ for i, mol in enumerate(molecules):
     cp = mol.centralParticle()
     cp.type = "CP%d" % i
     centralParticles.append(cp)
-    
-# Need to set the positions of the molcules particles to be relative to those of the central particle
-for i, cp in enumerate(centralParticles):
-    mol = molecules[i]
-    mol.positions = mol.positions - cp.position
-    print "BETTER WAY TO DO THIS"
-    cp.m_positions = mol.positions
 
 # Get total number of particles and the set of types
 particle_types = set()
 nparticles = 0
-exclusions = []
+exclusions = [] # to stop the central particles ineracting directly
 for cp in centralParticles:
     nparticles += 1
     particle_types.add(cp.type)
@@ -178,21 +172,20 @@ lz = BOX_WIDTH
 snapshot = hoomd.data.make_snapshot(N=nparticles,
                                     box=hoomd.data.boxdim(Lx=lx, Ly=ly, Lz=lz),
                                     particle_types=particle_types)
-
+# Add centreal particles at start of snapshot
 for i, cp in enumerate(centralParticles):
     snapshot.particles.body[i] = i
     snapshot.particles.mass[i] = cp.mass
     snapshot.particles.position[i] = cp.position
     snapshot.particles.typeid[i] = snapshot.particles.types.index(cp.type)
     snapshot.particles.moment_inertia[i] = cp.principalMoments
-
+# Then add in the constituent molecule particles
 idx = i + 1
-for i, mol in enumerate(molecules):
-    for j in range(mol.positions.shape[0]):
+for i, cp in enumerate(centralParticles):
+    for j in range(cp.m_positions.shape[0]):
         snapshot.particles.body[idx] = i
-        snapshot.particles.mass[idx] = mol.masses[j]
-        snapshot.particles.position[idx] = mol.positions[j]
-        snapshot.particles.typeid[idx] = snapshot.particles.types.index(mol.types[j])
+        snapshot.particles.position[idx] = cp.m_positions[j]
+        snapshot.particles.typeid[idx] = snapshot.particles.types.index(cp.m_types[j])
         idx += 1
         
 # print "BODIES ",snapshot.particles.body
