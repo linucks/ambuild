@@ -62,7 +62,7 @@ def wrapBox(positions, boxdim):
 # setup()
 # sys.exit(1)
 
-class CentralParticle(object):
+class RigidParticle(object):
     def __init__(self, molecule):
         # Attributes of the central particle
         self.mass = None
@@ -92,8 +92,8 @@ class Molecule(object):
         self.masses = None
         self.types = None
     
-    def centralParticle(self):
-        return CentralParticle(self)
+    def rigidParticle(self):
+        return RigidParticle(self)
 
 def centreOfMass(coords, masses):
     totalMass = np.sum(masses)
@@ -184,20 +184,20 @@ else:
 
 
 # Create the central particles
-centralParticles = []
+rigidParticles = []
 for i, mol in enumerate(molecules):
-    cp = mol.centralParticle()
-    cp.type = "CP%d" % i
-    centralParticles.append(cp)
+    rp = mol.rigidParticle()
+    rp.type = "CP%d" % i
+    rigidParticles.append(rp)
 
 # Get total number of particles and the set of types
 particle_types = set()
 nparticles = 0
 exclusions = [] # to stop the central particles ineracting directly
-for cp in centralParticles:
+for rp in rigidParticles:
     nparticles += 1
-    particle_types.add(cp.type)
-    exclusions.append(cp.type)
+    particle_types.add(rp.type)
+    exclusions.append(rp.type)
 for mol in molecules:
     nparticles += mol.positions.shape[0]
     particle_types.update(set(mol.types))
@@ -218,20 +218,20 @@ snapshot = hoomd.data.make_snapshot(N=nparticles,
                                     particle_types=particle_types,
                                     bond_types=bond_types)
 # Add centreal particles at start of snapshot
-for i, cp in enumerate(centralParticles):
+for i, rp in enumerate(rigidParticles):
     snapshot.particles.body[i] = i
-    snapshot.particles.mass[i] = cp.mass
-    snapshot.particles.position[i] = cp.position
-    snapshot.particles.typeid[i] = snapshot.particles.types.index(cp.type)
-    snapshot.particles.moment_inertia[i] = cp.principalMoments
+    snapshot.particles.mass[i] = rp.mass
+    snapshot.particles.position[i] = rp.position
+    snapshot.particles.typeid[i] = snapshot.particles.types.index(rp.type)
+    snapshot.particles.moment_inertia[i] = rp.principalMoments
 # Then add in the constituent molecule particles
 idx = i + 1
-for i, cp in enumerate(centralParticles):
-    for j in range(cp.m_positions.shape[0]):
+for i, rp in enumerate(rigidParticles):
+    for j in range(rp.m_positions.shape[0]):
         snapshot.particles.body[idx] = i
-        snapshot.particles.mass[i] = cp.m_masses[i] # Only need to display consituent particles in gsd file
-        snapshot.particles.position[idx] = cp.m_positions[j]
-        snapshot.particles.typeid[idx] = snapshot.particles.types.index(cp.m_types[j])
+        snapshot.particles.mass[i] = rp.m_masses[i] # Only need to display consituent particles in gsd file
+        snapshot.particles.position[idx] = rp.m_positions[j]
+        snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.m_types[j])
         idx += 1
         
 if bonded:
@@ -246,8 +246,8 @@ if bonded:
 # print "1 ",snapshot.particles.typeid
 # print "2 ",snapshot.particles.types
 # print "3 ",snapshot.particles.position
-# for i, cp in enumerate(centralParticles):
-#     print cp.m_positions
+# for i, rp in enumerate(rigidParticles):
+#     print rp.m_positions
 # sys.exit()
 #writeXyz('foo.xyz', snapshot.particles.position, [snapshot.particles.types[t] for t in snapshot.particles.typeid])
 
@@ -273,10 +273,10 @@ nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body
 
 # Set up the rigid bodies
 rigid = hoomd.md.constrain.rigid()
-for cp in centralParticles:
-    rigid.set_param(cp.type,
-                    positions=cp.m_positions,
-                    types=cp.m_types)
+for rp in rigidParticles:
+    rigid.set_param(rp.type,
+                    positions=rp.m_positions,
+                    types=rp.m_types)
 rigid.validate_bodies()
 
 groupAll = hoomd.group.all()
