@@ -48,6 +48,12 @@ def setup():
     #mycell.dump()
     #mycell.runMD(rigidBody=False, dump=True)
 
+def wrapBox(positions, boxdim):
+    # Move into centre of cell
+    positions = np.fmod(positions, boxdim)
+    # Change the coord so the origin is at the center of the box (we start from the corner)
+    positions -= boxdim / 2
+    return positions
 
 #boxdim = np.array([BOX_WIDTH, BOX_WIDTH, BOX_WIDTH])
 #setup()
@@ -55,11 +61,12 @@ def setup():
 
 class CentralParticle(object):
     def __init__(self, molecule):
+        # Attributes of the central particle
         self.mass = None
         self.position = None
         self.principalMoments = None
         self.type = None
-        
+        # Attributes if the constituent particles
         self.m_positions = None
         self.m_types = None
         
@@ -73,6 +80,7 @@ class CentralParticle(object):
         # The positions of the constituent particles need to be relative to the central particle
         self.m_positions = molecule.positions - self.position
         self.m_types = molecule.types
+        self.m_masses = molecule.masses
         return self
 
 class Molecule(object):
@@ -83,14 +91,6 @@ class Molecule(object):
     
     def centralParticle(self):
         return CentralParticle(self)
-
-
-def wrapBox(positions, boxdim):
-    # Move into centre of cell
-    positions = np.fmod(positions, boxdim)
-    # Change the coord so the origin is at the center of the box (we start from the corner)
-    positions -= boxdim / 2
-    return positions
 
 def centreOfMass(coords, masses):
     totalMass = np.sum(masses)
@@ -121,7 +121,7 @@ def principalMoments(coords, masses):
     return np.sort(eigval)
 
 
-# Create 2 molecules
+# Create 2 methane molecules
 mol1 = Molecule()
 mol1.positions = np.array([[ -2.00000000e+00,   0.00000000e+00,  -2.00000001e-07],
                            [ -9.11000000e-01,   0.00000000e+00,  -2.00000001e-07],
@@ -142,7 +142,7 @@ mol2.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])
 
 molecules = [mol1, mol2]
 
-# Now create the central particles
+# Create the central particles
 centralParticles = []
 for i, mol in enumerate(molecules):
     cp = mol.centralParticle()
@@ -184,6 +184,7 @@ idx = i + 1
 for i, cp in enumerate(centralParticles):
     for j in range(cp.m_positions.shape[0]):
         snapshot.particles.body[idx] = i
+        snapshot.particles.mass[i] = cp.m_masses[i] # Only need to display consituent particles in gsd file
         snapshot.particles.position[idx] = cp.m_positions[j]
         snapshot.particles.typeid[idx] = snapshot.particles.types.index(cp.m_types[j])
         idx += 1
@@ -195,7 +196,6 @@ for i, cp in enumerate(centralParticles):
 # for i, cp in enumerate(centralParticles):
 #     print cp.m_positions
 # sys.exit()
-        
 #writeXyz('foo.xyz', snapshot.particles.position, [snapshot.particles.types[t] for t in snapshot.particles.typeid])
     
 system = hoomd.init.read_snapshot(snapshot)
@@ -222,32 +222,40 @@ for cp in centralParticles:
 rigid.validate_bodies()
 
 #group_all = hoomd.group.all()
-group_all = hoomd.group.rigid_center()
+groupRigid = hoomd.group.rigid_center()
 
-dt=0.0001
-Nmin=5
-alpha_start=0.1
-ftol=1e-2
-Etol=1e-5
-finc=1.1
-fdec=0.5
-fire = hoomd.md.integrate.mode_minimize_fire(dt=dt,
-                                             Nmin=Nmin,
-                                             alpha_start=alpha_start,
-                                             ftol=ftol,
-                                             Etol=Etol,
-                                             finc=finc,
-                                             fdec=fdec)
-
-integrate_nve = hoomd.md.integrate.nve(group=group_all)
-
-dgsd = hoomd.dump.gsd(filename="opt.gsd",
+dgsd = hoomd.dump.gsd(filename="trajectory.gsd",
                       period=1,
-                      group=group_all,
+                      group=groupRigid,
                       overwrite=True)
 
-opt_cycles=1000
-hoomd.run(opt_cycles,
-          callback=lambda x:-1 if fire.has_converged() else 0,
-          callback_period=1)
- 
+optimise = False
+ncycles = 1000
+if optimise:
+    dt = 0.0001
+    Nmin = 5
+    alpha_start = 0.1
+    ftol = 1e-2
+    Etol = 1e-5
+    finc = 1.1
+    fdec  =0.5
+    fire = hoomd.md.integrate.mode_minimize_fire(dt=dt,
+                                                 Nmin=Nmin,
+                                                 alpha_start=alpha_start,
+                                                 ftol=ftol,
+                                                 Etol=Etol,
+                                                 finc=finc,
+                                                 fdec=fdec)
+    
+    integrate_nve = hoomd.md.integrate.nve(group=groupRigid)
+    hoomd.run(ncycles,
+              callback=lambda x:-1 if fire.has_converged() else 0,
+              callback_period=1)
+else:
+    T = 1.0
+    tau = 0.5
+    dt = 0.0005
+    integrator_mode = hoomd.md.integrate.mode_standard(dt=dt)
+    integ = hoomd.md.integrate.nvt(group=groupRigid, kT=T, tau=tau)
+    hoomd.run(ncycles)
+
