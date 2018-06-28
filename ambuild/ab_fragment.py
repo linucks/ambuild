@@ -19,39 +19,44 @@ ENDGROUPBONDED = '*'
 logger = logging.getLogger()
 
 class RigidParticle(object):
-    def __init__(self, body, d_idx_start=None, dim=None, center=False):
+    def __init__(self, body, d_idx_start=None, cell_dim=None, center=False):
         # Attributes of the central particle
         self.image = np.array([0, 0, 0])
         self.mass = None
         self.position = None
         self.principalMoments = None
+        self.natoms = 0
         self.type = None
         # Attributes if the constituent particles
         self.d_idx_start = None # where the particles start and end in the overall list of particles
         self.d_idx_end = None
         self.b_charges = None # NB use index to prevent storing these twice
+        self.b_diameters = None # NB use index to prevent storing these twice
         self.b_masses = None
         self.b_positions = None
         self.b_atomTypes = None
         
-        self.fromBody(body, d_idx_start=d_idx_start, dim=dim, center=center)
+        self.fromBody(body, d_idx_start=d_idx_start, cell_dim=cell_dim, center=center)
     
-    def fromBody(self, body, d_idx_start=None, dim=None, center=False):
+    def fromBody(self, body, d_idx_start=None, cell_dim=None, center=False):
         coords = body.coords
-        if dim is not None:
-            coords, images = xyz_core.wrapCoord3(coords, dim=dim, center=center)
+        self.natoms = coords.shape[0]
+        com = xyz_core.centreOfMass(coords, body.masses)
+        if cell_dim is not None:
+            com, com_image = xyz_core.wrapCoord3(com, dim=cell_dim, center=center)
+        self.position = com
+        self.b_positions = coords - com # coordinates relative to central particle
+        self.b_images = np.tile(com_image, [self.natoms, 1]) # image same for constituent particles as central
         if d_idx_start is not None:
             self.d_idx_start = d_idx_start
-            self.d_idx_end = self.d_idx_start + len(coords)
+            self.d_idx_end = self.d_idx_start + self.natoms
         self.mass = np.sum(body.masses)
-        self.position = xyz_core.centreOfMass(coords, body.masses)
-        if dim is not None:
-            self.position, self.image = xyz_core.wrapCoord3(self.position, dim=dim, center=center)
         self.principalMoments = xyz_core.principalMoments(coords, body.masses)
+        self.type = "CP%d" % body.bodyIndex
         # Specify types and position of consituent particles
         # The positions of the constituent particles need to be relative to the central particle
-        self.b_positions = coords - self.position
         self.b_charges = body.charges
+        self.b_diameters = body.diameters
         self.b_masses = body.masses
         self.b_atomTypes = body.atomTypes
         return self
@@ -120,8 +125,8 @@ class Body(object):
         """return the type of this body based on the endGroup configuration"""
         return "{}{}{}".format(self.fragment.fragmentType, self.fragment.configStr, self.bodyIndex)
     
-    def rigidParticle(self, d_idx_start=None, dim=None, center=False):
-        return RigidParticle(self, d_idx_start=d_idx_start, dim=dim, center=center)
+    def rigidParticle(self, d_idx_start=None, cell_dim=None, center=False):
+        return RigidParticle(self, d_idx_start=d_idx_start, cell_dim=cell_dim, center=center)
 
     @property
     def static(self):

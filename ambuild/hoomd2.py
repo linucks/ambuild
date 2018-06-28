@@ -171,7 +171,7 @@ class Hoomd2(object):
         if self.rigidBody:
             for i, rp in enumerate(data.rigidParticles):
                 snapshot.particles.body[i] = i
-                snapshot.particles.body[i] = rp.image
+                snapshot.particles.image[i] = rp.image
                 snapshot.particles.mass[i] = rp.mass
                 snapshot.particles.position[i] = rp.position
                 snapshot.particles.typeid[i] = snapshot.particles.types.index(rp.type)
@@ -179,16 +179,16 @@ class Hoomd2(object):
             # Then add in the constituent molecule particles
             idx = i + 1
             for i, rp in enumerate(data.rigidParticles):
-                for j in range(rp.m_positions.shape[0]):
+                for j in range(rp.natoms):
                     snapshot.particles.body[idx] = i
                     if doCharges:
-                        snapshot.particles.charge[i] = rp.m_charges[i]
-                    snapshot.particles.diameters[i] = rp.m_diameters[i]
+                        snapshot.particles.charge[i] = rp.b_charges[i]
+                    snapshot.particles.diameter[i] = rp.b_diameters[i]
                     snapshot.particles.image[i] = rp.image
                     warnings.warn("USE d_idx_start to save copying these twice")
-                    snapshot.particles.mass[i] = rp.m_masses[i]
-                    snapshot.particles.position[idx] = rp.m_positions[j]
-                    snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.m_atomTypes[j])
+                    snapshot.particles.mass[i] = rp.b_masses[i]
+                    snapshot.particles.position[idx] = rp.b_positions[j]
+                    snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.b_atomTypes[j])
                     idx += 1
         else:
             for i in range(nparticles):

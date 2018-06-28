@@ -1037,7 +1037,7 @@ class Cell():
                 for body in frag.bodies():
                     if RIGIDPARTICLES:
                         d.rigidParticles.append(body.rigidParticle(d_idx_start=atomIdx,
-                                                                   dim=self.dim,
+                                                                   cell_dim=self.dim,
                                                                    center=center))
                     coords = body.coords
                     coords, images = xyz_core.wrapCoord3(coords, dim=self.dim, center=center)
