@@ -1038,14 +1038,14 @@ class Cell():
                     if RIGIDPARTICLES:
                         d.rigidParticles.append(body.rigidParticle(d_idx_start=atomIdx,
                                                                    dim=self.dim,
-                                                                   centre=center))
+                                                                   center=center))
                     coords = body.coords
                     coords, images = xyz_core.wrapCoord3(coords, dim=self.dim, center=center)
                     d.coords += list(coords)
                     d.images += list(images)
                     btypes = body.atomTypes
                     d.atomTypes += btypes
-                    d.bodies += [bodyIdx for b in body.bodies()]
+                    d.bodies += [bodyIdx for b in body.bodies]
                     d.charges += body.charges
                     d.diameters += body.diameters
                     d.masked += body.masked
@@ -1054,10 +1054,6 @@ class Cell():
                     d.symbols += body.symbols
                     atomIdx += len(coords)
                 bodyIdx += 1
-                        
-                # Work out which fragment this is in
-                warnings.warn("JMHT FIX i")
-                #d.tagIndices.append((idxBlock, idxFrag, atomIdx - i - 1, atomIdx))
         return d
 
     def delBlock(self, blockId):

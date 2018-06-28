@@ -118,7 +118,7 @@ class Hoomd2(object):
         self.dihedral_types = list(set(data.properLabels)) if len(data.propers) and doDihedral else []
         snapshot = hoomd.data.make_snapshot(N=nparticles,
                                         box=hoomd.data.boxdim(Lx=data.cell[0], Ly=data.cell[1], Lz=data.cell[2]),
-                                        particleTypes=self.particleTypes,
+                                        particle_types=self.particleTypes,
                                         bond_types=self.bond_types,
                                         angle_types=self.angle_types,
                                         dihedral_types=self.dihedral_types,
@@ -184,10 +184,11 @@ class Hoomd2(object):
                     if doCharges:
                         snapshot.particles.charge[i] = rp.m_charges[i]
                     snapshot.particles.diameters[i] = rp.m_diameters[i]
-                    snapshot.particles.image[i] = X
-                    snapshot.particles.mass[i] = rp.m_masses[i] # Only need to display consituent particles in gsd file
+                    snapshot.particles.image[i] = rp.image
+                    warnings.warn("USE d_idx_start to save copying these twice")
+                    snapshot.particles.mass[i] = rp.m_masses[i]
                     snapshot.particles.position[idx] = rp.m_positions[j]
-                    snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.m_types[j])
+                    snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.m_atomTypes[j])
                     idx += 1
         else:
             for i in range(nparticles):

@@ -8,12 +8,10 @@ import copy
 import csv
 import logging
 import os
-import unittest
 
 import numpy as np
 
 # our imports
-from ab_paths import BLOCKS_DIR
 import xyz_core
 import xyz_util
 
@@ -21,9 +19,9 @@ ENDGROUPBONDED = '*'
 logger = logging.getLogger()
 
 class RigidParticle(object):
-    def __init__(self, body, d_idx_start=None, dim=None, centre=False):
+    def __init__(self, body, d_idx_start=None, dim=None, center=False):
         # Attributes of the central particle
-        self.image = None
+        self.image = np.array([0, 0, 0])
         self.mass = None
         self.position = None
         self.principalMoments = None
@@ -31,10 +29,12 @@ class RigidParticle(object):
         # Attributes if the constituent particles
         self.d_idx_start = None # where the particles start and end in the overall list of particles
         self.d_idx_end = None
+        self.b_charges = None # NB use index to prevent storing these twice
+        self.b_masses = None
         self.b_positions = None
-        self.b_types = None
+        self.b_atomTypes = None
         
-        self.fromBody(body, d_idx_start=d_idx_start, dim=dim, centre=centre)
+        self.fromBody(body, d_idx_start=d_idx_start, dim=dim, center=center)
     
     def fromBody(self, body, d_idx_start=None, dim=None, center=False):
         coords = body.coords
@@ -45,14 +45,15 @@ class RigidParticle(object):
             self.d_idx_end = self.d_idx_start + len(coords)
         self.mass = np.sum(body.masses)
         self.position = xyz_core.centreOfMass(coords, body.masses)
-        if dim:
+        if dim is not None:
             self.position, self.image = xyz_core.wrapCoord3(self.position, dim=dim, center=center)
         self.principalMoments = xyz_core.principalMoments(coords, body.masses)
         # Specify types and position of consituent particles
         # The positions of the constituent particles need to be relative to the central particle
         self.b_positions = coords - self.position
-        self.b_types = body.types
+        self.b_charges = body.charges
         self.b_masses = body.masses
+        self.b_atomTypes = body.atomTypes
         return self
     
 
@@ -63,12 +64,11 @@ class Body(object):
         self.bodyIndex = bodyIndex
         self.indexes = self._setup_indexes()
         self.natoms = np.sum(self.indexes)
-        self._centreOfMass = xyz_core.centreOfMass(self.coords(), self.masses())
+        self._centreOfMass = xyz_core.centreOfMass(self.coords, self.masses)
         return
 
     def _setup_indexes(self):
-        return (self.fragment._bodies == self.bodyIndex) &~ self.fragment.masked
-        #return np.array([True if self.fragment._bodies[i] == self.bodyIndex else False for i in self.fragment._ext2int.values()])
+        return (np.array(self.fragment._bodies) == self.bodyIndex) &~ np.array(self.fragment.masked)
 
     @property
     def atomTypes(self):
@@ -120,8 +120,8 @@ class Body(object):
         """return the type of this body based on the endGroup configuration"""
         return "{}{}{}".format(self.fragment.fragmentType, self.fragment.configStr, self.bodyIndex)
     
-    def rigidParticle(self, d_idx_start=None, dim=None, centre=False):
-        return RigidParticle(self, d_idx_start=d_idx_start, dim=dim, centre=centre)
+    def rigidParticle(self, d_idx_start=None, dim=None, center=False):
+        return RigidParticle(self, d_idx_start=d_idx_start, dim=dim, center=center)
 
     @property
     def static(self):
@@ -976,41 +976,3 @@ class Fragment(object):
             me += "{0}  {1:5} {2:0< 15} {3:0< 15} {4:0< 15} \n".format(i, self._labels[i], c[0], c[1], c[2])
         return "{0} : {1}".format(self.__repr__(), me)
 
-#     def __getstate__(self):
-#         """Called on pickling
-#
-#         CAN'T DO THIS AS DEEPCOPY USES SOME PICKLING CODE AND SO __getstate__ IS CALLED
-#         AND THIS DELETES onbondFunction WHENEVER A FRAGMENT IS COPIED. NEED TO FIX BY CHANGING
-#         TO A CLASS FACTORY AND NOT DOING OUR OWN MANUAL COPYING OF FRAGMENTS.
-#
-#         We need to delete the onbondFunction because otherwise it can't be pickled as it will
-#         have been defined in the calling script and hence not available to the util module on
-#         unpickling.
-#         """
-#         assert False
-#         d = self.__dict__
-#         d['onbondFunction'] = None
-#         return d
-
-class TestFragment(unittest.TestCase):
-
-    def setUp(self):
-        logging.basicConfig(level=logging.DEBUG)
-        return
-
-    def testBonds(self):
-        graphite = os.path.join(BLOCKS_DIR, "2_graphite_cont.car")
-
-        f = Fragment(filePath=graphite, fragmentType='A')
-        self.assertEqual(len(f.bonds()), 1284)
-
-        f = Fragment(filePath=graphite, fragmentType='A', static=True)
-        self.assertEqual(len(f.bonds()), 1792)
-        return
-
-
-if __name__ == '__main__':
-    """
-    Run the unit tests
-    """
-    unittest.main()
