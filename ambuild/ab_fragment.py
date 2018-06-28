@@ -20,6 +20,42 @@ import xyz_util
 ENDGROUPBONDED = '*'
 logger = logging.getLogger()
 
+class RigidParticle(object):
+    def __init__(self, body, d_idx_start=None, dim=None, centre=False):
+        # Attributes of the central particle
+        self.image = None
+        self.mass = None
+        self.position = None
+        self.principalMoments = None
+        self.type = None
+        # Attributes if the constituent particles
+        self.d_idx_start = None # where the particles start and end in the overall list of particles
+        self.d_idx_end = None
+        self.b_positions = None
+        self.b_types = None
+        
+        self.fromBody(body, d_idx_start=d_idx_start, dim=dim, centre=centre)
+    
+    def fromBody(self, body, d_idx_start=None, dim=None, center=False):
+        coords = body.coords
+        if dim is not None:
+            coords, images = xyz_core.wrapCoord3(coords, dim=dim, center=center)
+        if d_idx_start is not None:
+            self.d_idx_start = d_idx_start
+            self.d_idx_end = self.d_idx_start + len(coords)
+        self.mass = np.sum(body.masses)
+        self.position = xyz_core.centreOfMass(coords, body.masses)
+        if dim:
+            self.position, self.image = xyz_core.wrapCoord3(self.position, dim=dim, center=center)
+        self.principalMoments = xyz_core.principalMoments(coords, body.masses)
+        # Specify types and position of consituent particles
+        # The positions of the constituent particles need to be relative to the central particle
+        self.b_positions = coords - self.position
+        self.b_types = body.types
+        self.b_masses = body.masses
+        return self
+    
+
 class Body(object):
     """Proxy object for the body within a fragment"""
     def __init__(self, fragment, bodyIndex):
@@ -34,35 +70,30 @@ class Body(object):
         return (self.fragment._bodies == self.bodyIndex) &~ self.fragment.masked
         #return np.array([True if self.fragment._bodies[i] == self.bodyIndex else False for i in self.fragment._ext2int.values()])
 
+    @property
     def atomTypes(self):
         return list(np.compress(self.indexes, self.fragment._atomTypes, axis=0))
 
+    @property
     def bodies(self):
-        return [ self.bodyIndex ] * self.natoms
+        return [self.bodyIndex] * self.natoms
         
-    def centreOfMass(self, dim=None, center=False):
-        if dim is not None:
-            com, com_image = xyz_core.wrapCoord3(self._centreOfMass, dim, center=center)
-            return com, com_image
-        else:
-            return self._centreOfMass
+    def centreOfMass(self):
+        return self._centreOfMass
 
+    @property
     def charges(self):
         return list(np.compress(self.indexes, self.fragment._charges, axis=0))
 
-    def coords(self, dim=None, center=False, bodyFrame=False):
-        coords = np.compress(self.indexes, self.fragment._coords, axis=0)
-        if bodyFrame:
-            coords = coords - self._centreOfMass
-        if dim is not None:
-            coords, images = xyz_core.wrapCoord3(coords, dim, center=center)
-            return coords, images
-        else:
-            return coords
+    @property
+    def coords(self):
+        return np.compress(self.indexes, self.fragment._coords, axis=0)
 
+    @property
     def diameters(self):
         return [ xyz_util.DUMMY_DIAMETER ] * self.natoms
 
+    @property
     def masked(self):
         mask = []
         for i in [ i for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex]:
@@ -72,25 +103,27 @@ class Body(object):
                 mask.append(False)
         return mask
 
+    @property
     def mass(self):
         return np.sum(self.masses())
 
+    @property
     def masses(self):
         return np.compress(self.indexes, self.fragment._masses, axis=0)
-    
-    def momentOfInertia(self, bodyFrame=False):
-        return xyz_core.momentOfInertia(self.coords(bodyFrame=bodyFrame), self.masses())
-    
-    def orientation(self):
-        raise NotImplementedError()
 
-    def principalMoments(self, bodyFrame=False):
-        return xyz_core.principalMoments(self.coords(bodyFrame=bodyFrame), self.masses())
+    @property
+    def principalMoments(self):
+        return xyz_core.principalMoments(self.coords(), self.masses)
     
-    def rigidType(self):
+    @property
+    def XrigidType(self):
         """return the type of this body based on the endGroup configuration"""
         return "{}{}{}".format(self.fragment.fragmentType, self.fragment.configStr, self.bodyIndex)
+    
+    def rigidParticle(self, d_idx_start=None, dim=None, centre=False):
+        return RigidParticle(self, d_idx_start=d_idx_start, dim=dim, centre=centre)
 
+    @property
     def static(self):
         if hasattr(self.fragment, 'static') and self.fragment.static:
             v = True
@@ -98,6 +131,7 @@ class Body(object):
             v = False
         return [ v ] * self.natoms
 
+    @property
     def symbols(self):
         return list(np.compress(self.indexes, self.fragment._symbols, axis=0))
 

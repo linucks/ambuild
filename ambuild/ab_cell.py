@@ -961,51 +961,45 @@ class Cell():
                 assert False,"Need to update for HOOMD2"
             # Only returning data for one type of fragment
             assert fragmentType in self.fragmentTypes(), "FragmentType {0} not in cell!".format(fragmentType)
-            atomCount = 0
+            atomIdx = 0
             for b in self.blocks.values():
                 coords, symbols, bonds = b.dataByFragment(fragmentType)
                 d.coords += coords
                 d.symbols += symbols
-                d.bonds += [ (b1 + atomCount, b2 + atomCount) for (b1, b2) in bonds ]
-                atomCount += len(coords)
+                d.bonds += [ (b1 + atomIdx, b2 + atomIdx) for (b1, b2) in bonds ]
+                atomIdx += len(coords)
             return d
-        atomCount = 0  # Global count in cell
-        bodyCount = -1
+        atomIdx = 0
+        bodyIdx = 0
         for block in self.blocks.values():
-
-            # Do bonds first as counting starts from atomCount and goes up through the blocks
+            # Do bonds first as counting starts from atomIdx and goes up through the blocks
             if not rigidBody:
                 # add all bonds, angles and dihederals throughout the whole block
-                # Add all bonds
-                d.bonds += [ (a1 + atomCount, a2 + atomCount) for a1, a2 in block.bonds() ]
-                d.bondLabels += [ "{0}-{1}".format(block.type(a1), block.type(a2)) for a1, a2 in block.bonds() ]
+                d.bonds += [(a1 + atomIdx, a2 + atomIdx) for a1, a2 in block.bonds()]
+                d.bondLabels += ["{0}-{1}".format(block.type(a1), block.type(a2)) for a1, a2 in block.bonds()]
                 angles, propers, impropers = block.anglesAndDihedrals()
-                # Add all angles
-                d.angles += [ (a1 + atomCount, a2 + atomCount, a3 + atomCount) for a1, a2, a3 in angles ]
-                d.angleLabels += [ "{0}-{1}-{2}".format(block.type(a1), block.type(a2), block.type(a3)) for a1, a2, a3 in angles ]
-                # Add all propers
-                d.propers += [ (a1 + atomCount, a2 + atomCount, a3 + atomCount, a4 + atomCount) \
-                              for a1, a2, a3, a4 in propers ]
-                d.properLabels += [ "{0}-{1}-{2}-{3}".format(block.type(a1),
-                                                             block.type(a2),
-                                                             block.type(a3),
-                                                             block.type(a4)
-                                                             ) for a1, a2, a3, a4 in propers ]
-                # Add all impropers
-                d.impropers += [ (a1 + atomCount, a2 + atomCount, a3 + atomCount, a4 + atomCount) \
-                                for a1, a2, a3, a4 in impropers ]
-                d.improperLabels += [ "{0}-{1}-{2}-{3}".format(block.type(a1),
-                                                             block.type(a2),
-                                                             block.type(a3),
-                                                             block.type(a4)
-                                                             ) for a1, a2, a3, a4 in impropers ]
-
+                d.angles += [(a1 + atomIdx, a2 + atomIdx, a3 + atomIdx) for a1, a2, a3 in angles]
+                d.angleLabels += ["{0}-{1}-{2}".format(block.type(a1), block.type(a2), block.type(a3)) for a1, a2, a3 in angles]
+                d.propers += [(a1 + atomIdx, a2 + atomIdx, a3 + atomIdx, a4 + atomIdx) \
+                              for a1, a2, a3, a4 in propers]
+                d.properLabels += ["{0}-{1}-{2}-{3}".format(block.type(a1),
+                                                            block.type(a2),
+                                                            block.type(a3),
+                                                            block.type(a4)
+                                                            ) for a1, a2, a3, a4 in propers]
+                d.impropers += [(a1 + atomIdx, a2 + atomIdx, a3 + atomIdx, a4 + atomIdx) \
+                                for a1, a2, a3, a4 in impropers]
+                d.improperLabels += ["{0}-{1}-{2}-{3}".format(block.type(a1),
+                                                              block.type(a2),
+                                                              block.type(a3),
+                                                              block.type(a4)
+                                                              ) for a1, a2, a3, a4 in impropers]
             else:
                 # Just add the bonds between blocks. Also add angles for all atoms connected to the bonds
                 # we do this so that we can exclude them from VdW interactions in MD codes
                 for b1, b2 in block.blockBonds():
                     # The bonds themselves
-                    d.bonds.append((b1 + atomCount, b2 + atomCount))
+                    d.bonds.append((b1 + atomIdx, b2 + atomIdx))
                     d.bondLabels.append("{0}-{1}".format(block.type(b1), block.type(b2)))
                     _angles = set()
                     # Atoms connected to the endGroup that we need to specify as connected so we add as angles
@@ -1021,65 +1015,49 @@ class Cell():
                         _angles.add((b1, b2, batom))
                     # Add to overall lists
                     for a1, a2, a3 in _angles:
-                        d.angles.append((a1 + atomCount, a2 + atomCount, a3 + atomCount))
+                        d.angles.append((a1 + atomIdx, a2 + atomIdx, a3 + atomIdx))
                         l = "{0}-{1}-{2}".format(block.type(a1),
                                                   block.type(a2),
                                                   block.type(a3))
                         d.angleLabels.append(l)
-                    #
                     # Dihedrals
-                    #
                     for dindices in block.dihedrals(b1, b2):
-                        dihedral = (dindices[0] + atomCount,
-                                     dindices[1] + atomCount,
-                                     dindices[2] + atomCount,
-                                     dindices[3] + atomCount)
+                        dihedral = (dindices[0] + atomIdx,
+                                     dindices[1] + atomIdx,
+                                     dindices[2] + atomIdx,
+                                     dindices[3] + atomIdx)
                         d.propers.append(dihedral)
                         dlabel = "{0}-{1}-{2}-{3}".format(block.type(dindices[0]),
                                                            block.type(dindices[1]),
                                                            block.type(dindices[2]),
                                                            block.type(dindices[3]) )
                         d.properLabels.append(dlabel)
-
             # Now loop through fragments and coordinates
             for frag in block.fragments:  # need index of fragment in block
                 for body in frag.bodies():
-                    # Body count always increments with fragment although it may go up within a fragment too
-                    bodyCount += 1
                     if RIGIDPARTICLES:
-                        centroid, centroid_image = body.centreOfMass(dim=self.dim, center=center)
-                        coords = body.coords(bodyFrame=True)
-                        # images are those of the centroid particle as coords all relative to cenotrid
-                        images = [centroid_image for _ in range(len(coords))]
-                    else:
-                        coords, images = body.coords(self.dim, center=center)
+                        d.rigidParticles.append(body.rigidParticle(d_idx_start=atomIdx,
+                                                                   dim=self.dim,
+                                                                   centre=center))
+                    coords = body.coords
+                    coords, images = xyz_core.wrapCoord3(coords, dim=self.dim, center=center)
                     d.coords += list(coords)
                     d.images += list(images)
-                    btypes = body.atomTypes()
+                    btypes = body.atomTypes
                     d.atomTypes += btypes
-                    d.bodies += [bodyCount for b in body.bodies()]
-                    d.charges += body.charges()
-                    d.diameters += body.diameters()
-                    d.masked += body.masked()
-                    d.masses += list(body.masses())
-                    d.static += body.static()
-                    d.symbols += body.symbols()
-                    if RIGIDPARTICLES:
-                        d.rigid_centre.append(centroid)
-                        d.rigid_image.append(centroid_image)
-                        d.rigid_mass.append(body.mass())
-                        d.rigid_body.append(bodyCount)
-                        ftype = body.rigidType()
-                        d.rigid_type.append(ftype)
-                        moi = body.principalMoments(bodyFrame=True)
-                        d.rigid_moment_inertia.append(moi)
-                        #d.rigid_orientation = body.orientation()
-                        d.rigid_fragments[ftype] = { 'coord_idxs' : (atomCount, atomCount + len(coords)), 'atomTypes' : btypes}
-                    atomCount += len(coords)
+                    d.bodies += [bodyIdx for b in body.bodies()]
+                    d.charges += body.charges
+                    d.diameters += body.diameters
+                    d.masked += body.masked
+                    d.masses += list(body.masses)
+                    d.static += body.static
+                    d.symbols += body.symbols
+                    atomIdx += len(coords)
+                bodyIdx += 1
                         
                 # Work out which fragment this is in
                 warnings.warn("JMHT FIX i")
-                #d.tagIndices.append((idxBlock, idxFrag, atomCount - i - 1, atomCount))
+                #d.tagIndices.append((idxBlock, idxFrag, atomIdx - i - 1, atomIdx))
         return d
 
     def delBlock(self, blockId):

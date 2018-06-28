@@ -4,6 +4,7 @@
 import itertools
 import logging
 import sys
+import warnings
 
 # 3rd-party imports
 import hoomd
@@ -24,7 +25,7 @@ class Hoomd2(object):
     * handle reading data back into cell - need to exclude central particles
 
     TODO in 1
-    * change checkParameters to use self.particle_types etc
+    * change checkParameters to use self.particleTypes etc
     * change setBonds etc to match hoomd2 so creation of oboject in routine
 
 
@@ -37,11 +38,12 @@ class Hoomd2(object):
         self.debug = False
         self.rCut = 5.0
         self.system = None
+        self.rigidBody = False
         self.exclusions = []  # particle tags to be ignored in pair-pair interactions
 
     def checkParameters(self, skipDihedrals=False):
         assert self.ffield
-        assert self.particle_types
+        assert self.particleTypes
         ok = True
         missingBonds = []
         for bond in self.bond_types:
@@ -65,7 +67,7 @@ class Hoomd2(object):
 #                     ok = False
 #                     missingImpropers.append(improper)
         missingPairs = []
-        for atype, btype in itertools.combinations_with_replacement(self.particle_types, 2):
+        for atype, btype in itertools.combinations_with_replacement(self.particleTypes, 2):
             if atype in self.exclusions or btype in self.exclusions:
                 continue
             if not self.ffield.hasPair(atype, btype):
@@ -87,7 +89,7 @@ class Hoomd2(object):
             raise RuntimeError(msg)
         return
 
-    def createSnapshot(self, data, rigidBody=False, doCharges=True, doDihedral=True):
+    def createSnapshot(self, data, doCharges=True, doDihedral=True):
         """Create a populated snapshot with all the particles.
 
         Rigid body will require creating the central particles so we'll do this later
@@ -96,101 +98,107 @@ class Hoomd2(object):
         self.exclusions = []
         # Create snapshot
         # snap attributes: angles, bonds, box, constraints, dihedrals, impropers, pairs, particles
-        if rigidBody:
+        if self.rigidBody:
             # Combined size includes rigid centre and constituent particles
-            nrigid_centres = len(data.rigid_centre)
-            nparticles = len(data.coords) + nrigid_centres
-            rigid_centers = set(data.rigid_type)
-            self.particle_types = list(set(data.atomTypes).union(rigid_centers))
-            self.exclusions = list(rigid_centers)
+            nRigidParticles = len(data.rigidParticles)
+            nparticles = len(data.coords) + nRigidParticles
+            rigidCenters = set([r.type for r in data.rigidParticles])
+            self.particleTypes = list(set(data.atomTypes).union(rigidCenters))
+            self.exclusions = list(rigidCenters)
         else:
             nparticles = len(data.coords)
-            self.particle_types = list(set(data.atomTypes))
+            self.particleTypes = list(set(data.atomTypes))
 
         assert nparticles > 0, "Simulation needs some particles!"
-        # NEED TO THINK ABOUT WHAT TO DO ABOUT MASKED ATOMS - set particle_types?
+        # NEED TO THINK ABOUT WHAT TO DO ABOUT MASKED ATOMS - set particleTypes?
         # self.masked = data.masked
 
         self.bond_types = list(set(data.bondLabels)) if len(data.bonds) else []
         self.angle_types = list(set(data.angleLabels)) if len(data.angles) else []
         self.dihedral_types = list(set(data.properLabels)) if len(data.propers) and doDihedral else []
-        snap = hoomd.data.make_snapshot(N=nparticles,
+        snapshot = hoomd.data.make_snapshot(N=nparticles,
                                         box=hoomd.data.boxdim(Lx=data.cell[0], Ly=data.cell[1], Lz=data.cell[2]),
-                                        particle_types=self.particle_types,
+                                        particleTypes=self.particleTypes,
                                         bond_types=self.bond_types,
                                         angle_types=self.angle_types,
                                         dihedral_types=self.dihedral_types,
                                         # pair_types = pair_types
                                         )
+        warnings.warn("FIX PAIRS")
 
         # Add Bonds
         if len(self.bond_types):
-            snap.bonds.resize(len(data.bonds))
+            snapshot.bonds.resize(len(data.bonds))
             for i, b in enumerate(data.bonds):
-                if rigidBody:  # center particles are at the front of the arrays, so everything gets shifted up
-                    b0 = b[0] + nrigid_centres
-                    b1 = b[1] + nrigid_centres
+                if self.rigidBody:  # center particles are at the front of the arrays, so everything gets shifted up
+                    b0 = b[0] + nRigidParticles
+                    b1 = b[1] + nRigidParticles
                 else:
                     b0, b1 = b
-                snap.bonds.group[i] = [b0, b1]
-                snap.bonds.typeid[i] = self.bond_types.index(data.bondLabels[i])
+                snapshot.bonds.group[i] = [b0, b1]
+                snapshot.bonds.typeid[i] = self.bond_types.index(data.bondLabels[i])
 
         # Add Angles
         if len(self.angle_types):
-            snap.angles.resize(len(data.angles))
+            snapshot.angles.resize(len(data.angles))
             for i, a in enumerate(data.angles):
-                if rigidBody:  # center particles are at the front of the arrays, so everything gets shifted up
-                    a0 = a[0] + nrigid_centres
-                    a1 = a[1] + nrigid_centres
-                    a2 = a[2] + nrigid_centres
+                if self.rigidBody:  # center particles are at the front of the arrays, so everything gets shifted up
+                    a0 = a[0] + nRigidParticles
+                    a1 = a[1] + nRigidParticles
+                    a2 = a[2] + nRigidParticles
                 else:
                     a0, a1, a2 = a
-                snap.angles.group[i] = [a0, a1, a2]
-                snap.angles.typeid[i] = self.angle_types.index(data.angleLabels[i])
+                snapshot.angles.group[i] = [a0, a1, a2]
+                snapshot.angles.typeid[i] = self.angle_types.index(data.angleLabels[i])
 
         # Add Dihedrals
         if doDihedral and len(self.dihedral_types):
-            snap.dihedrals.resize(len(data.propers))
+            snapshot.dihedrals.resize(len(data.propers))
             for i, d in enumerate(data.propers):
-                if rigidBody:  # center particles are at the front of the arrays, so everything gets shifted up
-                    d0 = d[0] + nrigid_centres
-                    d1 = d[1] + nrigid_centres
-                    d2 = d[2] + nrigid_centres
-                    d3 = d[3] + nrigid_centres
+                if self.rigidBody:  # center particles are at the front of the arrays, so everything gets shifted up
+                    d0 = d[0] + nRigidParticles
+                    d1 = d[1] + nRigidParticles
+                    d2 = d[2] + nRigidParticles
+                    d3 = d[3] + nRigidParticles
                 else:
                     d0, d1, d2, d3 = d
-                snap.dihedrals.group[i] = [d0, d1, d2, d3]
-                snap.dihedrals.typeid[i] = self.dihedral_types.index(data.properLabels[i])
+                snapshot.dihedrals.group[i] = [d0, d1, d2, d3]
+                snapshot.dihedrals.typeid[i] = self.dihedral_types.index(data.properLabels[i])
 
         # Populate  particle data
         # particle attributes:  acceleration, angmom, body, charge, diameter, image, is_accel_set, mass,
         # moment_inertia, orientation, position, typeid, types, velocity
-        for i in range(nparticles):
-            if rigidBody:
-                if i < nrigid_centres:
-                    # Add possible angmom, moment_inertia, orientation
-                    snap.particles.body[i] = data.rigid_body[i]
-                    snap.particles.image[i] = data.rigid_image[i]
-                    snap.particles.mass[i] = data.rigid_mass[i]
-                    snap.particles.moment_inertia[i] = data.rigid_moment_inertia[i]
-                    snap.particles.position[i] = data.rigid_centre[i]
-                    snap.particles.typeid[i] = self.particle_types.index(data.rigid_type[i])
-                else:
-                    snap.particles.body[i] = data.bodies[i - nrigid_centres]
-                    if doCharges: snap.particles.charge[i] = data.charges[i - nrigid_centres]
-                    snap.particles.diameter[i] = data.diameters[i - nrigid_centres]
-                    snap.particles.image[i] = data.images[i - nrigid_centres]
-                    snap.particles.mass[i] = data.masses[i - nrigid_centres]
-                    snap.particles.position[i] = data.coords[i - nrigid_centres]
-                    snap.particles.typeid[i] = self.particle_types.index(data.atomTypes[i - nrigid_centres])
-            else:
-                if doCharges: snap.particles.charge[i] = data.charges[i]
-                snap.particles.diameter[i] = data.diameters[i]
-                snap.particles.image[i] = data.images[i]
-                snap.particles.mass[i] = data.masses[i]
-                snap.particles.position[i] = data.coords[i]
-                snap.particles.typeid[i] = self.particle_types.index(data.atomTypes[i])
-        return snap
+        if self.rigidBody:
+            for i, rp in enumerate(data.rigidParticles):
+                snapshot.particles.body[i] = i
+                snapshot.particles.body[i] = rp.image
+                snapshot.particles.mass[i] = rp.mass
+                snapshot.particles.position[i] = rp.position
+                snapshot.particles.typeid[i] = snapshot.particles.types.index(rp.type)
+                snapshot.particles.moment_inertia[i] = rp.principalMoments
+            # Then add in the constituent molecule particles
+            idx = i + 1
+            for i, rp in enumerate(data.rigidParticles):
+                for j in range(rp.m_positions.shape[0]):
+                    snapshot.particles.body[idx] = i
+                    if doCharges:
+                        snapshot.particles.charge[i] = rp.m_charges[i]
+                    snapshot.particles.diameters[i] = rp.m_diameters[i]
+                    snapshot.particles.image[i] = X
+                    snapshot.particles.mass[i] = rp.m_masses[i] # Only need to display consituent particles in gsd file
+                    snapshot.particles.position[idx] = rp.m_positions[j]
+                    snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.m_types[j])
+                    idx += 1
+        else:
+            for i in range(nparticles):
+                if doCharges:
+                    snapshot.particles.charge[i] = data.charges[i]
+                snapshot.particles.diameter[i] = data.diameters[i]
+                snapshot.particles.image[i] = data.images[i]
+                snapshot.particles.mass[i] = data.masses[i]
+                snapshot.particles.position[i] = data.coords[i]
+                snapshot.particles.typeid[i] = self.particleTypes.index(data.atomTypes[i])
+        return snapshot
 
     def optimiseGeometry(self,
                           data,
@@ -207,11 +215,12 @@ class Hoomd2(object):
             self.rCut = rCut
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
+        self.rigidBody = rigidBody
         self.setupContext(quiet=quiet)
-        snapshot = self.createSnapshot(data, rigidBody=rigidBody, doCharges=doCharges, doDihedral=doDihedral)
-        self.setupSimulation(snapshot, data, rCut, rigidBody=rigidBody, walls=walls, wallAtomType=wallAtomType)
+        snapshot = self.createSnapshot(data, doCharges=doCharges, doDihedral=doDihedral)
+        self.setupSimulation(snapshot, data, rCut, walls=walls, wallAtomType=wallAtomType)
         hlog = self._createLog('geomopt.tsv')
-        optimised = self._optimiseGeometry(rigidBody=rigidBody, **kw)
+        optimised = self._optimiseGeometry(**kw)
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
@@ -220,7 +229,6 @@ class Hoomd2(object):
         return optimised
 
     def _optimiseGeometry(self,
-                          rigidBody=True,
                           optCycles=1000000,
                           dump=False,
                           dumpPeriod=1,
@@ -306,11 +314,12 @@ class Hoomd2(object):
             self.rCut = rCut
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
+        self.rigidBody = rigidBody
         self.setupContext(quiet=quiet)
-        snapshot = self.createSnapshot(data, rigidBody=rigidBody, doCharges=doCharges, doDihedral=doDihedral)
-        self.setupSimulation(snapshot, data, rCut, rigidBody=rigidBody, walls=walls, wallAtomType=wallAtomType)
+        snapshot = self.createSnapshot(data, doCharges=doCharges, doDihedral=doDihedral)
+        self.setupSimulation(snapshot, data, rCut, walls=walls, wallAtomType=wallAtomType)
         hlog = self._createLog('runmd.log')
-        self._runMD(rigidBody=rigidBody, **kw)
+        self._runMD(**kw)
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
@@ -319,7 +328,6 @@ class Hoomd2(object):
 
     def _runMD(self,
                mdCycles=100000,
-               rigidBody=True,
                integrator='nvt',
                T=1.0,
                tau=0.5,
@@ -390,10 +398,10 @@ class Hoomd2(object):
             dihedral_harmonic.dihedral_coeff.set(dihedral, k=param['k'], d=param['d'], n=param['n'])
         return
 
-    def setPairs(self, rCut, rigidBody):
+    def setPairs(self, rCut):
         nl = hoomd.md.nlist.cell()
         lj = hoomd.md.pair.lj(r_cut=rCut, nlist=nl)
-        for atype, btype in itertools.combinations_with_replacement(self.particle_types, 2):
+        for atype, btype in itertools.combinations_with_replacement(self.particleTypes, 2):
 #             # dummy atoms treated specially
 #             #if atype.lower() in ['x','hn'] or btype.lower() in ['x','hn']:
 #             if self.masked[i] or self.masked[j]:
@@ -426,14 +434,14 @@ class Hoomd2(object):
             hoomd.option.set_notice_level(0)
         return
 
-    def setupGroups(self, data, rigidBody):
+    def setupGroups(self, data):
         self.groupAll = hoomd.group.all()
         self.groupRigid = hoomd.group.rigid_center()
         # All atoms that are part of static fragments
         if any(data.static):
             self.groupStatic = hoomd.group.tag_list(name="static",
                                                       tags=[i for i, s in enumerate(data.static) if s])
-            if rigidBody:
+            if self.rigidBody:
                 self.groupActive = hoomd.group.difference(name="active",
                                                             a=self.groupRigid,
                                                             b=self.groupStatic)
@@ -442,26 +450,26 @@ class Hoomd2(object):
                                                             a=self.groupAll,
                                                             b=self.groupStatic)
         else:
-            if rigidBody:
+            if self.rigidBody:
                 self.groupActive = self.groupRigid
             else:
                 self.groupActive = self.groupAll
         return
 
-    def setupSimulation(self, snapshot, data, rCut=None, rigidBody=False, walls=None, wallAtomType=None):
+    def setupSimulation(self, snapshot, data, rCut=None, walls=None, wallAtomType=None):
         self.system = hoomd.init.read_snapshot(snapshot)
-        self.setupRigidBody(rigidBody, data)
+        self.setupRigidBody(data)
         self.checkParameters()
         self.setBonds()
         self.setAngles()
         self.setDihedrals()
-        self.setPairs(rCut, rigidBody)
-        self.setupGroups(data, rigidBody)
+        self.setPairs(rCut)
+        self.setupGroups(data)
         self.setupWalls(walls, wallAtomType, rCut)
         return
 
-    def setupRigidBody(self, rigidBody, data):
-        if not rigidBody: return
+    def setupRigidBody(self, data):
+        if not self.rigidBody: return
         rigid = hoomd.md.constrain.rigid()
         for ftype, fdata in data.rigid_fragments.iteritems():
             rigid.set_param(ftype,
@@ -512,7 +520,7 @@ class Hoomd2(object):
                     except AttributeError:
                         raise RuntimeError('HOOMD-blue wall does not have a group attribute. You may need to update your version of HOOMD-Blue in order to use walls')
                     lj = hoomd.md.wall.lj(wallstructure, r_cut=rCut)
-                    for atype in self.particle_types:
+                    for atype in self.particleTypes:
                         param = self.ffield.pairParameter(atype, wallAtomType)
                         lj.force_coeff.set(atype, epsilon=param['epsilon'], sigma=param['sigma'])
 
@@ -529,9 +537,9 @@ class Hoomd2(object):
         snapshot = self.system.take_snapshot()
         # If we are running under rigid bodies we need to exclude the center particles,
         # which will be at the start of the particle list
-        nrigid_centers = len(hoomd.group.rigid_center())
+        nRigidCenters = len(hoomd.group.rigid_center())
         # Read back in the particle positions
-        atomCount = nrigid_centers
+        atomCount = nRigidCenters
         for block in cell.blocks.itervalues():
             for k in range(block.numAtoms()):
                 coord = xyz_core.unWrapCoord3(snapshot.particles.position[ atomCount ],
