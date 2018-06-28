@@ -19,7 +19,7 @@ ENDGROUPBONDED = '*'
 logger = logging.getLogger()
 
 class RigidParticle(object):
-    def __init__(self, body, d_idx_start=None, cell_dim=None, center=False):
+    def __init__(self, body, bodyIdx, d_idx_start=None, cell_dim=None, center=False):
         # Attributes of the central particle
         self.image = np.array([0, 0, 0])
         self.mass = None
@@ -36,25 +36,25 @@ class RigidParticle(object):
         self.b_positions = None
         self.b_atomTypes = None
         
-        self.fromBody(body, d_idx_start=d_idx_start, cell_dim=cell_dim, center=center)
+        self.fromBody(body, bodyIdx, d_idx_start=d_idx_start, cell_dim=cell_dim, center=center)
     
-    def fromBody(self, body, d_idx_start=None, cell_dim=None, center=False):
+    def fromBody(self, body, bodyIdx, d_idx_start=None, cell_dim=None, center=False):
         coords = body.coords
         self.natoms = coords.shape[0]
         com = xyz_core.centreOfMass(coords, body.masses)
+        self.b_positions = coords - com # coordinate positions relative to com
         if cell_dim is not None:
-            com, com_image = xyz_core.wrapCoord3(com, dim=cell_dim, center=center)
+            com, self.image = xyz_core.wrapCoord3(com, dim=cell_dim, center=center)
         self.position = com
-        self.b_positions = coords - com # coordinates relative to central particle
-        self.b_images = np.tile(com_image, [self.natoms, 1]) # image same for constituent particles as central
+        self.mass = np.sum(body.masses)
+        self.principalMoments = xyz_core.principalMoments(coords, body.masses)
+        self.type = "CP%d" % bodyIdx
+        # Specify properties of consituent particles
         if d_idx_start is not None:
             self.d_idx_start = d_idx_start
             self.d_idx_end = self.d_idx_start + self.natoms
-        self.mass = np.sum(body.masses)
-        self.principalMoments = xyz_core.principalMoments(coords, body.masses)
-        self.type = "CP%d" % body.bodyIndex
-        # Specify types and position of consituent particles
-        # The positions of the constituent particles need to be relative to the central particle
+        # To save memory can move to just saving the indices of the elements in the data array
+        print "SETTING CHARGES ",self.natoms, body.natoms, body.charges
         self.b_charges = body.charges
         self.b_diameters = body.diameters
         self.b_masses = body.masses
@@ -115,7 +115,7 @@ class Body(object):
     @property
     def masses(self):
         return np.compress(self.indexes, self.fragment._masses, axis=0)
-
+    
     @property
     def principalMoments(self):
         return xyz_core.principalMoments(self.coords(), self.masses)
@@ -125,8 +125,8 @@ class Body(object):
         """return the type of this body based on the endGroup configuration"""
         return "{}{}{}".format(self.fragment.fragmentType, self.fragment.configStr, self.bodyIndex)
     
-    def rigidParticle(self, d_idx_start=None, cell_dim=None, center=False):
-        return RigidParticle(self, d_idx_start=d_idx_start, cell_dim=cell_dim, center=center)
+    def rigidParticle(self, bodyIdx, d_idx_start=None, cell_dim=None, center=False):
+        return RigidParticle(self, bodyIdx, d_idx_start=d_idx_start, cell_dim=cell_dim, center=center)
 
     @property
     def static(self):

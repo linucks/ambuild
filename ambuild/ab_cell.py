@@ -1036,7 +1036,8 @@ class Cell():
             for frag in block.fragments:  # need index of fragment in block
                 for body in frag.bodies():
                     if RIGIDPARTICLES:
-                        d.rigidParticles.append(body.rigidParticle(d_idx_start=atomIdx,
+                        d.rigidParticles.append(body.rigidParticle(bodyIdx=bodyIdx,
+                                                                   d_idx_start=atomIdx,
                                                                    cell_dim=self.dim,
                                                                    center=center))
                     coords = body.coords
@@ -1045,7 +1046,7 @@ class Cell():
                     d.images += list(images)
                     btypes = body.atomTypes
                     d.atomTypes += btypes
-                    d.bodies += [bodyIdx for b in body.bodies]
+                    d.bodies += [bodyIdx] * body.natoms
                     d.charges += body.charges
                     d.diameters += body.diameters
                     d.masked += body.masked

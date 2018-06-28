@@ -182,11 +182,11 @@ class Hoomd2(object):
                 for j in range(rp.natoms):
                     snapshot.particles.body[idx] = i
                     if doCharges:
-                        snapshot.particles.charge[i] = rp.b_charges[i]
-                    snapshot.particles.diameter[i] = rp.b_diameters[i]
-                    snapshot.particles.image[i] = rp.image
+                        snapshot.particles.charge[idx] = rp.b_charges[j]
+                    snapshot.particles.diameter[idx] = rp.b_diameters[j]
+                    snapshot.particles.image[idx] = rp.image
                     warnings.warn("USE d_idx_start to save copying these twice")
-                    snapshot.particles.mass[i] = rp.b_masses[i]
+                    snapshot.particles.mass[idx] = rp.b_masses[j]
                     snapshot.particles.position[idx] = rp.b_positions[j]
                     snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.b_atomTypes[j])
                     idx += 1
@@ -470,13 +470,17 @@ class Hoomd2(object):
         return
 
     def setupRigidBody(self, data):
-        if not self.rigidBody: return
+        if not self.rigidBody:
+            return
         rigid = hoomd.md.constrain.rigid()
-        for ftype, fdata in data.rigid_fragments.iteritems():
-            rigid.set_param(ftype,
-                            types=fdata['atomTypes'],
-                            positions=data.coords[fdata['coord_idxs'][0] : fdata['coord_idxs'][1]])
-            #self.exclusions.append(ftype)
+#         for ftype, fdata in data.rigid_fragments.iteritems():
+#             rigid.set_param(ftype,
+#                             types=fdata['atomTypes'],
+#                             positions=data.coords[fdata['coord_idxs'][0] : fdata['coord_idxs'][1]])
+        for rp in data.rigidParticles:
+            rigid.set_param(rp.type,
+                            positions=rp.b_positions,
+                            types=rp.b_atomTypes)
         rigid.validate_bodies()
         return
 
