@@ -10,7 +10,7 @@ import hoomd.md
 
 BOX_WIDTH = 20.0
 
-def setup():
+def setup(boxdim):
     from ab_cell import Cell
     from ab_block import Block
     
@@ -28,27 +28,23 @@ def setup():
     endGroup2 = b2.freeEndGroups()[ 0 ]
     b1.positionGrowBlock(endGroup1, endGroup2)
     
+    blocks = [b1, b2]
     if False:
-        b = list(b1.fragments[0].bodies())[0]
-        print b.symbols()
-        print b.coords()
-        b = list(b2.fragments[0].bodies())[0]
-        print b.symbols()
-        print b.coords()
-    else:
         b3 = b2.copy() # Copy before bonding so can move away from bonded pair 
         bond = ab_bond.Bond(endGroup1, endGroup2)
         bond.engage()
         b3.translate([3.0, 0.0, 0.0])
+        blocks = [b1, b3]
     
-    for f in b1.fragments:
-        for b in f.bodies():
-            print b.symbols()
-            print b.coords()
-    for f in b3.fragments:
-        for b in f.bodies():
-            print b.symbols()
-            print b.coords()
+    for b in blocks:
+        b.
+    
+    for b in blocks:
+        for f in b.fragments:
+            for b in f.bodies():
+                print b.symbols()
+                print b.coords()
+
 
 
 def wrapBox(positions, boxdim):
@@ -122,6 +118,9 @@ def principalMoments(coords, masses):
     I = momentOfInertia(coords, masses)
     eigval, eigvec = np.linalg.eig(I)
     return np.sort(eigval)
+
+
+sys.exit()
 
 
 bonded = True

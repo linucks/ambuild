@@ -101,9 +101,12 @@ class Hoomd2(object):
         if self.rigidBody:
             # Combined size includes rigid centre and constituent particles
             nRigidParticles = len(data.rigidParticles)
-            nparticles = len(data.coords) + nRigidParticles
+            nparticles = data.natoms + nRigidParticles
             rigidCenters = set([r.type for r in data.rigidParticles])
-            self.particleTypes = list(set(data.atomTypes).union(rigidCenters))
+            atomTypes = set()
+            for r in data.rigidParticles:
+                atomTypes.update(r.b_atomTypes)
+            self.particleTypes = list(atomTypes.union(rigidCenters))
             self.exclusions = list(rigidCenters)
         else:
             nparticles = len(data.coords)
@@ -364,7 +367,8 @@ class Hoomd2(object):
         return
 
     def setBonds(self):
-        if not self.bond_types: return
+        if not self.bond_types:
+            return
         bond_harmonic = hoomd.md.bond.harmonic(name="bond_harmonic")
         for bond in self.bond_types:
             param = self.ffield.bondParameter(bond)

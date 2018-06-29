@@ -1035,25 +1035,25 @@ class Cell():
             # Now loop through fragments and coordinates
             for frag in block.fragments:  # need index of fragment in block
                 for body in frag.bodies():
+                    d.natoms += body.natoms
+                    atomIdx += body.natoms
                     if RIGIDPARTICLES:
-                        d.rigidParticles.append(body.rigidParticle(bodyIdx=bodyIdx,
-                                                                   d_idx_start=atomIdx,
+                        d.rigidParticles.append(body.rigidParticle(bodyIdx,
                                                                    cell_dim=self.dim,
                                                                    center=center))
-                    coords = body.coords
-                    coords, images = xyz_core.wrapCoord3(coords, dim=self.dim, center=center)
-                    d.coords += list(coords)
-                    d.images += list(images)
-                    btypes = body.atomTypes
-                    d.atomTypes += btypes
-                    d.bodies += [bodyIdx] * body.natoms
-                    d.charges += body.charges
-                    d.diameters += body.diameters
-                    d.masked += body.masked
-                    d.masses += list(body.masses)
-                    d.static += body.static
-                    d.symbols += body.symbols
-                    atomIdx += len(coords)
+                    else:
+                        coords = body.coords
+                        coords, images = xyz_core.wrapCoord3(coords, dim=self.dim, center=center)
+                        d.coords += list(coords)
+                        d.images += list(images)
+                        d.atomTypes += body.atomTypes
+                        d.bodies += [bodyIdx] * body.natoms
+                        d.charges += body.charges
+                        d.diameters += body.diameters
+                        d.masked += body.masked
+                        d.masses += list(body.masses)
+                        d.static += body.static
+                        d.symbols += body.symbols
                 bodyIdx += 1
         return d
 

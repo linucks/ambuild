@@ -19,7 +19,7 @@ ENDGROUPBONDED = '*'
 logger = logging.getLogger()
 
 class RigidParticle(object):
-    def __init__(self, body, bodyIdx, d_idx_start=None, cell_dim=None, center=False):
+    def __init__(self, body, bodyIdx, cell_dim=None, center=False):
         # Attributes of the central particle
         self.image = np.array([0, 0, 0])
         self.mass = None
@@ -28,17 +28,15 @@ class RigidParticle(object):
         self.natoms = 0
         self.type = None
         # Attributes if the constituent particles
-        self.d_idx_start = None # where the particles start and end in the overall list of particles
-        self.d_idx_end = None
         self.b_charges = None # NB use index to prevent storing these twice
         self.b_diameters = None # NB use index to prevent storing these twice
         self.b_masses = None
         self.b_positions = None
         self.b_atomTypes = None
         
-        self.fromBody(body, bodyIdx, d_idx_start=d_idx_start, cell_dim=cell_dim, center=center)
+        self.fromBody(body, bodyIdx, cell_dim=cell_dim, center=center)
     
-    def fromBody(self, body, bodyIdx, d_idx_start=None, cell_dim=None, center=False):
+    def fromBody(self, body, bodyIdx, cell_dim=None, center=False):
         coords = body.coords
         self.natoms = coords.shape[0]
         com = xyz_core.centreOfMass(coords, body.masses)
@@ -50,11 +48,7 @@ class RigidParticle(object):
         self.principalMoments = xyz_core.principalMoments(coords, body.masses)
         self.type = "CP%d" % bodyIdx
         # Specify properties of consituent particles
-        if d_idx_start is not None:
-            self.d_idx_start = d_idx_start
-            self.d_idx_end = self.d_idx_start + self.natoms
         # To save memory can move to just saving the indices of the elements in the data array
-        print "SETTING CHARGES ",self.natoms, body.natoms, body.charges
         self.b_charges = body.charges
         self.b_diameters = body.diameters
         self.b_masses = body.masses
@@ -125,8 +119,8 @@ class Body(object):
         """return the type of this body based on the endGroup configuration"""
         return "{}{}{}".format(self.fragment.fragmentType, self.fragment.configStr, self.bodyIndex)
     
-    def rigidParticle(self, bodyIdx, d_idx_start=None, cell_dim=None, center=False):
-        return RigidParticle(self, bodyIdx, d_idx_start=d_idx_start, cell_dim=cell_dim, center=center)
+    def rigidParticle(self, bodyIdx, cell_dim=None, center=False):
+        return RigidParticle(self, bodyIdx, cell_dim=cell_dim, center=center)
 
     @property
     def static(self):
