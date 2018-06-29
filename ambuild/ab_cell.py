@@ -1078,7 +1078,6 @@ class Cell():
                 del self.box1[key]
                 del self.box3[key]
         del self.blocks[blockId]
-        # del block # Don't want to delete the block as we might be saving it
         return
 
     def deleteBlocks(self, fragmentTypes=None, indices=None, maxFrags=1, numBlocks=0):
@@ -1113,7 +1112,6 @@ class Cell():
         for i, idx in enumerate(indices):
             if not (type(idx) is int and (0 <= idx < len(self.blocks))):
                 raise RuntimeError("Bad value for index {0} : {1}".format(i,idx))
-
         toRemove = [ (blockId, block) for i, (blockId, block) in enumerate(self.blocks.items())  if i in indices ]
         removed = []
         for blockId, block in toRemove:
@@ -1806,10 +1804,7 @@ class Cell():
         mdEngine = self.mdEngineCls(self.paramsDir)
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
-        if 'rCut' in kw:
-            self.rCut = kw['rCut']
-        else:
-            self.rCut = mdEngine.rCut
+        self.setRcut(rigidBody, mdEngine, kw)
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
         d = {}  # for printing results
         ok = mdEngine.optimiseGeometry(data,
@@ -1998,10 +1993,7 @@ class Cell():
         mdEngine = self.mdEngineCls(self.paramsDir)
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
-        if 'rCut' in kw:
-            self.rCut = kw['rCut']
-        else:
-            self.rCut = mdEngine.rCut
+        self.setRcut(rigidBody, mdEngine, kw)
         d = {}
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
         ok = mdEngine.runMD(data,
@@ -2037,11 +2029,7 @@ class Cell():
         assert rigidBody, "FIX runMD FOR ALL ATOM!!"
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
-
-        if 'rCut' in kw:
-            self.rCut = kw['rCut']
-        else:
-            self.rCut = mdEngine.rCut
+        self.setRcut(rigidBody, mdEngine, kw)
         d = {}
         data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
         ok = mdEngine.runMDAndOptimise(data,
@@ -2239,6 +2227,22 @@ class Cell():
             from hoomd2 import Hoomd2
             self.mdEngineCls = Hoomd2
         logger.info("Using HOOMD-BLUE version: {0}.{1}.{2}".format(*ab_util.HOOMDVERSION))
+        return
+    
+    def setRcut(self, rigidBody, mdEngine, kw):
+        """if rCut not in kw, for hoomd2 rigidBodies calculate from max block size or use mdEngine default"""
+        RIGIDPARTICLES = rigidBody and ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] > 1
+        if 'rCut' in kw:
+            rCut = kw['rCut']
+        elif RIGIDPARTICLES:
+            rmax =  max([b.blockRadius() for b in self.blocks.values()])
+            cell_r = np.max(self.dim) / 2
+            rCut = min(rmax, cell_r)
+        else:
+            rCut = mdEngine.rCut
+        self.rCut =rCut
+        logger.debug("Set rCut to %f", rCut)
+        return
 
     def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType='c'):
         """Create walls along the specified sides.

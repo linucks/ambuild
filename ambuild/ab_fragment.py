@@ -140,31 +140,26 @@ class EndGroup(object):
 
         self.blocked = False # Used for indicating that this endGroup is unbonded but not free
         self.bonded = False
-
         self._endGroupType = None
-
         self.fragment = None
-
         self.fragmentEndGroupIdx = None
         self.blockEndGroupIdx = None
-
         self.fragmentCapIdx = None
         self.blockCapIdx = None
         self.capBondLength = None
-
         self.fragmentDihedralIdx = -1
         self.blockDihedralIdx = -1
-
         self.fragmentUwIdx = -1
         self.blockUwIdx = -1
-
         return
 
     def block(self):
         f = True
         b = True
-        if self.fragment.block is None: b = False
-        if self.fragment is None: f = False
+        if self.fragment.block is None:
+            b = False
+        if self.fragment is None:
+            f = False
         if not b and f:
             raise RuntimeError("None Block {0} Fragment {1}\n{2}".format(b, f, self))
         return self.fragment.block
@@ -756,21 +751,17 @@ class Fragment(object):
         return sum([nbonded for nbonded in self._endGroupBonded.values() ])
 
     def parseEndgroupFile(self, filePath):
-
         dirname, filename = os.path.split(filePath)
         basename, suffix = os.path.splitext(filename)
-
         endGroupTypes = []
         endGroups = []
         capAtoms = []
         uwAtoms = []
         dihedralAtoms = []
-
         egfile = os.path.join(dirname, basename + ".csv")
         if not os.path.isfile(egfile):
             logger.critical("No endGroup definition file supplied for file: {0}".format(filePath))
             return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
-
         with open(egfile) as fh:
             csvreader = csv.reader(fh, delimiter=',', quotechar='"')
             for i, row in enumerate(csvreader):
@@ -781,11 +772,9 @@ class Fragment(object):
                     row[3].lower() == "delatom":
                         raise RuntimeError("First line of csv file must contain header line:\ntype,endgroup,capatom,dihedral,delatom")
                     continue
-
                 # skip blank lines
                 if not len(row):
                     continue
-
                 # For now make sure first value is letter
                 assert row[0][0].isalpha(), "First column of ambi file needs to be a letter!"
                 endGroupTypes.append(row[0])
@@ -799,10 +788,8 @@ class Fragment(object):
                     uwAtoms.append(int(row[4]))
                 else:
                     uwAtoms.append(-1)
-
             if self.fragmentType == 'cap' and len(endGroups) != 1:
                 raise RuntimeError("Capfile had >1 endGroup specified!")
-
         return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
 
     def processBodies(self, filepath):

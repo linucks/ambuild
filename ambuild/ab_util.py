@@ -46,33 +46,36 @@ def cellFromPickle(pickleFile, paramsDir=None):
         if type(fragment._coords) is list:
             fragment._coords = np.array(fragment._coords)
             fragment._masses = np.array(fragment._masses)
-        if not hasattr(fragment,'_atomTypes'):
+        if not hasattr(fragment, '_atomTypes'):
             fragment._atomTypes = fragment._types
             fragment._sharedAttrs['_atomTypes'] = None
-        if not hasattr(fragment,'solvent'):
+        if not hasattr(fragment, 'solvent'):
             # Solvent is a new attribute so we set to false
             fragment.solvent = False
             fragment._sharedAttrs['solvent'] = None
-        if not hasattr(fragment,'onbondFunction'):
+        if not hasattr(fragment, 'static'):
+            # Static is a new attribute so we set to false
+            fragment.static = False
+            fragment._sharedAttrs['static'] = False
+        if not hasattr(fragment, 'onbondFunction'):
             fragment.onbondFunction = None
             fragment._sharedAttrs['onbondFunction'] = None
-        if not hasattr(fragment,'markBonded'):
+        if not hasattr(fragment, 'markBonded'):
             fragment.markBonded = None
             fragment._sharedAttrs['markBonded'] = None
-        if not hasattr(fragment,'unBonded'):
+        if not hasattr(fragment, 'unBonded'):
             fragment.unBonded = [ False ] * len(fragment._coords)
             fragment._individualAttrs['unBonded'] = None
-        if not hasattr(fragment,'catalyst'):
+        if not hasattr(fragment, 'catalyst'):
             fragment.catalyst = False
             fragment._sharedAttrs['catalyst'] = False
-        if not hasattr(fragment,'config'):
+        if not hasattr(fragment, 'config'):
             fragment.config = [True if eg.free() else False for eg in fragment._endGroups]
             fragment._individualAttrs['config'] = fragment.config
-        if not hasattr(fragment,'configStr'):
+        if not hasattr(fragment, 'configStr'):
             fragment.configStr = 'XX' # Not sure if worth recalculating these 
             fragment._individualAttrs['configStr'] = fragment.configStr
         return
-    
     if not os.path.isfile(pickleFile):
         raise RuntimeError("Cannot find file: {}".format(pickleFile))
     if pickleFile.endswith(GZIP_PKL_SUFFIX):

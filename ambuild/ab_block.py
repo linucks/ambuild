@@ -256,7 +256,8 @@ class Block(object):
         return self._update()
     
     def blockRadius(self):
-        if self._changed: self._calcProperties()
+        if self._changed:
+            self._calcProperties()
         return self._radius
     
     def _calcCenters(self):
@@ -274,23 +275,19 @@ class Block(object):
         return
 
     def _calcRadius(self):
-        """
-        Calculate a simple size metric of the block so that we can screen for whether
+        """Calculate a simple size metric of the block so that we can screen for whether
         two blocks are within touching distance
         Assumes centroid already calculated
         """
-
         distances = []
         self._maxAtomRadius = 0.0
         for f in self.fragments:
             for coord in f.iterCoord():
                 distances.append(xyz_core.distance(self._centroid, coord))
                 self._maxAtomRadius = max(f.maxAtomRadius(), self._maxAtomRadius)
-
         assert distances
         imax = np.argmax(distances)
-        dist = distances[ imax ]
-
+        dist = distances[imax]
         # Add on the radius of the largest atom
         self._radius = dist + self.maxAtomRadius()
         return

@@ -39,7 +39,7 @@ class Hoomd2(object):
         self.rCut = 5.0
         self.system = None
         self.rigidBody = False
-        self.exclusions = []  # particle tags to be ignored in pair-pair interactions
+        self.exclusions = set()  # particle tags to be ignored in pair-pair interactions
 
     def checkParameters(self, skipDihedrals=False):
         assert self.ffield
@@ -95,7 +95,7 @@ class Hoomd2(object):
         Rigid body will require creating the central particles so we'll do this later
         """
         # Reset exclusions here for time being
-        self.exclusions = []
+        self.exclusions = set()
         # Create snapshot
         # snap attributes: angles, bonds, box, constraints, dihedrals, impropers, pairs, particles
         if self.rigidBody:
@@ -107,7 +107,7 @@ class Hoomd2(object):
             for r in data.rigidParticles:
                 atomTypes.update(r.b_atomTypes)
             self.particleTypes = list(atomTypes.union(rigidCenters))
-            self.exclusions = list(rigidCenters)
+            self.exclusions = set(rigidCenters)
         else:
             nparticles = len(data.coords)
             self.particleTypes = list(set(data.atomTypes))
@@ -115,7 +115,6 @@ class Hoomd2(object):
         assert nparticles > 0, "Simulation needs some particles!"
         # NEED TO THINK ABOUT WHAT TO DO ABOUT MASKED ATOMS - set particleTypes?
         # self.masked = data.masked
-
         self.bond_types = list(set(data.bondLabels)) if len(data.bonds) else []
         self.angle_types = list(set(data.angleLabels)) if len(data.angles) else []
         self.dihedral_types = list(set(data.properLabels)) if len(data.propers) and doDihedral else []
@@ -425,7 +424,7 @@ class Hoomd2(object):
                 logger.info("DEBUG: lj.pair_coeff.set('{0}', '{1}', epsilon={2}, sigma={3} )".format(atype,
                                                                                                      btype,
                                                                                                      epsilon,
-                                                                                                     sigma))
+                                                                                                     sigma))        
         # Don't think we need to include body any more for rigid bodies, as these are already excluded by default?
         # nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
         # nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
