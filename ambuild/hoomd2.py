@@ -543,13 +543,13 @@ class Hoomd2(object):
         else:
             atomIdx = 0
         for block in cell.blocks.itervalues():
-            for k in range(block.numAtoms()):
+            for i in range(block.numAtoms()):
                 coord = snapshot.particles.position[atomIdx]
                 coord = xyz_core.unWrapCoord3(coord,
                                               snapshot.particles.image[atomIdx],
                                               box,
                                               centered=True)
-                block.coord(k, coord)
+                block.coord(i, coord)
                 atomIdx += 1
         if atomIdx != snapshot.particles.N:
             raise RuntimeError("Read {0} positions but there were {1} particles!".format(atomIdx, len(self.system.particles)))
