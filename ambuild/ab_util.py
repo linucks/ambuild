@@ -17,13 +17,17 @@ if PYTHONFLAVOUR < 3:
 else:
     import pickle
 
-from ab_paths import PARAMS_DIR
+from ab_paths import PARAMS_DIR, AMBUILD_DIR
 import xyz_util
+# for unpickling some files need to make sure AMBUILD_DIR is in path
+sys.path.insert(0,AMBUILD_DIR)
 
 HOOMDVERSION = None
 try:
     import hoomd
     HOOMDVERSION = hoomd.__version__
+    if isinstance(HOOMDVERSION, str):
+        HOOMDVERSION = [int(i) for i in HOOMDVERSION.split('.')]
     del hoomd
 except Exception:
     pass
@@ -88,9 +92,6 @@ def cellFromPickle(pickleFile, paramsDir=None):
         raise RuntimeError('Unrecognised pkl file suffix for file {}. Use {} or {}'.format(pickleFile,
                                                                                            PKL_SUFFIX,
                                                                                            GZIP_PKL_SUFFIX))
-    mode = 'r'
-    if compressed or PYTHONFLAVOUR == 3:
-        mode += 'b'
     # This is another terrible hack for dealing with old pkl files that used the old class names
     import ab_block
     import ab_bond
@@ -101,6 +102,9 @@ def cellFromPickle(pickleFile, paramsDir=None):
     sys.modules['buildingBlock'] = ab_block
     sys.modules['cell'] = ab_cell
     sys.modules['fragment'] = ab_fragment
+    mode = 'r'
+    if compressed or PYTHONFLAVOUR == 3:
+        mode += 'b'
     # Renamed cell class so need to alias here for old files
     with popen(pickleFile, mode) as f:
         myCell = pickle.load(f)

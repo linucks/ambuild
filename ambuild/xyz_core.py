@@ -698,11 +698,9 @@ def unWrapCoord3(coord, image, ldim, centered=False, inplace=False):
         coord = np.copy(coord)
     if centered:
         # Put it back with origin at corner
-        #coord += ldim / 2
-        coord =  coord + ldim / 2
-        assert np.all((coord >= 0.0) & (coord <= ldim))
-    # Now move it according to its image
-    coord = coord + ldim * image
+        coord += ldim / 2
+        assert np.all((coord >= 0.0) & (coord <= ldim)), "Coords out of cell: {} : {}".format(coord, ldim)
+    coord = coord + ldim * image # Move according to image
     return coord
 
 

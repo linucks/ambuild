@@ -4,7 +4,6 @@
 import itertools
 import logging
 import sys
-import warnings
 
 # 3rd-party imports
 import hoomd
@@ -119,15 +118,11 @@ class Hoomd2(object):
         self.angle_types = list(set(data.angleLabels)) if len(data.angles) else []
         self.dihedral_types = list(set(data.properLabels)) if len(data.propers) and doDihedral else []
         snapshot = hoomd.data.make_snapshot(N=nparticles,
-                                        box=hoomd.data.boxdim(Lx=data.cell[0], Ly=data.cell[1], Lz=data.cell[2]),
-                                        particle_types=self.particleTypes,
-                                        bond_types=self.bond_types,
-                                        angle_types=self.angle_types,
-                                        dihedral_types=self.dihedral_types,
-                                        # pair_types = pair_types
-                                        )
-        warnings.warn("FIX PAIRS")
-
+                                            box=hoomd.data.boxdim(Lx=data.cell[0], Ly=data.cell[1], Lz=data.cell[2]),
+                                            particle_types=self.particleTypes,
+                                            bond_types=self.bond_types,
+                                            angle_types=self.angle_types,
+                                            dihedral_types=self.dihedral_types)
         # Add Bonds
         if len(self.bond_types):
             snapshot.bonds.resize(len(data.bonds))
@@ -187,10 +182,10 @@ class Hoomd2(object):
                         snapshot.particles.charge[idx] = rp.b_charges[j]
                     snapshot.particles.diameter[idx] = rp.b_diameters[j]
                     snapshot.particles.image[idx] = rp.image
-                    warnings.warn("USE d_idx_start to save copying these twice")
                     snapshot.particles.mass[idx] = rp.b_masses[j]
                     snapshot.particles.position[idx] = rp.b_positions[j]
                     snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.b_atomTypes[j])
+                    print "ADDING ", idx, snapshot.particles.typeid[idx]
                     idx += 1
         else:
             for i in range(nparticles):
@@ -221,7 +216,7 @@ class Hoomd2(object):
         self.rigidBody = rigidBody
         self.setupContext(quiet=quiet)
         snapshot = self.createSnapshot(data, doCharges=doCharges, doDihedral=doDihedral)
-        self.setupSimulation(snapshot, data, rCut, walls=walls, wallAtomType=wallAtomType)
+        self.setupSimulation(snapshot, data, walls=walls, wallAtomType=wallAtomType)
         hlog = self._createLog('geomopt.tsv')
         optimised = self._optimiseGeometry(**kw)
         # Extract the energy
@@ -320,7 +315,7 @@ class Hoomd2(object):
         self.rigidBody = rigidBody
         self.setupContext(quiet=quiet)
         snapshot = self.createSnapshot(data, doCharges=doCharges, doDihedral=doDihedral)
-        self.setupSimulation(snapshot, data, rCut, walls=walls, wallAtomType=wallAtomType)
+        self.setupSimulation(snapshot, data, walls=walls, wallAtomType=wallAtomType)
         hlog = self._createLog('runmd.log')
         self._runMD(**kw)
         # Extract the energy
@@ -402,9 +397,9 @@ class Hoomd2(object):
             dihedral_harmonic.dihedral_coeff.set(dihedral, k=param['k'], d=param['d'], n=param['n'])
         return
 
-    def setPairs(self, rCut):
+    def setPairs(self):
         nl = hoomd.md.nlist.cell()
-        lj = hoomd.md.pair.lj(r_cut=rCut, nlist=nl)
+        lj = hoomd.md.pair.lj(r_cut=self.rCut, nlist=nl)
         for atype, btype in itertools.combinations_with_replacement(self.particleTypes, 2):
 #             # dummy atoms treated specially
 #             #if atype.lower() in ['x','hn'] or btype.lower() in ['x','hn']:
@@ -460,16 +455,16 @@ class Hoomd2(object):
                 self.groupActive = self.groupAll
         return
 
-    def setupSimulation(self, snapshot, data, rCut=None, walls=None, wallAtomType=None):
+    def setupSimulation(self, snapshot, data, walls=None, wallAtomType=None):
         self.system = hoomd.init.read_snapshot(snapshot)
         self.setupRigidBody(data)
         self.checkParameters()
         self.setBonds()
         self.setAngles()
         self.setDihedrals()
-        self.setPairs(rCut)
+        self.setPairs()
         self.setupGroups(data)
-        self.setupWalls(walls, wallAtomType, rCut)
+        self.setupWalls(walls, wallAtomType)
         return
 
     def setupRigidBody(self, data):
@@ -487,7 +482,7 @@ class Hoomd2(object):
         rigid.validate_bodies()
         return
 
-    def setupWalls(self, walls, wallAtomType, rCut):
+    def setupWalls(self, walls, wallAtomType):
         """Set up walls for the simulation
 
         I think that we require two walls. One on the front side with the potential facing in,
@@ -527,7 +522,7 @@ class Hoomd2(object):
                         wallstructure = hoomd.md.wall.group()
                     except AttributeError:
                         raise RuntimeError('HOOMD-blue wall does not have a group attribute. You may need to update your version of HOOMD-Blue in order to use walls')
-                    lj = hoomd.md.wall.lj(wallstructure, r_cut=rCut)
+                    lj = hoomd.md.wall.lj(wallstructure, r_cut=self.rCut)
                     for atype in self.particleTypes:
                         param = self.ffield.pairParameter(atype, wallAtomType)
                         lj.force_coeff.set(atype, epsilon=param['epsilon'], sigma=param['sigma'])
@@ -543,21 +538,21 @@ class Hoomd2(object):
         """Reset the particle positions from hoomdblue system"""
         box = np.array([self.system.box.Lx, self.system.box.Ly, self.system.box.Lz])
         snapshot = self.system.take_snapshot()
-        # If we are running under rigid bodies we need to exclude the center particles,
-        # which will be at the start of the particle list
-        nRigidCenters = len(hoomd.group.rigid_center())
-        # Read back in the particle positions
-        atomCount = nRigidCenters
+        if self.rigidBody:
+            atomIdx = len(hoomd.group.rigid_center())
+        else:
+            atomIdx = 0
         for block in cell.blocks.itervalues():
             for k in range(block.numAtoms()):
-                coord = xyz_core.unWrapCoord3(snapshot.particles.position[ atomCount ],
-                                          snapshot.particles.image[ atomCount ],
-                                          box,
-                                          centered=True)
+                coord = snapshot.particles.position[atomIdx]
+                coord = xyz_core.unWrapCoord3(coord,
+                                              snapshot.particles.image[atomIdx],
+                                              box,
+                                              centered=True)
                 block.coord(k, coord)
-                atomCount += 1
-        if atomCount != snapshot.particles.N:
-            raise RuntimeError("Read {0} positions but there were {1} particles!".format(atomCount, len(self.system.particles)))
+                atomIdx += 1
+        if atomIdx != snapshot.particles.N:
+            raise RuntimeError("Read {0} positions but there were {1} particles!".format(atomIdx, len(self.system.particles)))
 
         # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update
         # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks
