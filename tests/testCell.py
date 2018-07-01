@@ -1072,7 +1072,9 @@ class Test(unittest.TestCase):
         mycell = self.createTestCell()
         mycell.optimiseGeometry(doDihedral=True, quiet=True, optCycles=1000)
         self.assertFalse(self.clashes(mycell))
-        os.unlink("hoomdOpt.xml")
+        hxml = "hoomdOpt.xml"
+        if os.path.isfile(hxml):
+            os.unlink(hxml)
         return
     
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
@@ -1114,7 +1116,9 @@ class Test(unittest.TestCase):
                              dt=0.0005,
                          )
         self.assertFalse(self.clashes(mycell))
-        os.unlink("hoomdMD.xml")
+        hxml = "hoomdMD.xml"
+        if os.path.isfile(hxml):
+            os.unlink(hxml)
         return
     
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")

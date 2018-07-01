@@ -185,7 +185,6 @@ class Hoomd2(object):
                     snapshot.particles.mass[idx] = rp.b_masses[j]
                     snapshot.particles.position[idx] = rp.b_positions[j]
                     snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.b_atomTypes[j])
-                    print "ADDING ", idx, snapshot.particles.typeid[idx]
                     idx += 1
         else:
             for i in range(nparticles):
@@ -341,7 +340,7 @@ class Hoomd2(object):
         if integrator == 'nvt':
             integ = hoomd.md.integrate.nvt(group=self.groupActive, kT=T, tau=tau)
         elif integrator == 'npt':
-            integ = hoomd.md.integrate.npt(group=self.groupActive, T=T, tau=tau, P=P, tauP=tauP)
+            integ = hoomd.md.integrate.npt(group=self.groupActive, kT=T, tau=tau, P=P, tauP=tauP)
         else:
             raise RuntimeError("Unrecognised integrator: {0}".format(integrator))
 

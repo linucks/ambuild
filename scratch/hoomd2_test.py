@@ -37,7 +37,7 @@ def setup(boxdim):
         blocks = [b1, b3]
     
     for b in blocks:
-        b.
+        pass
     
     for b in blocks:
         for f in b.fragments:
@@ -120,10 +120,9 @@ def principalMoments(coords, masses):
     return np.sort(eigval)
 
 
-sys.exit()
 
 
-bonded = True
+bonded = False
 if not bonded:
     # Create 2 methane molecules
     mol1 = Molecule()
@@ -209,7 +208,7 @@ hoomd.context.initialize()
 lx = BOX_WIDTH
 ly = BOX_WIDTH
 lz = BOX_WIDTH
-bond_types = None
+bond_types = []
 if bonded:
     bond_types = ['C-C']
 snapshot = hoomd.data.make_snapshot(N=nparticles,
@@ -223,6 +222,7 @@ for i, rp in enumerate(rigidParticles):
     snapshot.particles.position[i] = rp.position
     snapshot.particles.typeid[i] = snapshot.particles.types.index(rp.type)
     snapshot.particles.moment_inertia[i] = rp.principalMoments
+    
 # Then add in the constituent molecule particles
 idx = i + 1
 for i, rp in enumerate(rigidParticles):
@@ -258,11 +258,11 @@ lj.pair_coeff.set('C', 'C', epsilon=0.0968, sigma=3.4)
 lj.pair_coeff.set('C', 'H', epsilon=0.1106, sigma=3.7736)
 lj.pair_coeff.set('H', 'H', epsilon=0.1106, sigma=1.7736)
 # Ignore all interactions with the central particles
-for atype, btype in itertools.combinations_with_replacement(particle_types, 2):
-    if atype in exclusions or btype in exclusions:
-        epsilon = 0.0
-        sigma = 1.0
-        lj.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
+# for atype, btype in itertools.combinations_with_replacement(particle_types, 2):
+#     if atype in exclusions or btype in exclusions:
+#         epsilon = 0.0
+#         sigma = 1.0
+#         lj.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
 
 if bonded:
     bond_harmonic = hoomd.md.bond.harmonic(name="bond_harmonic")
