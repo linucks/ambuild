@@ -23,8 +23,8 @@ class RigidParticle(object):
         self.natoms = 0
         self.type = None
         # Attributes if the constituent particles
-        self.b_charges = None # NB use index to prevent storing these twice
-        self.b_diameters = None # NB use index to prevent storing these twice
+        self.b_charges = None
+        self.b_diameters = None
         self.b_masses = None
         self.b_positions = None
         self.b_atomTypes = None
@@ -82,19 +82,20 @@ class RigidParticleManager(object):
         return alph[int(idx/num_chars)] + alph[idx % num_chars]
     
     def configStr(self, body):
-        return self._configStr[body.rigidType]
+        return self._configStr[body.rigidConfigStr]
     
     def orientation(self, body):
-        refCoords = self._configs[body.rigidType]
+        refCoords = self._configs[body.rigidConfigStr]
         M = xyz_core.rigid_rotate(body.coords, refCoords)
         return xyz_core.rotation_matrix_to_quaternion(M)
     
     def reset(self):
         self._configs.clear()
+        self._configStr.clear()
 
     def updateConfig(self, fragment):
         for body in fragment.bodies():
-            if body.rigidType not in self._configs:
-                self._configs[body.rigidType] = body.coords.copy()
-                self._configStr[body.rigidType] = self.calcConfigStr(len(self._configs) - 1)
-        return
+            if body.rigidConfigStr not in self._configs:
+                self._configs[body.rigidConfigStr] = body.coords.copy()
+                self._configStr[body.rigidConfigStr] = self.calcConfigStr(len(self._configs) - 1)
+

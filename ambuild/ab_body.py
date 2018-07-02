@@ -80,6 +80,11 @@ class Body(object):
     @property
     def rigidType(self):
         """return the type of this body based on the endGroup configuration"""
+        return self.fragment.cell.rigidParticleMgr.configStr(self)
+    
+    @property
+    def rigidConfigStr(self):
+        """return the type of this body based on the endGroup configuration"""
         return "{}{}".format(self.bodyIdx, self.fragment.configStr)
     
     def rigidParticle(self):

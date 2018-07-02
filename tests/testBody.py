@@ -27,7 +27,7 @@ class Test(unittest.TestCase):
         f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype)
         for i, b in enumerate(f1.bodies()):
             bstr = "{}{}{}".format(i, ftype, "0000")
-            self.assertEqual(bstr, b.rigidType)
+            self.assertEqual(bstr, b.rigidConfigStr)
     
     def testOrientation1(self):
         
