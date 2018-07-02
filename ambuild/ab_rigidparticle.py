@@ -36,8 +36,6 @@ class RigidParticle(object):
         self.natoms = coords.shape[0]
         self.position = xyz_core.centreOfMass(coords, body.masses)
         self.b_positions = coords - self.position # coordinate positions relative to com
-#         if cell_dim is not None:
-#             com, self.image = xyz_core.wrapCoord3(com, dim=cell_dim, center=center)
         self.mass = np.sum(body.masses)
         self.orientation = body.orientation
         self.principalMoments = xyz_core.principalMoments(coords, body.masses)

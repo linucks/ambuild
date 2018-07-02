@@ -80,7 +80,7 @@ class Body(object):
     @property
     def rigidType(self):
         """return the type of this body based on the endGroup configuration"""
-        return "{}{}{}".format(self.bodyIdx, self.fragment.fragmentType, self.fragment.configStr)
+        return "{}{}".format(self.bodyIdx, self.fragment.configStr)
     
     def rigidParticle(self):
         return ab_rigidparticle.RigidParticle(self)
