@@ -8,6 +8,7 @@ import ab_cell
 import ab_ffield
 import ab_fragment
 import ab_paths
+import ab_rigidparticle
 import ab_subunit
 import ab_util
 import dlpoly

@@ -12,7 +12,6 @@ import os
 import random as _random
 import sys
 import time
-import warnings
 
 # External modules
 import numpy as np
@@ -20,8 +19,10 @@ import numpy as np
 # Our modules
 import ab_analyse
 import ab_block
+import ab_rigidparticle
 import ab_bond
 import ab_celldata
+import ab_endgroup
 import ab_fragment
 import ab_subunit
 import ab_util
@@ -109,6 +110,7 @@ class Cell():
         self._setupAnalyse()
         self._fileCount = 0  # for naming output files
         self._deterministicState = 0 # For adding blocks in a non-random manner (for testing)
+        self.rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
         if paramsDir is not None:
             if not os.path.isdir(paramsDir):
                 msg = "Cannot find parameter directory: {0}".format(paramsDir)
@@ -196,14 +198,14 @@ class Cell():
         # HACK FOR ADDING * TO SHOW BONDED GROUPS
         assert b1FragmentType in self._fragmentLibrary, \
         "No fragment type {0} in fragmentLibrary".format(b1FragmentType)
-        if not b1EndGroupType.endswith(ab_fragment.ENDGROUPBONDED):
+        if not b1EndGroupType.endswith(ab_endgroup.ENDGROUPBONDED):
             assert b1EndGroupType in self._fragmentLibrary[ b1FragmentType ].endGroupTypes(), \
             "Fragment type {0} has no endGroup type {1}".format(b1FragmentType, b1EndGroupType)
 
             assert b1EndGroupType in self._endGroup2LibraryFragment.keys(), \
             "No endGroup type {0} in fragmentLibrary!".format(b1EndGroupType)
         assert b2FragmentType in self._fragmentLibrary, "No fragment type {0} in fragmentLibrary".format(b2FragmentType)
-        if not b2EndGroupType.endswith(ab_fragment.ENDGROUPBONDED):
+        if not b2EndGroupType.endswith(ab_endgroup.ENDGROUPBONDED):
             assert b2EndGroupType in self._fragmentLibrary[ b2FragmentType ].endGroupTypes(), \
             "Fragment type {0} has no endGroup type {1}".format(b2FragmentType, b2EndGroupType)
 
@@ -1038,9 +1040,7 @@ class Cell():
                     d.natoms += body.natoms
                     atomIdx += body.natoms
                     if RIGIDPARTICLES:
-                        d.rigidParticles.append(body.rigidParticle(bodyIdx,
-                                                                   cell_dim=self.dim,
-                                                                   center=center))
+                        d.rigidParticles.append(body.rigidParticle())
                     else:
                         coords = body.coords
                         coords, images = xyz_core.wrapCoord3(coords, dim=self.dim, center=center)
@@ -1660,17 +1660,22 @@ class Cell():
         if BONDTYPESEP in fragmentType or ENDGROUPSEP in fragmentType:
             raise RuntimeError("fragmentType cannot containing {0} or {1} characters!".format(BONDTYPESEP, ENDGROUPSEP))
         # Create fragment
-        frag = ab_fragment.Fragment(filename, fragmentType, solvent=solvent, markBonded=markBonded, catalyst=catalyst)
+        frag = ab_fragment.Fragment(filename,
+                                    fragmentType,
+                                    solvent=solvent,
+                                    markBonded=markBonded,
+                                    catalyst=catalyst,
+                                    cell=self)
         # Update cell parameters for this fragment
         maxAtomRadius = frag.maxAtomRadius()
         if  maxAtomRadius > self.maxAtomRadius:
             self.updateCellSize(maxAtomRadius=maxAtomRadius)
         # Add to _fragmentLibrary
-        self._fragmentLibrary[ fragmentType ] = frag
+        self._fragmentLibrary[fragmentType] = frag
         # create dictionary keyed by endGroup types
         for ft in frag.endGroupTypes():
             assert ft not in self._endGroup2LibraryFragment, "Adding existing endGroup type to library: {0}".format(ft)
-            self._endGroup2LibraryFragment[ ft ] = fragmentType
+            self._endGroup2LibraryFragment[ft] = fragmentType
         return
 
     def  _getCell2Library(self, endGroupTypes2Block, cellEndGroups=None, libraryEndGroups=None):

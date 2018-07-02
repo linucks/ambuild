@@ -728,7 +728,8 @@ class Block(object):
         return
 
     def rotate(self, axis, angle, center=None):
-        if center is None: center = np.array([ 0, 0, 0 ])
+        if center is None:
+            center = np.array([ 0, 0, 0 ])
         rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         for f in self.fragments:
             f.rotate(rotationMatrix, center)

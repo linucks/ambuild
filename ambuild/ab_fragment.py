@@ -12,316 +12,14 @@ import os
 import numpy as np
 
 # our imports
+import ab_body
+import ab_endgroup
 import xyz_core
 import xyz_util
 
-ENDGROUPBONDED = '*'
 logger = logging.getLogger()
 
-class RigidParticle(object):
-    def __init__(self, body, bodyIdx, cell_dim=None, center=False):
-        # Attributes of the central particle
-        self.image = np.array([0, 0, 0])
-        self.mass = None
-        self.position = None
-        self.principalMoments = None
-        self.natoms = 0
-        self.type = None
-        # Attributes if the constituent particles
-        self.b_charges = None # NB use index to prevent storing these twice
-        self.b_diameters = None # NB use index to prevent storing these twice
-        self.b_masses = None
-        self.b_positions = None
-        self.b_atomTypes = None
-        
-        self.fromBody(body, bodyIdx, cell_dim=cell_dim, center=center)
-    
-    def fromBody(self, body, bodyIdx, cell_dim=None, center=False):
-        coords = body.coords
-        self.natoms = coords.shape[0]
-        com = xyz_core.centreOfMass(coords, body.masses)
-        self.b_positions = coords - com # coordinate positions relative to com
-        if cell_dim is not None:
-            com, self.image = xyz_core.wrapCoord3(com, dim=cell_dim, center=center)
-        self.position = com
-        self.mass = np.sum(body.masses)
-        self.principalMoments = xyz_core.principalMoments(coords, body.masses)
-        self.type = "CP%d" % bodyIdx
-        # Specify properties of consituent particles
-        # To save memory can move to just saving the indices of the elements in the data array
-        self.b_charges = body.charges
-        self.b_diameters = body.diameters
-        self.b_masses = body.masses
-        self.b_atomTypes = body.atomTypes
-        return self
-    
-
-class Body(object):
-    """Proxy object for the body within a fragment"""
-    def __init__(self, fragment, bodyIndex):
-        self.fragment = fragment
-        self.bodyIndex = bodyIndex
-        self.indexes = self._setup_indexes()
-        self.natoms = np.sum(self.indexes)
-        self._centreOfMass = xyz_core.centreOfMass(self.coords, self.masses)
-        return
-
-    def _setup_indexes(self):
-        return (np.array(self.fragment._bodies) == self.bodyIndex) &~ np.array(self.fragment.masked)
-
-    @property
-    def atomTypes(self):
-        return list(np.compress(self.indexes, self.fragment._atomTypes, axis=0))
-
-    @property
-    def bodies(self):
-        return [self.bodyIndex] * self.natoms
-        
-    def centreOfMass(self):
-        return self._centreOfMass
-
-    @property
-    def charges(self):
-        return list(np.compress(self.indexes, self.fragment._charges, axis=0))
-
-    @property
-    def coords(self):
-        return np.compress(self.indexes, self.fragment._coords, axis=0)
-
-    @property
-    def diameters(self):
-        return [ xyz_util.DUMMY_DIAMETER ] * self.natoms
-
-    @property
-    def masked(self):
-        mask = []
-        for i in [ i for i in self.fragment._ext2int.values() if self.fragment._bodies[i] == self.bodyIndex]:
-            if (hasattr(self.fragment, 'unBonded') and self.fragment.unBonded[i]) or self.fragment._atomTypes[i].lower() == 'x':
-                mask.append(True)
-            else:
-                mask.append(False)
-        return mask
-
-    @property
-    def mass(self):
-        return np.sum(self.masses())
-
-    @property
-    def masses(self):
-        return np.compress(self.indexes, self.fragment._masses, axis=0)
-    
-    @property
-    def principalMoments(self):
-        return xyz_core.principalMoments(self.coords(), self.masses)
-    
-    @property
-    def XrigidType(self):
-        """return the type of this body based on the endGroup configuration"""
-        return "{}{}{}".format(self.fragment.fragmentType, self.fragment.configStr, self.bodyIndex)
-    
-    def rigidParticle(self, bodyIdx, cell_dim=None, center=False):
-        return RigidParticle(self, bodyIdx, cell_dim=cell_dim, center=center)
-
-    @property
-    def static(self):
-        if hasattr(self.fragment, 'static') and self.fragment.static:
-            v = True
-        else:
-            v = False
-        return [ v ] * self.natoms
-
-    @property
-    def symbols(self):
-        return list(np.compress(self.indexes, self.fragment._symbols, axis=0))
-
-class EndGroup(object):
-
-    def __init__(self):
-
-        self.blocked = False # Used for indicating that this endGroup is unbonded but not free
-        self.bonded = False
-        self._endGroupType = None
-        self.fragment = None
-        self.fragmentEndGroupIdx = None
-        self.blockEndGroupIdx = None
-        self.fragmentCapIdx = None
-        self.blockCapIdx = None
-        self.capBondLength = None
-        self.fragmentDihedralIdx = -1
-        self.blockDihedralIdx = -1
-        self.fragmentUwIdx = -1
-        self.blockUwIdx = -1
-        return
-
-    def block(self):
-        f = True
-        b = True
-        if self.fragment.block is None:
-            b = False
-        if self.fragment is None:
-            f = False
-        if not b and f:
-            raise RuntimeError("None Block {0} Fragment {1}\n{2}".format(b, f, self))
-        return self.fragment.block
-
-    def capIdx(self):
-        """Return the index of the endGroup atom in external block indices"""
-        return self.blockCapIdx
-
-    def bondedCatalyst(self):
-        """Return True if this endGroup belongs to a catalyst that is bonded to another catalyst"""
-        return self.fragment.catalyst and self._endGroupType.endswith(ENDGROUPBONDED)
-
-    def coord(self,endGroup=True):
-        """Need to think about an API for accessing coordinates for endGroups
-        This just hacks in returning the endGroup.
-        """
-        return self.fragment._coords[self.fragmentEndGroupIdx]
-
-    def dihedralIdx(self):
-        """Return the index of the dihedral atom in external block indices"""
-        return self.blockDihedralIdx
-
-    def endGroupIdx(self):
-        """Return the index of the endGroup atom in external block indices"""
-        return self.blockEndGroupIdx
-
-    def fragmentType(self):
-        return self.fragment.fragmentType
-
-    def free(self):
-        return not self.bonded and not self.blocked
-
-    def setBonded(self, bond):
-        self.bonded = True
-        self.fragment.addBond(self, bond)
-        return
-
-    def unBond(self, bondEndGroup):
-        self.bonded = False
-        # HACK WE REMOVE ALL SUFFIXES
-        for eg in self.fragment.endGroups():
-            if eg._endGroupType.endswith(ENDGROUPBONDED):
-                logger.debug("unBond ENDGROUPBONDED")
-                eg._endGroupType = eg._endGroupType.rstrip(ENDGROUPBONDED)
-        self.fragment.delBond(self.type())
-        # Unmask cap and set the coordinate to the coordinate of the last block atom
-        # NOTE - NEED TO SCALE BY CORRECT LENGTH
-        if hasattr(bondEndGroup, 'coord'):
-            # Reposition the cap atom based on the bond vector
-            #self.fragment._coords[self.fragmentCapIdx] = bondEndGroup.coord()
-            # Get vector from this endGroup to the other endGroup
-            egPos = self.fragment._coords[self.fragmentEndGroupIdx]
-            v1 = bondEndGroup.coord() - egPos
-            # Now get unit vector
-            uv = v1 / np.linalg.norm(v1)
-            # calculate noew position
-            self.fragment._coords[self.fragmentCapIdx] = egPos + (uv * self.capBondLength)
-
-        # Unhide the cap atom
-        self.fragment.masked[self.fragmentCapIdx] = False
-        # Mark capAtom as unBonded so that it won't be included in the optimisation
-        self.fragment.unBonded[self.fragmentCapIdx] = True
-
-        if self.fragmentUwIdx != -1:
-            raise RuntimeError("Cannot unbond masked endGroups yet!")
-            self.fragment.masked[ self.fragmentUwIdx ] = True
-        self.fragment.update()
-        return
-
-    def type(self):
-        """The type of the endGroup"""
-        return "{0}:{1}".format(self.fragment.fragmentType, self._endGroupType)
-
-    def updateAncillaryIndices(self, cap2endGroup):
-        """The block has been updated so we need to update our block indices based on where the
-        fragment starts in the block"""
-        if self.fragment.masked[self.fragmentCapIdx]:
-            assert self.bonded
-            # If this endGroup is involved in a bond, we want to get the block index of the
-            # opposite endGroup as this has now become our cap atom
-            self.blockCapIdx = cap2endGroup[(self.fragment, self.fragmentCapIdx)]
-        else:
-            self.blockCapIdx = self.fragment._int2ext[self.fragmentCapIdx] + self.fragment.blockIdx
-
-        # -1 means no dihedral or uw atom set
-        if self.fragmentDihedralIdx != -1:
-            if self.fragment.masked[self.fragmentDihedralIdx]:
-                # Now work out which atom this is bonded to
-                self.blockDihedralIdx = cap2endGroup[(self.fragment, self.fragmentDihedralIdx)]
-            else:
-                self.blockDihedralIdx = self.fragment._int2ext[self.fragmentDihedralIdx] + self.fragment.blockIdx
-
-        # -1 means no uw atom and if it is masked then there will not be an external index
-        if self.fragmentUwIdx != -1 and not self.fragment.masked[self.fragmentUwIdx]:
-            # assert not self.fragment.isMasked( self.fragmentUwIdx )
-            self.blockUwIdx = self.fragment._int2ext[self.fragmentUwIdx] + self.fragment.blockIdx
-        return
-
-    def updateEndGroupIndex(self):
-        """The block has been updated so we need to update our block indices based on where the
-        fragment starts in the block"""
-        self.blockEndGroupIdx = self.fragment._int2ext[self.fragmentEndGroupIdx] + self.fragment.blockIdx
-        return
-
-    def __str__(self):
-        """List the data attributes of this object"""
-#         me = {}
-#         for slot in dir(self):
-#             attr = getattr(self, slot)
-#             if not slot.startswith("__") and not ( isinstance(attr, types.MethodType) or
-#               isinstance(attr, types.FunctionType) ):
-#                 me[slot] = attr
-#
-#         t = []
-#         for k in sorted(me):
-#             t.append( str( ( k, me[k] ) ) )
-#
-#         return "{0} : {1}".format(self.__repr__(), ",".join( t ) )
-        #EndGroup:
-        s = "{0} {1}:{2} {3}({4})->{5}({6}) {7}->{8}".format(self.type(), id(self.fragment), id(self),
-                                                    self.fragmentEndGroupIdx, self.fragment._symbols[self.fragmentEndGroupIdx],
-                                                    self.fragmentCapIdx,self.fragment._symbols[self.fragmentCapIdx],
-                                                    self.blockEndGroupIdx, self.blockCapIdx)
-
-        return s
-
-
-class FragmentConfigManager(object):
-    """Manages the configuration of each individual fragmentType
-    
-    As Fragments have their own class/instance managment machinary, we can't use standard class variables
-    to track variables that are shared across all fragments of a given fragmentType. This class provides
-    the functionality to track attributes that are shared by all fragments of a given type, but also need
-    to be updated as the simulation progress.
-    
-    Need to think about how to reset this when running simulations and when unpickling
-    """
-    
-    def __init__(self):
-        self.configs = {}
-    
-    @staticmethod
-    def calcConfigStr(i):
-        import string
-        alph = string.ascii_uppercase
-        num_chars = 26 # letters in alphabet - unlikely to change...
-        assert i < num_chars * num_chars, "Too many configurations!"
-        return alph[int(i/num_chars)] + alph[i%num_chars]
-    
-    def reset(self):
-        self.configs = {}
-
-    def updateConfig(self, fragment):
-        if fragment.fragmentType not in self.configs:
-            self.configs[fragment.fragmentType] = []
-        if fragment.config not in self.configs[fragment.fragmentType]:
-            self.configs[fragment.fragmentType].append(fragment.config)
-        idx = self.configs[fragment.fragmentType].index(fragment.config)
-        return self.calcConfigStr(idx)
             
-configManager = FragmentConfigManager()
-
 class Fragment(object):
     '''
     classdocs
@@ -332,8 +30,8 @@ class Fragment(object):
                  solvent=False,
                  static=False,
                  markBonded=False,
-                 catalyst=False
-                 ):
+                 catalyst=False,
+                 cell=None):
         '''
         Constructor
         '''
@@ -346,6 +44,7 @@ class Fragment(object):
             '_bonds'           : [],  # List of internal fragment bonds
             '_bonded'          : [],  # List of which atoms are bonded to which
             'catalyst'         : catalyst, # Whether this block is a catalyst
+            'cell'             : cell,
             '_cellParameters'  : {},
             '_charges'         : [],
             'fragmentType'     : fragmentType,
@@ -406,12 +105,12 @@ class Fragment(object):
     def _markBonded(self, endGroup, bond):
         """Append * to all endGroups in fragments that are involved in bonds to cat"""
         #if not endGroup.type() == 'cat:a': return
-        if endGroup.type().endswith(ENDGROUPBONDED) or not (bond.endGroup1.fragment.catalyst or bond.endGroup2.fragment.catalyst):
+        if endGroup.type().endswith(ab_endgroup.ENDGROUPBONDED) or not (bond.endGroup1.fragment.catalyst or bond.endGroup2.fragment.catalyst):
             return
         logger.debug("_markBonded marking bonds for fragment {0}".format(self.fragmentType))
         for eg in self.endGroups():
-            assert not eg._endGroupType.endswith(ENDGROUPBONDED),"Already got bonded endGroup"
-            eg._endGroupType += ENDGROUPBONDED
+            assert not eg._endGroupType.endswith(ab_endgroup.ENDGROUPBONDED),"Already got bonded endGroup"
+            eg._endGroupType += ab_endgroup.ENDGROUPBONDED
         return
 
     def addBond(self, endGroup, bond):
@@ -423,7 +122,7 @@ class Fragment(object):
             self.masked[ endGroup.fragmentUwIdx ] = True
 
         # Hack for starred endGroups
-        if not endGroupType.endswith(ENDGROUPBONDED):
+        if not endGroupType.endswith(ab_endgroup.ENDGROUPBONDED):
             self._endGroupBonded[ endGroupType] += 1
             # Handle maxBonds here
             if self._maxBonds[ endGroupType ] is not None:
@@ -449,7 +148,7 @@ class Fragment(object):
 
     def bodies(self):
         for bodyIdx in set(self._bodies):
-            yield Body(self, bodyIdx)
+            yield ab_body.Body(self, bodyIdx)
 
     def body(self, idxAtom):
         return self._bodies[self._ext2int[idxAtom]]
@@ -828,6 +527,9 @@ class Fragment(object):
         self._coords = self._coords  + center
         self._changed = True
         return
+    
+    def setConfigStr(self):
+        self.configStr = self.fragmentType + "".join(['1' if c else '0' for c in self.config])
 
     def setData(self,
                 coords=None,
@@ -880,7 +582,7 @@ class Fragment(object):
         self._endGroupBonded = {}
 
         for i, e in enumerate(endGroups):
-            eg = EndGroup()
+            eg = ab_endgroup.EndGroup()
             eg.fragment = self
             eg._endGroupType = endGroupTypes[ i ]
             eg.fragmentEndGroupIdx = e
@@ -945,8 +647,10 @@ class Fragment(object):
                 self._ext2int[ecount] = i
                 self._int2ext[i] = ecount
                 ecount += 1
-        self.config = [True if eg.free() else False for eg in self._endGroups]
-        self.configStr = configManager.updateConfig(self)
+        self.config = [False if eg.free() else True for eg in self._endGroups]
+        self.setConfigStr()
+        if self.cell:
+            self.cell.rigidParticleMgr.updateConfig(self)
         return
 
     def __str__(self):

@@ -20,15 +20,34 @@ xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
 
 class Test(unittest.TestCase):
     
-    def setUp(self):
-        ab_fragment.configManager.reset()
-        return
-    
-    def testBodyConfig(self):
+    def testBodyConfigStr(self):
         ch4ca = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
-        f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType='A')
-        self.assertEqual(len(list(f1.bodies())), 3)
-        self.assertEqual(list(f1.bodies())[-1].rigidType(), "AAA2")
+        ftype = 'A'
+        f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype)
+        for i, b in enumerate(f1.bodies()):
+            bstr = "{}{}{}".format(i, ftype, "0000")
+            self.assertEqual(bstr, b.configStr)
+    
+    def testOrientation1(self):
+        
+        class Cell(object):
+            """Mock Cell object for testing"""
+            def __init__(self, rigidParticleMgr):
+                self.rigidParticleMgr = rigidParticleMgr
+        
+        rigidParticleMgr = ab_body.RigidParticleManager()
+        cell = Cell(rigidParticleMgr)
+        
+        ch4ca = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
+        ftype = 'A'
+        f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype, cell=cell)
+        b1 = list(f1.bodies())[0]
+        
+        tref = "{}{}{}".format(0, ftype, "0000")
+        self.assertEqual(b1.rigidType, tref)
+        self.assertEqual(b1.orientation, np.array([1.0, 0.0, 0.0, 0.0]))
+        
+        
     
     def testMomentOfInertia(self):
         Iref = np.array([[  1.58122888e+00,  -2.49643156e-17,   3.63000000e-07],

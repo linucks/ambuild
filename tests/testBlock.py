@@ -32,7 +32,6 @@ class Test(unittest.TestCase):
         self.ch4Ca2Car = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
         
         xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
-        ab_fragment.configManager.reset()
         return
 
     def catBlocks(self, blocks, filename):

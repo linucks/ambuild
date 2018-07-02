@@ -168,9 +168,11 @@ class Hoomd2(object):
         if self.rigidBody:
             for i, rp in enumerate(data.rigidParticles):
                 snapshot.particles.body[i] = i
-                snapshot.particles.image[i] = rp.image
+                position, rp_image = xyz_core.wrapCoord3(rp.position, dim=data.cell, center=True)
+                snapshot.particles.position[i] = position
+                snapshot.particles.image[i] = rp_image
                 snapshot.particles.mass[i] = rp.mass
-                snapshot.particles.position[i] = rp.position
+                snapshot.particles.orientation[i] = rp.orientation
                 snapshot.particles.typeid[i] = snapshot.particles.types.index(rp.type)
                 snapshot.particles.moment_inertia[i] = rp.principalMoments
             # Then add in the constituent molecule particles
@@ -181,7 +183,7 @@ class Hoomd2(object):
                     if doCharges:
                         snapshot.particles.charge[idx] = rp.b_charges[j]
                     snapshot.particles.diameter[idx] = rp.b_diameters[j]
-                    snapshot.particles.image[idx] = rp.image
+                    snapshot.particles.image[idx] = rp_image
                     snapshot.particles.mass[idx] = rp.b_masses[j]
                     snapshot.particles.position[idx] = rp.b_positions[j]
                     snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.b_atomTypes[j])
