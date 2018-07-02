@@ -34,7 +34,7 @@ class Test(unittest.TestCase):
         ftype = 'A'
         f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype, cell=cell)
         
-        configStr = {'1AA0000': 'AB', '2AA0000': 'AC', '0AA0000': 'AA'}
+        configStr = {'1A0000': 'AB', '2A0000': 'AC', '0A0000': 'AA'}
         self.assertEqual(rigidParticleMgr._configStr, configStr)
         self.assertEqual(len(rigidParticleMgr._configStr), len(rigidParticleMgr._configs))
         
