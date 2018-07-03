@@ -32,13 +32,12 @@ class RigidParticle(object):
         self.fromBody(body)
     
     def fromBody(self, body):
-        coords = body.coords
-        self.natoms = coords.shape[0]
-        self.position = xyz_core.centreOfMass(coords, body.masses)
-        self.b_positions = coords - self.position # coordinate positions relative to com
-        self.mass = np.sum(body.masses)
+        self.natoms = body.natoms
+        self.position = body.centreOfMass
+        self.b_positions = body.coords - self.position # coordinate positions relative to com
+        self.mass = body.mass
         self.orientation = body.orientation
-        self.principalMoments = xyz_core.principalMoments(coords, body.masses)
+        self.principalMoments = body.principalMoments
         self.type = body.rigidType
         # Specify properties of consituent particles
         self.b_charges = body.charges

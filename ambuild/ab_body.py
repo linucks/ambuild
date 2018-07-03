@@ -35,7 +35,8 @@ class Body(object):
     @property
     def bodies(self):
         return [self.bodyIdx] * self.natoms
-        
+    
+    @property  
     def centreOfMass(self):
         return self._centreOfMass
 
@@ -63,7 +64,7 @@ class Body(object):
 
     @property
     def mass(self):
-        return np.sum(self.masses())
+        return np.sum(self.masses)
 
     @property
     def masses(self):
@@ -75,7 +76,7 @@ class Body(object):
     
     @property
     def principalMoments(self):
-        return xyz_core.principalMoments(self.coords(), self.masses)
+        return xyz_core.principalMoments(self.coords, self.masses)
     
     @property
     def rigidType(self):

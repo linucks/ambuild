@@ -3,12 +3,7 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 '''
-# import collections
-# import copy
-# import csv
 import logging
-# import os
-# 
 import numpy as np
 
 ENDGROUPBONDED = '*'
@@ -52,7 +47,7 @@ class EndGroup(object):
         """Return True if this endGroup belongs to a catalyst that is bonded to another catalyst"""
         return self.fragment.catalyst and self._endGroupType.endswith(ENDGROUPBONDED)
 
-    def coord(self,endGroup=True):
+    def coord(self):
         """Need to think about an API for accessing coordinates for endGroups
         This just hacks in returning the endGroup.
         """

@@ -11,6 +11,7 @@ import numpy as np
 import context
 BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
 PARAMS_DIR = context.ab_paths.PARAMS_DIR
+from context import ab_bond
 from context import ab_fragment
 from context import ab_rigidparticle
 from context import xyz_core
@@ -71,59 +72,58 @@ class Test(unittest.TestCase):
         quat_origin = np.array([1.0, 0.0, 0.0, 0.0])
         self.assertTrue(np.allclose(rp.orientation, quat_origin, rtol=0.0001))
 
-#     def testFragmentMgrConfig(self):
-#         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
-#         f1 = ab_fragment.Fragment(filePath=ch4, fragmentType='A')
-#         self.assertTrue(f1.fragmentType in ab_fragment.configManager.configs)
-#         self.assertTrue(len(ab_fragment.configManager.configs) == 1)
-#         
-#         f2 = f1.copy()
-#         self.assertTrue(len(ab_fragment.configManager.configs) == 1)
-# 
-#         eg1 = f1.freeEndGroups()[0]
-#         eg2 = f2.freeEndGroups()[0]
-#         bond = ab_bond.Bond(eg1, eg2)
-#         bond.endGroup1.setBonded(bond)
-#         bond.endGroup2.setBonded(bond)
-#         self.assertTrue(len(ab_fragment.configManager.configs[f1.fragmentType]) == 2)
-# 
-#         eg1 = f1.freeEndGroups()[-1]
-#         eg2 = f2.freeEndGroups()[0]
-#         bond = ab_bond.Bond(eg1, eg2)
-#         bond.endGroup1.setBonded(bond)
-#         bond.endGroup2.setBonded(bond)
-#         self.assertTrue(len(ab_fragment.configManager.configs[f1.fragmentType]) == 4)
-# 
-#         f1 = ab_fragment.Fragment(filePath=ch4, fragmentType='B')
-#         self.assertTrue(len(ab_fragment.configManager.configs) == 2)
-#         
-#     def testFragmentMgrConfigCalc(self):
-#         idx = 0
-#         cid = ab_fragment.FragmentConfigManager.calcConfigStr(idx)
-#         self.assertTrue(cid, 'AA')
-#         
-#         idx = 26 * 26 - 1
-#         cid = ab_fragment.FragmentConfigManager.calcConfigStr(idx)
-#         self.assertTrue(cid, 'ZZ')
-#         
-#         idx = idx + 1
-#         try:
-#             ab_fragment.FragmentConfigManager.calcConfigStr(idx)
-#         except AssertionError:
-#             pass
-#         except Exception as e:
-#             self.fail("Unexpected exception: {}".format(e))
-#     
-#     def testFragmentConfigStr(self):
-#         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
-#         ftype = 'A'
-#         f1 = ab_fragment.Fragment(filePath=ch4, fragmentType=ftype)
-#         self.assertEqual(ftype + "0000", f1.configStr)
-#         
-#         for eg in f1.endGroups():
-#             eg.bonded = True
-#         f1.update()
-#         self.assertEqual(ftype + "1111", f1.configStr)
+    def testRigidParticleManager(self):
+        class Cell(object):
+            """Mock Cell object for testing"""
+            def __init__(self, rigidParticleMgr):
+                self.rigidParticleMgr = rigidParticleMgr
+        
+        rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
+        cell = Cell(rigidParticleMgr)
+
+        ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
+        f1 = ab_fragment.Fragment(filePath=ch4, fragmentType='A', cell=cell)
+        self.assertTrue(len(rigidParticleMgr._configs) == 1)
+        for body in f1.bodies():
+            self.assertTrue(body.rigidConfigStr in rigidParticleMgr._configs)
+         
+        f2 = f1.copy()
+        self.assertTrue(len(rigidParticleMgr._configs) == 1)
+ 
+        eg1 = f1.freeEndGroups()[0]
+        eg2 = f2.freeEndGroups()[0]
+        bond = ab_bond.Bond(eg1, eg2)
+        bond.endGroup1.setBonded(bond)
+        bond.endGroup2.setBonded(bond)
+        self.assertTrue(len(rigidParticleMgr._configs) == 2)
+ 
+        eg1 = f1.freeEndGroups()[-1]
+        eg2 = f2.freeEndGroups()[0]
+        bond = ab_bond.Bond(eg1, eg2)
+        bond.endGroup1.setBonded(bond)
+        bond.endGroup2.setBonded(bond)
+        self.assertTrue(len(rigidParticleMgr._configs) == 4)
+ 
+        f1 = ab_fragment.Fragment(filePath=ch4, fragmentType='B', cell=cell)
+        self.assertTrue(len(rigidParticleMgr._configs) == 5)
+         
+    def testRigidParticleManagerConfigStr(self):
+        rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
+        idx = 0
+        cid = rigidParticleMgr.calcConfigStr(idx)
+        self.assertTrue(cid, 'AA')
+         
+        idx = 26 * 26 - 1
+        cid = rigidParticleMgr.calcConfigStr(idx)
+        self.assertTrue(cid, 'ZZ')
+         
+        idx = idx + 1
+        try:
+            rigidParticleMgr.calcConfigStr(idx)
+        except AssertionError:
+            pass
+        except Exception as e:
+            self.fail("Unexpected exception: {}".format(e))
 
 
 if __name__ == "__main__":

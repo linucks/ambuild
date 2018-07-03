@@ -134,7 +134,6 @@ class Hoomd2(object):
                     b0, b1 = b
                 snapshot.bonds.group[i] = [b0, b1]
                 snapshot.bonds.typeid[i] = self.bond_types.index(data.bondLabels[i])
-
         # Add Angles
         if len(self.angle_types):
             snapshot.angles.resize(len(data.angles))
@@ -147,7 +146,6 @@ class Hoomd2(object):
                     a0, a1, a2 = a
                 snapshot.angles.group[i] = [a0, a1, a2]
                 snapshot.angles.typeid[i] = self.angle_types.index(data.angleLabels[i])
-
         # Add Dihedrals
         if doDihedral and len(self.dihedral_types):
             snapshot.dihedrals.resize(len(data.propers))
@@ -161,13 +159,12 @@ class Hoomd2(object):
                     d0, d1, d2, d3 = d
                 snapshot.dihedrals.group[i] = [d0, d1, d2, d3]
                 snapshot.dihedrals.typeid[i] = self.dihedral_types.index(data.properLabels[i])
-
         # Populate  particle data
-        # particle attributes:  acceleration, angmom, body, charge, diameter, image, is_accel_set, mass,
-        # moment_inertia, orientation, position, typeid, types, velocity
         if self.rigidBody:
+            # Central particles need to be first in the list before any constituent particles.
             for i, rp in enumerate(data.rigidParticles):
                 snapshot.particles.body[i] = i
+                # Wrap central paticle into the cell. We use the image of this for all the constituent particles
                 position, rp_image = xyz_core.wrapCoord3(rp.position, dim=data.cell, center=True)
                 snapshot.particles.position[i] = position
                 snapshot.particles.image[i] = rp_image
@@ -179,7 +176,7 @@ class Hoomd2(object):
             idx = i + 1
             for i, rp in enumerate(data.rigidParticles):
                 for j in range(rp.natoms):
-                    snapshot.particles.body[idx] = i
+                    snapshot.particles.body[idx] = i # to match central particle
                     if doCharges:
                         snapshot.particles.charge[idx] = rp.b_charges[j]
                     snapshot.particles.diameter[idx] = rp.b_diameters[j]

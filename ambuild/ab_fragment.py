@@ -176,6 +176,10 @@ class Fragment(object):
                 self._bonded[ b1 ].append(b2)
         return
 
+    def _calcConfigStr(self):
+        """Specifies the type of this fragment based on its fragmentType and which endGroups are bonded"""
+        return self.fragmentType + "".join(['1' if c else '0' for c in self.config])
+
     def _calcCenters(self):
         """Calculate the center of mass and geometry for this fragment
         """
@@ -528,9 +532,6 @@ class Fragment(object):
         self._changed = True
         return
     
-    def setConfigStr(self):
-        self.configStr = self.fragmentType + "".join(['1' if c else '0' for c in self.config])
-
     def setData(self,
                 coords=None,
                 labels=None,
@@ -648,7 +649,7 @@ class Fragment(object):
                 self._int2ext[i] = ecount
                 ecount += 1
         self.config = [False if eg.free() else True for eg in self._endGroups]
-        self.setConfigStr()
+        self.configStr = self._calcConfigStr()
         if self.cell:
             self.cell.rigidParticleMgr.updateConfig(self)
         return
