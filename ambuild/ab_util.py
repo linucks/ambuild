@@ -113,7 +113,6 @@ def cellFromPickle(pickleFile, paramsDir=None):
         mode += 'b'
     # Renamed cell class so need to alias here for old files
     with popen(pickleFile, mode) as f:
-        print "PICKLE ",pickle
         myCell = pickle.load(f)
     del ab_block.Bond
     del sys.modules['buildingBlock']

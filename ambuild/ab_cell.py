@@ -1035,7 +1035,7 @@ class Cell():
                                                            block.type(dindices[3]) )
                         d.properLabels.append(dlabel)
             # Now loop through fragments and coordinates
-            for frag in block.fragments:  # need index of fragment in block
+            for frag in block.fragments:
                 for body in frag.bodies():
                     d.natoms += body.natoms
                     atomIdx += body.natoms

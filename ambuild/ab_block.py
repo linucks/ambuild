@@ -41,14 +41,14 @@ class Block(object):
     * bonds just point to two endGroups that are bonded to each other
     '''
 
-    def __init__(self, filePath=None, fragmentType=None, initFragment=None,):
+    def __init__(self, filePath=None, fragmentType=None, initFragment=None, cell=None):
         '''
         Constructor
         '''
         # Need to change so cannot create block withough fragmentType
         if filePath:
             assert os.path.isfile(filePath) and fragmentType
-            initFragment = Fragment(filePath, fragmentType)
+            initFragment = Fragment(filePath, fragmentType, cell=cell)
         self.fragments = []
         if initFragment:
             self.fragments.append(initFragment)

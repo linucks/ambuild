@@ -11,6 +11,7 @@ import numpy as np
 import context
 BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
 PARAMS_DIR = context.ab_paths.PARAMS_DIR
+from context import ab_block
 from context import ab_bond
 from context import ab_fragment
 from context import ab_rigidparticle
@@ -22,7 +23,7 @@ xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
 
 class Test(unittest.TestCase):
     
-    def testRigidParticleConfig(self):
+    def testConfig(self):
         class Cell(object):
             """Mock Cell object for testing"""
             def __init__(self, rigidParticleMgr):
@@ -72,7 +73,7 @@ class Test(unittest.TestCase):
         quat_origin = np.array([1.0, 0.0, 0.0, 0.0])
         self.assertTrue(np.allclose(rp.orientation, quat_origin, rtol=0.0001))
 
-    def testRigidParticleManager(self):
+    def testManager(self):
         class Cell(object):
             """Mock Cell object for testing"""
             def __init__(self, rigidParticleMgr):
@@ -107,7 +108,7 @@ class Test(unittest.TestCase):
         f1 = ab_fragment.Fragment(filePath=ch4, fragmentType='B', cell=cell)
         self.assertTrue(len(rigidParticleMgr._configs) == 5)
          
-    def testRigidParticleManagerConfigStr(self):
+    def testManagerConfigStr(self):
         rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
         idx = 0
         cid = rigidParticleMgr.calcConfigStr(idx)
@@ -124,6 +125,37 @@ class Test(unittest.TestCase):
             pass
         except Exception as e:
             self.fail("Unexpected exception: {}".format(e))
+            
+    def testOrientation1(self):
+        """Two bonded fragments: check that rotation rotates one to the other"""
+        class Cell(object):
+            """Mock Cell object for testing"""
+            def __init__(self, rigidParticleMgr):
+                self.rigidParticleMgr = rigidParticleMgr
+        
+        rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
+        cell = Cell(rigidParticleMgr)
+
+        # 2 blocks
+        ch4_f = os.path.join(BLOCKS_DIR, "ch4.car")
+        ch4_1 = ab_block.Block(filePath=ch4_f, fragmentType='A', cell=cell)
+        ch4_2 = ch4_1.copy()
+        eg1 = ch4_1.freeEndGroups()[0]
+        eg2 = ch4_2.freeEndGroups()[0]
+        ch4_1.positionGrowBlock(eg1, eg2)
+        bond = ab_bond.Bond(eg1, eg2)
+        bond.engage()
+        
+        rigidParticles = []
+        for frag in ch4_1.fragments:
+            for body in frag.bodies():
+                rigidParticles.append(body.rigidParticle())
+#         for rp in rigidParticles:
+#             print rp.position
+#             print rp.orientation
+        
+        
+
 
 
 if __name__ == "__main__":

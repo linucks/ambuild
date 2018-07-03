@@ -66,9 +66,8 @@ class Hoomd2(object):
 #                     ok = False
 #                     missingImpropers.append(improper)
         missingPairs = []
-        for atype, btype in itertools.combinations_with_replacement(self.particleTypes, 2):
-            if atype in self.exclusions or btype in self.exclusions:
-                continue
+        activeParticles = self.particleTypes.difference(self.exclusions)
+        for atype, btype in itertools.combinations_with_replacement(activeParticles, 2):
             if not self.ffield.hasPair(atype, btype):
                 ok = False
                 missingPairs.append((atype, btype))
@@ -105,11 +104,11 @@ class Hoomd2(object):
             atomTypes = set()
             for r in data.rigidParticles:
                 atomTypes.update(r.b_atomTypes)
-            self.particleTypes = list(atomTypes.union(rigidCenters))
+            self.particleTypes = atomTypes.union(rigidCenters)
             self.exclusions = set(rigidCenters)
         else:
             nparticles = len(data.coords)
-            self.particleTypes = list(set(data.atomTypes))
+            self.particleTypes = set(data.atomTypes)
 
         assert nparticles > 0, "Simulation needs some particles!"
         # NEED TO THINK ABOUT WHAT TO DO ABOUT MASKED ATOMS - set particleTypes?
@@ -119,7 +118,7 @@ class Hoomd2(object):
         self.dihedral_types = list(set(data.properLabels)) if len(data.propers) and doDihedral else []
         snapshot = hoomd.data.make_snapshot(N=nparticles,
                                             box=hoomd.data.boxdim(Lx=data.cell[0], Ly=data.cell[1], Lz=data.cell[2]),
-                                            particle_types=self.particleTypes,
+                                            particle_types=list(self.particleTypes),
                                             bond_types=self.bond_types,
                                             angle_types=self.angle_types,
                                             dihedral_types=self.dihedral_types)
@@ -398,29 +397,20 @@ class Hoomd2(object):
     def setPairs(self):
         nl = hoomd.md.nlist.cell()
         lj = hoomd.md.pair.lj(r_cut=self.rCut, nlist=nl)
-        for atype, btype in itertools.combinations_with_replacement(self.particleTypes, 2):
-#             # dummy atoms treated specially
-#             #if atype.lower() in ['x','hn'] or btype.lower() in ['x','hn']:
-#             if self.masked[i] or self.masked[j]:
-#                 epsilon = 0.0
-#                 sigma = 0.0
-#             else:
-            if atype in self.exclusions or btype in self.exclusions:
-                epsilon = 0.0
-                sigma = 1.0
-            else:
-                param = self.ffield.pairParameter(atype, btype)
-                epsilon = param['epsilon']
-                sigma = param['sigma']
+        activeParticles = self.particleTypes.difference(self.exclusions)
+        for atype, btype in itertools.combinations_with_replacement(activeParticles, 2):
+            param = self.ffield.pairParameter(atype, btype)
+            epsilon = param['epsilon']
+            sigma = param['sigma']
             lj.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
             if self.debug:
                 logger.info("DEBUG: lj.pair_coeff.set('{0}', '{1}', epsilon={2}, sigma={3} )".format(atype,
                                                                                                      btype,
                                                                                                      epsilon,
-                                                                                                     sigma))        
-        # Don't think we need to include body any more for rigid bodies, as these are already excluded by default?
-        # nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle', 'body'])
-        # nl.reset_exclusions(exclusions=['1-2', '1-3', '1-4', 'angle'])
+                                                                                                     sigma))
+        # Excluded particles
+        for ptype in self.exclusions:
+            lj.pair_coeff.set(ptype, self.particleTypes, epsilon=0, sigma=0, r_cut=False)    
         nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body'])
         return
 
