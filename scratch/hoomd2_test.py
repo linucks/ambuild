@@ -64,7 +64,7 @@ def momentOfInertia(positions, masses):
     return I
 
 
-def quaternion_from_matrix(M):
+def quaternionFromMatrix(M):
     """Return the quaternion of the rotation matrix
     """
     tr = np.trace(M)
@@ -97,8 +97,8 @@ def quaternion_from_matrix(M):
 
 def orientationQuaternion(A, B):
     """Return the quaternion to rotate A to B"""
-    M = rigid_rotate(A, B)
-    return quaternion_from_matrix(M)
+    M = rigidRotate(A, B)
+    return quaternionFromMatrix(M)
 
 
 def principalMoments(positions, masses):
@@ -107,7 +107,7 @@ def principalMoments(positions, masses):
     return np.sort(eigval)
 
 
-def rigid_rotate(A, B):
+def rigidRotate(A, B):
     """Return rotation matrix to rotate A to B. Assumes both sets of points are already centred.
     Uses SVD to calculate the rotation.
     """
@@ -127,7 +127,6 @@ def rigid_rotate(A, B):
     return R
 
 
-BOX_WIDTH = 20.0
 ORIENTED_PARTICLES = False
 
 # Create the two molecules that will be separated by a single bond
@@ -179,6 +178,7 @@ particle_types = list(particle_types)
 # Start of HOOMD-blue code
 #
 hoomd.context.initialize()
+BOX_WIDTH = 20.0
 lx = BOX_WIDTH
 ly = BOX_WIDTH
 lz = BOX_WIDTH
