@@ -1,62 +1,8 @@
 #!/usr/bin/env python
 import sys
-sys.path.insert(0, '../ambuild')
-from xyz_util import writeXyz
-import ab_bond
-import itertools
 import numpy as np
 import hoomd
 import hoomd.md
-
-BOX_WIDTH = 20.0
-
-def setup(boxdim):
-    from ab_cell import Cell
-    from ab_block import Block
-    
-    boxDim = [BOX_WIDTH, BOX_WIDTH, BOX_WIDTH]
-    mycell = Cell(boxDim)
-    mycell.libraryAddFragment(filename='../blocks/ch4.car', fragmentType='A')
-    mycell.addBondType('A:a-A:a')
-    # Create block manually
-    b1 = Block(filePath='../blocks/ch4.car', fragmentType='A')
-    b2 = Block(filePath='../blocks/ch4.car', fragmentType='A')
-    # Position block so that it's aligned along x-axis
-    b1.alignAtoms(0, 1, [ 1, 0, 0 ])
-    b1.translateCentroid([ mycell.dim[0] / 2, mycell.dim[1] / 2, mycell.dim[2] / 2 ])
-    endGroup1 = b1.freeEndGroups()[ 0 ]
-    endGroup2 = b2.freeEndGroups()[ 0 ]
-    b1.positionGrowBlock(endGroup1, endGroup2)
-    
-    blocks = [b1, b2]
-    if False:
-        b3 = b2.copy() # Copy before bonding so can move away from bonded pair 
-        bond = ab_bond.Bond(endGroup1, endGroup2)
-        bond.engage()
-        b3.translate([3.0, 0.0, 0.0])
-        blocks = [b1, b3]
-    
-    for b in blocks:
-        pass
-    
-    for b in blocks:
-        for f in b.fragments:
-            for b in f.bodies():
-                print b.symbols()
-                print b.coords()
-
-
-
-def wrapBox(positions, boxdim):
-    # Move into centre of cell
-    positions = np.fmod(positions, boxdim)
-    # Change the coord so the origin is at the center of the box (we start from the corner)
-    positions -= boxdim / 2
-    return positions
-
-#boxdim = np.array([BOX_WIDTH, BOX_WIDTH, BOX_WIDTH])
-# setup()
-# sys.exit(1)
 
 class RigidParticle(object):
     def __init__(self, molecule):
@@ -94,27 +40,26 @@ class Molecule(object):
         return RigidParticle(self)
 
 
-def centreOfMass(coords, masses):
+def centreOfMass(positions, masses):
     totalMass = np.sum(masses)
-    return np.sum(coords * masses[:,np.newaxis], axis=0) / totalMass
+    return np.sum(positions * masses[:,np.newaxis], axis=0) / totalMass
 
 
-def momentOfInertia(coords, masses):
+def momentOfInertia(positions, masses):
     """Moment of Inertia Tensor"""
-    # positions relative to the centre of mass
-    coords = coords - centreOfMass(coords, masses)
+    positions = positions - centreOfMass(positions, masses) # positions relative to the centre of mass
     x = 0
     y = 1
     z = 2
     I = np.zeros(shape=(3, 3))
-    I[x, x] = np.sum((np.square(coords[:, y]) + np.square(coords[:, z])) * masses)
-    I[y, y] = np.sum((np.square(coords[:, x]) + np.square(coords[:, z])) * masses)
-    I[z, z] = np.sum((np.square(coords[:, x]) + np.square(coords[:, y])) * masses)
-    I[x, y] = np.sum(coords[:, x] * coords[:, y] * masses)
+    I[x, x] = np.sum((np.square(positions[:, y]) + np.square(positions[:, z])) * masses)
+    I[y, y] = np.sum((np.square(positions[:, x]) + np.square(positions[:, z])) * masses)
+    I[z, z] = np.sum((np.square(positions[:, x]) + np.square(positions[:, y])) * masses)
+    I[x, y] = np.sum(positions[:, x] * positions[:, y] * masses)
     I[y, x] = I[x, y]
-    I[y, z] = np.sum(coords[:, y] * coords[:, z] * masses)
+    I[y, z] = np.sum(positions[:, y] * positions[:, z] * masses)
     I[z, y] = I[y, z]
-    I[x, z] = np.sum(coords[:, x] * coords[:, z] * masses)
+    I[x, z] = np.sum(positions[:, x] * positions[:, z] * masses)
     I[z, x] = I[x, z]
     return I
 
@@ -149,18 +94,15 @@ def quaternion_from_matrix(M):
         qz = 0.25 * S
     return np.array([qw, qx, qy, qz])
 
+
 def orientationQuaternion(A, B):
-    """Return the quaternion to rotate A to B
-    """
+    """Return the quaternion to rotate A to B"""
     M = rigid_rotate(A, B)
-    M_rot_coords = np.dot(A, M.T)
-    assert np.allclose(M_rot_coords, B, atol=0.0001), "{}\n{}".format(M_rot_coords, B)
-    q = quaternion_from_matrix(M)
-    return q
+    return quaternion_from_matrix(M)
 
 
-def principalMoments(coords, masses):
-    I = momentOfInertia(coords, masses)
+def principalMoments(positions, masses):
+    I = momentOfInertia(positions, masses)
     eigval, eigvec = np.linalg.eig(I)
     return np.sort(eigval)
 
@@ -180,16 +122,15 @@ def rigid_rotate(A, B):
         # Reflection detected
         Vt[2,:] *= -1
         R = Vt.T * U.T
+    B_r = np.dot(A, R.T) # Check that rotating A by the matrix gives us B again
+    assert np.allclose(B_r, B, atol=0.0001), "{}\n{}".format(B_r, B)
     return R
 
 
-# Fragment on centre of mass
-ref_pos = np.array([[  2.68166859e-08,   0.00000000e+00,   7.30084273e-02],
-                    [  1.02671923e+00,   0.00000000e+00,  -2.89991573e-01],
-                    [ -5.13359773e-01,  -8.89165000e-01,  -2.89991573e-01],
-                    [ -5.13359773e-01,   8.89165000e-01,  -2.89991573e-01]])
+BOX_WIDTH = 20.0
+ORIENTED_PARTICLES = False
 
-# 2 bonded, 1 not
+# Create the two molecules that will be separated by a single bond
 mol1 = Molecule()
 mol1.positions = np.array([[  0.00000000e+00,   0.00000000e+00,  -2.00000001e-07],
                            [ -3.63000000e-01,   0.00000000e+00,  -1.02671920e+00],
@@ -206,38 +147,20 @@ mol2.positions = np.array([[  1.53000000e+00,   0.00000000e+00,  -2.00000001e-07
 mol2.types = ['C', 'H', 'H', 'H']
 mol2.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794])
 
-
-#     mol3 = Molecule()
-#     mol3.positions = np.array([[  4.53000000e+00,   0.00000000e+00,  -2.00000001e-07],
-#                                [  3.44100000e+00,   0.00000000e+00,  -2.00000001e-07],
-#                                [  4.89300000e+00,   0.00000000e+00,   1.02671880e+00],
-#                                [  4.89300000e+00,  -8.89165000e-01,  -5.13360200e-01],
-#                                [  4.89300000e+00,   8.89165000e-01,  -5.13360200e-01]])
-#     mol3.types = ['C', 'H', 'H', 'H', 'H']
-#     mol3.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])    
-#     
-#     #molecules = [mol1, mol2, mol3]
 molecules = [mol1, mol2]
 
-
-
-
-# boxdim = np.array([BOX_WIDTH, BOX_WIDTH, BOX_WIDTH])
-# for m in molecules:
-#     m.positions = wrapBox(m.positions, boxdim)
-#     print repr(m.positions)
-#writeXyz('foo1.xyz', np.vstack([m.positions for m in molecules]), np.hstack([m.types for m in molecules]))
-#sys.exit()
-
 # Create the central particles
-ORIENTED_PARTICLES = True
 RIGID_TYPE = 'A'
 rigidParticles = []
+ref_orientation = None
 for i, mol in enumerate(molecules):
     rp = mol.rigidParticle()
     if ORIENTED_PARTICLES:
+        if i == 0:
+            # Use first molecule as reference orientation
+            ref_orientation = rp.m_positions
         rp.type = RIGID_TYPE
-        rp.orientation = orientationQuaternion(ref_pos, rp.m_positions)
+        rp.orientation = orientationQuaternion(ref_orientation, rp.m_positions)
     else:
         rp.type = "CP%d" % i
     rigidParticles.append(rp)
@@ -253,10 +176,9 @@ for mol in molecules:
     particle_types.update(set(mol.types))
 particle_types = list(particle_types)
 #
-# Start of hoomd code
+# Start of HOOMD-blue code
 #
 hoomd.context.initialize()
-
 lx = BOX_WIDTH
 ly = BOX_WIDTH
 lz = BOX_WIDTH
@@ -274,7 +196,6 @@ for i, rp in enumerate(rigidParticles):
     snapshot.particles.moment_inertia[i] = rp.principalMoments
     snapshot.particles.orientation[i] = rp.orientation
     
-    
 # Then add in the constituent molecule particles
 idx = i + 1
 for i, rp in enumerate(rigidParticles):
@@ -285,9 +206,6 @@ for i, rp in enumerate(rigidParticles):
         snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.m_types[j])
         idx += 1
         
-
-
-
 #writeXyz('foo2.xyz', snapshot.particles.position, [snapshot.particles.types[t] for t in snapshot.particles.typeid])
 
 # Create bond between two C-atoms of first 2 molecules
@@ -327,12 +245,13 @@ rigid.validate_bodies()
 
 groupAll = hoomd.group.all()
 groupRigid = hoomd.group.rigid_center()
-
+# Dump out the trajectory
 dgsd = hoomd.dump.gsd(filename="trajectory.gsd",
                       period=1,
                       group=groupAll,
                       overwrite=True)
 
+# Run the MD
 ncycles = 1000
 T = 1.0
 tau = 0.5
