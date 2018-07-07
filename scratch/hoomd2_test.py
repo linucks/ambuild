@@ -62,6 +62,7 @@ class RigidParticle(object):
     def __init__(self, molecule):
         # Attributes of the central particle
         self.mass = None
+        self.orientation = np.array([1.0, 0.0, 0.0, 0.0])
         self.position = None
         self.principalMoments = None
         self.type = None
@@ -82,6 +83,7 @@ class RigidParticle(object):
         self.m_masses = molecule.masses
         return self
 
+
 class Molecule(object):
     def __init__(self):
         self.positions = None
@@ -91,9 +93,11 @@ class Molecule(object):
     def rigidParticle(self):
         return RigidParticle(self)
 
+
 def centreOfMass(coords, masses):
     totalMass = np.sum(masses)
     return np.sum(coords * masses[:,np.newaxis], axis=0) / totalMass
+
 
 def momentOfInertia(coords, masses):
     """Moment of Inertia Tensor"""
@@ -114,88 +118,136 @@ def momentOfInertia(coords, masses):
     I[z, x] = I[x, z]
     return I
 
+
+def quaternion_from_matrix(M):
+    """Return the quaternion of the rotation matrix
+    """
+    tr = np.trace(M)
+    if (tr > 0):
+        S = np.sqrt(tr + 1.0) * 2 # S=4*qw 
+        qw = 0.25 * S
+        qx = (M[2, 1] - M[1, 2]) / S
+        qy = (M[0, 2] - M[2, 0]) / S
+        qz = (M[1, 0] - M[0, 1]) / S
+    elif ((M[0, 0] > M[1, 1])&(M[0, 0] > M[2, 2])):
+        S = np.sqrt(1.0 + M[0, 0] - M[1, 1] - M[2, 2]) * 2 # S=4*qx 
+        qw = (M[2, 1] - M[1, 2]) / S
+        qx = 0.25 * S
+        qy = (M[0, 1] + M[1, 0]) / S 
+        qz = (M[0, 2] + M[2, 0]) / S 
+    elif (M[1, 1] > M[2, 2]):
+        S = np.sqrt(1.0 + M[1, 1] - M[0, 0] - M[2, 2]) * 2 # S=4*qy
+        qw = (M[0, 2] - M[2, 0]) / S
+        qx = (M[0, 1] + M[1, 0]) / S 
+        qy = 0.25 * S
+        qz = (M[1, 2] + M[2, 1]) / S 
+    else:
+        S = np.sqrt(1.0 + M[2, 2] - M[0, 0] - M[1, 1]) * 2 # S=4*qz
+        qw = (M[1, 0] - M[0, 1]) / S
+        qx = (M[0, 2] + M[2, 0]) / S
+        qy = (M[1, 2] + M[2, 1]) / S
+        qz = 0.25 * S
+    return np.array([qw, qx, qy, qz])
+
+def orientationQuaternion(A, B):
+    """Return the quaternion to rotate A to B
+    """
+    M = rigid_rotate(A, B)
+    M_rot_coords = np.dot(A, M.T)
+    assert np.allclose(M_rot_coords, B, atol=0.0001), "{}\n{}".format(M_rot_coords, B)
+    q = quaternion_from_matrix(M)
+    return q
+
+
 def principalMoments(coords, masses):
     I = momentOfInertia(coords, masses)
     eigval, eigvec = np.linalg.eig(I)
     return np.sort(eigval)
 
 
+def rigid_rotate(A, B):
+    """Return rotation matrix to rotate A to B. Assumes both sets of points are already centred.
+    Uses SVD to calculate the rotation.
+    """
+    A = np.matrix(A)
+    B = np.matrix(B)
+    assert len(A) == len(B)
+    H = A.T * B
+    U, S, Vt = np.linalg.svd(H)
+    R = Vt.T * U.T
+    # special reflection case
+    if np.linalg.det(R) < 0:
+        # Reflection detected
+        Vt[2,:] *= -1
+        R = Vt.T * U.T
+    return R
 
 
-bonded = False
-if not bonded:
-    # Create 2 methane molecules
-    mol1 = Molecule()
-    mol1.positions = np.array([[ -2.00000000e+00,   0.00000000e+00,  -2.00000001e-07],
-                               [ -9.11000000e-01,   0.00000000e+00,  -2.00000001e-07],
-                               [ -2.36300000e+00,   0.00000000e+00,  -1.02671920e+00],
-                               [ -2.36300000e+00,  -8.89165000e-01,   5.13359800e-01],
-                               [ -2.36300000e+00,   8.89165000e-01,   5.13359800e-01]])
-    mol1.types = ['C', 'H', 'H', 'H', 'H']
-    mol1.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])
-    
-    mol2 = Molecule()
-    mol2.positions = np.array([[  1.53000000e+00,   0.00000000e+00,  -2.00000001e-07],
-                               [  4.41000000e-01,   0.00000000e+00,  -2.00000001e-07],
-                               [  1.89300000e+00,   0.00000000e+00,   1.02671880e+00],
-                               [  1.89300000e+00,  -8.89165000e-01,  -5.13360200e-01],
-                               [  1.89300000e+00,   8.89165000e-01,  -5.13360200e-01]])
-    mol2.types = ['C', 'H', 'H', 'H', 'H']
-    mol2.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])
-    
-    molecules = [mol1, mol2]
-else:
-    # 2 bonded, 1 not
-    mol1 = Molecule()
-    mol1.positions = np.array([[  0.00000000e+00,   0.00000000e+00,  -2.00000001e-07],
-                               [ -3.63000000e-01,   0.00000000e+00,  -1.02671920e+00],
-                               [ -3.63000000e-01,  -8.89165000e-01,   5.13359800e-01],
-                               [ -3.63000000e-01,   8.89165000e-01,   5.13359800e-01]])
-    mol1.types = ['C', 'H', 'H', 'H']
-    mol1.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794])
-    
-    mol2 = Molecule()
-    mol2.positions = np.array([[  1.53000000e+00,   0.00000000e+00,  -2.00000001e-07],
-                               [  1.89300000e+00,   0.00000000e+00,   1.02671880e+00],
-                               [  1.89300000e+00,  -8.89165000e-01,  -5.13360200e-01],
-                               [  1.89300000e+00,   8.89165000e-01,  -5.13360200e-01]])
-    mol2.types = ['C', 'H', 'H', 'H']
-    mol2.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794])
-    
-    
-    mol3 = Molecule()
-    mol3.positions = np.array([[  4.53000000e+00,   0.00000000e+00,  -2.00000001e-07],
-                               [  3.44100000e+00,   0.00000000e+00,  -2.00000001e-07],
-                               [  4.89300000e+00,   0.00000000e+00,   1.02671880e+00],
-                               [  4.89300000e+00,  -8.89165000e-01,  -5.13360200e-01],
-                               [  4.89300000e+00,   8.89165000e-01,  -5.13360200e-01]])
-    mol3.types = ['C', 'H', 'H', 'H', 'H']
-    mol3.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])    
-    
-    molecules = [mol1, mol2, mol3]
+# Fragment on centre of mass
+ref_pos = np.array([[  2.68166859e-08,   0.00000000e+00,   7.30084273e-02],
+                    [  1.02671923e+00,   0.00000000e+00,  -2.89991573e-01],
+                    [ -5.13359773e-01,  -8.89165000e-01,  -2.89991573e-01],
+                    [ -5.13359773e-01,   8.89165000e-01,  -2.89991573e-01]])
+
+# 2 bonded, 1 not
+mol1 = Molecule()
+mol1.positions = np.array([[  0.00000000e+00,   0.00000000e+00,  -2.00000001e-07],
+                           [ -3.63000000e-01,   0.00000000e+00,  -1.02671920e+00],
+                           [ -3.63000000e-01,  -8.89165000e-01,   5.13359800e-01],
+                           [ -3.63000000e-01,   8.89165000e-01,   5.13359800e-01]])
+mol1.types = ['C', 'H', 'H', 'H']
+mol1.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794])
+
+mol2 = Molecule()
+mol2.positions = np.array([[  1.53000000e+00,   0.00000000e+00,  -2.00000001e-07],
+                           [  1.89300000e+00,   0.00000000e+00,   1.02671880e+00],
+                           [  1.89300000e+00,  -8.89165000e-01,  -5.13360200e-01],
+                           [  1.89300000e+00,   8.89165000e-01,  -5.13360200e-01]])
+mol2.types = ['C', 'H', 'H', 'H']
+mol2.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794])
+
+
+#     mol3 = Molecule()
+#     mol3.positions = np.array([[  4.53000000e+00,   0.00000000e+00,  -2.00000001e-07],
+#                                [  3.44100000e+00,   0.00000000e+00,  -2.00000001e-07],
+#                                [  4.89300000e+00,   0.00000000e+00,   1.02671880e+00],
+#                                [  4.89300000e+00,  -8.89165000e-01,  -5.13360200e-01],
+#                                [  4.89300000e+00,   8.89165000e-01,  -5.13360200e-01]])
+#     mol3.types = ['C', 'H', 'H', 'H', 'H']
+#     mol3.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794, 1.00794])    
+#     
+#     #molecules = [mol1, mol2, mol3]
+molecules = [mol1, mol2]
+
+
 
 
 # boxdim = np.array([BOX_WIDTH, BOX_WIDTH, BOX_WIDTH])
 # for m in molecules:
 #     m.positions = wrapBox(m.positions, boxdim)
 #     print repr(m.positions)
-
+#writeXyz('foo1.xyz', np.vstack([m.positions for m in molecules]), np.hstack([m.types for m in molecules]))
+#sys.exit()
 
 # Create the central particles
+ORIENTED_PARTICLES = True
+RIGID_TYPE = 'A'
 rigidParticles = []
 for i, mol in enumerate(molecules):
     rp = mol.rigidParticle()
-    rp.type = "CP%d" % i
+    if ORIENTED_PARTICLES:
+        rp.type = RIGID_TYPE
+        rp.orientation = orientationQuaternion(ref_pos, rp.m_positions)
+    else:
+        rp.type = "CP%d" % i
     rigidParticles.append(rp)
 
 # Get total number of particles and the set of types
 particle_types = set()
 nparticles = 0
-exclusions = [] # to stop the central particles ineracting directly
 for rp in rigidParticles:
     nparticles += 1
     particle_types.add(rp.type)
-    exclusions.append(rp.type)
 for mol in molecules:
     nparticles += mol.positions.shape[0]
     particle_types.update(set(mol.types))
@@ -208,13 +260,11 @@ hoomd.context.initialize()
 lx = BOX_WIDTH
 ly = BOX_WIDTH
 lz = BOX_WIDTH
-bond_types = []
-if bonded:
-    bond_types = ['C-C']
+bond_types = ['C-C']
 snapshot = hoomd.data.make_snapshot(N=nparticles,
                                     box=hoomd.data.boxdim(Lx=lx, Ly=ly, Lz=lz),
                                     particle_types=particle_types,
-                                    bond_types=bond_types)
+                                    bond_types=bond_types)  
 # Add centreal particles at start of snapshot
 for i, rp in enumerate(rigidParticles):
     snapshot.particles.body[i] = i
@@ -222,6 +272,8 @@ for i, rp in enumerate(rigidParticles):
     snapshot.particles.position[i] = rp.position
     snapshot.particles.typeid[i] = snapshot.particles.types.index(rp.type)
     snapshot.particles.moment_inertia[i] = rp.principalMoments
+    snapshot.particles.orientation[i] = rp.orientation
+    
     
 # Then add in the constituent molecule particles
 idx = i + 1
@@ -233,41 +285,36 @@ for i, rp in enumerate(rigidParticles):
         snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.m_types[j])
         idx += 1
         
-if bonded:
-    # Create bond between two C-atoms of first 2 molecules
-    snapshot.bonds.resize(1)
-    b0 = 3
-    b1 = 7
-    snapshot.bonds.group[0] = [b0, b1]
-    snapshot.bonds.typeid[0] = 0
-    
-# print "BODIES ",snapshot.particles.body
-# print "1 ",snapshot.particles.typeid
-# print "2 ",snapshot.particles.types
-# print "3 ",snapshot.particles.position
-# for i, rp in enumerate(rigidParticles):
-#     print rp.m_positions
-# sys.exit()
-#writeXyz('foo.xyz', snapshot.particles.position, [snapshot.particles.types[t] for t in snapshot.particles.typeid])
 
-    
+
+
+#writeXyz('foo2.xyz', snapshot.particles.position, [snapshot.particles.types[t] for t in snapshot.particles.typeid])
+
+# Create bond between two C-atoms of first 2 molecules
+snapshot.bonds.resize(1)
+b0 = 2
+b1 = 6
+snapshot.bonds.group[0] = [b0, b1]
+snapshot.bonds.typeid[0] = 0
+
 system = hoomd.init.read_snapshot(snapshot)
+
+# bond potential
+bond_harmonic = hoomd.md.bond.harmonic(name="bond_harmonic")
+bond_harmonic.bond_coeff.set(bond_types[0], k=606.2, r0=1.535)
+
+# pair potentials
 nl = hoomd.md.nlist.cell()
 lj = hoomd.md.pair.lj(r_cut=5.0, nlist=nl)
 lj.pair_coeff.set('C', 'C', epsilon=0.0968, sigma=3.4)
 lj.pair_coeff.set('C', 'H', epsilon=0.1106, sigma=3.7736)
 lj.pair_coeff.set('H', 'H', epsilon=0.1106, sigma=1.7736)
 # Ignore all interactions with the central particles
-# for atype, btype in itertools.combinations_with_replacement(particle_types, 2):
-#     if atype in exclusions or btype in exclusions:
-#         epsilon = 0.0
-#         sigma = 1.0
-#         lj.pair_coeff.set(atype, btype, epsilon=epsilon, sigma=sigma)
-
-if bonded:
-    bond_harmonic = hoomd.md.bond.harmonic(name="bond_harmonic")
-    bond_harmonic.bond_coeff.set(bond_types[0], k=606.2, r0=1.535)
-
+if ORIENTED_PARTICLES:
+    lj.pair_coeff.set(RIGID_TYPE, [RIGID_TYPE, 'C', 'H'], epsilon=0.0, sigma=0.0, r_cut=False)
+else:
+    lj.pair_coeff.set('CP0', ['CP0', 'CP1', 'C', 'H'], epsilon=0.0, sigma=0.0, r_cut=False)
+    lj.pair_coeff.set('CP1', ['CP1', 'CP0', 'C', 'H'], epsilon=0.0, sigma=0.0, r_cut=False)
 nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body'])
 
 # Set up the rigid bodies
@@ -286,33 +333,10 @@ dgsd = hoomd.dump.gsd(filename="trajectory.gsd",
                       group=groupAll,
                       overwrite=True)
 
-optimise = False
 ncycles = 1000
-if optimise:
-    dt = 0.0001
-    Nmin = 5
-    alpha_start = 0.1
-    ftol = 1e-2
-    Etol = 1e-5
-    finc = 1.1
-    fdec  =0.5
-    fire = hoomd.md.integrate.mode_minimize_fire(dt=dt,
-                                                 Nmin=Nmin,
-                                                 alpha_start=alpha_start,
-                                                 ftol=ftol,
-                                                 Etol=Etol,
-                                                 finc=finc,
-                                                 fdec=fdec)
-    
-    integrate_nve = hoomd.md.integrate.nve(group=groupRigid)
-    hoomd.run(ncycles,
-              callback=lambda x:-1 if fire.has_converged() else 0,
-              callback_period=1)
-else:
-    T = 1.0
-    tau = 0.5
-    dt = 0.0005
-    integrator_mode = hoomd.md.integrate.mode_standard(dt=dt)
-    integ = hoomd.md.integrate.nvt(group=groupRigid, kT=T, tau=tau)
-    hoomd.run(ncycles)
-
+T = 1.0
+tau = 0.5
+dt = 0.0005
+integrator_mode = hoomd.md.integrate.mode_standard(dt=dt)
+integ = hoomd.md.integrate.nvt(group=groupRigid, kT=T, tau=tau)
+hoomd.run(ncycles)
