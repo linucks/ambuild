@@ -5,6 +5,7 @@ import hoomd
 import hoomd.md
 
 class RigidParticle(object):
+    """Class to hold the data for a single central rigid particle"""
     def __init__(self, molecule):
         # Attributes of the central particle
         self.mass = None
@@ -31,6 +32,7 @@ class RigidParticle(object):
 
 
 class Molecule(object):
+    """Class to hold data about a molecule"""
     def __init__(self):
         self.positions = None
         self.masses = None
@@ -74,7 +76,7 @@ def quaternionFromMatrix(M):
         qx = (M[2, 1] - M[1, 2]) / S
         qy = (M[0, 2] - M[2, 0]) / S
         qz = (M[1, 0] - M[0, 1]) / S
-    elif ((M[0, 0] > M[1, 1])&(M[0, 0] > M[2, 2])):
+    elif ((M[0, 0] > M[1, 1]) and (M[0, 0] > M[2, 2])):
         S = np.sqrt(1.0 + M[0, 0] - M[1, 1] - M[2, 2]) * 2 # S=4*qx 
         qw = (M[2, 1] - M[1, 2]) / S
         qx = 0.25 * S
@@ -127,7 +129,8 @@ def rigidRotate(A, B):
     return R
 
 
-ORIENTED_PARTICLES = False
+# Change this to use separate rigid particles or a single paritcle in different orientations
+ORIENTED_PARTICLES = True
 
 # Create the two molecules that will be separated by a single bond
 mol1 = Molecule()
@@ -148,8 +151,8 @@ mol2.masses = np.array([12.0107, 1.00794, 1.00794, 1.00794])
 
 molecules = [mol1, mol2]
 
-# Create the central particles
-RIGID_TYPE = 'A'
+# Create the central rigid particles
+RIGID_TYPE = 'RP'
 rigidParticles = []
 ref_orientation = None
 for i, mol in enumerate(molecules):
@@ -158,10 +161,10 @@ for i, mol in enumerate(molecules):
         if i == 0:
             # Use first molecule as reference orientation
             ref_orientation = rp.m_positions
-        rp.type = RIGID_TYPE
+        rp.type = RIGID_TYPE # Both molecules use same type of rigid particle
         rp.orientation = orientationQuaternion(ref_orientation, rp.m_positions)
     else:
-        rp.type = "CP%d" % i
+        rp.type = "%s%d" % (RIGID_TYPE, i)
     rigidParticles.append(rp)
 
 # Get total number of particles and the set of types
@@ -206,8 +209,6 @@ for i, rp in enumerate(rigidParticles):
         snapshot.particles.typeid[idx] = snapshot.particles.types.index(rp.m_types[j])
         idx += 1
         
-#writeXyz('foo2.xyz', snapshot.particles.position, [snapshot.particles.types[t] for t in snapshot.particles.typeid])
-
 # Create bond between two C-atoms of first 2 molecules
 snapshot.bonds.resize(1)
 b0 = 2
@@ -231,8 +232,10 @@ lj.pair_coeff.set('H', 'H', epsilon=0.1106, sigma=1.7736)
 if ORIENTED_PARTICLES:
     lj.pair_coeff.set(RIGID_TYPE, [RIGID_TYPE, 'C', 'H'], epsilon=0.0, sigma=0.0, r_cut=False)
 else:
-    lj.pair_coeff.set('CP0', ['CP0', 'CP1', 'C', 'H'], epsilon=0.0, sigma=0.0, r_cut=False)
-    lj.pair_coeff.set('CP1', ['CP1', 'CP0', 'C', 'H'], epsilon=0.0, sigma=0.0, r_cut=False)
+    rp0 = "%s%d" % (RIGID_TYPE, 0)
+    rp1 = "%s%d" % (RIGID_TYPE, 1)
+    lj.pair_coeff.set(rp0, [rp0, rp1, 'C', 'H'], epsilon=0.0, sigma=0.0, r_cut=False)
+    lj.pair_coeff.set(rp1, [rp1, rp0, 'C', 'H'], epsilon=0.0, sigma=0.0, r_cut=False)
 nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body'])
 
 # Set up the rigid bodies
