@@ -4,6 +4,42 @@ import numpy as np
 import hoomd
 import hoomd.md
 
+# #
+# def transform(m,v):
+#    return [m[0][0]*v[0] + m[0][1]*v[1] + m[0][2]*v[2],
+#            m[1][0]*v[0] + m[1][1]*v[1] + m[1][2]*v[2],
+#            m[2][0]*v[0] + m[2][1]*v[1] + m[2][2]*v[2]]
+# 
+# def toStandardOrientation(self):
+#     cm = self.centerOfMass()
+#     self.translate(cpv.negate(cm))
+#     A = self.mainAxis()
+#     for a in self.atom:
+#         a.coord = cpv.transform(A,a.coord)
+# 
+# def mainAxis(self, origin = [0.0,0.0,0.0]):
+#     """Return a matrix with the eigenvectors of the
+#     inertial tensor, calculated with the given origin."""
+#     I = self.inertialTensor( origin )
+# 
+#     #valvec = objects.linalg.Heigenvectors(I)
+#     eigval,eigvec = objects.linalg.eigh(I)
+# 
+#     # Need to add in a transpose eigenvectors as numpy in C-ordering
+#     eigvec=objects.numeric.transpose(eigvec)
+#     valvec=(eigval,eigvec)
+# 
+# 
+#     res = []
+#     for i in range(3):
+#         res.append([valvec[0][i],[valvec[1][i][0],
+#                                   valvec[1][i][1],
+#                                   valvec[1][i][2]]])
+#     res.sort()
+#     return [res[0][1],res[1][1],res[2][1]]
+
+
+
 class RigidParticle(object):
     """Class to hold the data for a single central rigid particle"""
     def __init__(self, molecule):
@@ -130,7 +166,7 @@ def rigidRotate(A, B):
 
 
 # Change this to use separate rigid particles or a single paritcle in different orientations
-ORIENTED_PARTICLES = True
+ORIENTED_PARTICLES = False
 
 # Create the two molecules that will be separated by a single bond
 mol1 = Molecule()
@@ -154,15 +190,15 @@ molecules = [mol1, mol2]
 # Create the central rigid particles
 RIGID_TYPE = 'RP'
 rigidParticles = []
-ref_orientation = None
+REFERENCE_ORIENTATION = None
 for i, mol in enumerate(molecules):
     rp = mol.rigidParticle()
     if ORIENTED_PARTICLES:
         if i == 0:
             # Use first molecule as reference orientation
-            ref_orientation = rp.m_positions
+            REFERENCE_ORIENTATION = rp.m_positions
         rp.type = RIGID_TYPE # Both molecules use same type of rigid particle
-        rp.orientation = orientationQuaternion(ref_orientation, rp.m_positions)
+        rp.orientation = orientationQuaternion(REFERENCE_ORIENTATION, rp.m_positions)
     else:
         rp.type = "%s%d" % (RIGID_TYPE, i)
     rigidParticles.append(rp)
@@ -240,10 +276,15 @@ nl.reset_exclusions(exclusions=['bond', '1-3', '1-4', 'angle', 'dihedral', 'body
 
 # Set up the rigid bodies
 rigid = hoomd.md.constrain.rigid()
-for rp in rigidParticles:
-    rigid.set_param(rp.type,
-                    positions=rp.m_positions,
+if ORIENTED_PARTICLES:
+    rigid.set_param(RIGID_TYPE,
+                    positions=REFERENCE_ORIENTATION,
                     types=rp.m_types)
+else:
+    for rp in rigidParticles:
+        rigid.set_param(rp.type,
+                        positions=rp.m_positions,
+                        types=rp.m_types)
 rigid.validate_bodies()
 
 groupAll = hoomd.group.all()

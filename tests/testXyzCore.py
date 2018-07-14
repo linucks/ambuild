@@ -55,6 +55,7 @@ class Test(unittest.TestCase):
                     [ -2.89991573e-01,   0.00000000e+00,  -1.02671907e+00],
                     [ -2.89991573e-01,  -8.89165000e-01,   5.13359933e-01],
                     [ -2.89991573e-01,   8.89165000e-01,   5.13359933e-01]])
+        
         p2 = np.array([[ -7.30084273e-02,   0.00000000e+00,   6.70417145e-08],
                     [  2.89991573e-01,   0.00000000e+00,   1.02671907e+00],
                     [  2.89991573e-01,  -8.89165000e-01,  -5.13359933e-01],
@@ -69,10 +70,24 @@ class Test(unittest.TestCase):
         p_2 = np.dot(p1, M.T)
         self.assertTrue(np.allclose(p2, p_2, rtol=0.0001))
         return
+    
+    def testRigidRotate2(self):
+        """Both coordinates on centre of mass"""
+        p1 = np.array([[  7.30084273e-02,   0.00000000e+00,  -6.70417149e-08],
+                       [ -2.89991573e-01,   0.00000000e+00,  -1.02671907e+00],
+                       [ -2.89991573e-01,  -8.89165000e-01,   5.13359933e-01],
+                       [ -2.89991573e-01,   8.89165000e-01,   5.13359933e-01]])
+        M1 = xyz_core.rotation_matrix(np.array([0, 1, 0]), np.pi/3)
+        p2 = np.dot(p1, M1.T)
+        M2 = xyz_core.rigid_rotate(p1, p2)
+        # Rotate p1 to p2 and make sure all overlap
+        p_2 = np.dot(p1, M2.T)
+        self.assertTrue(np.allclose(p2, p_2, rtol=0.0001))
+        return
         
     def testRotMat2Quat(self):
         M = np.matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
-        Q = xyz_core.rotation_matrix_to_quaternion(M)
+        Q = xyz_core.quaternion_from_matrix(M)
         ref = np.array([1.0, 0.0, 0.0, 0.0])
         self.assertTrue(np.allclose(Q, ref, rtol=0.0001))
         return

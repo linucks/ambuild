@@ -1040,7 +1040,7 @@ class Cell():
                     d.natoms += body.natoms
                     atomIdx += body.natoms
                     if RIGIDPARTICLES:
-                        d.rigidParticles.append(body.rigidParticle())
+                        d.rigidParticles.append(self.rigidParticleMgr.createParticle(body))
                     else:
                         coords = body.coords
                         coords, images = xyz_core.wrapCoord3(coords, dim=self.dim, center=center)
@@ -1055,6 +1055,8 @@ class Cell():
                         d.static += body.static
                         d.symbols += body.symbols
                 bodyIdx += 1
+        if RIGIDPARTICLES:
+            d.rigidParticleMgr = self.rigidParticleMgr
         return d
 
     def delBlock(self, blockId):
@@ -1664,8 +1666,7 @@ class Cell():
                                     fragmentType,
                                     solvent=solvent,
                                     markBonded=markBonded,
-                                    catalyst=catalyst,
-                                    cell=self)
+                                    catalyst=catalyst)
         # Update cell parameters for this fragment
         maxAtomRadius = frag.maxAtomRadius()
         if  maxAtomRadius > self.maxAtomRadius:
@@ -2243,6 +2244,7 @@ class Cell():
             rmax =  max([b.blockRadius() for b in self.blocks.values()])
             cell_r = np.max(self.dim) / 2
             rCut = min(rmax, cell_r)
+            logger.info("Rigid Particle code setting rCut to: %f", rCut)
         else:
             rCut = mdEngine.rCut
         self.rCut =rCut

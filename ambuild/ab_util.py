@@ -53,9 +53,6 @@ def cellFromPickle(pickleFile, paramsDir=None):
         if not hasattr(fragment, '_atomTypes'):
             fragment._atomTypes = fragment._types
             fragment._sharedAttrs['_atomTypes'] = None
-        if not hasattr(fragment, 'cell'):
-            fragment.cell = None
-            fragment._sharedAttrs['cell'] = None
         if not hasattr(fragment, 'solvent'):
             # Solvent is a new attribute so we set to false
             fragment.solvent = False

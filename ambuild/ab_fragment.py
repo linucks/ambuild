@@ -30,8 +30,7 @@ class Fragment(object):
                  solvent=False,
                  static=False,
                  markBonded=False,
-                 catalyst=False,
-                 cell=None):
+                 catalyst=False):
         '''
         Constructor
         '''
@@ -44,7 +43,6 @@ class Fragment(object):
             '_bonds'           : [],  # List of internal fragment bonds
             '_bonded'          : [],  # List of which atoms are bonded to which
             'catalyst'         : catalyst, # Whether this block is a catalyst
-            'cell'             : cell,
             '_cellParameters'  : {},
             '_charges'         : [],
             'fragmentType'     : fragmentType,
@@ -650,8 +648,6 @@ class Fragment(object):
                 ecount += 1
         self.config = [False if eg.free() else True for eg in self._endGroups]
         self.configStr = self._calcConfigStr()
-        if self.cell:
-            self.cell.rigidParticleMgr.updateConfig(self)
         return
 
     def __str__(self):

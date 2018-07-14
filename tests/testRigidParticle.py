@@ -13,6 +13,7 @@ BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
 PARAMS_DIR = context.ab_paths.PARAMS_DIR
 from context import ab_block
 from context import ab_bond
+from context import ab_cell
 from context import ab_fragment
 from context import ab_rigidparticle
 from context import xyz_core
@@ -57,18 +58,9 @@ class Test(unittest.TestCase):
         return
     
     def testRigidParticle(self):
-        class Cell(object):
-            """Mock Cell object for testing"""
-            def __init__(self, rigidParticleMgr):
-                self.rigidParticleMgr = rigidParticleMgr
-        
-        rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
-        cell = Cell(rigidParticleMgr)    
-
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
         ftype = 'A'
         f1 = ab_fragment.Fragment(filePath=ch4, fragmentType=ftype, cell=cell)
-        
         rp = list(f1.bodies())[0].rigidParticle()
         quat_origin = np.array([1.0, 0.0, 0.0, 0.0])
         self.assertTrue(np.allclose(rp.orientation, quat_origin, rtol=0.0001))
@@ -128,35 +120,54 @@ class Test(unittest.TestCase):
             
     def testOrientation1(self):
         """Two bonded fragments: check that rotation rotates one to the other"""
-        class Cell(object):
-            """Mock Cell object for testing"""
-            def __init__(self, rigidParticleMgr):
-                self.rigidParticleMgr = rigidParticleMgr
-        
-        rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
-        cell = Cell(rigidParticleMgr)
 
         # 2 blocks
         ch4_f = os.path.join(BLOCKS_DIR, "ch4.car")
-        ch4_1 = ab_block.Block(filePath=ch4_f, fragmentType='A', cell=cell)
-        ch4_2 = ch4_1.copy()
+        ch4_1 = ab_block.Block(filePath=ch4_f, fragmentType='A')
+        ch4_2 = ab_block.Block(filePath=ch4_f, fragmentType='A')
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2)
         bond = ab_bond.Bond(eg1, eg2)
         bond.engage()
         
+        rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
         rigidParticles = []
         for frag in ch4_1.fragments:
             for body in frag.bodies():
-                rigidParticles.append(body.rigidParticle())
-#         for rp in rigidParticles:
-#             print rp.position
-#             print rp.orientation
+                rigidParticles.append(rigidParticleMgr.createParticle(body))
         
+        # Check that the orientation quaternion can rotate the master coords onto the body
+        for rp in rigidParticles:
+            ref_coords = rigidParticleMgr._configs[rp.b_rigidConfigStr]
+            rot_coords = xyz_core.rotate_quaternion(ref_coords, rp.orientation)
+            self.assertTrue(np.allclose(rp.b_positions, rot_coords, atol=0.0001))    
         
+    def testOrientation2(self):
+        """Two bonded fragments: check that rotation rotates one to the other"""
+#         class Cell(object):
+#             """Mock Cell object for testing"""
+#             def __init__(self, rigidParticleMgr):
+#                 self.rigidParticleMgr = rigidParticleMgr
+#         
+#         rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
+#         cell = Cell(rigidParticleMgr)
 
+        boxWidth = 20
+        boxDim = [boxWidth, boxWidth, boxWidth]
+        mycell = ab_cell.Cell(boxDim)
+        ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
+        mycell.libraryAddFragment(filename=ch4, fragmentType='A')
+        mycell.addBondType('A:a-A:a')
 
+        mycell.seed(1, random=False, center=True)
+        mycell.growBlocks(1, random=False)
+        d = mycell.dataDict()
+        # Check that the orientation quaternion can rotate the master coords onto the body
+        for rp in d.rigidParticles:
+            ref_coords = mycell.rigidParticleMgr._configs[rp.b_rigidConfigStr]
+            rot_coords = xyz_core.rotate_quaternion(ref_coords, rp.orientation)
+            self.assertTrue(np.allclose(rp.b_positions, rot_coords, atol=0.0001))  
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

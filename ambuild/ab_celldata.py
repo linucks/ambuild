@@ -25,4 +25,5 @@ class CellData(object):
         self.tagIndices = []
         # Central particles for hoomd-blue rigid bodies
         self.rigidParticles = []
+        self.rigidParticleMgr = None
         return

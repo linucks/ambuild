@@ -606,6 +606,16 @@ def momentOfInertia(coords, masses):
     return I
 
 
+def orientationQuaternion(mobileCoords, refCoords):
+    """Return the quaternion to rotate mobileCoords to refCoords
+    https://github.com/moble/quaternion
+    """
+    M = rigid_rotate(mobileCoords, refCoords)
+    #M_rot_coords = np.dot(mobileCoords, M.T)
+    #assert np.allclose(M_rot_coords, refCoords, atol=0.0001), "{}\n{}".format(M_rot_coords, refCoords)
+    return quaternion_from_matrix(M)
+
+
 def principalMoments(coords, masses):
     """http://farside.ph.utexas.edu/teaching/336k/Newtonhtml/node67.html
     """
@@ -613,11 +623,70 @@ def principalMoments(coords, masses):
     eigval, eigvec = np.linalg.eig(I)
     return np.sort(eigval)
 
+
+def quaternion_from_matrix(M):
+    """Return the quaternion of the rotation matrix
+    
+    https://math.stackexchange.com/questions/893984/conversion-of-rotation-matrix-to-quaternion
+    http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
+    """
+    tr = np.trace(M)
+    if (tr > 0):
+        S = np.sqrt(tr + 1.0) * 2 # S=4*qw 
+        qw = 0.25 * S
+        qx = (M[2, 1] - M[1, 2]) / S
+        qy = (M[0, 2] - M[2, 0]) / S
+        qz = (M[1, 0] - M[0, 1]) / S
+    elif ((M[0, 0] > M[1, 1]) and (M[0, 0] > M[2, 2])):
+        S = np.sqrt(1.0 + M[0, 0] - M[1, 1] - M[2, 2]) * 2 # S=4*qx 
+        qw = (M[2, 1] - M[1, 2]) / S
+        qx = 0.25 * S
+        qy = (M[0, 1] + M[1, 0]) / S 
+        qz = (M[0, 2] + M[2, 0]) / S 
+    elif (M[1, 1] > M[2, 2]):
+        S = np.sqrt(1.0 + M[1, 1] - M[0, 0] - M[2, 2]) * 2 # S=4*qy
+        qw = (M[0, 2] - M[2, 0]) / S
+        qx = (M[0, 1] + M[1, 0]) / S 
+        qy = 0.25 * S
+        qz = (M[1, 2] + M[2, 1]) / S 
+    else:
+        S = np.sqrt(1.0 + M[2, 2] - M[0, 0] - M[1, 1]) * 2 # S=4*qz
+        qw = (M[1, 0] - M[0, 1]) / S
+        qx = (M[0, 2] + M[2, 0]) / S
+        qy = (M[1, 2] + M[2, 1]) / S
+        qz = 0.25 * S
+    return np.array([qw, qx, qy, qz])
+
+
+def rotate_quaternion(coords, quaternion):
+    new_coords = []
+    for c in coords:
+        new_coords.append(qv_mult(quaternion, c))
+    return np.matrix(new_coords)
+
+
+def q_mult(q1, q2):
+    w1, x1, y1, z1 = q1
+    w2, x2, y2, z2 = q2
+    w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+    x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+    y = w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2
+    z = w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2
+    return np.array([w, x, y, z])
+
+def q_conjugate(q):
+    q[1:] *= -1
+    return q
+
+
+def qv_mult(q1, v1):
+    q2 = np.insert(v1, 0, 0.0)
+    return q_mult(q_mult(q1, q2), q_conjugate(q1))[1:]
+
+
 def rigid_rotate(A, B):
     """Return rotation matrix to rotate A to B. Assumes both sets of points are already centred.
-    
     Uses SVD to calculate the rotation.
-    
     Taken from: http://nghiaho.com/?page_id=671"""
     A = np.matrix(A)
     B = np.matrix(B)
@@ -649,40 +718,6 @@ def rotation_matrix(axis, angle):
                      [2 * (b * c + a * d), a * a + c * c - b * b - d * d, 2 * (c * d - a * b)],
                      [2 * (b * d - a * c), 2 * (c * d + a * b), a * a + d * d - b * b - c * c]])
 
-
-def rotation_matrix_to_quaternion(M):
-    """Return the quaternion of the rotation matrix
-    
-    https://math.stackexchange.com/questions/893984/conversion-of-rotation-matrix-to-quaternion
-    http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
-    """
-    tr = np.trace(M)
-    if (tr > 0):
-        S = np.sqrt(tr + 1.0) * 2 # S=4*qw 
-        qw = 0.25 * S
-        qx = (M[2, 1] - M[1, 2]) / S
-        qy = (M[0, 2] - M[2, 0]) / S
-        qz = (M[1, 0] - M[0, 1]) / S
-    elif ((M[0, 0] > M[1, 1])&(M[0, 0] > M[2, 2])):
-        S = np.sqrt(1.0 + M[0, 0] - M[1, 1] - M[2, 2]) * 2 # S=4*qx 
-        qw = (M[2, 1] - M[1, 2]) / S
-        qx = 0.25 * S
-        qy = (M[0, 1] + M[1, 0]) / S 
-        qz = (M[0, 2] + M[2, 0]) / S 
-    elif (M[1, 1] > M[2, 2]):
-        S = np.sqrt(1.0 + M[1, 1] - M[0, 0] - M[2, 2]) * 2 # S=4*qy
-        qw = (M[0, 2] - M[2, 0]) / S
-        qx = (M[0, 1] + M[1, 0]) / S 
-        qy = 0.25 * S
-        qz = (M[1, 2] + M[2, 1]) / S 
-    else:
-        S = np.sqrt(1.0 + M[2, 2] - M[0, 0] - M[1, 1]) * 2 # S=4*qz
-        qw = (M[1, 0] - M[0, 1]) / S
-        qx = (M[0, 2] + M[2, 0]) / S
-        qy = (M[1, 2] + M[2, 1]) / S
-        qz = 0.25 * S
-    return np.array([qw, qx, qy, qz])
-    
 
 def vecDiff(v1, v2, dim=None, pbc=[True,True,True]):
     """Difference between vectors with numpy taking PBC into account

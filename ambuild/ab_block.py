@@ -41,14 +41,14 @@ class Block(object):
     * bonds just point to two endGroups that are bonded to each other
     '''
 
-    def __init__(self, filePath=None, fragmentType=None, initFragment=None, cell=None):
+    def __init__(self, filePath=None, fragmentType=None, initFragment=None):
         '''
         Constructor
         '''
         # Need to change so cannot create block withough fragmentType
         if filePath:
             assert os.path.isfile(filePath) and fragmentType
-            initFragment = Fragment(filePath, fragmentType, cell=cell)
+            initFragment = Fragment(filePath, fragmentType)
         self.fragments = []
         if initFragment:
             self.fragments.append(initFragment)
@@ -800,10 +800,8 @@ class Block(object):
     def _update(self):
         """Set the list of _endGroups & update data for new block
         """
-        #
         # Now build up the dataMap listing where each fragment starts in the block and linking the
         # overall block atom index to the fragment and fragment atom index
-        #
         self._dataMap = []
         self._bodies = []
         self._blockMass = 0
@@ -811,24 +809,19 @@ class Block(object):
         bodyCount = -1
         lastBody = 0
         for fragment in self.fragments:
-
             # Set the block
             fragment.block = self
-
             # Increment body count for each fragment
             bodyCount += 1
-
             # Count the number of each type of fragment in the block (see Analyse)
             t = fragment.fragmentType
             if t not in self._fragmentTypeDict:
                 self._fragmentTypeDict[ t ] = 1
             else:
                 self._fragmentTypeDict[ t ] += 1
-
             fragment.blockIdx = len(self._dataMap)  # Mark where the data starts in the block
             for i in range(fragment.numAtoms()):
                 self._dataMap.append((fragment, i))
-
                 # Bring up the bodies
                 b = fragment.body(i)
                 if b != lastBody:
@@ -836,7 +829,6 @@ class Block(object):
                     lastBody = b
                 self._bodies.append(bodyCount)
                 self._blockMass += fragment.mass(i)
-        #
         # Have dataMap so now update the endGroup information
         self._numFreeEndGroups = 0
         self._freeEndGroups = {}
@@ -858,7 +850,6 @@ class Block(object):
                     if endGroup.type() not in self._endGroupType2EndGroups:
                         self._endGroupType2EndGroups[ endGroup.type() ] = []
                     self._endGroupType2EndGroups[ endGroup.type() ].append(endGroup)
-        
         # Now need to create the list of all bonds throughout the block
         self._bonds = []
         self._bondsByFragmentType = []
@@ -870,7 +861,6 @@ class Block(object):
                 b2 = b2 + fragment.blockIdx
                 self._bonds.append((b1, b2))
                 self._bondsByFragmentType.append((fragment.fragmentType, (b1, b2)))
-
         # Then all bonds between fragments
         cap2EndGroup = {}
         for b in self._blockBonds:
@@ -880,7 +870,6 @@ class Block(object):
             # This is somewhat untidy as we use the internal fragment index here - which really should be hidden
             cap2EndGroup[ (b.endGroup1.fragment, b.endGroup1.fragmentCapIdx) ] = b.endGroup2.blockEndGroupIdx
             cap2EndGroup[ (b.endGroup2.fragment, b.endGroup2.fragmentCapIdx) ] = b.endGroup1.blockEndGroupIdx
-
         # Now create the list of which atoms are bonded to which
         self._bondedToAtom = []
         for i in range(len(self._dataMap)):
@@ -888,16 +877,12 @@ class Block(object):
         for b1, b2 in self._bonds:
             self._bondedToAtom[b1].add(b2)
             self._bondedToAtom[b2].add(b1)
-
         # Finally update the ancillary blockIndices for the endGroups - we need the bonding to have been done
         # as some of the atoms will now be defined by atoms in other fragments
         for fragment in self.fragments:
             for endGroup in fragment.endGroups():
                 endGroup.updateAncillaryIndices(cap2EndGroup)
-
-        # Recalculate the data for this new block
         self._calcProperties()
-
         return
 
     def writeCml(self, cmlFilename, cell=None):

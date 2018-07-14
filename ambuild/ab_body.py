@@ -4,10 +4,8 @@ Created on Jan 15, 2013
 @author: abbietrewin
 '''
 import logging
-
 import numpy as np
 # our imports
-import ab_rigidparticle
 import xyz_core
 import xyz_util
 
@@ -47,6 +45,10 @@ class Body(object):
     @property
     def coords(self):
         return np.compress(self.indexes, self.fragment._coords, axis=0)
+    
+    @property
+    def coordsRelativeToCom(self):
+        return self.coords - self.centreOfMass
 
     @property
     def diameters(self):
@@ -71,25 +73,13 @@ class Body(object):
         return np.compress(self.indexes, self.fragment._masses, axis=0)
     
     @property
-    def orientation(self):
-        return self.fragment.cell.rigidParticleMgr.orientation(self)
-    
-    @property
     def principalMoments(self):
         return xyz_core.principalMoments(self.coords, self.masses)
-    
-    @property
-    def rigidType(self):
-        """return the type of this body based on the endGroup configuration"""
-        return self.fragment.cell.rigidParticleMgr.configStr(self)
     
     @property
     def rigidConfigStr(self):
         """return the type of this body based on the endGroup configuration"""
         return "{}{}".format(self.bodyIdx, self.fragment.configStr)
-    
-    def rigidParticle(self):
-        return ab_rigidparticle.RigidParticle(self)
 
     @property
     def static(self):

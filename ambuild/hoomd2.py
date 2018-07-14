@@ -169,6 +169,7 @@ class Hoomd2(object):
                 snapshot.particles.image[i] = rp_image
                 snapshot.particles.mass[i] = rp.mass
                 snapshot.particles.orientation[i] = rp.orientation
+                #print "GOT ORIENT ",rp.type, repr( rp.orientation)
                 snapshot.particles.typeid[i] = snapshot.particles.types.index(rp.type)
                 snapshot.particles.moment_inertia[i] = rp.principalMoments
             # Then add in the constituent molecule particles
@@ -459,14 +460,10 @@ class Hoomd2(object):
         if not self.rigidBody:
             return
         rigid = hoomd.md.constrain.rigid()
-#         for ftype, fdata in data.rigid_fragments.iteritems():
-#             rigid.set_param(ftype,
-#                             types=fdata['atomTypes'],
-#                             positions=data.coords[fdata['coord_idxs'][0] : fdata['coord_idxs'][1]])
-        for rp in data.rigidParticles:
-            rigid.set_param(rp.type,
-                            positions=rp.b_positions,
-                            types=rp.b_atomTypes)
+        for rtype, m_positions, m_types in data.rigidParticleMgr.particles:
+            rigid.set_param(rtype,
+                            positions=m_positions,
+                            types=m_types)
         rigid.validate_bodies()
         return
 

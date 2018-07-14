@@ -3,6 +3,7 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 '''
+import copy
 import logging
 
 import numpy as np
@@ -16,35 +17,22 @@ class RigidParticle(object):
     def __init__(self, body):
         # Attributes of the central particle
         self.image = np.array([0, 0, 0])
-        self.mass = None
-        self.orientation = None
-        self.position = None
-        self.principalMoments = None
-        self.natoms = 0
-        self.type = None
-        # Attributes if the constituent particles
-        self.b_charges = None
-        self.b_diameters = None
-        self.b_masses = None
-        self.b_positions = None
-        self.b_atomTypes = None
-        
-        self.fromBody(body)
-    
-    def fromBody(self, body):
         self.natoms = body.natoms
         self.position = body.centreOfMass
-        self.b_positions = body.coords - self.position # coordinate positions relative to com
+        self.b_positions = body.coordsRelativeToCom
         self.mass = body.mass
-        self.orientation = body.orientation
         self.principalMoments = body.principalMoments
-        self.type = body.rigidType
+        #self.orientation = body.orientation
+        #self.type = body.rigidType
+        self.type = None
+        self.orientation = None
         # Specify properties of consituent particles
+        self.b_rigidConfigStr = body.rigidConfigStr # for debugging
         self.b_charges = body.charges
         self.b_diameters = body.diameters
         self.b_masses = body.masses
-        self.b_atomTypes = body.atomTypes
-        return self
+        self.b_atomTypes = body.atomTypes   
+        return
 
 class RigidParticleManager(object):
     """Manages the configuration of the rigid particles
@@ -68,7 +56,8 @@ class RigidParticleManager(object):
     def __init__(self):
         # Needs to maintain list of configs and the original rigid particle so we
         # can calculate a relative orientation
-        self._configs = {}
+        self._positions = {}
+        self._types = {}
         self._configStr = {}
     
     @staticmethod
@@ -83,18 +72,28 @@ class RigidParticleManager(object):
     def configStr(self, body):
         return self._configStr[body.rigidConfigStr]
     
-    def orientation(self, body):
-        refCoords = self._configs[body.rigidConfigStr]
-        M = xyz_core.rigid_rotate(body.coords, refCoords)
-        return xyz_core.rotation_matrix_to_quaternion(M)
+    def createParticle(self, body):
+        self.updateConfig(body)
+        rigidParticle = RigidParticle(body)
+        refCoords = self._positions[body.rigidConfigStr]     
+        #rigidParticle.orientation = xyz_core.orientationQuaternion(refCoords, body.coordsRelativeToCom)
+        rigidParticle.orientation = xyz_core.orientationQuaternion(body.coordsRelativeToCom, refCoords)
+        rigidParticle.type = self._configStr[body.rigidConfigStr]
+        return rigidParticle
+    
+    @property
+    def particles(self):
+        for k in self._configStr.keys():
+            yield self._configStr[k], self._positions[k], self._types[k]
     
     def reset(self):
-        self._configs.clear()
+        self._positions.clear()
+        self._types.clear()
         self._configStr.clear()
 
-    def updateConfig(self, fragment):
-        for body in fragment.bodies():
-            if body.rigidConfigStr not in self._configs:
-                self._configs[body.rigidConfigStr] = body.coords.copy()
-                self._configStr[body.rigidConfigStr] = self.calcConfigStr(len(self._configs) - 1)
+    def updateConfig(self, body):
+        if body.rigidConfigStr not in self._configStr:
+            self._positions[body.rigidConfigStr] = body.coordsRelativeToCom.copy()
+            self._types[body.rigidConfigStr] = copy.copy(body.atomTypes)
+            self._configStr[body.rigidConfigStr] = self.calcConfigStr(len(self._positions) - 1)
 
