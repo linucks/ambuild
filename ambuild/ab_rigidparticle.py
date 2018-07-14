@@ -22,8 +22,7 @@ class RigidParticle(object):
         self.b_positions = body.coordsRelativeToCom
         self.mass = body.mass
         self.principalMoments = body.principalMoments
-        #self.orientation = body.orientation
-        #self.type = body.rigidType
+        # These are set by teh particle manager
         self.type = None
         self.orientation = None
         # Specify properties of consituent particles
@@ -52,7 +51,6 @@ class RigidParticleManager(object):
     lookup is by bodyConfigStr, so
     bodyConfigStr -> rigidParticleType
     """
-    
     def __init__(self):
         # Needs to maintain list of configs and the original rigid particle so we
         # can calculate a relative orientation
@@ -76,8 +74,7 @@ class RigidParticleManager(object):
         self.updateConfig(body)
         rigidParticle = RigidParticle(body)
         refCoords = self._positions[body.rigidConfigStr]     
-        #rigidParticle.orientation = xyz_core.orientationQuaternion(refCoords, body.coordsRelativeToCom)
-        rigidParticle.orientation = xyz_core.orientationQuaternion(body.coordsRelativeToCom, refCoords)
+        rigidParticle.orientation = xyz_core.orientationQuaternion(refCoords, body.coordsRelativeToCom)
         rigidParticle.type = self._configStr[body.rigidConfigStr]
         return rigidParticle
     
@@ -92,8 +89,9 @@ class RigidParticleManager(object):
         self._configStr.clear()
 
     def updateConfig(self, body):
-        if body.rigidConfigStr not in self._configStr:
-            self._positions[body.rigidConfigStr] = body.coordsRelativeToCom.copy()
-            self._types[body.rigidConfigStr] = copy.copy(body.atomTypes)
-            self._configStr[body.rigidConfigStr] = self.calcConfigStr(len(self._positions) - 1)
+        cstr = body.rigidConfigStr
+        if cstr not in self._configStr:
+            self._positions[cstr] = body.coordsRelativeToCom.copy()
+            self._types[cstr] = copy.copy(body.atomTypes)
+            self._configStr[cstr] = self.calcConfigStr(len(self._positions) - 1)
 

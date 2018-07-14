@@ -611,8 +611,8 @@ def orientationQuaternion(mobileCoords, refCoords):
     https://github.com/moble/quaternion
     """
     M = rigid_rotate(mobileCoords, refCoords)
-    #M_rot_coords = np.dot(mobileCoords, M.T)
-    #assert np.allclose(M_rot_coords, refCoords, atol=0.0001), "{}\n{}".format(M_rot_coords, refCoords)
+#     M_rot_coords = np.dot(mobileCoords, M.T)
+#     assert np.allclose(M_rot_coords, refCoords, atol=0.0001), "{}\n{}".format(M_rot_coords, refCoords)
     return quaternion_from_matrix(M)
 
 
