@@ -35,7 +35,7 @@ class Test(unittest.TestCase):
         mycell.runMD(mdCycles=1, rigidBody=True, T=0.1, dump=True, dumpPeriod=1)
         
         newcoords = []
-        block = mycell.blocks.values()[0]
+        block = list(mycell.blocks.values())[0]
         for c in block.iterCoord():
             newcoords.append(c)
         for before, after in zip(coords, newcoords):

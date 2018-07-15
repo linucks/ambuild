@@ -1385,7 +1385,6 @@ class Test(unittest.TestCase):
         self.assertEqual(s, sb , "periodic: {0}".format(sb))
         return
     
-        
     def testWall(self):
         """Test that we can implement a wall correctly"""
         boxDim = [10, 10, 10]
