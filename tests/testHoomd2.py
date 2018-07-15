@@ -27,7 +27,7 @@ class Test(unittest.TestCase):
         mycell.seed(1, center=False)
         mycell.growBlocks(1)
         coords = []
-        block = mycell.blocks.values()[0]
+        block = list(mycell.blocks.values())[0]
         for c in block.iterCoord():
             coords.append(c)
 

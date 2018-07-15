@@ -97,7 +97,7 @@ class Test(unittest.TestCase):
         bond.endGroup2.setBonded(bond)
         self.assertTrue(len(rigidParticleMgr._configs) == 4)
  
-        f1 = ab_fragment.Fragment(filePath=ch4, fragmentType='B', cell=cell)
+        f1 = ab_fragment.Fragment(filePath=ch4, fragmentType='B')
         self.assertTrue(len(rigidParticleMgr._configs) == 5)
          
     def testManagerConfigStr(self):
@@ -139,7 +139,7 @@ class Test(unittest.TestCase):
         
         # Check that the orientation quaternion can rotate the master coords onto the body
         for rp in rigidParticles:
-            ref_coords = rigidParticleMgr._configs[rp.b_rigidConfigStr]
+            ref_coords = rigidParticleMgr._positions[rp.b_rigidConfigStr]
             rot_coords = xyz_core.rotate_quaternion(ref_coords, rp.orientation)
             self.assertTrue(np.allclose(rp.b_positions, rot_coords, atol=0.0001))    
         
@@ -165,7 +165,7 @@ class Test(unittest.TestCase):
         d = mycell.dataDict()
         # Check that the orientation quaternion can rotate the master coords onto the body
         for rp in d.rigidParticles:
-            ref_coords = mycell.rigidParticleMgr._configs[rp.b_rigidConfigStr]
+            ref_coords = mycell.rigidParticleMgr._potitions[rp.b_rigidConfigStr]
             rot_coords = xyz_core.rotate_quaternion(ref_coords, rp.orientation)
             self.assertTrue(np.allclose(rp.b_positions, rot_coords, atol=0.0001))  
 

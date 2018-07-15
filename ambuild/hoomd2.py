@@ -66,7 +66,7 @@ class Hoomd2(object):
 #                     ok = False
 #                     missingImpropers.append(improper)
         missingPairs = []
-        activeParticles = self.particleTypes.difference(self.exclusions)
+        activeParticles = set(self.particleTypes).difference(self.exclusions)
         for atype, btype in itertools.combinations_with_replacement(activeParticles, 2):
             if not self.ffield.hasPair(atype, btype):
                 ok = False
@@ -104,11 +104,11 @@ class Hoomd2(object):
             atomTypes = set()
             for r in data.rigidParticles:
                 atomTypes.update(r.b_atomTypes)
-            self.particleTypes = atomTypes.union(rigidCenters)
+            self.particleTypes = list(atomTypes.union(rigidCenters))
             self.exclusions = set(rigidCenters)
         else:
             nparticles = len(data.coords)
-            self.particleTypes = set(data.atomTypes)
+            self.particleTypes = list(set(data.atomTypes))
 
         assert nparticles > 0, "Simulation needs some particles!"
         # NEED TO THINK ABOUT WHAT TO DO ABOUT MASKED ATOMS - set particleTypes?
@@ -118,7 +118,7 @@ class Hoomd2(object):
         self.dihedral_types = list(set(data.properLabels)) if len(data.propers) and doDihedral else []
         snapshot = hoomd.data.make_snapshot(N=nparticles,
                                             box=hoomd.data.boxdim(Lx=data.cell[0], Ly=data.cell[1], Lz=data.cell[2]),
-                                            particle_types=list(self.particleTypes),
+                                            particle_types=self.particleTypes,
                                             bond_types=self.bond_types,
                                             angle_types=self.angle_types,
                                             dihedral_types=self.dihedral_types)
@@ -398,7 +398,7 @@ class Hoomd2(object):
     def setPairs(self):
         nl = hoomd.md.nlist.cell()
         lj = hoomd.md.pair.lj(r_cut=self.rCut, nlist=nl)
-        activeParticles = self.particleTypes.difference(self.exclusions)
+        activeParticles = set(self.particleTypes).difference(self.exclusions)
         for atype, btype in itertools.combinations_with_replacement(activeParticles, 2):
             param = self.ffield.pairParameter(atype, btype)
             epsilon = param['epsilon']
@@ -460,7 +460,7 @@ class Hoomd2(object):
         if not self.rigidBody:
             return
         rigid = hoomd.md.constrain.rigid()
-        for rtype, m_positions, m_types in data.rigidParticleMgr.particles:
+        for rtype, m_positions, m_types in data.rigidParticleMgr.referenceParticles:
             rigid.set_param(rtype,
                             positions=m_positions,
                             types=m_types)
@@ -527,7 +527,7 @@ class Hoomd2(object):
             atomIdx = len(hoomd.group.rigid_center())
         else:
             atomIdx = 0
-        for block in cell.blocks.itervalues():
+        for block in cell.blocks.values():
             for i in range(block.numAtoms()):
                 coord = snapshot.particles.position[atomIdx]
                 coord = xyz_core.unWrapCoord3(coord,

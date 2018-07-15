@@ -79,7 +79,7 @@ class RigidParticleManager(object):
         return rigidParticle
     
     @property
-    def particles(self):
+    def referenceParticles(self):
         for k in self._configStr.keys():
             yield self._configStr[k], self._positions[k], self._types[k]
     

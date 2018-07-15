@@ -41,13 +41,13 @@ class Test(unittest.TestCase):
         
         ch4ca = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
         ftype = 'A'
-        f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype, cell=cell)
+        f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype)
         b1 = list(f1.bodies())[0]
         
         tref = "{}{}{}".format(0, ftype, "0000")
         self.assertEqual(b1.rigidConfigStr, tref)
         tref = "AA"
-        self.assertEqual(b1.rigidType, tref)
+        self.assertEqual(b1.rigidConfigStr, tref)
         self.assertTrue(np.allclose(b1.orientation, np.array([1.0, 0.0, 0.0, 0.0]), atol=0.0001))
         
     def testPrincipalMoments(self):
