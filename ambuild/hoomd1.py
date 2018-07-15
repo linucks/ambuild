@@ -852,7 +852,7 @@ if __name__ == "__main__":
     import util
     mycell = util.cellFromPickle(sys.argv[1])
     rigidBody = True
-    data = mycell.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+    data = mycell.cellData(periodic=True, center=True, rigidBody=rigidBody)
 
     hmd = Hoomd1(PARAMS_DIR)
     if False:

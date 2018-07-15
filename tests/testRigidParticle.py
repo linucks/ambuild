@@ -25,25 +25,20 @@ xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
 class Test(unittest.TestCase):
     
     def testConfig(self):
-        class Cell(object):
-            """Mock Cell object for testing"""
-            def __init__(self, rigidParticleMgr):
-                self.rigidParticleMgr = rigidParticleMgr
-        
         rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
-        cell = Cell(rigidParticleMgr)
-        
         ch4ca = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
         ftype = 'A'
-        f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype, cell=cell)
+        f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype)
+        rigidParticles = []
+        for body in f1.bodies():
+            rigidParticles.append(rigidParticleMgr.createParticle(body))
         
         configStr = {'1A0000': 'AB', '2A0000': 'AC', '0A0000': 'AA'}
         self.assertEqual(rigidParticleMgr._configStr, configStr)
-        self.assertEqual(len(rigidParticleMgr._configStr), len(rigidParticleMgr._configs))
+        self.assertEqual(len(rigidParticleMgr._configStr), len(rigidParticleMgr._positions))
         
         b1 = list(f1.bodies())[0]
         quat_origin = np.array([1.0, 0.0, 0.0, 0.0])
-        self.assertTrue(np.allclose(rigidParticleMgr.orientation(b1), quat_origin, rtol=0.0001))
         self.assertEqual(rigidParticleMgr.configStr(b1), "AA")
         
         # Rotate fragment and see if we get a different orientation
@@ -53,52 +48,8 @@ class Test(unittest.TestCase):
         f1.rotate(rotationMatrix, f1._centerOfMass)
         b1 = list(f1.bodies())[0]
         ref_q = np.array([0.866, 0.5, 0.0, 0.0]) 
-        self.assertTrue(np.allclose(rigidParticleMgr.orientation(b1), ref_q, atol=0.0001))
-        
+        self.assertTrue(np.allclose(rigidParticles[0].orientation, quat_origin, rtol=0.0001))
         return
-    
-    def testRigidParticle(self):
-        ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
-        ftype = 'A'
-        f1 = ab_fragment.Fragment(filePath=ch4, fragmentType=ftype, cell=cell)
-        rp = list(f1.bodies())[0].rigidParticle()
-        quat_origin = np.array([1.0, 0.0, 0.0, 0.0])
-        self.assertTrue(np.allclose(rp.orientation, quat_origin, rtol=0.0001))
-
-    def testManager(self):
-        class Cell(object):
-            """Mock Cell object for testing"""
-            def __init__(self, rigidParticleMgr):
-                self.rigidParticleMgr = rigidParticleMgr
-        
-        rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
-        cell = Cell(rigidParticleMgr)
-
-        ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
-        f1 = ab_fragment.Fragment(filePath=ch4, fragmentType='A', cell=cell)
-        self.assertTrue(len(rigidParticleMgr._configs) == 1)
-        for body in f1.bodies():
-            self.assertTrue(body.rigidConfigStr in rigidParticleMgr._configs)
-         
-        f2 = f1.copy()
-        self.assertTrue(len(rigidParticleMgr._configs) == 1)
- 
-        eg1 = f1.freeEndGroups()[0]
-        eg2 = f2.freeEndGroups()[0]
-        bond = ab_bond.Bond(eg1, eg2)
-        bond.endGroup1.setBonded(bond)
-        bond.endGroup2.setBonded(bond)
-        self.assertTrue(len(rigidParticleMgr._configs) == 2)
- 
-        eg1 = f1.freeEndGroups()[-1]
-        eg2 = f2.freeEndGroups()[0]
-        bond = ab_bond.Bond(eg1, eg2)
-        bond.endGroup1.setBonded(bond)
-        bond.endGroup2.setBonded(bond)
-        self.assertTrue(len(rigidParticleMgr._configs) == 4)
- 
-        f1 = ab_fragment.Fragment(filePath=ch4, fragmentType='B')
-        self.assertTrue(len(rigidParticleMgr._configs) == 5)
          
     def testManagerConfigStr(self):
         rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
@@ -162,10 +113,10 @@ class Test(unittest.TestCase):
 
         mycell.seed(1, random=False, center=True)
         mycell.growBlocks(1, random=False)
-        d = mycell.dataDict()
+        d = mycell.cellData()
         # Check that the orientation quaternion can rotate the master coords onto the body
         for rp in d.rigidParticles:
-            ref_coords = mycell.rigidParticleMgr._potitions[rp.b_rigidConfigStr]
+            ref_coords = mycell.rigidParticleMgr._positions[rp.b_rigidConfigStr]
             rot_coords = xyz_core.rotate_quaternion(ref_coords, rp.orientation)
             self.assertTrue(np.allclose(rp.b_positions, rot_coords, atol=0.0001))  
 

@@ -953,7 +953,7 @@ class Cell():
         logger.debug("cellEndGroupPair returning: {0} {1}".format(endGroup1.type(), endGroup2.type()))
         return endGroup1, endGroup2
 
-    def dataDict(self, rigidBody=True, periodic=True, center=False, fragmentType=None):
+    def cellData(self, rigidBody=True, periodic=True, center=False, fragmentType=None):
         RIGIDPARTICLES = rigidBody and ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] > 1
         # Object to hold the cell data
         d = ab_celldata.CellData()
@@ -1267,7 +1267,7 @@ class Cell():
         if not self.mdEngineCls:
             raise RuntimeError("No mdEngine defined - cannot run.")
         mdEngine = self.mdEngineCls(self.paramsDir)
-        data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+        data = self.cellData(periodic=True, center=True, rigidBody=rigidBody)
         if 'rCut' in kw:
             self.rCut = kw['rCut']
         else:
@@ -1811,7 +1811,7 @@ class Cell():
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
         self.setRcut(rigidBody, mdEngine, kw)
-        data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+        data = self.cellData(periodic=True, center=True, rigidBody=rigidBody)
         d = {}  # for printing results
         ok = mdEngine.optimiseGeometry(data,
                                         xmlFilename=xmlFilename,
@@ -2001,7 +2001,7 @@ class Cell():
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
         self.setRcut(rigidBody, mdEngine, kw)
         d = {}
-        data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+        data = self.cellData(periodic=True, center=True, rigidBody=rigidBody)
         ok = mdEngine.runMD(data,
                              xmlFilename=xmlFilename,
                              rigidBody=rigidBody,
@@ -2037,7 +2037,7 @@ class Cell():
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
         self.setRcut(rigidBody, mdEngine, kw)
         d = {}
-        data = self.dataDict(periodic=True, center=True, rigidBody=rigidBody)
+        data = self.cellData(periodic=True, center=True, rigidBody=rigidBody)
         ok = mdEngine.runMDAndOptimise(data,
                                         xmlFilename=xmlFilename,
                                         rigidBody=rigidBody,
@@ -2367,7 +2367,7 @@ class Cell():
         """Car File
         """
         if not data:
-            data = self.dataDict()
+            data = self.cellData()
         car = "!BIOSYM archive 3\n"
         if periodic:
             car += "PBC=ON\n"
@@ -2402,7 +2402,7 @@ class Cell():
 
     def writeCml(self, cmlFilename, data=None, rigidBody=True, periodic=True, pruneBonds=False, prettyPrint=False):
         if data is None:
-            d = self.dataDict(periodic=periodic, rigidBody=rigidBody, fragmentType=None)
+            d = self.cellData(periodic=periodic, rigidBody=rigidBody, fragmentType=None)
         else:
             d = data
 
@@ -2427,7 +2427,7 @@ class Cell():
         If label is true we write out the atom label and block, otherwise the symbol
         """
         if data is None:
-            d = self.dataDict(periodic=periodic, fragmentType=None)
+            d = self.cellData(periodic=periodic, fragmentType=None)
         else:
             d = data
         if periodic:
