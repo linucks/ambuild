@@ -2570,7 +2570,7 @@ class Cell():
                 if not len(self._possibleBonds):
                     logger.info("zipBlocks: No bonds remaining after clash checks")
                     return 0
-        logger.info("zipBlocks found {0} additional bonds:\n".format(len(self._possibleBonds)))
+        logger.info("zipBlocks found %d additional bonds", len(self._possibleBonds))
 #         for b in self._possibleBonds:
 #             print "Attempting to bond: {0} {1} {2} -> {3} {4} {5}".format( b.block1.id(),
 #                                                                    b.endGroup1.blockEndGroupIdx,
@@ -2582,7 +2582,8 @@ class Cell():
 #
         todo = len(self._possibleBonds)
         bondsMade = self.processBonds(selfBond=selfBond)
-        if bondsMade != todo: logger.debug("Made fewer bonds than expected in zip: {0} -> {1}".format(todo,bondsMade))
+        if bondsMade != todo:
+            logger.debug("Made fewer bonds than expected in zip: %d -> %d", todo, bondsMade)
         self.analyse.stop('zip')
         return bondsMade
 
