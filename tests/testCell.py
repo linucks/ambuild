@@ -1135,12 +1135,14 @@ class Test(unittest.TestCase):
                      P=1.0,
                      tauP=0.5,
                      dt=0.0005,
-                     dump=True,
+                     dump=False,
                      dumpPeriod=20,
                      integrator='npt',
                     )
         self.assertFalse(self.clashes(mycell))
-        os.unlink("hoomdMD.xml")
+        hxml = "hoomdMD.xml"
+        if os.path.isfile(hxml):
+            os.unlink(hxml)
         #os.unlink("runmd.dcd")
         return
 
@@ -1412,7 +1414,7 @@ class Test(unittest.TestCase):
         nblocks = 15
         added = mycell.seed(nblocks)
         self.assertEqual(added, nblocks, "Failed to add initial blocks")
-        mycell.runMD(dump=True, rCut=5.0)
+        mycell.runMD(dump=False, rCut=5.0)
         return
 
     def testZipBlocks(self):

@@ -508,10 +508,12 @@ class Hoomd2(object):
                     except AttributeError:
                         raise RuntimeError('HOOMD-blue wall does not have a group attribute. You may need to update your version of HOOMD-Blue in order to use walls')
                     lj = hoomd.md.wall.lj(wallstructure, r_cut=self.rCut)
-                    for atype in self.particleTypes:
-                        param = self.ffield.pairParameter(atype, wallAtomType)
-                        lj.force_coeff.set(atype, epsilon=param['epsilon'], sigma=param['sigma'])
-
+                    activeParticles = set(self.particleTypes).difference(self.exclusions)
+                    for ptype in activeParticles:
+                        param = self.ffield.pairParameter(ptype, wallAtomType)
+                        lj.force_coeff.set(ptype, epsilon=param['epsilon'], sigma=param['sigma'])
+                    for ptype in self.exclusions:
+                        lj.force_coeff.set(ptype, epsilon=0, sigma=0, r_cut=False)
                 # Add the two walls
                 # Front
                 wallstructure.add_plane(origin=originFront, normal=normal, inside=True)
