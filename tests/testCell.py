@@ -153,11 +153,11 @@ class Test(unittest.TestCase):
         mycell = Cell(boxDim)
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='PAF' )
         mycell.libraryAddFragment( filename=self.nh4Car, fragmentType='cat', catalyst=True)
-        mycell.addBondType( 'PAF:a-cat:a' )
-        mycell.addBondType( 'PAF:a-PAF:a' )
+        mycell.addBondType('PAF:a-cat:a')
+        mycell.addBondType('PAF:a-PAF:a')
         
         # Add PAF and grow so that we have multi-PAF blocks
-        mycell.seed(2, fragmentType='PAF')
+        mycell.seed(2, fragmentType='PAF', point=[10.0, 10.0, 10.0], radius=5.0)
         mycell.growBlocks(toGrow=5, cellEndGroups='PAF:a', libraryEndGroups='PAF:a', maxTries=500)
         
         # Get the ids of the blocks
@@ -170,14 +170,11 @@ class Test(unittest.TestCase):
         
         # Add catalyst
         mycell.seed(1, fragmentType='cat', center=True)
-        
         # Now join the pafs to the cat
         catid = list(mycell.blocks.keys())[0]
         cat = list(mycell.blocks.values())[0]
-        
         paf1eg = paf1.freeEndGroups()[0]
         paf2eg = paf2.freeEndGroups()[0]
-        
         cat1eg = cat.freeEndGroups()[0]
         cat.positionGrowBlock(cat1eg,paf1eg )
         bond = Bond(cat1eg, paf1eg)
@@ -190,7 +187,7 @@ class Test(unittest.TestCase):
         mycell.newBonds = [bond] # Hack to set newBonds
         
         self.assertEqual(len(mycell.blocks),1)
-        mycell.cat1Paf2(['PAF'])
+        mycell.cat1Paf2(['PAF'], dt=0.00001, optCycles=10000)
         self.assertEqual(len(mycell.blocks),2)
         return
     
@@ -236,7 +233,7 @@ class Test(unittest.TestCase):
         self.assertEqual(len(mycell.blocks),1)
         
         # Now see if we can split off the two cat blocks and join the two PAF blocks
-        mycell.cat2Paf2(['PAF'])
+        mycell.cat2Paf2(['PAF'], dt=0.00001, optCycles=10000)
         #mycell.dump()
     
         self.assertEqual(len(mycell.blocks),3)

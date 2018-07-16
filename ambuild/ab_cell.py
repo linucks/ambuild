@@ -390,7 +390,7 @@ class Cell():
                         return True
         return False
 
-    def _cat1Paf2(self, bond, fragmentTypes):
+    def _cat1Paf2(self, bond, fragmentTypes, dt=0.00001, optCycles=1000000):
         """A CAT bonded to two PAF goups"""
         # See if either of the blocks connected is the cat
         cfrag = None
@@ -433,9 +433,9 @@ class Cell():
             return
         #return self._joinPaf(catEG1, paf1EG, paf2EG)
         logger.critical("Got two bonds {0} {1}".format(bond1,bond2))
-        return self._joinPaf(fragmentTypes, bond1, bond2)
+        return self._joinPaf(fragmentTypes, bond1, bond2, dt=dt, optCycles=optCycles)
 
-    def _cat2Paf2(self, cc_bond, fragmentTypes):
+    def _cat2Paf2(self, cc_bond, fragmentTypes, dt=0.00001, optCycles=1000000):
         """Function to unbond a Ni-catalyst bonded to two PAF groups
 
         check if have made a cat:a*-cat:a* bond
@@ -526,7 +526,7 @@ class Cell():
         # Run optimisation to move CAT away
         logger.info("_cat2Paf2 Optimisation")
         #self.dump()
-        self.optimiseGeometry(rigidBody=True, quiet=False, dt=0.0000000001)
+        self.optimiseGeometry(rigidBody=True, quiet=False, dt=dt, optCycles=optCycles)
 
         # Now dealing with a CAT bonded to two PAF groups
         # Need to select the other cat-paf bond
@@ -539,10 +539,10 @@ class Cell():
                 cp_bond2 = bond
                 break
         assert cp_bond2,"Could not find second cat/PAF bond"
-        self._joinPaf(fragmentTypes, cp_bond1, cp_bond2)
+        self._joinPaf(fragmentTypes, cp_bond1, cp_bond2, dt=dt, optCycles=optCycles)
         return True
 
-    def _joinPaf(self, fragmentTypes, bond1, bond2):
+    def _joinPaf(self, fragmentTypes, bond1, bond2, dt=0.00001, optCycles=1000000):
         """Given a cat bonded to two PAF groups, break the PAF bonds and form a PAF-PAF bond"""
 
         logger.info("Entering _joinPaf: {0} {1}".format(bond1, bond2))
@@ -583,7 +583,7 @@ class Cell():
         self.bondBlock(bond)
         logger.info("_joinPaf Optimisation")
         #self.dump()
-        self.optimiseGeometry(rigidBody=True, dt=0.001, max_tries=3, retries_on_error=4)
+        self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, max_tries=1, retries_on_error=0, dump=True)
         self.clearUnbonded()
         return True
 
@@ -594,21 +594,21 @@ class Cell():
                 frag.clearUnbonded()
         return
 
-    def cat1Paf2(self, fragmentTypes):
+    def cat1Paf2(self, fragmentTypes, dt=0.00001, optCycles=1000000):
         """Function to unbond a Ni-catalyst bonded to two PAF groups"""
         assert type(fragmentTypes) is list and len(fragmentTypes) > 0 and all([type(f) is str for f in fragmentTypes]),\
             "Need a list of fragmentTypes"
         if not len(self.newBonds):
             return False
         #logger.info("ca1tPaf2 got new bonds %s" % [str(b) for b in self.newBonds ])
-        return any([self._cat1Paf2(b, fragmentTypes) for b in self.newBonds])
+        return any([self._cat1Paf2(b, fragmentTypes, dt=dt, optCycles=optCycles) for b in self.newBonds])
 
-    def cat2Paf2(self, fragmentTypes):
+    def cat2Paf2(self, fragmentTypes, dt=0.00001, optCycles=1000000):
         """Function to unbond a Ni-catalyst bonded to two PAF groups"""
         assert type(fragmentTypes) is list and len(fragmentTypes) > 0 and all([type(f) is str for f in fragmentTypes]),"Need a list of fragmentTypes"
         if not len(self.newBonds): return False
         #logger.info("cat2Paf2 got new bonds %s" % [str(b) for b in self.newBonds ])
-        return any([self._cat2Paf2(b, fragmentTypes) for b in self.newBonds])
+        return any([self._cat2Paf2(b, fragmentTypes, dt=dt, optCycles=optCycles) for b in self.newBonds])
 
     def canBond(self,
                  staticBlock,
