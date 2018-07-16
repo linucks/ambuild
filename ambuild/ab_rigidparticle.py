@@ -22,7 +22,7 @@ class RigidParticle(object):
         self.b_positions = body.coordsRelativeToCom
         self.mass = body.mass
         self.principalMoments = body.principalMoments
-        # These are set by teh particle manager
+        # These are set by the particle manager
         self.type = None
         self.orientation = None
         # Specify properties of consituent particles
@@ -51,6 +51,7 @@ class RigidParticleManager(object):
     lookup is by bodyConfigStr, so
     bodyConfigStr -> rigidParticleType
     """
+    PREFIX_STR = ')' # Sometthing that hopefully won't turn up starting an atom type
     def __init__(self):
         # Needs to maintain list of configs and the original rigid particle so we
         # can calculate a relative orientation
@@ -58,14 +59,13 @@ class RigidParticleManager(object):
         self._types = {}
         self._configStr = {}
     
-    @staticmethod
-    def calcConfigStr(idx):
+    def calcConfigStr(self, idx):
         """Return a 2-letter id str for the index idx"""
         import string
         alph = string.ascii_uppercase
         num_chars = 26 # letters in alphabet - unlikely to change...
         assert idx < num_chars * num_chars, "Too many configurations!"
-        return alph[int(idx/num_chars)] + alph[idx % num_chars]
+        return self.PREFIX_STR + alph[int(idx/num_chars)] + alph[idx % num_chars]
     
     def configStr(self, body):
         return self._configStr[body.rigidConfigStr]
@@ -77,6 +77,11 @@ class RigidParticleManager(object):
         rigidParticle.orientation = xyz_core.orientationQuaternion(refCoords, body.coordsRelativeToCom)
         rigidParticle.type = self._configStr[body.rigidConfigStr]
         return rigidParticle
+    
+    def checkConfigStrClashes(self, atomTypes):
+        overlap = set(atomTypes).intersection(set(self._configStr.values()))
+        if overlap:
+            raise RuntimeError("Clashing atomType and rigidPaticle type identifiers: {}".format(overlap))
     
     @property
     def referenceParticles(self):

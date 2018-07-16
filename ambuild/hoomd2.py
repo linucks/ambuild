@@ -104,6 +104,9 @@ class Hoomd2(object):
             atomTypes = set()
             for r in data.rigidParticles:
                 atomTypes.update(r.b_atomTypes)
+            overlap = atomTypes.intersection(rigidCenters)
+            if overlap:
+                raise RuntimeError("Clashing atomTypes/rigidCenters".format(overlap))
             self.particleTypes = list(atomTypes.union(rigidCenters))
             self.exclusions = set(rigidCenters)
         else:

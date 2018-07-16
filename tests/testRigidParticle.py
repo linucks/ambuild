@@ -33,13 +33,14 @@ class Test(unittest.TestCase):
         for body in f1.bodies():
             rigidParticles.append(rigidParticleMgr.createParticle(body))
         
-        configStr = {'1A0000': 'AB', '2A0000': 'AC', '0A0000': 'AA'}
+        pfx = rigidParticleMgr.PREFIX_STR
+        configStr = {'1A0000':  pfx + 'AB', '2A0000': pfx + 'AC', '0A0000': pfx + 'AA'}
         self.assertEqual(rigidParticleMgr._configStr, configStr)
         self.assertEqual(len(rigidParticleMgr._configStr), len(rigidParticleMgr._positions))
         
         b1 = list(f1.bodies())[0]
         quat_origin = np.array([1.0, 0.0, 0.0, 0.0])
-        self.assertEqual(rigidParticleMgr.configStr(b1), "AA")
+        self.assertEqual(rigidParticleMgr.configStr(b1), pfx + "AA")
         
         # Rotate fragment and see if we get a different orientation
         axis = np.array([1, 0, 0])
@@ -55,11 +56,12 @@ class Test(unittest.TestCase):
         rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
         idx = 0
         cid = rigidParticleMgr.calcConfigStr(idx)
-        self.assertTrue(cid, 'AA')
+        pfx = rigidParticleMgr.PREFIX_STR
+        self.assertTrue(cid, pfx + 'AA')
          
         idx = 26 * 26 - 1
         cid = rigidParticleMgr.calcConfigStr(idx)
-        self.assertTrue(cid, 'ZZ')
+        self.assertTrue(cid, pfx + 'ZZ')
          
         idx = idx + 1
         try:

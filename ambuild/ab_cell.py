@@ -1056,7 +1056,9 @@ class Cell():
                         d.symbols += body.symbols
                 bodyIdx += 1
         if RIGIDPARTICLES:
+            self.rigidParticleMgr.checkConfigStrClashes(d.atomTypes)
             d.rigidParticleMgr = self.rigidParticleMgr
+            
         return d
 
     def delBlock(self, blockId):
