@@ -219,7 +219,10 @@ class Hoomd2(object):
         snapshot = self.createSnapshot(data, doCharges=doCharges, doDihedral=doDihedral)
         self.setupSimulation(snapshot, data, walls=walls, wallAtomType=wallAtomType)
         hlog = self._createLog('geomopt.tsv')
-        optimised = self._optimiseGeometry(**kw)
+        if 'stepwise' in kw and kw['stepwise']:
+            optimised = self._optimiseGeometryStepwise(**kw)
+        else:
+            optimised = self._optimiseGeometry(**kw)
         # Extract the energy
         if 'd' in kw and kw['d'] is not None:
             for i in ['potential_energy' ]:
@@ -297,6 +300,55 @@ class Hoomd2(object):
             dgsd.disable()
             del dgsd
         return optimised
+
+    def _optimiseGeometryStepwise(self,
+                          dump=False,
+                          dumpPeriod=1,
+                          Nmin=5,
+                          alpha_start=0.1,
+                          ftol=1e-2,
+                          Etol=1e-5,
+                          finc=1.1,
+                          fdec=0.5,
+                          **kw):
+        """Optimise the geometry with hoomdblue"""
+
+        optimised = False
+        dt = 1E-12
+        numSteps = 8
+        optCycles = 10
+        multiplier = 10
+        integrate_nve = hoomd.md.integrate.nve(group=self.groupActive)
+        if dump:
+            dgsd = hoomd.dump.gsd(filename="opt.gsd",
+                                  period=dumpPeriod,
+                                  group=self.groupAll,
+                                  overwrite=True)
+
+        for i in range(numSteps):
+            logger.info("Running step optimisation {} with {} cycles at dt {}".format(i, optCycles, dt))
+            fire = hoomd.md.integrate.mode_minimize_fire(dt=dt,
+                                                         Nmin=Nmin,
+                                                         alpha_start=alpha_start,
+                                                         ftol=ftol,
+                                                         Etol=Etol,
+                                                         finc=finc,
+                                                         fdec=fdec)
+            hoomd.run(optCycles,
+                      callback=lambda x:-1 if fire.has_converged() else 0,
+                      callback_period=1)
+            if fire.has_converged():
+                logger.info("Optimisation converged on step {0}".format(i))
+                optimised = True
+                break
+            dt *= multiplier
+            optCycles *= multiplier
+
+        if dump and False:
+            dgsd.disable()
+            del dgsd
+        return optimised
+
 
     def runMD(self,
               data,

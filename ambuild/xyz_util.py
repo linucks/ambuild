@@ -323,7 +323,6 @@ def writeCml(cmlFilename,
         crystalAlphaNode.text = "90"
         crystalBetaNode.text = "90"
         crystalGammaNode.text = "90"
-
     if atomTypes:
         assert len(atomTypes) == len(coords)
         # Need to collate atomTypes - sorted to ensure consistency for testing
@@ -331,7 +330,6 @@ def writeCml(cmlFilename,
             atomTypeNode = ET.SubElement(root, "atomType")
             atomTypeNode.attrib['name'] = atype
             atomTypeNode.attrib['title'] = atype
-
     # Now atom data
     atomArrayNode = ET.SubElement(root, "atomArray")
     for i, coord in enumerate(coords):
@@ -342,18 +340,14 @@ def writeCml(cmlFilename,
             coord, _ = xyz_core.wrapCoord3(coord, cell, center=False)
             if pruneBonds:
                 pcoords.append(coord)
-        x = coord[0]
-        y = coord[1]
-        z = coord[2]
-        atomNode.attrib['x3'] = str(x)
-        atomNode.attrib['y3'] = str(y)
-        atomNode.attrib['z3'] = str(z)
-
+        x, y, z = coord
+        atomNode.attrib['x3'] = "{:.12}".format(x)
+        atomNode.attrib['y3'] = "{:.12}".format(y)
+        atomNode.attrib['z3'] = "{:.12}".format(z)
         if atomTypes:
             # Now add atomType as child node referring to the atomType
             atomTypeNode = ET.SubElement(atomNode, "atomType")
             atomTypeNode.attrib['ref'] = atomTypes[ i ]
-
     if len(bonds):
         # Now do bonds
         if pruneBonds:
@@ -379,7 +373,6 @@ def writeCml(cmlFilename,
     else:
         tree = ET.ElementTree(root)
         tree.write(cmlFilename, encoding="utf-8", xml_declaration=True)
-
     return cmlFilename
 
 def writeXyz(fileName, coords, symbols, cell=None):

@@ -1692,7 +1692,6 @@ class Test(unittest.TestCase):
             test = f.readlines()
         with open(os.path.join(AMBUILD_DIR, "tests", "test_data", "testCellRigid.cml")) as f:
             ref = f.readlines()
-
         self.assertEqual(test, ref, "cml compare rigid")
         os.unlink(fname)
 

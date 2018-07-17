@@ -526,7 +526,7 @@ class Cell():
         # Run optimisation to move CAT away
         logger.info("_cat2Paf2 Optimisation")
         #self.dump()
-        self.optimiseGeometry(rigidBody=True, quiet=False, dt=dt, optCycles=optCycles)
+        self.optimiseGeometry(rigidBody=True, quiet=True, dt=dt, optCycles=optCycles)
 
         # Now dealing with a CAT bonded to two PAF groups
         # Need to select the other cat-paf bond
@@ -583,7 +583,7 @@ class Cell():
         self.bondBlock(bond)
         logger.info("_joinPaf Optimisation")
         #self.dump()
-        self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, max_tries=1, retries_on_error=0, dump=True)
+        self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False)
         self.clearUnbonded()
         return True
 
@@ -955,6 +955,7 @@ class Cell():
 
     def cellData(self, rigidBody=True, periodic=True, center=False, fragmentType=None):
         RIGIDPARTICLES = rigidBody and ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] > 1
+        self.rigidParticleMgr.reset()
         # Object to hold the cell data
         d = ab_celldata.CellData()
         d.cell = self.dim
@@ -2407,11 +2408,9 @@ class Cell():
             d = self.cellData(periodic=periodic, rigidBody=rigidBody, fragmentType=None)
         else:
             d = data
-
         cell = None
         if periodic:
             cell = self.dim
-
         cmlFilename = xyz_util.writeCml(cmlFilename,
                                         d.coords,
                                         d.symbols,
