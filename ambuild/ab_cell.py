@@ -1118,7 +1118,7 @@ class Cell():
         for i, idx in enumerate(indices):
             if not (type(idx) is int and (0 <= idx < len(self.blocks))):
                 raise RuntimeError("Bad value for index {0} : {1}".format(i,idx))
-        toRemove = [ (blockId, block) for i, (blockId, block) in enumerate(self.blocks.items())  if i in indices ]
+        toRemove = [(blockId, block) for i, (blockId, block) in enumerate(self.blocks.items())  if i in indices]
         removed = []
         for blockId, block in toRemove:
             self.delBlock(blockId)
@@ -1181,9 +1181,7 @@ class Cell():
                     if f is frag:
                         block = b
                         break
-
         assert block,"Need to know which block to remove the fragment from!"
-
         # deleteFragment will return a list of blocks to be added back to the cell
         # The original block may have been deleted during the fragment deletion processs so we always need to
         # remove it and add the blocks returned by deleteFragment
@@ -1191,7 +1189,8 @@ class Cell():
         blocks = block.deleteFragment(frag)
         if len(blocks):
             logger.info("Deleting fragment resulted in {0} blocks.".format(len(blocks)))
-            for b in blocks: self.addBlock(b)
+            for b in blocks:
+                self.addBlock(b)
         else:
             logger.info("Deleting fragment deleted a block")
             # Nothing to do here as we've already removed the block from the cell
@@ -1215,15 +1214,9 @@ class Cell():
 
     def dump(self, prefix="step", addCount=True):
         """Write out our current state"""
-
         if addCount:
             self._fileCount += 1
             prefix = prefix + "_{0}".format(self._fileCount)
-        # self.writeXyz(prefix+".xyz",data=data, periodic=False)
-        # self.writeXyz(prefix+"_P.xyz",data=data, periodic=True)
-        # self.writeCar(prefix+"_P.car",data=data,periodic=True)
-        # self.writeCml(prefix+"_PV.cml", data=data, allBonds=True, periodic=True, pruneBonds=True)
-        # self.writeCml(prefix+".cml", data=data, allBonds=True, periodic=False, pruneBonds=False)
         pklFile = self.writePickle(prefix)
         return pklFile
 
@@ -1349,7 +1342,8 @@ class Cell():
             assert not cellEndGroups or libraryEndGroups
             libraryEndGroups = endGroupType
 
-        if dihedral: dihedral = math.radians(dihedral)
+        if dihedral:
+            dihedral = math.radians(dihedral)
         added = 0
         tries = 0
         attemptedPairs = set()
@@ -1368,7 +1362,6 @@ class Cell():
             except RuntimeError as e:
                 logger.critical("growBlocks cannot grow more blocks: {0}".format(e))
                 return added
-
             # See if we've seen this pair before
             if endGroupPair in attemptedPairs:
                 logger.debug("growBlocks got endGroupPair again")
@@ -1377,20 +1370,17 @@ class Cell():
             else:
                 attemptedPairs.add(endGroupPair)
             cellEndGroup, libraryEndGroup = endGroupPair
-            # Apply random rotation in 3 axes to randomise the orientation before we align
             libraryBlock = libraryEndGroup.block()
+            # Apply random rotation in 3 axes to randomise the orientation before we align
             if random:
                 libraryBlock.randomRotate(origin=self.origin)
-            # Try and attach it
             ok = self.attachBlock(libraryEndGroup, cellEndGroup, dihedral=dihedral)
             if ok:
                 added += 1
                 logger.info("growBlocks added block {0} after {1} tries.".format(added, tries))
                 self.analyse.stop('grow', d={'num_tries':tries})
-                # print "GOT BLOCK ",[ b  for b in self.blocks.values() ][0]
                 tries = 0
             else:
-                # del initBlock?
                 tries += 1
         logger.info("After growBlocks numBlocks: {0}".format(len(self.blocks)))
         return added
@@ -1429,13 +1419,11 @@ class Cell():
             monomer = _random.choice(monomers)
         else:
             monomer = monomers[0]
-        # Seed the first block
         self.seed(nblocks=1, fragmentType=monomer, center=center)
         # Get the polymer block
         idxPolymer = self.lastAdded
         polymer = self.blocks[idxPolymer]
         fragment = polymer.fragments[0]
-
         # Create subunit going forward
         subunit = ab_subunit.subUnit(monomers=monomers,
                                      ratio=ratio,
@@ -1488,13 +1476,10 @@ class Cell():
         if self.pbc[2]:
             p1[2] % self.dim[2]
             p2[2] % self.dim[2]
-
         X, Y, Z = self._getBox(p1)  # The cell p1 is in
         outX, outY, outZ = self._getBox(p2)  # The cell p2 is in
         dx, dy, dz = self.vecDiff(p2, p1)  # length components of line
-        #
         # X
-        #
         # stepX=int(math.copysign(1,dx)) # the direction of travel in the x-direction
         stepX = int(math.copysign(1, dx))  # the direction of travel in the x-direction
         # If there is no direction along a component, we need to make sure tMaxX is > the cell
@@ -1507,9 +1492,7 @@ class Cell():
             tDeltaX = self.boxSize / dx  # How many boxes fit in the x-direction
             # tMaxX - how far we can move along the x-coordinate before we cross a cell boundary
             tMaxX = tDeltaX * (1.0 - math.modf(p1[0] / self.boxSize)[0])
-        #
         # Y
-        #
         stepY = int(math.copysign(1, dy))
         if Y == outY:
             tDeltaY = 0
@@ -1517,9 +1500,7 @@ class Cell():
         else:
             tDeltaY = self.boxSize / dy
             tMaxY = tDeltaY * (1.0 - math.modf(p1[1] / self.boxSize)[0])
-        #
         # Z
-        #
         stepZ = int(math.copysign(1, dz))
         if Z == outZ:
             tDeltaZ = 0
@@ -1527,11 +1508,6 @@ class Cell():
         else:
             tDeltaZ = self.boxSize / dz
             tMaxZ = tDeltaZ * (1.0 - math.modf(p1[2] / self.boxSize)[0])
-
-        # print "dx ",dx,dy,dz
-        # print "IN ",X,Y,Z
-        # print "OUT ",outX,outY,outZ
-        # print "stepX ",stepX
         cells = [(X, Y, Z)]  # Start with this cell
         while True:
             # Stop when we've reached the cell with p2
@@ -1590,7 +1566,6 @@ class Cell():
                         tMaxZ = TMAXMAX
                     else:
                         tMaxZ += tDeltaZ
-
         # return tDeltaX,tMaxX,X,tDeltaY,tMaxY,Y
         if endPointCells:
             return cells
