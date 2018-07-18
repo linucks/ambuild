@@ -953,8 +953,10 @@ class Cell():
         logger.debug("cellEndGroupPair returning: {0} {1}".format(endGroup1.type(), endGroup2.type()))
         return endGroup1, endGroup2
 
-    def cellData(self, rigidBody=True, periodic=True, center=False, fragmentType=None):
+    def cellData(self, rigidBody=True, periodic=True, center=False, fragmentType=None, noRigidParticles=False):
         RIGIDPARTICLES = rigidBody and ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] > 1
+        if noRigidParticles: # required for when we write out cml
+            RIGIDPARTICLES = False
         self.rigidParticleMgr.reset()
         # Object to hold the cell data
         d = ab_celldata.CellData()
@@ -1059,7 +1061,6 @@ class Cell():
         if RIGIDPARTICLES:
             self.rigidParticleMgr.checkConfigStrClashes(d.atomTypes)
             d.rigidParticleMgr = self.rigidParticleMgr
-            
         return d
 
     def delBlock(self, blockId):
@@ -2405,7 +2406,7 @@ class Cell():
 
     def writeCml(self, cmlFilename, data=None, rigidBody=True, periodic=True, pruneBonds=False, prettyPrint=False):
         if data is None:
-            d = self.cellData(periodic=periodic, rigidBody=rigidBody, fragmentType=None)
+            d = self.cellData(periodic=periodic, rigidBody=rigidBody, fragmentType=None, noRigidParticles=True)
         else:
             d = data
         cell = None
