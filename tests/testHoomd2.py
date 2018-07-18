@@ -32,7 +32,7 @@ class Test(unittest.TestCase):
             coords.append(c)
 
         # 1 cycle at low T so that nothing should move
-        mycell.runMD(mdCycles=1, rigidBody=True, T=0.1, dump=True, dumpPeriod=1)
+        mycell.runMD(mdCycles=1, rigidBody=True, T=0.1, dump=False, dumpPeriod=1)
         
         newcoords = []
         block = list(mycell.blocks.values())[0]
