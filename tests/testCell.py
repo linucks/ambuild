@@ -59,7 +59,7 @@ class Test(unittest.TestCase):
         mycell.growBlocks(4)
         return mycell
     
-    def clashes(self, mycell, minDist=1.0, pbc=[True, True, True]):
+    def clashes(self, mycell, minDist=0.8, pbc=[True, True, True]):
         """Return True of if any atoms are < minDist apart"""
         # coords=[ c for b in cell.blocks.values() for i, c in enumerate(b.iterCoord())]
         symbols = []
