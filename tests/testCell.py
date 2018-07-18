@@ -1190,7 +1190,7 @@ class Test(unittest.TestCase):
 
         # Now test with HOOMD-Blue
         filename = "periodicTest.xml"
-        data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
+        data = mycell.cellData(periodic=True, center=True, rigidBody=True, noRigidParticles=True)
         hoomd1.Hoomd1(PARAMS_DIR).writeXml(data,
                                            xmlFilename=filename,
                                            rigidBody=True,
@@ -1748,7 +1748,7 @@ class Test(unittest.TestCase):
             for c in block.iterCoord():
                 initcoords.append(c)
         xmlFilename = "testWriteHoomdblue.xml"
-        data = mycell.dataDict(periodic=True, center=True, rigidBody=True)
+        data = mycell.cellData(periodic=True, center=True, rigidBody=True, noRigidParticles=True)
         hoomd1.Hoomd1(PARAMS_DIR).writeXml(data,
                                            xmlFilename=xmlFilename,
                                            rigidBody=True,
