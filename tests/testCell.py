@@ -1155,7 +1155,7 @@ class Test(unittest.TestCase):
 
     @unittest.skipUnless(ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] == 1, "Need HOOMD-BLUE 1 to run")
     def testPeriodic(self):
-        import hoomd1
+        from ambuild import hoomd1
         import copy
         mycell = self.createTestCell()
         # Grab coords
@@ -1723,7 +1723,7 @@ class Test(unittest.TestCase):
         """
         write out hoomdblue xml
         """
-        import hoomd1
+        from ambuild import hoomd1
         boxDim = [20, 20, 20]
         mycell = Cell(boxDim)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')

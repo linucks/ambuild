@@ -93,11 +93,11 @@ def cellFromPickle(pickleFile, paramsDir=None):
                                                                                            PKL_SUFFIX,
                                                                                            GZIP_PKL_SUFFIX))
     # This is another terrible hack for dealing with old pkl files that used the old class names
-    import ab_block
-    import ab_bond
-    import ab_cell
-    import ab_fragment
-    from ab_endgroup import EndGroup
+    from ambuild import ab_block
+    from ambuild import ab_bond
+    from ambuild import ab_cell
+    from ambuild import ab_fragment
+    from ambuild.ab_endgroup import EndGroup
     # Patch the buildingBlock module so it has a reference to Bond
     ab_block.Bond = ab_bond.Bond
     # Patch fragment module so it has a reference to EndGroup
