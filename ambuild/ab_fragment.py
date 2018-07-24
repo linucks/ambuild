@@ -12,10 +12,10 @@ import os
 import numpy as np
 
 # our imports
-import ab_body
-import ab_endgroup
-import xyz_core
-import xyz_util
+from ambuild import ab_body
+from ambuild import ab_endgroup
+from ambuild import xyz_core
+from ambuild import xyz_util
 
 logger = logging.getLogger()
 

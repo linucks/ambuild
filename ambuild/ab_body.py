@@ -6,8 +6,8 @@ Created on Jan 15, 2013
 import logging
 import numpy as np
 # our imports
-import xyz_core
-import xyz_util
+from ambuild import xyz_core
+from ambuild import xyz_util
 
 
 logger = logging.getLogger()

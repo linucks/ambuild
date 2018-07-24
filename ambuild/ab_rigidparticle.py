@@ -8,7 +8,7 @@ import logging
 
 import numpy as np
 # our imports
-import xyz_core
+from ambuild import xyz_core
 
 
 logger = logging.getLogger()

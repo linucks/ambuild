@@ -11,8 +11,8 @@ import hoomd.md
 import numpy as np
 
 # Our imports
-from ab_ffield import FfieldParameters
-import xyz_core
+from ambuild.ab_ffield import FfieldParameters
+from ambuild import xyz_core
 
 logger = logging.getLogger(__name__)
 

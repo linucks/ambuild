@@ -14,8 +14,8 @@ import warnings
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 
-import xyz_core
-from ab_ffield import read_bond_params
+from ambuild import xyz_core
+from ambuild.ab_ffield import read_bond_params
 
 logger = logging.getLogger()
 

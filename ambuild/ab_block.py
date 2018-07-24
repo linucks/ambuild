@@ -25,9 +25,9 @@ import random as _random
 import numpy as np
 
 # local imports
-from ab_fragment import Fragment
-import xyz_core
-import xyz_util
+from ambuild.ab_fragment import Fragment
+from ambuild import xyz_core
+from ambuild import xyz_util
 
 logger = logging.getLogger(__name__)
 

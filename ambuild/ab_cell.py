@@ -17,18 +17,18 @@ import time
 import numpy as np
 
 # Our modules
-import ab_analyse
-import ab_block
-import ab_rigidparticle
-import ab_bond
-import ab_celldata
-import ab_endgroup
-import ab_fragment
-import ab_subunit
-import ab_util
-from ab_paths import PARAMS_DIR
-import xyz_core
-import xyz_util
+from ambuild import ab_analyse
+from ambuild import ab_block
+from ambuild import ab_rigidparticle
+from ambuild import ab_bond
+from ambuild import ab_celldata
+from ambuild import ab_endgroup
+from ambuild import ab_fragment
+from ambuild import ab_subunit
+from ambuild import ab_util
+from ambuild.ab_paths import PARAMS_DIR
+from ambuild import xyz_core
+from ambuild import xyz_util
 
 BONDTYPESEP = "-"  # Character for separating bonds
 ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
@@ -2205,11 +2205,10 @@ class Cell():
             logger.critical("HOOMD-BLUE could not be found! MD functionality will be unavaiable.")
             return
         if hoomdVersion[0] < 2:
-            from hoomd1 import Hoomd1
+            from ambuild.hoomd1 import Hoomd1
             self.mdEngineCls = Hoomd1
-            #self.MDENGINE_CLS = Hoomd1
         else:
-            from hoomd2 import Hoomd2
+            from ambuild.hoomd2 import Hoomd2
             self.mdEngineCls = Hoomd2
         logger.info("Using HOOMD-BLUE version: {0}.{1}.{2}".format(*ab_util.HOOMDVERSION))
         return
