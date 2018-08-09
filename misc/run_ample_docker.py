@@ -5,4 +5,4 @@ docker run --runtime=nvidia --rm \
 --volume /home/pierre/Dropbox/Ambuild_Files/Parameters:/home/pierre/Dropbox/Ambuild_Files/Parameters \
 --volume /home/pierre/Dropbox/Ambuild_Files/Blocks:/home/pierre/Dropbox/Ambuild_Files/Blocks \
 -w /home/glotzerlab glotzerlab/software \
-python3 /home/glotzerlab/$1
+python3 $1
