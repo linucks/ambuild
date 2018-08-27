@@ -581,7 +581,6 @@ class Cell():
         assert paf1EG.free() and paf2EG.free(),"PAF endgroups aren't free!"
         bond = ab_bond.Bond(paf1EG, paf2EG)
         self.bondBlock(bond)
-        logger.info("_joinPaf Optimisation")
         #self.dump()
         #self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False)
         #self.clearUnbonded()
@@ -602,6 +601,7 @@ class Cell():
             return False
         #logger.info("ca1tPaf2 got new bonds %s" % [str(b) for b in self.newBonds ])
         if any([self._cat1Paf2(b, fragmentTypes) for b in self.newBonds]):
+            logger.info("cat1Paf2 Optimisation")
             self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1)
             self.clearUnbonded()
             return True
@@ -613,6 +613,7 @@ class Cell():
         if not len(self.newBonds): return False
         #logger.info("cat2Paf2 got new bonds %s" % [str(b) for b in self.newBonds ])
         if any([self._cat2Paf2(b, fragmentTypes) for b in self.newBonds]):
+            logger.info("cat2Paf2 Optimisation")
             self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1)
             self.clearUnbonded()
             return True
@@ -625,15 +626,13 @@ class Cell():
                  idxAddAtom,
                  distance,
                  bondMargin,
-                 bondAngleMargin
-                ):
+                 bondAngleMargin):
         # The check should have been made before this is called on whether the two atoms are endGroup
         # Check length
         bond_length = xyz_util.bondLength(addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom))
         if bond_length < 0:
             raise RuntimeError("Missing bond distance for: {0}-{1}".format(addBlock.symbol(idxAddAtom),
                                                                             staticBlock.symbol(idxStaticAtom)))
-
         # See if the distance between them is acceptable
         # print "CHECKING BOND ATOMS ",bond_length,self.distance( addCoord, staticCoord )
         if  not (max(0.1, bond_length - bondMargin) < distance < bond_length + bondMargin):
@@ -653,7 +652,6 @@ class Cell():
                     logger.debug("Bond disallowed by bonding rules: {0} : {1}".format(staticEndGroup,
                                                                                       addEndGroup))
                     continue
-
                 # print "Possible bond for {0} {1} {2} dist {3}".format( idxAddAtom,
                 #                                                       idxStaticBlock,
                 #                                                       idxStaticAtom,
@@ -676,11 +674,9 @@ class Cell():
                     logger.debug("Cannot bond due to angles: {0} : {1}".format(math.degrees(angle1),
                                                                                math.degrees(angle2)))
                     continue
-
                 logger.debug("Acceptable bond with angles: {0} : {1} | distance {2}".format(math.degrees(angle1),
                                                                                             math.degrees(angle2),
                                                                                             distance))
-
                 # Create bond object and set the parameters
                 bond = ab_bond.Bond(staticEndGroup, addEndGroup)
                 self._possibleBonds.append(bond)
@@ -691,13 +687,10 @@ class Cell():
         return False
 
     def capBlocks(self, fragmentType=None, filename=None):
-
         # Create the cap block
         capBlock = ab_block.Block(filePath=filename, fragmentType='cap')
-
         # The endgroup is always the first only endGroup
         capEndGroup = capBlock.freeEndGroups()[0]
-
         # Get a list of blocks - need to do it this way or else we are changing the list of blocks while
         # we iterate through them
         cblocks = self.blocks.copy()

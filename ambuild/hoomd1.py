@@ -145,7 +145,7 @@ class Hoomd1(FFIELD):
                           Etol=1e-5,
                           finc=1.1,
                           fdec=0.5,
-                          max_tries=3,
+                          max_tries=1,
                           retries_on_error=3,
                           **kw):
         """Optimise the geometry with hoomdblue"""
