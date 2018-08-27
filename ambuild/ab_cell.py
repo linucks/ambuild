@@ -583,8 +583,8 @@ class Cell():
         self.bondBlock(bond)
         logger.info("_joinPaf Optimisation")
         #self.dump()
-        self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False)
-        self.clearUnbonded()
+        #self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False)
+        #self.clearUnbonded()
         return True
 
     def clearUnbonded(self):
@@ -601,15 +601,23 @@ class Cell():
         if not len(self.newBonds):
             return False
         #logger.info("ca1tPaf2 got new bonds %s" % [str(b) for b in self.newBonds ])
-        return any([self._cat1Paf2(b, fragmentTypes, dt=dt, optCycles=optCycles) for b in self.newBonds])
+        if any([self._cat1Paf2(b, fragmentTypes) for b in self.newBonds]):
+            self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1)
+            self.clearUnbonded()
+            return True
+        return False
 
     def cat2Paf2(self, fragmentTypes, dt=0.00001, optCycles=1000000):
         """Function to unbond a Ni-catalyst bonded to two PAF groups"""
         assert type(fragmentTypes) is list and len(fragmentTypes) > 0 and all([type(f) is str for f in fragmentTypes]),"Need a list of fragmentTypes"
         if not len(self.newBonds): return False
         #logger.info("cat2Paf2 got new bonds %s" % [str(b) for b in self.newBonds ])
-        return any([self._cat2Paf2(b, fragmentTypes, dt=dt, optCycles=optCycles) for b in self.newBonds])
-
+        if any([self._cat2Paf2(b, fragmentTypes) for b in self.newBonds]):
+            self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1)
+            self.clearUnbonded()
+            return True
+        return False
+            
     def canBond(self,
                  staticBlock,
                  idxStaticAtom,
