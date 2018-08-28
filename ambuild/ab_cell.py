@@ -398,7 +398,8 @@ class Cell():
             cfrag = bond.rootFragment
         elif bond.targetFragment.catalyst and bond.rootFragment.fragmentType in fragmentTypes:
             cfrag = bond.targetFragment
-        else: return False # Nothing to do
+        else:
+            return False # Nothing to do
 
         # The block may have multiple fragments, but we are only interested in this cat fragment
         # and if this has two bonds made to it and both are to PAF
@@ -431,9 +432,7 @@ class Cell():
         if  bond1 is None or bond2 is None:
             logger.info("Could not find two PAF-cat bonds : {0}".format([str(b) for b in cat._blockBonds]))
             return
-        #return self._joinPaf(catEG1, paf1EG, paf2EG)
-        logger.critical("Got two bonds {0} {1}".format(bond1,bond2))
-        return self._joinPaf(fragmentTypes, bond1, bond2, dt=dt, optCycles=optCycles)
+        return self._joinPaf(fragmentTypes, bond1, bond2)
 
     def _cat2Paf2(self, cc_bond, fragmentTypes):
         """Function to unbond a Ni-catalyst bonded to two PAF groups
@@ -526,7 +525,7 @@ class Cell():
         # Run optimisation to move CAT away
         logger.info("_cat2Paf2 Optimisation")
         #self.dump()
-        self.optimiseGeometry(rigidBody=True, quiet=True, dt=dt, optCycles=optCycles)
+        self.optimiseGeometry(rigidBody=True, quiet=True, dt=0.00001, optCycles=1000000)
 
         # Now dealing with a CAT bonded to two PAF groups
         # Need to select the other cat-paf bond
@@ -539,7 +538,7 @@ class Cell():
                 cp_bond2 = bond
                 break
         assert cp_bond2,"Could not find second cat/PAF bond"
-        self._joinPaf(fragmentTypes, cp_bond1, cp_bond2, dt=dt, optCycles=optCycles)
+        self._joinPaf(fragmentTypes, cp_bond1, cp_bond2)
         return True
 
     def _joinPaf(self, fragmentTypes, bond1, bond2):
@@ -566,8 +565,8 @@ class Cell():
         assert catEG and paf1EG and paf2EG, "Could not find endGroups: {0} {1}".format(bond1, bond2)
 
         self.delBlock(catBlock.id)
-        paf1 = catBlock.deleteBond(bond1,root=catEG.fragment)
-        paf2 = catBlock.deleteBond(bond2,root=catEG.fragment)
+        paf1 = catBlock.deleteBond(bond1, root=catEG.fragment)
+        paf2 = catBlock.deleteBond(bond2, root=catEG.fragment)
 
         # Add the unbonded blocks back to the cell
         self.addBlock(catBlock)
