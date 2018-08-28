@@ -390,7 +390,7 @@ class Cell():
                         return True
         return False
 
-    def _cat1Paf2(self, bond, fragmentTypes, dt=0.00001, optCycles=1000000):
+    def _cat1Paf2(self, bond, fragmentTypes):
         """A CAT bonded to two PAF goups"""
         # See if either of the blocks connected is the cat
         cfrag = None
@@ -435,7 +435,7 @@ class Cell():
         logger.critical("Got two bonds {0} {1}".format(bond1,bond2))
         return self._joinPaf(fragmentTypes, bond1, bond2, dt=dt, optCycles=optCycles)
 
-    def _cat2Paf2(self, cc_bond, fragmentTypes, dt=0.00001, optCycles=1000000):
+    def _cat2Paf2(self, cc_bond, fragmentTypes):
         """Function to unbond a Ni-catalyst bonded to two PAF groups
 
         check if have made a cat:a*-cat:a* bond
@@ -542,7 +542,7 @@ class Cell():
         self._joinPaf(fragmentTypes, cp_bond1, cp_bond2, dt=dt, optCycles=optCycles)
         return True
 
-    def _joinPaf(self, fragmentTypes, bond1, bond2, dt=0.00001, optCycles=1000000):
+    def _joinPaf(self, fragmentTypes, bond1, bond2):
         """Given a cat bonded to two PAF groups, break the PAF bonds and form a PAF-PAF bond"""
 
         logger.info("Entering _joinPaf: {0} {1}".format(bond1, bond2))
@@ -600,8 +600,9 @@ class Cell():
         if not len(self.newBonds):
             return False
         #logger.info("ca1tPaf2 got new bonds %s" % [str(b) for b in self.newBonds ])
-        if any([self._cat1Paf2(b, fragmentTypes) for b in self.newBonds]):
-            logger.info("cat1Paf2 Optimisation")
+        nbonds = len([self._cat1Paf2(b, fragmentTypes) for b in self.newBonds])
+        if nbonds > 0:
+            logger.info("cat1Paf2 undertook %d processes. Now running optimisation", nbonds)
             self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1)
             self.clearUnbonded()
             return True
@@ -612,8 +613,9 @@ class Cell():
         assert type(fragmentTypes) is list and len(fragmentTypes) > 0 and all([type(f) is str for f in fragmentTypes]),"Need a list of fragmentTypes"
         if not len(self.newBonds): return False
         #logger.info("cat2Paf2 got new bonds %s" % [str(b) for b in self.newBonds ])
-        if any([self._cat2Paf2(b, fragmentTypes) for b in self.newBonds]):
-            logger.info("cat2Paf2 Optimisation")
+        nbonds = len([self._cat2Paf2(b, fragmentTypes) for b in self.newBonds])
+        if nbonds > 0:
+            logger.info("cat2Paf2 undertook %d processes. Now running optimisation", nbonds)
             self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1)
             self.clearUnbonded()
             return True
