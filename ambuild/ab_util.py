@@ -17,6 +17,9 @@ if PYTHONFLAVOUR < 3:
 else:
     import pickle
 
+if __name__ == '__main__':
+    ambuild_dir =  os.path.join(os.path.abspath(os.path.dirname(__file__)),'..')
+    sys.path.insert(0,  ambuild_dir)
 from ambuild.ab_paths import PARAMS_DIR, AMBUILD_DIR
 from ambuild import xyz_util
 # for unpickling some files need to make sure AMBUILD_DIR is in path
