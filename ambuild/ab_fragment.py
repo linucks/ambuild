@@ -8,6 +8,7 @@ import copy
 import csv
 import logging
 import os
+import warnings
 
 import numpy as np
 
@@ -164,7 +165,9 @@ class Fragment(object):
         return bonds
 
     def _calcBonded(self):
-        assert len(self._bonds)
+        if not len(self._bonds):
+           warnings.warn("No bonds found in fragment %s" % self.fragmentType)
+           return
         # Create empty lists for all
         self._bonded = [ [] for _ in range(len(self._coords)) ]
         for b1, b2 in self._bonds:
