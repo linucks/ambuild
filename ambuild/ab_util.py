@@ -202,15 +202,16 @@ def dumpPkl(pickleFile, split=None, nonPeriodic=False, paramsDir=None):
     return
 
 
-def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False):
+def dumpDLPOLY(pickleFile, rigidBody=False, skipDihedrals=False, paramsDir=None):
     fpath = os.path.abspath(pickleFile)
     logger.info("Dumping DLPOLY files from pkl file: {0}".format(fpath))
-    mycell = cellFromPickle(pickleFile)
-    # Set parameter Directory
-    if hasattr(mycell, 'paramsDir'):
-        paramsDir = mycell.paramsDir
-    else:
-        paramsDir = PARAMS_DIR
+    mycell = cellFromPickle(pickleFile, paramsDir=paramsDir)
+    if paramsDir is None:
+        # Set parameter Directory
+        if hasattr(mycell, 'paramsDir'):
+            paramsDir = mycell.paramsDir
+        else:
+            paramsDir = PARAMS_DIR
     if not os.path.isdir(paramsDir):
         raise RuntimeError("Cannot find cell paramsDir: {0}".format(paramsDir))
     logger.info("Getting parameter files from directory: {0}".format(paramsDir))
@@ -306,6 +307,6 @@ if __name__ == '__main__':
     # Need to reset sys.argv as otherwise hoomdblue eats it and complains
     sys.argv = [sys.argv[0]]
     if dlpoly:
-        dumpDLPOLY(args.pkl_file, rigidBody=rigid, skipDihedrals=skipDihedrals)
+        dumpDLPOLY(args.pkl_file, rigidBody=rigid, skipDihedrals=skipDihedrals, paramsDir=paramsDir)
     else:
         dumpPkl(args.pkl_file, split=split, nonPeriodic=nonPeriodic, paramsDir=paramsDir)
