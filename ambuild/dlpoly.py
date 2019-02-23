@@ -1,8 +1,8 @@
 import logging
 import math
 
-from ab_ffield import FFIELD
-from xyz_core import wrapCoord3
+from ambuild.ab_ffield import FFIELD
+from ambuild.xyz_core import wrapCoord3
 logger = logging.getLogger(__name__)
 PARAM_SEP=','
 
