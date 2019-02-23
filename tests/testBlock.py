@@ -9,6 +9,7 @@ import context
 AMBUILD_DIR = context.ab_paths.AMBUILD_DIR
 BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
 PARAMS_DIR = context.ab_paths.PARAMS_DIR
+TESTDATA_DIR = context.ab_paths.TESTDATA_DIR
 Bond = context.ab_bond.Bond
 Block = context.ab_block.Block
 from context import ab_fragment
@@ -760,7 +761,7 @@ class Test(unittest.TestCase):
         with open(cmlFilename) as f:
             test = f.readlines()
 
-        with open(os.path.join(AMBUILD_DIR, 'tests', 'test_data', 'testSplitFragment.cml')) as f:
+        with open(os.path.join(TESTDATA_DIR, 'testSplitFragment.cml')) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare")
@@ -785,7 +786,7 @@ class Test(unittest.TestCase):
         with open(fname) as f:
             test = f.readlines()
 
-        with open(os.path.join(AMBUILD_DIR, "tests", 'test_data', "benzeneBond.cml")) as f:
+        with open(os.path.join(TESTDATA_DIR, "benzeneBond.cml")) as f:
             ref = f.readlines()
         self.assertEqual(test, ref, "cml compare")
         os.unlink(fname)

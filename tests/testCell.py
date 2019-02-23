@@ -10,6 +10,7 @@ import context
 AMBUILD_DIR = context.ab_paths.AMBUILD_DIR
 BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
 PARAMS_DIR = context.ab_paths.PARAMS_DIR
+TESTDATA_DIR = context.ab_paths.TESTDATA_DIR
 Bond = context.ab_bond.Bond
 Block = context.ab_block.Block
 Cell = context.ab_cell.Cell
@@ -1690,7 +1691,7 @@ class Test(unittest.TestCase):
         mycell.writeCml(fname, periodic=False, rigidBody=True, prettyPrint=True)
         with open(fname) as f:
             test = f.readlines()
-        with open(os.path.join(AMBUILD_DIR, "tests", "test_data", "testCellRigid.cml")) as f:
+        with open(os.path.join(TESTDATA_DIR, "testCellRigid.cml")) as f:
             ref = f.readlines()
         self.assertEqual(test, ref, "cml compare rigid")
         os.unlink(fname)
@@ -1700,7 +1701,7 @@ class Test(unittest.TestCase):
         # Test is same as reference
         with open(fname) as f:
             test = f.readlines()
-        with open(os.path.join(AMBUILD_DIR, "tests", "test_data", "testCellAll.cml")) as f:
+        with open(os.path.join(TESTDATA_DIR, "testCellAll.cml")) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare all")
@@ -1711,7 +1712,7 @@ class Test(unittest.TestCase):
         # Test is same as reference
         with open(fname) as f:
             test = f.readlines()
-        with open(os.path.join(AMBUILD_DIR, "tests", "test_data", "testCellAllPeriodic.cml")) as f:
+        with open(os.path.join(TESTDATA_DIR, "testCellAllPeriodic.cml")) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare all periodic    ")

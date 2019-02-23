@@ -6,6 +6,7 @@
 --volume /opt/ambuild/ambuild:/usr/lib/python3/dist-packages/ambuild \
 --volume /opt/ambuild/params:/home/glotzerlab/params \
 --volume /opt/ambuild/blocks:/home/glotzerlab/blocks \
+--volume /opt/ambuild/tests/test_data:/home/glotzerlab/test_data \
 --workdir /home/glotzerlab \
 glotzerlab/software \
 python3 $*
