@@ -1812,6 +1812,19 @@ class Cell():
         else:
             logger.critical("Optimisation Failed")
             return False
+    
+    def oversizeBonds(self, bondMargin=None):
+        """Return True if any bonds are longer then would be permitted by the current bonding parameters"""
+        if bondMargin is None:
+            bondMargin = self.bondMargin
+        for block in self.cell.blocks.values():
+            bond_lengths = np.array([ self.cell.distance(block.coord(idx1), block.coord(idx2))  for (idx1, idx2) in block.blockBonds()])
+            max_bond_lengths = np.array([ xyz_util.bondLength(block.symbol(idx1), block.symbol(idx2)) + bondMargin  for (idx1, idx2) in block.blockBonds()])
+            oversized = bond_lengths > max_bond_lengths
+            if any(oversized):
+                logger.critical("Got oversized bonds: %s\n%s", (bond_lengths[oversized], max_bond_lengths[oversized]))
+                return True
+        return False
 
     def positionInCell(self, block):
         """Make sure the given block is positioned within the cell"""
