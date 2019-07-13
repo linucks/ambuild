@@ -1,2 +1,0 @@
-pbc join connected -bondlist -now
-pbc unwrap -first now
