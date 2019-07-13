@@ -22,27 +22,14 @@ import math
 import random as _random
 
 # external imports
-import numpy
+import numpy as np
 
 # local imports
-import fragment
-import util
+from ambuild.ab_fragment import Fragment
+from ambuild import xyz_core
+from ambuild import xyz_util
 
 logger = logging.getLogger(__name__)
-
-class Bond(object):
-    """An object to hold all info on a bond
-    """
-    def __init__(self, endGroup1, endGroup2):
-        self.endGroup1 = endGroup1
-        self.endGroup2 = endGroup2
-        return
-    def __str__(self):
-        """List the data attributes of this object"""
-        s = "Bond {0}: {1}:{2} -> {3}:{4}".format(id(self),
-                                                  self.endGroup1.block().id, self.endGroup1,
-                                                     self.endGroup2.block().id, self.endGroup2)
-        return s
 
 class Block(object):
     '''
@@ -54,63 +41,46 @@ class Block(object):
     * bonds just point to two endGroups that are bonded to each other
     '''
 
-    def __init__(self, filePath=None, fragmentType=None, initFragment=None,):
+    def __init__(self, filePath=None, fragmentType=None, initFragment=None):
         '''
         Constructor
         '''
-
         # Need to change so cannot create block withough fragmentType
         if filePath:
             assert os.path.isfile(filePath) and fragmentType
-            initFragment = fragment.Fragment(filePath, fragmentType)
-
-        # List of the fragments contained in this one
+            initFragment = Fragment(filePath, fragmentType)
         self.fragments = []
-        if initFragment: self.fragments.append(initFragment )
-
-        # List of bond objects between blocks
-        self._blockBonds = []
-
-        # List of tuples of atoms that are bonded
-        self._bonds = []
-
-        # List of the bonds within fragments as a tuple (fragmentType, bond)
-        self._bondsByFragmentType = []
-
-        # List of which atom is bonded to which
-        self._bondedToAtom = []
-
-        # list of tuples of ( idFrag, idxData )
-        self._dataMap = []
+        if initFragment:
+            self.fragments.append(initFragment)
+        self._blockBonds = [] # List of bond objects between blocks
+        self._bonds = [] # List of tuples of atoms that are bonded
+        self._bondsByFragmentType = [] # List of the bonds within fragments as a tuple (fragmentType, bond)
+        self._bondedToAtom = [] # List of which atom is bonded to which
+        self._dataMap = [] # list of tuples of ( idFrag, idxData )
         self._bodies = []  # List of which body in the block each atom belongs too - frags can contain multiple bodies
-
         # The list of atoms that are endGroups and their corresponding angleAtoms
         self._freeEndGroups = {}
         self._numFreeEndGroups = 0
         self._endGroupType2EndGroups = {}
-
-        # Flag to indicate if block has changed and parameters (such as centerOfMass)
-        # need to be changed
+        # Flag to indicate if block has changed and parameters (such as centerOfMass) need to be changed
         self._changed = True
-
         # Below need to be updated when we move etc
-        self._centroid = numpy.zeros(3)
-        self._centerOfMass = numpy.zeros(3)
+        self._centroid = np.zeros(3)
+        self._centerOfMass = np.zeros(3)
         self._maxAtomRadius = -1
         self._radius = None
         self._blockMass = 0
         self.id = id(self)
-        
         self._deterministicState = 0 # For keeping track of things during testing
-
-        if self.fragments: self._update()
+        if self.fragments:
+            self._update()
         return
 
     def alignAtoms(self, atom1Idx, atom2Idx, refVector):
         """Move molecule so two atoms are aligned along refVector"""
         atom1 = self.coord(atom1Idx)
         atom2 = self.coord(atom2Idx)
-        if isinstance(refVector, list): refVector = numpy.array(refVector, dtype=numpy.float64)
+        if isinstance(refVector, list): refVector = np.array(refVector, dtype=np.float64)
         return self.alignVector(atom1, atom2, refVector)
 
     def alignVector(self, pos1, pos2, refVector):
@@ -120,58 +90,48 @@ class Block(object):
 
         pos1 is the coordinate of atom1 and pos2 the coordinate of atom2
         """
-        # Move so that pos1 is at origin so the vector of pos2 can be
-        # aligned with the refVector
+        # Move so that pos1 is at origin so the vector of pos2 can be aligned with the refVector
 
-        # Shift block so angleAtom at center,
-        self.translate(-pos1)
+        self.translate(-pos1) # Shift block so angleAtom at center,
+        if np.array_equal(refVector, [0, 0, 0]) or np.array_equal(pos2, [0, 0, 0]):
+            raise RuntimeError("alignBlock - one of the vectors is zero!\nrefVector: {0} endGroup: {1}".format(refVector, pos2))
 
-        # Check neither is zero
-        if numpy.array_equal(refVector, [0, 0, 0]) or numpy.array_equal(pos2, [0, 0, 0]):
-            raise RuntimeError, "alignBlock - one of the vectors is zero!\nrefVector: {0} endGroup: {1}".format(refVector, pos2)
-
-        # Makes no sense if they are already aligned
-        if numpy.array_equal(pos2 / numpy.linalg.norm(pos2), refVector / numpy.linalg.norm(refVector)):
+        if np.array_equal(pos2 / np.linalg.norm(pos2), refVector / np.linalg.norm(refVector)):
             logger.debug("alignBlock - block already aligned along vector. May not be a problem, but you should know...")
             self.translate(pos1)  # NEW - put it back
             return
-
         # print "alignBlock BEFORE: {0} | {1}".format( endGroup, refVector )
         # Calculate normalised cross product to find an axis orthogonal
         # to both that we can rotate about
-        cross = numpy.cross(refVector, pos2)
-        if numpy.array_equal(cross, [0, 0, 0]):
+        cross = np.cross(refVector, pos2)
+        if np.array_equal(cross, [0, 0, 0]):
             # They must be already aligned but anti-parallel, so we flip
             logger.debug("alignBlock - vectors are anti-parallel so flipping")
             self.flip(refVector)
             self.translate(pos1)  # NEW - put it back
         else:
-            # Find angle
-            angle = util.vectorAngle(refVector, pos2)
+            angle = xyz_core.vectorAngle(refVector, pos2)
             # Normalised cross to rotate about
-            ncross = cross / numpy.linalg.norm(cross)
-            # Rotate
+            ncross = cross / np.linalg.norm(cross)
             self.rotate(ncross, angle)
-        
-        # Now shift back
-        self.translate(pos1)
+        self.translate(pos1) # Now shift back
         return
 
     def atomBonded1(self, idxAtom):
         """Return the indices of all atoms directly bonded to idxAtom"""
         # We return a copy or else modifying the list changes the actual bond list
-        return copy.copy(self._bondedToAtom[ idxAtom ])
+        return set(self._bondedToAtom[idxAtom ])
 
     def atomBonded2(self, idxAtom):
         """Return the indices of all atoms bonded by <= 2 bonds to idxAtom"""
-        bonded = copy.copy(self.atomBonded1(idxAtom))
+        bonded = set(self.atomBonded1(idxAtom))
         for a1 in list(bonded):  # Copy to list so we're not changing while looping thru it
             bonded.update(self.atomBonded1(a1))
         return bonded
 
     def atomBonded3(self, idxAtom):
         """Return the indices of all atoms bonded by <= 3 bonds to idxAtom"""
-        bonded = copy.copy(self.atomBonded2(idxAtom))
+        bonded = set(self.atomBonded2(idxAtom))
         for a1 in list(bonded):  # Copy to list so we're not changing while looping thru it
             bonded.update(self.atomBonded1(a1))
         return bonded
@@ -188,7 +148,7 @@ class Block(object):
         frag, idxData = self._dataMap[idxAtom]
         if coord is not None:
             if isinstance(coord, list):
-                coord = numpy.array(coord)
+                coord = np.array(coord)
             frag.coord(idxData, coord)
         else:
             return frag.coord(idxData)
@@ -223,10 +183,6 @@ class Block(object):
         return frag.type(idxData)
 
     def anglesAndDihedrals(self):
-        """
-        Borrowed from openMM
-        """
-        # Make a list of all unique angles
         uniqueAngles = set()
         for atom1, atom2 in self._bonds:
             for atom in self._bondedToAtom[atom1]:
@@ -242,10 +198,7 @@ class Block(object):
                     else:
                         uniqueAngles.add((atom, atom2, atom1))
 
-        # Sort and reindex
         angles = sorted(list(uniqueAngles))
-
-        # Make a list of all unique proper torsions
 
         uniquePropers = set()
         for angle in angles:
@@ -261,12 +214,9 @@ class Block(object):
                         uniquePropers.add((angle[0], angle[1], angle[2], atom))
                     else:
                         uniquePropers.add((atom, angle[2], angle[1], angle[0]))
-
         propers = sorted(list(uniquePropers))
 
-        # Make a list of all unique improper torsions
         impropers = []
-        # for atom in range(len(bondedToAtom)):
         for atom in range(len(self._dataMap)):
             bondedTo = self._bondedToAtom[atom]
             if len(bondedTo) > 2:
@@ -294,36 +244,25 @@ class Block(object):
     def bondBlock(self, bond):
         """ Add newBlock to this one
         """
-        assert bond.endGroup1 != bond.endGroup2
         assert bond.endGroup1.block() == self
-        assert bond.endGroup1.free()
-        assert bond.endGroup2.free()
-        assert not bond.endGroup1.fragment == bond.endGroup2.fragment
-
-        # Mark both endGroups as used
-        bond.endGroup1.setBonded(bond)
-        bond.endGroup2.setBonded(bond)
-
         # Tried optimising this by passing in the bond to update and only updating those fragments/
         # endGroups that had changed but it rapidly got rather complicated so we keep to a simple
         # update and add the data for the new block here
         # Append fragments and bonds of other block to this one
-        if bond.endGroup1.block() != bond.endGroup2.block():
+        if not bond.isInternalBond():
             self.fragments += bond.endGroup2.block().fragments
             self._blockBonds += bond.endGroup2.block()._blockBonds
-
-        # add the new bond
         self._blockBonds.append(bond)
-
         return self._update()
     
     def blockRadius(self):
-        if self._changed: self._calcProperties()
+        if self._changed:
+            self._calcProperties()
         return self._radius
     
     def _calcCenters(self):
-        sumG = numpy.zeros(3)
-        sumM = numpy.zeros(3)
+        sumG = np.zeros(3)
+        sumM = np.zeros(3)
         totalMass = 0.0
         for f in self.fragments:
             mass = f.totalMass()
@@ -336,23 +275,19 @@ class Block(object):
         return
 
     def _calcRadius(self):
-        """
-        Calculate a simple size metric of the block so that we can screen for whether
+        """Calculate a simple size metric of the block so that we can screen for whether
         two blocks are within touching distance
         Assumes centroid already calculated
         """
-
         distances = []
         self._maxAtomRadius = 0.0
         for f in self.fragments:
             for coord in f.iterCoord():
-                distances.append(util.distance(self._centroid, coord))
+                distances.append(xyz_core.distance(self._centroid, coord))
                 self._maxAtomRadius = max(f.maxAtomRadius(), self._maxAtomRadius)
-
         assert distances
-        imax = numpy.argmax(distances)
-        dist = distances[ imax ]
-
+        imax = np.argmax(distances)
+        dist = distances[imax]
         # Add on the radius of the largest atom
         self._radius = dist + self.maxAtomRadius()
         return
@@ -407,29 +342,26 @@ class Block(object):
 
     def deleteBond(self, bond, root=None):
         """root is an optional fragment which we want to stay in this block"""
-        if not len(self._blockBonds): return None
+        if not len(self._blockBonds):
+            return None
         assert bond in self._blockBonds
         
         # Take the two fragments on either side of the bond
-        f1 = bond.endGroup1.fragment
-        f2 = bond.endGroup2.fragment
-        if root: assert root in [f1, f2],"Root must be attached to the bond"
-        
-        # Delete the bond
+        f1 = bond.rootFragment
+        f2 = bond.targetFragment
+        if root:
+            assert root in [f1, f2],"Root must be attached to the bond"
         self._blockBonds.remove(bond)
 
         # Create dictionary of which fragments are bonded to which fragments
         bondedToFragment = { f1 : set(), f2 : set() } # Need to add those from bond as might not be connected
         for b in self._blockBonds:
-            if b.endGroup1.fragment not in bondedToFragment:
-                bondedToFragment[b.endGroup1.fragment] = set()
-            if b.endGroup2.fragment not in bondedToFragment:
-                bondedToFragment[b.endGroup2.fragment] = set()
-#             if (b.endGroup1.blockEndGroupIdx==idxAtom1 and b.endGroup2.blockEndGroupIdx==idxAtom2) or \
-#                 (b.endGroup1.blockEndGroupIdx==idxAtom2 and b.endGroup2.blockEndGroupIdx==idxAtom1):
-#                 bond=b
-            bondedToFragment[b.endGroup1.fragment].add(b.endGroup2.fragment)
-            bondedToFragment[b.endGroup2.fragment].add(b.endGroup1.fragment)
+            if b.rootFragment not in bondedToFragment:
+                bondedToFragment[b.rootFragment] = set()
+            if b.targetFragment not in bondedToFragment:
+                bondedToFragment[b.targetFragment] = set()
+            bondedToFragment[b.rootFragment].add(b.targetFragment)
+            bondedToFragment[b.targetFragment].add(b.rootFragment)
         
         def addFragments(startf, f1set):
             # Trundle through the bond topology for f1 and set True for all fragments we reach
@@ -444,17 +376,10 @@ class Block(object):
         # ALGORITHM NEEDS MORE WORK!
         f1set = addFragments(f1, set([f1]))
         f2set = addFragments(f2, set([f2]))
-        
         if bool(f1set.intersection(f2set)):
             logger.info("deleteBond broke internal bond")
             # Fragments in common with both, so just delete the bond
-            #print "Block remains contiguous"
-            # Need to unmask the fragment atoms
-            bond.endGroup1.unBond(bond.endGroup2)
-            bond.endGroup2.unBond(bond.endGroup1)
-
-            # Now delete the bond from the block
-            #self._blockBonds.remove(bond)
+            bond.separate()
             self._update()
             return None
         
@@ -462,11 +387,11 @@ class Block(object):
         # jmht - consider adding rootFragment attribute?
         f1list = list(f1set)
         f1list.remove(f1)
-        f1list.insert(0,f1)
+        f1list.insert(0, f1)
         
         f2list = list(f2set)
         f2list.remove(f2)
-        f2list.insert(0,f2)
+        f2list.insert(0, f2)
         
         # Breaking the bond splits the block in two, so we separate the two fragments, keep the largest
         # for ourselves and return the new block. We set f1 and f1set to be the biggest
@@ -480,7 +405,7 @@ class Block(object):
                 f1 = f2
                 f2 = tmp
         else:
-            if f2list > f1list:
+            if len(f2list) > len(f1list):
                 tmp = f1list
                 f1list = f2list
                 f2list = tmp
@@ -492,15 +417,12 @@ class Block(object):
         f1bonds = []
         f2bonds = []
         for b in self._blockBonds:
-            if b.endGroup1.fragment in f1list and b.endGroup2.fragment in f1list:
+            if b.rootFragment in f1list and b.targetFragment in f1list:
                 f1bonds.append(b)
-            elif b.endGroup1.fragment in f2list and b.endGroup2.fragment in f2list:
+            elif b.rootFragment in f2list and b.targetFragment in f2list:
                 f2bonds.append(b)
-            else: raise RuntimeError,"Bond crosses set: {0}".format(b)
-            
-        bond.endGroup1.unBond(bond.endGroup2)
-        bond.endGroup2.unBond(bond.endGroup1)
-        
+            else: raise RuntimeError("Bond crosses set: {0}".format(b))
+        bond.separate()
         # Create a new block with the smaller fragments
         newBlock = Block()
         newBlock.fragments = f2list
@@ -513,20 +435,18 @@ class Block(object):
         self._blockBonds = f1bonds
         self._update()
         assert self.id,"self has no id!"
-        
         return newBlock
     
     def deleteFragment(self, frag):
         if frag not in self.fragments:
-            raise RuntimeError,"Cannot find fragment {0} in block".format(frag.fragmentType)
+            raise RuntimeError("Cannot find fragment {0} in block".format(frag.fragmentType))
         
         if len(self.fragments) == 1:
             # This is the only fragment in the block, so we need to be deleted - return an empty list
             return []
             
         # Get the list of bonds that this fragment makes
-        dbonds = [ b for b in self._blockBonds if b.endGroup1.fragment == frag or b.endGroup2.fragment == frag ]
-        
+        dbonds = [ b for b in self._blockBonds if b.rootFragment == frag or b.targetFragment == frag ]
         assert len(dbonds),"Fragment is not involved in any bonds!"
         
         # Loop through deleting all bonds and returning any blocks created
@@ -534,7 +454,8 @@ class Block(object):
         blocks = []
         for bond in dbonds:
             block = self.deleteBond(bond, root=frag)
-            if block: blocks.append(block)
+            if block:
+                blocks.append(block)
             
         # Now we need to delete the fragment from ourself and update
         if len(self.fragments) > 1:
@@ -610,13 +531,13 @@ class Block(object):
         # xu + yv + zw = 0 - set u and v to 1, so w = (x + y)/z
         # vector is 1, 1, w
         w = -1.0 * (fvector[0] + fvector[1]) / fvector[2]
-        orth = numpy.array([1.0, 1.0, w])
+        orth = np.array([1.0, 1.0, w])
 
         # Find axis that we can rotate about
-        rotAxis = numpy.cross(fvector, orth)
+        rotAxis = np.cross(fvector, orth)
 
         # Rotate by 180
-        self.rotate(rotAxis, numpy.pi)
+        self.rotate(rotAxis, np.pi)
 
         return
     
@@ -659,7 +580,8 @@ class Block(object):
         fragment: only return the endGroups that are part of fragment
         """
         if endGroupTypes is not None:
-            if isinstance(endGroupTypes, str): endGroupTypes = [ endGroupTypes ]
+            if isinstance(endGroupTypes, str):
+                endGroupTypes = [ endGroupTypes ]
             endGroups = []
             for eType in endGroupTypes:
                 if eType in self._endGroupType2EndGroups:
@@ -670,7 +592,9 @@ class Block(object):
         
         if fragment is not None:
             endGroups = [endGroup for endGroup in endGroups if endGroup.fragment == fragment]
-        return endGroups
+        
+        # return sorted for consistency to faciliate testing
+        return sorted(endGroups, key=lambda eg: eg.fragmentEndGroupIdx)
 
     def freeEndGroupTypes(self):
         """Return a list of the fragmentTypes for the available endGroups"""
@@ -705,7 +629,7 @@ class Block(object):
         targetCapAtom = self.coord(endGroup.blockCapIdx)
 
         # Get the bond length between these two atoms
-        bondLength = util.bondLength(targetSymbol, symbol)
+        bondLength = xyz_util.bondLength(targetSymbol, symbol)
 
         # Find unit vector pointing from targetAngleAtom to targetEndGroup
 
@@ -714,7 +638,7 @@ class Block(object):
         v1 = targetCapAtom - targetEndGroup
 
         # Now get unit vector
-        uv = v1 / numpy.linalg.norm(v1)
+        uv = v1 / np.linalg.norm(v1)
 
         # Multiply unit vector by bond length to get the component to add on
         newPosition = targetEndGroup + (uv * bondLength)
@@ -764,14 +688,14 @@ class Block(object):
             assert endGroup.blockDihedralIdx != -1 and growEndGroup.blockDihedralIdx != -1, \
             "Need to have specified dihedrals as 3rd column in ambi file first!"
             # Get current angle
-            current = util.dihedral(self.coord(endGroup.blockDihedralIdx),
+            current = xyz_core.dihedral(self.coord(endGroup.blockDihedralIdx),
                                      self.coord(endGroup.blockEndGroupIdx),
                                      growBlock.coord(growEndGroup.blockEndGroupIdx),
                                      growBlock.coord(growEndGroup.blockDihedralIdx))
 
             # Find how much we need to rotate by
             angle = dihedral - current
-            if not (numpy.allclose(angle, 0.0, rtol=1e-05) or numpy.allclose(angle, math.pi*2, rtol=1e-05)):
+            if not (np.allclose(angle, 0.0, rtol=1e-05) or np.allclose(angle, math.pi*2, rtol=1e-05)):
                 # Need to rotate so get the axis to rotate about
                 axis = self.coord(endGroup.blockEndGroupIdx) - growBlock.coord(growEndGroup.blockEndGroupIdx)
                 growBlock.rotate(axis, angle, center=self.coord(endGroup.blockEndGroupIdx))
@@ -791,21 +715,22 @@ class Block(object):
         yAxis = [ 0, 1, 0 ]
         zAxis = [ 0, 0, 1 ]
 
-        angle = _random.uniform(0, 2 * numpy.pi)
+        angle = _random.uniform(0, 2 * np.pi)
         self.rotate(xAxis, angle)
 
-        angle = _random.uniform(0, 2 * numpy.pi)
+        angle = _random.uniform(0, 2 * np.pi)
         self.rotate(yAxis, angle)
 
-        angle = _random.uniform(0, 2 * numpy.pi)
+        angle = _random.uniform(0, 2 * np.pi)
         self.rotate(zAxis, angle)
 
         if not atOrigin: self.translateCentroid(position)
         return
 
     def rotate(self, axis, angle, center=None):
-        if center is None: center = numpy.array([ 0, 0, 0 ])
-        rotationMatrix = util.rotation_matrix(axis, angle)
+        if center is None:
+            center = np.array([ 0, 0, 0 ])
+        rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         for f in self.fragments:
             f.rotate(rotationMatrix, center)
         return
@@ -813,9 +738,9 @@ class Block(object):
     def rotateT(self, axis, angle, center=None):
         """Rotation with translation to center"""
         position = self.centroid()
-        origin = numpy.array([ 0, 0, 0 ])
+        origin = np.array([ 0, 0, 0 ])
         self.translateCentroid(origin)
-        rotationMatrix = util.rotation_matrix(axis, angle)
+        rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         for f in self.fragments:
             f.rotate(rotationMatrix, origin)
         self.translateCentroid(position)
@@ -839,7 +764,7 @@ class Block(object):
             # See if any in common
             common = frozenset(self.freeEndGroupTypes()).intersection(frozenset(endGroupTypes))
             if not bool(common):
-                raise RuntimeError, "Cannot find {0} in available types {1}".format(endGroupTypes, self.freeEndGroupTypes())
+                raise RuntimeError("Cannot find {0} in available types {1}".format(endGroupTypes, self.freeEndGroupTypes()))
 
             # We can definitely return something so pick a random fragment type and get a random endGroup
             if random:
@@ -858,7 +783,7 @@ class Block(object):
         """ translate the molecule by the given vector"""
         # CHANGE SO WE CHECK IF IS A NUMPY ARRAY
         if isinstance(tvector, list):
-            tvector = numpy.array(tvector)
+            tvector = np.array(tvector)
 
         # Loop through each fragment and translate each in turn
         for f in self.fragments:
@@ -875,10 +800,8 @@ class Block(object):
     def _update(self):
         """Set the list of _endGroups & update data for new block
         """
-        #
         # Now build up the dataMap listing where each fragment starts in the block and linking the
         # overall block atom index to the fragment and fragment atom index
-        #
         self._dataMap = []
         self._bodies = []
         self._blockMass = 0
@@ -886,24 +809,19 @@ class Block(object):
         bodyCount = -1
         lastBody = 0
         for fragment in self.fragments:
-
             # Set the block
             fragment.block = self
-
             # Increment body count for each fragment
             bodyCount += 1
-
             # Count the number of each type of fragment in the block (see Analyse)
             t = fragment.fragmentType
             if t not in self._fragmentTypeDict:
                 self._fragmentTypeDict[ t ] = 1
             else:
                 self._fragmentTypeDict[ t ] += 1
-
             fragment.blockIdx = len(self._dataMap)  # Mark where the data starts in the block
-            for i in xrange(fragment.numAtoms()):
+            for i in range(fragment.numAtoms()):
                 self._dataMap.append((fragment, i))
-
                 # Bring up the bodies
                 b = fragment.body(i)
                 if b != lastBody:
@@ -911,7 +829,6 @@ class Block(object):
                     lastBody = b
                 self._bodies.append(bodyCount)
                 self._blockMass += fragment.mass(i)
-        #
         # Have dataMap so now update the endGroup information
         self._numFreeEndGroups = 0
         self._freeEndGroups = {}
@@ -933,7 +850,6 @@ class Block(object):
                     if endGroup.type() not in self._endGroupType2EndGroups:
                         self._endGroupType2EndGroups[ endGroup.type() ] = []
                     self._endGroupType2EndGroups[ endGroup.type() ].append(endGroup)
-        
         # Now need to create the list of all bonds throughout the block
         self._bonds = []
         self._bondsByFragmentType = []
@@ -945,7 +861,6 @@ class Block(object):
                 b2 = b2 + fragment.blockIdx
                 self._bonds.append((b1, b2))
                 self._bondsByFragmentType.append((fragment.fragmentType, (b1, b2)))
-
         # Then all bonds between fragments
         cap2EndGroup = {}
         for b in self._blockBonds:
@@ -955,7 +870,6 @@ class Block(object):
             # This is somewhat untidy as we use the internal fragment index here - which really should be hidden
             cap2EndGroup[ (b.endGroup1.fragment, b.endGroup1.fragmentCapIdx) ] = b.endGroup2.blockEndGroupIdx
             cap2EndGroup[ (b.endGroup2.fragment, b.endGroup2.fragmentCapIdx) ] = b.endGroup1.blockEndGroupIdx
-
         # Now create the list of which atoms are bonded to which
         self._bondedToAtom = []
         for i in range(len(self._dataMap)):
@@ -963,16 +877,12 @@ class Block(object):
         for b1, b2 in self._bonds:
             self._bondedToAtom[b1].add(b2)
             self._bondedToAtom[b2].add(b1)
-
         # Finally update the ancillary blockIndices for the endGroups - we need the bonding to have been done
         # as some of the atoms will now be defined by atoms in other fragments
         for fragment in self.fragments:
             for endGroup in fragment.endGroups():
                 endGroup.updateAncillaryIndices(cap2EndGroup)
-
-        # Recalculate the data for this new block
         self._calcProperties()
-
         return
 
     def writeCml(self, cmlFilename, cell=None):
@@ -984,13 +894,14 @@ class Block(object):
             symbols.append(self.symbol(i))
             atomTypes.append(self.type(i))
 
-        cmlFilename = util.writeCml(cmlFilename,
-                                    coords,
-                                    symbols,
-                                    bonds=self.bonds(),
-                                    atomTypes=atomTypes,
-                                    cell=cell,
-                                    pruneBonds=False)
+        cmlFilename = xyz_util.writeCml(cmlFilename,
+                                        coords,
+                                        symbols,
+                                        bonds=self.bonds(),
+                                        atomTypes=atomTypes,
+                                        cell=cell,
+                                        pruneBonds=False,
+                                        prettyPrint=True)
 
         logger.info("wrote block CML file: {0}".format(cmlFilename))
         return
@@ -1001,7 +912,7 @@ class Block(object):
         for i, c in enumerate(self.iterCoord()):
             coords.append(c)
             symbols.append(self.symbol(i))
-        fpath = util.writeXyz(name, coords, symbols, cell=cell)
+        fpath = xyz_util.writeXyz(name, coords, symbols, cell=cell)
         logger.info("Wrote block xyz file: {0}".format(fpath))
         return
 

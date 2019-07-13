@@ -3,203 +3,43 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 '''
-
 import collections
 import copy
 import csv
 import logging
 import os
-import types
-import unittest
+import warnings
 
-import numpy
+import numpy as np
 
 # our imports
-from paths import BLOCKS_DIR
-import util
-
-ENDGROUPBONDED = '*'
+from ambuild import ab_body
+from ambuild import ab_endgroup
+from ambuild import xyz_core
+from ambuild import xyz_util
 
 logger = logging.getLogger()
 
-class EndGroup(object):
-
-    def __init__(self):
-
-        self.blocked = False # Used for indicating that this endGroup is unbonded but not free
-        self.bonded = False
-
-        self._endGroupType = None
-
-        self.fragment = None
-
-        self.fragmentEndGroupIdx = None
-        self.blockEndGroupIdx = None
-
-        self.fragmentCapIdx = None
-        self.blockCapIdx = None
-        self.capBondLength = None
-
-        self.fragmentDihedralIdx = -1
-        self.blockDihedralIdx = -1
-
-        self.fragmentUwIdx = -1
-        self.blockUwIdx = -1
-
-        return
-
-    def block(self):
-        f=True
-        b=True
-        if self.fragment.block is None: b=False
-        if self.fragment is None: f=False
-        if not b and f: 
-            raise RuntimeError("None Block {0} Fragment {1}\n{2}".format(b,f,self))
-        return self.fragment.block
-
-    def capIdx(self):
-        """Return the index of the endGroup atom in external block indices"""
-        return self.blockCapIdx
-    
-    def bondedCatalyst(self):
-        """Return True if this endGroup belongs to a catalyst that is bonded to another catalyst"""
-        return self.fragment.catalyst and self._endGroupType.endswith(ENDGROUPBONDED)
-    
-    def coord(self,endGroup=True):
-        """Need to think about an API for accessing coordinates for endGroups
-        This just hacks in returning the endGroup.
-        """
-        return self.fragment._coords[self.fragmentEndGroupIdx]
-
-    def dihedralIdx(self):
-        """Return the index of the dihedral atom in external block indices"""
-        return self.blockDihedralIdx
-
-    def endGroupIdx(self):
-        """Return the index of the endGroup atom in external block indices"""
-        return self.blockEndGroupIdx
-
-    def fragmentType(self):
-        return self.fragment.fragmentType
-
-    def free(self):
-        return not self.bonded and not self.blocked
-
-    def setBonded(self, bond):
-        self.bonded = True
-        self.fragment.addBond(self, bond)
-        return
-
-    def unBond(self, bondEndGroup):
-        self.bonded = False
-        # HACK WE REMOVE ALL SUFFIXES
-        for eg in self.fragment.endGroups():
-            if eg._endGroupType.endswith(ENDGROUPBONDED):
-                logger.debug("unBond ENDGROUPBONDED")
-                eg._endGroupType = eg._endGroupType.rstrip(ENDGROUPBONDED)
-        self.fragment.delBond(self.type())
-        # Unmask cap and set the coordinate to the coordinate of the last block atom
-        # NOTE - NEED TO SCALE BY CORRECT LENGTH
-        if hasattr(bondEndGroup, 'coord'):
-            # Reposition the cap atom based on the bond vector
-            #self.fragment._coords[self.fragmentCapIdx] = bondEndGroup.coord()
-            # Get vector from this endGroup to the other endGroup
-            egPos = self.fragment._coords[self.fragmentEndGroupIdx]
-            v1 = bondEndGroup.coord() - egPos
-            # Now get unit vector
-            uv = v1 / numpy.linalg.norm(v1)
-            # calculate noew position
-            self.fragment._coords[self.fragmentCapIdx] = egPos + (uv * self.capBondLength)
-        
-        # Unhide the cap atom
-        self.fragment.masked[self.fragmentCapIdx] = False
-        # Mark capAtom as unBonded so that it won't be included in the optimisation
-        self.fragment.unBonded[self.fragmentCapIdx] = True
-             
-        if self.fragmentUwIdx != -1:
-            raise RuntimeError, "Cannot unbond masked endGroups yet!"
-            self.fragment.masked[ self.fragmentUwIdx ] = True
-        self.fragment.update()
-        return
-
-    def type(self):
-        """The type of the endGroup"""
-        return "{0}:{1}".format(self.fragment.fragmentType, self._endGroupType)
-
-    def updateAncillaryIndices(self, cap2endGroup):
-        """The block has been updated so we need to update our block indices based on where the
-        fragment starts in the block"""
-        if self.fragment.masked[self.fragmentCapIdx]:
-            assert self.bonded
-            # If this endGroup is involved in a bond, we want to get the block index of the
-            # opposite endGroup as this has now become our cap atom
-            self.blockCapIdx = cap2endGroup[(self.fragment, self.fragmentCapIdx)]
-        else:
-            self.blockCapIdx = self.fragment._int2ext[self.fragmentCapIdx] + self.fragment.blockIdx
-
-        # -1 means no dihedral or uw atom set
-        if self.fragmentDihedralIdx != -1:
-            if self.fragment.masked[self.fragmentDihedralIdx]:
-                # Now work out which atom this is bonded to
-                self.blockDihedralIdx = cap2endGroup[(self.fragment, self.fragmentDihedralIdx)]
-            else:
-                self.blockDihedralIdx = self.fragment._int2ext[self.fragmentDihedralIdx] + self.fragment.blockIdx
-
-        # -1 means no uw atom and if it is masked then there will not be an external index
-        if self.fragmentUwIdx != -1 and not self.fragment.masked[self.fragmentUwIdx]:
-            # assert not self.fragment.isMasked( self.fragmentUwIdx )
-            self.blockUwIdx = self.fragment._int2ext[self.fragmentUwIdx] + self.fragment.blockIdx
-        return
-
-    def updateEndGroupIndex(self):
-        """The block has been updated so we need to update our block indices based on where the
-        fragment starts in the block"""
-        self.blockEndGroupIdx = self.fragment._int2ext[self.fragmentEndGroupIdx] + self.fragment.blockIdx
-        return
-
-    def __str__(self):
-        """List the data attributes of this object"""
-#         me = {}
-#         for slot in dir(self):
-#             attr = getattr(self, slot)
-#             if not slot.startswith("__") and not ( isinstance(attr, types.MethodType) or
-#               isinstance(attr, types.FunctionType) ):
-#                 me[slot] = attr
-#
-#         t = []
-#         for k in sorted(me):
-#             t.append( str( ( k, me[k] ) ) )
-#
-#         return "{0} : {1}".format(self.__repr__(), ",".join( t ) )
-        #EndGroup:
-        s = "{0} {1}:{2} {3}({4})->{5}({6}) {7}->{8}".format(self.type(), id(self.fragment), id(self),
-                                                    self.fragmentEndGroupIdx, self.fragment._symbols[self.fragmentEndGroupIdx],
-                                                    self.fragmentCapIdx,self.fragment._symbols[self.fragmentCapIdx],
-                                                    self.blockEndGroupIdx, self.blockCapIdx)
-
-        return s
-
+            
 class Fragment(object):
     '''
     classdocs
     '''
-
     def __init__(self,
                  filePath=None,
                  fragmentType=None,
                  solvent=False,
                  static=False,
                  markBonded=False,
-                 catalyst=False
-                 ):
+                 catalyst=False):
         '''
         Constructor
         '''
-
         # This first set of variables are shared by all fragments
         # When we copy a fragment the new fragment gets references to the variables
         # that were created for the first fragment (see copy)
         sharedAttrs = {
+            '_atomTypes'       : [],
             '_bodies'          : [],  # a list of which body within this fragment each atom belongs to
             '_bonds'           : [],  # List of internal fragment bonds
             '_bonded'          : [],  # List of which atoms are bonded to which
@@ -210,7 +50,7 @@ class Fragment(object):
             '_labels'          : [],
             '_masses'          : [],
             'markBonded'       : markBonded,
-            'onbondFunction' : None,  # A function to be called when we bond an endGroup 
+            'onbondFunction' : None,  # A function to be called when we bond an endGroup
             '_radii'           : [],
             '_maxBonds'        : {},
             '_radius'          :-1,
@@ -218,7 +58,6 @@ class Fragment(object):
             'static'           : static,
             '_symbols'         : [],  # ordered array of symbols (in upper case)
             '_totalMass'       :-1,
-            '_atomTypes'            : [],
             '_individualAttrs' : None,
             '_sharedAttrs'     : None,
             }
@@ -228,11 +67,13 @@ class Fragment(object):
         # and is involved in bonds - each fragment gets its own copy of these
         individualAttrs = {
             'block'           : None,
+            'config'          : None,
+            'configStr'     : None,
             '_coords'         : [],
             '_centroid'       : None,
             '_centerOfMass'   : None,
-            '_ext2int'        : None,
-            '_int2ext'        : None,
+            '_ext2int'        : collections.OrderedDict(),
+            '_int2ext'        : collections.OrderedDict(),
             '_centerOfMass'   : None,
             '_maxAtomRadius'  :-1,
             '_changed'        : True,  # Flag for when we've been moved and need to recalculate things
@@ -240,51 +81,49 @@ class Fragment(object):
             '_endGroups'      : [],  # A list of the endGroup objects
             '_endGroupBonded' : [],  # A list of the number of each endGroup that are used in bonds
             'masked'         : [],  # bool - whether the atoms is hidden (e.g. cap or uw atom)
-            'unBonded'         : [],  # bool - whether an atom has just been unbonded 
+            'unBonded'         : [],  # bool - whether an atom has just been unbonded
             }
 
         # Set as attributes of self
-        for a, v in sharedAttrs.iteritems():
+        for a, v in sharedAttrs.items():
             setattr(self, a, v)
 
         # Set as attributes of self
-        for a, v in individualAttrs.iteritems():
+        for a, v in individualAttrs.items():
             setattr(self, a, v)
-            
+
         # Set these manually
         self._individualAttrs = individualAttrs
         self._sharedAttrs = sharedAttrs
 
         # Create from the file
-        if filePath: self.fromFile(filePath)
+        if filePath:
+            self.fromFile(filePath)
         return
 
     def _markBonded(self, endGroup, bond):
         """Append * to all endGroups in fragments that are involved in bonds to cat"""
         #if not endGroup.type() == 'cat:a': return
-        if endGroup.type().endswith(ENDGROUPBONDED) or not (bond.endGroup1.fragment.catalyst or bond.endGroup2.fragment.catalyst):
+        if endGroup.type().endswith(ab_endgroup.ENDGROUPBONDED) or not (bond.endGroup1.fragment.catalyst or bond.endGroup2.fragment.catalyst):
             return
         logger.debug("_markBonded marking bonds for fragment {0}".format(self.fragmentType))
         for eg in self.endGroups():
-            assert not eg._endGroupType.endswith(ENDGROUPBONDED),"Already got bonded endGroup"
-            eg._endGroupType += ENDGROUPBONDED
+            assert not eg._endGroupType.endswith(ab_endgroup.ENDGROUPBONDED),"Already got bonded endGroup"
+            eg._endGroupType += ab_endgroup.ENDGROUPBONDED
         return
 
     def addBond(self, endGroup, bond):
         endGroupType = endGroup.type()
-        
+
         # Mask fragment cap and uw atoms now
         self.masked[ endGroup.fragmentCapIdx ] = True
         if endGroup.fragmentUwIdx != -1:
             self.masked[ endGroup.fragmentUwIdx ] = True
-            
+
         # Hack for starred endGroups
-        if not endGroupType.endswith(ENDGROUPBONDED):
+        if not endGroupType.endswith(ab_endgroup.ENDGROUPBONDED):
             self._endGroupBonded[ endGroupType] += 1
-    
             # Handle maxBonds here
-            #if self._maxBonds[ endGroupType ] is not None and \
-            #self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]
             if self._maxBonds[ endGroupType ] is not None:
                 if self._endGroupBonded[ endGroupType ] >= self._maxBonds[ endGroupType ]:
                     # We have exceeded the bonding limit for these endGroupTypes, so we set any free ones
@@ -292,10 +131,11 @@ class Fragment(object):
                     for eg in self._endGroups:
                         if not eg.bonded and eg.type() == endGroupType:
                             eg.blocked = True
-        
+
         # The user may have supplied a custom bonding function, so we call that here
-        if self.onbondFunction: self.onbondFunction(endGroup)
-        
+        if self.onbondFunction:
+            self.onbondFunction(endGroup)
+
         if  hasattr(self,'markBonded') and self.markBonded:
             self._markBonded(endGroup, bond)
         self.update()
@@ -305,9 +145,13 @@ class Fragment(object):
         self._endGroupBonded[ endGroupType ] -= 1
         return
 
+    def bodies(self):
+        for bodyIdx in set(self._bodies):
+            yield ab_body.Body(self, bodyIdx)
+
     def body(self, idxAtom):
         return self._bodies[self._ext2int[idxAtom]]
-    
+
     def bonds(self):
         """Return a list of bonds
         We exclude masked atoms"""
@@ -321,9 +165,11 @@ class Fragment(object):
         return bonds
 
     def _calcBonded(self):
-        assert len(self._bonds)
+        if not len(self._bonds):
+           warnings.warn("No bonds found in fragment %s" % self.fragmentType)
+           return
         # Create empty lists for all
-        self._bonded = [ [] for _ in xrange(len(self._coords)) ]
+        self._bonded = [ [] for _ in range(len(self._coords)) ]
         for b1, b2 in self._bonds:
             if b1 not in self._bonded[ b2 ]:
                 self._bonded[ b2 ].append(b1)
@@ -331,13 +177,17 @@ class Fragment(object):
                 self._bonded[ b1 ].append(b2)
         return
 
+    def _calcConfigStr(self):
+        """Specifies the type of this fragment based on its fragmentType and which endGroups are bonded"""
+        return self.fragmentType + "".join(['1' if c else '0' for c in self.config])
+
     def _calcCenters(self):
         """Calculate the center of mass and geometry for this fragment
         """
-        self._centroid = numpy.sum(self._coords, axis=0) / numpy.size(self._coords, axis=0)
-        self._totalMass = numpy.sum(self._masses)
+        self._centroid = np.sum(self._coords, axis=0) / np.size(self._coords, axis=0)
+        self._totalMass = np.sum(self._masses)
         # Centre of mass is sum of the products of the individual coordinates multiplied by the mass, divded by the total mass
-        self._centerOfMass = numpy.sum(self._coords * self._masses[:,numpy.newaxis], axis=0) / self._totalMass
+        self._centerOfMass = xyz_core.centreOfMass(self._coords, self._masses)
         return
 
     def _calcRadius(self):
@@ -353,8 +203,8 @@ class Fragment(object):
         Should move to use scipy as detailed here:
         http://stackoverflow.com/questions/6430091/efficient-distance-calculation-between-n-points-and-a-reference-in-numpy-scipy
         """
-        distances = [util.distance(self._centroid, coord) for coord in self._coords]
-        imax = numpy.argmax(distances)
+        distances = [xyz_core.distance(self._centroid, coord) for coord in self._coords]
+        imax = np.argmax(distances)
         dist = distances[ imax ]
         # Add on the radius of the largest atom
         self._radius = dist + self.maxAtomRadius()
@@ -365,7 +215,7 @@ class Fragment(object):
         self._calcRadius()
         self._changed = False
         return
-    
+
     def cellParameters(self):
         return self._cellParameters
 
@@ -391,7 +241,7 @@ class Fragment(object):
     def coord(self, idxAtom, coord=None):
         if coord is not None:
             if isinstance(coord, list):
-                coord = numpy.array(coord)
+                coord = np.array(coord)
             self._coords[self._ext2int[idxAtom]] = coord
         return self._coords[self._ext2int[idxAtom]]
 
@@ -415,16 +265,12 @@ class Fragment(object):
                 msg = "Missing attribute in fragment copy: {0}".format(a)
                 logger.critical(msg)
                 raise RuntimeError(msg)
-
             # Update fragment references in the endGroups
             for e in f._endGroups:
                 e.fragment = f
-
         return f
 
     def endGroups(self):
-        # Not sure why this construct - why not just return self._endGroups?
-        # return [ eg for eg in self._endGroups ]
         return self._endGroups
 
     def endGroupTypes(self):
@@ -434,17 +280,17 @@ class Fragment(object):
     def fillData(self):
         """ Fill the data arrays from the label """
 
-        self.masked = [ False ] * len(self._coords)
+        self.masked = np.array([ False ] * len(self._coords))
         self.unBonded = [ False ] * len(self._coords)
-        self._masses = numpy.array([ util.ATOMIC_MASS[ symbol ] for symbol in self._symbols ])
-        self._totalMass = numpy.sum(self._masses)
-        self._radii = numpy.array([ util.COVALENT_RADII[util.SYMBOL_TO_NUMBER[s.upper()]] * util.BOHR2ANGSTROM \
+        self._masses = np.array([ xyz_core.ATOMIC_MASS[ symbol ] for symbol in self._symbols ])
+        self._totalMass = np.sum(self._masses)
+        self._radii = np.array([ xyz_core.COVALENT_RADII[xyz_core.SYMBOL_TO_NUMBER[s.upper()]] * xyz_core.BOHR2ANGSTROM \
                                    for s in self._symbols])
-        self._maxAtomRadius = numpy.max(self._radii)
+        self._maxAtomRadius = np.max(self._radii)
         return
 
     def freeEndGroups(self):
-         return [ eg for eg in self._endGroups if eg.free() ]
+        return [eg for eg in self._endGroups if eg.free()]
 
     def fromCarFile(self, carFile):
         """"Abbie did this.
@@ -468,7 +314,7 @@ class Fragment(object):
             pbc, state = f.readline().strip().split("=")
             assert pbc.strip() == "PBC"
             state = state.strip()
-            
+
             # skip two lines
             f.readline()
             f.readline()
@@ -498,7 +344,7 @@ class Fragment(object):
                     break
 
                 labels.append(label)
-                coords.append(numpy.array(fields[1:4], dtype=numpy.float64))
+                coords.append(np.array(fields[1:4], dtype=np.float64))
                 atomTypes.append(fields[6])
                 symbols.append(fields[7])
                 charges.append(float(fields[8]))
@@ -536,8 +382,8 @@ class Fragment(object):
                 fields = line.split()
                 label = fields[0]
                 labels.append(label)
-                coords.append(numpy.array(fields[1:4], dtype=numpy.float64))
-                symbol = util.label2symbol(label)
+                coords.append(np.array(fields[1:4], dtype=np.float64))
+                symbol = xyz_util.label2symbol(label)
                 symbols.append(symbol)
                 atomTypes.append(symbols)
                 charges.append(0.0)
@@ -572,18 +418,19 @@ class Fragment(object):
                   )
 
         self.processBodies(filePath)
-
         self.update()
-
         self._calcProperties()
-        
         return
+
+    def iterAtomTypes(self):
+        """Generator to return the atomTypes"""
+        for i in range(len(self._ext2int)):
+            yield self.type(i)
 
     def iterCoord(self):
         """Generator to return the coordinates"""
         for i in range(len(self._ext2int)):
             yield self.coord(i)
-        return
 
     def label(self, idxAtom):
         return self._labels[self._ext2int[idxAtom]]
@@ -602,27 +449,23 @@ class Fragment(object):
 
     def numAtoms(self):
         return len(self._ext2int)
-    
+
     def numBondedEndGroups(self):
         """Return the total number of bonded endGroups in this fragment"""
         return sum([nbonded for nbonded in self._endGroupBonded.values() ])
 
     def parseEndgroupFile(self, filePath):
-
         dirname, filename = os.path.split(filePath)
         basename, suffix = os.path.splitext(filename)
-
         endGroupTypes = []
         endGroups = []
         capAtoms = []
         uwAtoms = []
         dihedralAtoms = []
-        
         egfile = os.path.join(dirname, basename + ".csv")
         if not os.path.isfile(egfile):
             logger.critical("No endGroup definition file supplied for file: {0}".format(filePath))
             return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
-            
         with open(egfile) as fh:
             csvreader = csv.reader(fh, delimiter=',', quotechar='"')
             for i, row in enumerate(csvreader):
@@ -631,13 +474,11 @@ class Fragment(object):
                     row[1].lower() == "endgroup" and \
                     row[2].lower() == "capatom" and \
                     row[3].lower() == "delatom":
-                        raise RuntimeError, "First line of csv file must contain header line:\ntype,endgroup,capatom,dihedral,delatom"
+                        raise RuntimeError("First line of csv file must contain header line:\ntype,endgroup,capatom,dihedral,delatom")
                     continue
-
                 # skip blank lines
                 if not len(row):
                     continue
-
                 # For now make sure first value is letter
                 assert row[0][0].isalpha(), "First column of ambi file needs to be a letter!"
                 endGroupTypes.append(row[0])
@@ -651,29 +492,24 @@ class Fragment(object):
                     uwAtoms.append(int(row[4]))
                 else:
                     uwAtoms.append(-1)
-
             if self.fragmentType == 'cap' and len(endGroups) != 1:
-                raise RuntimeError, "Capfile had >1 endGroup specified!"
-            
+                raise RuntimeError("Capfile had >1 endGroup specified!")
         return endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms
 
     def processBodies(self, filepath):
         """See if we split the fragment into bodies or not"""
-
         assert len(self._coords) > 0, "Coordinates must have been read before processing bodies"
-
         dirname, filename = os.path.split(filepath)
         basename, suffix = os.path.splitext(filename)
-
         bodyFile = os.path.join(dirname, basename + ".ambody")
         if os.path.isfile(bodyFile):
-            self._bodies = [ int(l.strip()) for l in open(bodyFile) ]
+            self._bodies = np.array([ int(l.strip()) for l in open(bodyFile) ], dtype=np.int)
             assert len(self._bodies) == len(self._coords), \
             "Must have as many bodies as coordinates: {0} - {1}!".format(len(self.bodies), self._dataLen)
             assert self._bodies[0] == 0, "Bodies must start with zero!"
         else:
             # Just create an array with 0
-            self._bodies = [ 0 ] * len(self._coords)
+            self._bodies = np.zeros(len(self._coords), dtype=np.int)
         return
 
     def radius(self, idxAtom):
@@ -689,10 +525,10 @@ class Fragment(object):
         """ Rotate the molecule about the given axis by the angle in radians
         """
         self._coords = self._coords - center
-        #self._coords = numpy.array([ numpy.dot(rotationMatrix, c) for c in self._coords ])
+        #self._coords = np.array([ np.dot(rotationMatrix, c) for c in self._coords ])
         # I don't actually undestand why this works at all...
         # From: http://stackoverflow.com/questions/12148351/efficiently-rotate-a-set-of-points-with-a-rotation-matrix-in-numpy
-        self._coords = numpy.dot(self._coords, rotationMatrix.T)
+        self._coords = np.dot(self._coords, rotationMatrix.T)
         self._coords = self._coords  + center
         self._changed = True
         return
@@ -710,27 +546,27 @@ class Fragment(object):
                 uwAtoms=None
                 ):
 
-        self._charges = numpy.array([ c for c in charges])
-        self._coords = numpy.array([ c for c in coords])
+        self._charges = np.array([ c for c in charges])
+        self._coords = np.array([ c for c in coords])
         self._labels = labels
         self._symbols = symbols
         self._atomTypes = atomTypes
-        
+
         # Calculate anything we haven't been given
         self.fillData()
-        
+
         # If under PBC we need to change how we calculate the bonds
         dim = None
         if self._cellParameters and self.static:
-            dim = numpy.array([self._cellParameters['A'], self._cellParameters['B'], self._cellParameters['C']])
+            dim = np.array([self._cellParameters['A'], self._cellParameters['B'], self._cellParameters['C']])
 
         # Specify internal bonds - bond margin probably too big...
         logger.debug("Calculating bonds for fragmentType: {0}".format(self.fragmentType))
-        self._bonds = util.calcBonds(self._coords,
-                                     atomTypes,
-                                     dim=dim,
-                                     maxAtomRadius=self.maxAtomRadius(),
-                                     bondMargin=0.25)
+        self._bonds = xyz_util.calcBonds(self._coords,
+                                         atomTypes,
+                                         dim=dim,
+                                         maxAtomRadius=self.maxAtomRadius(),
+                                         bondMargin=0.25)
 
         # Create list of which atoms are bonded to each atom
         self._calcBonded()
@@ -748,15 +584,15 @@ class Fragment(object):
         self._endGroupBonded = {}
 
         for i, e in enumerate(endGroups):
-            eg = EndGroup()
+            eg = ab_endgroup.EndGroup()
             eg.fragment = self
             eg._endGroupType = endGroupTypes[ i ]
             eg.fragmentEndGroupIdx = e
             eg.fragmentCapIdx = capAtoms[ i ]
             eg.fragmentDihedralIdx = dihedralAtoms[ i ]
             eg.fragmentUwIdx = uwAtoms[ i ]
-            
-            eg.capBondLength =  util.distance(self._coords[eg.fragmentCapIdx], self._coords[eg.fragmentEndGroupIdx ])
+
+            eg.capBondLength =  xyz_core.distance(self._coords[eg.fragmentCapIdx], self._coords[eg.fragmentEndGroupIdx ])
 
             if eg.type() not in self._maxBonds:
                 self._maxBonds[ eg.type() ] = None
@@ -774,7 +610,7 @@ class Fragment(object):
             "uwAtom {0} is not bonded to endGroup {1}".format(eg.fragmentUwIdx, eg.fragmentEndGroupIdx)
 
             self._endGroups.append(eg)
-            
+
         # sanity check - make sure no endGroup is the cap Atom for another endGroup
         eg = set([ e.fragmentEndGroupIdx for e in self._endGroups ])
         caps = set([ e.fragmentCapIdx for e in self._endGroups ])
@@ -805,14 +641,16 @@ class Fragment(object):
 
     def update(self):
         """Update the mapping between the internal and external indices"""
-        self._int2ext = collections.OrderedDict()
-        self._ext2int = collections.OrderedDict()
+        self._int2ext.clear()
+        self._ext2int.clear()
         ecount = 0
         for i in range(len(self._coords)):
             if not self.masked[i]:
                 self._ext2int[ecount] = i
                 self._int2ext[i] = ecount
                 ecount += 1
+        self.config = [False if eg.free() else True for eg in self._endGroups]
+        self.configStr = self._calcConfigStr()
         return
 
     def __str__(self):
@@ -828,41 +666,3 @@ class Fragment(object):
             me += "{0}  {1:5} {2:0< 15} {3:0< 15} {4:0< 15} \n".format(i, self._labels[i], c[0], c[1], c[2])
         return "{0} : {1}".format(self.__repr__(), me)
 
-#     def __getstate__(self):
-#         """Called on pickling
-#         
-#         CAN'T DO THIS AS DEEPCOPY USES SOME PICKLING CODE AND SO __getstate__ IS CALLED
-#         AND THIS DELETES onbondFunction WHENEVER A FRAGMENT IS COPIED. NEED TO FIX BY CHANGING
-#         TO A CLASS FACTORY AND NOT DOING OUR OWN MANUAL COPYING OF FRAGMENTS.
-#         
-#         We need to delete the onbondFunction because otherwise it can't be pickled as it will
-#         have been defined in the calling script and hence not available to the util module on 
-#         unpickling.
-#         """
-#         assert False
-#         d = self.__dict__
-#         d['onbondFunction'] = None
-#         return d
-
-class TestFragment(unittest.TestCase):
-
-    def setUp(self):
-        logging.basicConfig(level=logging.DEBUG)
-        return
-
-    def testBonds(self):
-        graphite = os.path.join(BLOCKS_DIR, "2_graphite_cont.car")
-
-        f = Fragment(filePath=graphite, fragmentType='A')
-        self.assertEqual(len(f.bonds()), 1284)
-        
-        f = Fragment(filePath=graphite, fragmentType='A', static=True)
-        self.assertEqual(len(f.bonds()), 1792)
-        return
-    
-    
-if __name__ == '__main__':
-    """
-    Run the unit tests
-    """
-    unittest.main()  

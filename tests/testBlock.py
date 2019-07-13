@@ -3,19 +3,25 @@ import math
 import os
 import unittest
 
-import numpy
+import numpy as np
 
-from buildingBlock import Bond, Block
-import fragment
-import util
-from paths import AMBUILD_DIR, BLOCKS_DIR, PARAMS_DIR
+import context
+AMBUILD_DIR = context.ab_paths.AMBUILD_DIR
+BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
+PARAMS_DIR = context.ab_paths.PARAMS_DIR
+TESTDATA_DIR = context.ab_paths.TESTDATA_DIR
+Bond = context.ab_bond.Bond
+Block = context.ab_block.Block
+from context import ab_fragment
+from context import xyz_util
+
 
 logger = logging.getLogger(__name__)
 
 class Test(unittest.TestCase):
 
     def setUp(self):
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.INFO)
 
         self.ch4Xyz = os.path.join(BLOCKS_DIR, "ch4.xyz")
         self.ch4Car = os.path.join(BLOCKS_DIR, "ch4.car")
@@ -26,7 +32,7 @@ class Test(unittest.TestCase):
         self.benzene2Car = os.path.join(BLOCKS_DIR, "benzene2.car")
         self.ch4Ca2Car = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
         
-        util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
+        xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
         return
 
     def catBlocks(self, blocks, filename):
@@ -49,16 +55,13 @@ class Test(unittest.TestCase):
         return
 
     def testBodies(self):
-
         b1 = Block(filePath=self.ch4Ca2Car, fragmentType='A')
         b2 = b1.copy()
-
         eg1 = b1.freeEndGroups()[0]
         eg2 = b2.freeEndGroups()[0]
         b1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        b1.bondBlock(bond)
-
+        bond.engage()
         ref = [0, 0, 0, 0, 1, 2, 4, 4, 4, 4, 5, 6]
         self.assertEqual(b1._bodies, ref)
 
@@ -66,15 +69,11 @@ class Test(unittest.TestCase):
 
     def testCH4(self):
         """Test the creation of a CH4 molecule"""
-
         ch4 = Block(filePath=self.ch4Car, fragmentType='A')
-
         endGroups = [ 0, 0, 0, 0 ]
         self.assertEqual(endGroups, [ e.blockEndGroupIdx for e in ch4.freeEndGroups() ])
-
         angleAtoms = [ 1, 2, 3, 4 ]
         self.assertEqual(angleAtoms, [ e.blockCapIdx for e in ch4.freeEndGroups() ])
-
         return
 
     def testCX4(self):
@@ -93,7 +92,7 @@ class Test(unittest.TestCase):
 
         cx4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        cx4_1.bondBlock(bond)
+        bond.engage()
         return
 
     def testCH4_Fragmentbond(self):
@@ -120,13 +119,12 @@ class Test(unittest.TestCase):
 
         ch4_1 = Block(filePath=self.ch4Car, fragmentType='A')
         ch4_2 = Block(filePath=self.ch4Car, fragmentType='A')
-
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
 
         ch4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         self.assertEqual([0, 0, 0, 4, 4, 4], [ eg.blockEndGroupIdx for eg in ch4_1.freeEndGroups() ])
 
@@ -137,13 +135,9 @@ class Test(unittest.TestCase):
         self.assertEqual([ (0, 4) ], ch4_1.blockBonds())
 
         # Check all bonds
-        self.assertEqual([(0, 1), (0, 3), (0, 2), (4, 5), (4, 7), (4, 6), (0, 4)], ch4_1.bonds())
-
-#         # print
-#         for fragment in ch4_1.fragments:
-#             for i, eg in enumerate( fragment.endGroups() ):
-#                 print eg
-
+        ref_bonds = [(0, 1), (0, 2), (0, 3), (4, 5), (4, 6), (4, 7), (0, 4)]
+        # order irrelevant
+        self.assertEqual(ref_bonds, ch4_1.bonds())
 
         return
 
@@ -157,30 +151,24 @@ class Test(unittest.TestCase):
         eg2 = ch4_2.freeEndGroups()[2]
         ch4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_1.freeEndGroups()[-1]
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
-
+        bond.engage()
         return
 
     def testDeleteBondSimple(self):
         """Bfoo"""
         ch4_1 = Block(filePath=self.ch4Car, fragmentType='A')
         ch4_2 = Block(filePath=self.ch4Car, fragmentType='A')
-
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
-        
-        #ch4_1.writeCml("foo1.cml")
-        x = ch4_1.deleteBond(bond)
-        #ch4_1.writeCml("foo2.cml")
-        #x.writeCml("foo3.cml")
+        bond.engage()
+        ch4_1.deleteBond(bond)
         return
 
     def testDeleteBondCircular(self):
@@ -207,33 +195,31 @@ class Test(unittest.TestCase):
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         eg1 = egFromF(ch4_1, f2)
         eg2 = ch4_3.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2)
         bondM = Bond(eg1, eg2)
-        ch4_1.bondBlock(bondM)
+        bondM.engage()
 
         eg1 = egFromF(ch4_1, f3)
         eg2 = ch4_4.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         eg1 = egFromF(ch4_1, f4)
         eg2 = ch4_5.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
-
-        #ch4_1.writeCml("foo1.cml")
+        bond.engage()
 
         # Now just bond into a loop
         eg1 = egFromF(ch4_1, f1)
         eg2 = egFromF(ch4_1, f5)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         #ch4_1.writeCml("foo2.cml")
         self.assertFalse(ch4_1.deleteBond(bondM))
@@ -244,39 +230,34 @@ class Test(unittest.TestCase):
         """Create a central block with 4 attached blocks and the split one of the bonds so we get 2 blocks"""
 
         ch4_1 = Block(filePath=self.ch4Car, fragmentType='A')
-        f1 = ch4_1.fragments[0]
         ch4_2 = Block(filePath=self.ch4Car, fragmentType='A')
-        f2 = ch4_2.fragments[0]
         ch4_3 = Block(filePath=self.ch4Car, fragmentType='A')
-        f3 = ch4_3.fragments[0]
         ch4_4 = Block(filePath=self.ch4Car, fragmentType='A')
-        f4 = ch4_4.fragments[0]
         ch4_5 = Block(filePath=self.ch4Car, fragmentType='A')
-        f5 = ch4_5.fragments[0]
 
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_3.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_4.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_5.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         #ch4_1.writeCml("foo1.cml")
         self.assertTrue(bool(ch4_1.deleteBond(bond)))
@@ -287,37 +268,33 @@ class Test(unittest.TestCase):
         ch4_1 = Block(filePath=self.ch4Car, fragmentType='A')
         f1 = ch4_1.fragments[0]
         ch4_2 = Block(filePath=self.ch4Car, fragmentType='A')
-        f2 = ch4_2.fragments[0]
         ch4_3 = Block(filePath=self.ch4Car, fragmentType='A')
-        f3 = ch4_3.fragments[0]
         ch4_4 = Block(filePath=self.ch4Car, fragmentType='A')
-        f4 = ch4_4.fragments[0]
         ch4_5 = Block(filePath=self.ch4Car, fragmentType='A')
-        f5 = ch4_5.fragments[0]
 
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_3.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_4.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_5.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
         
 #         ch4_1.writeXyz("foo.xyz")
         blocks = ch4_1.deleteFragment(f1)
@@ -364,17 +341,16 @@ class Test(unittest.TestCase):
         newVector = blockEndGroup - blockAngleAtom
 
         # Normalise two vectors so we can compare them
-        newNorm = newVector / numpy.linalg.norm(newVector)
-        refNorm = refVector / numpy.linalg.norm(refVector)
+        newNorm = newVector / np.linalg.norm(newVector)
+        refNorm = refVector / np.linalg.norm(refVector)
 
         # Slack tolerances - need to work out why...
-        self.assertTrue(numpy.allclose(newNorm, refNorm),
+        self.assertTrue(np.allclose(newNorm, refNorm),
                          msg="End Group incorrectly positioned: {0} | {1}".format(newNorm, refNorm))
         return
 
     def testAlignAtoms(self):
         block = Block(filePath=self.benzeneCar, fragmentType='A')
-        bcopy = block.copy()
 
         # Check atoms are not aligned along axis
         c1Idx = 2
@@ -382,8 +358,8 @@ class Test(unittest.TestCase):
         c1 = block.coord(c1Idx)
         c2 = block.coord(c2Idx)
 
-        # self.assertTrue( numpy.allclose( c1-c2 , [ 3.0559,  -0.36295,  0.07825], atol=1E-7  ), "before" )
-        self.assertTrue(numpy.allclose(c1 - c2 , [ 3.0559, -0.36295, 0.07825]), "before")
+        # self.assertTrue( np.allclose( c1-c2 , [ 3.0559,  -0.36295,  0.07825], atol=1E-7  ), "before" )
+        self.assertTrue(np.allclose(c1 - c2 , [ 3.0559, -0.36295, 0.07825]), "before")
 
         # Align along z-axis
         block.alignAtoms(c1Idx, c2Idx, [ 0, 0, 1 ])
@@ -391,9 +367,9 @@ class Test(unittest.TestCase):
         # check it worked
         c1 = block.coord(c1Idx)
         c2 = block.coord(c2Idx)
-        z = numpy.array([  0.0, 0.0, -3.07837304 ])
+        z = np.array([  0.0, 0.0, -3.07837304 ])
 
-        self.assertTrue(numpy.allclose(c1 - c2 , z), "after")
+        self.assertTrue(np.allclose(c1 - c2 , z), "after")
         return
 
     def testCentroid(self):
@@ -403,10 +379,10 @@ class Test(unittest.TestCase):
 
         ch4 = Block(filePath=self.ch4Car, fragmentType='A')
         # We need to move so that all values are not the same or allclose will succeed with a single number
-        ch4.translate(numpy.array([1.0,2.0,3.0]))
+        ch4.translate(np.array([1.0,2.0,3.0]))
         cog = ch4.centroid()
-        correct = numpy.array([  1.000000, 2.000000, 3.000000 ])
-        self.assertTrue(numpy.allclose(correct, cog, rtol=1e-9, atol=1e-6),
+        correct = np.array([  1.000000, 2.000000, 3.000000 ])
+        self.assertTrue(np.allclose(correct, cog, rtol=1e-9, atol=1e-6),
                          msg="testCentroid incorrect: {0} -> {1}.".format(correct, cog))
 
         return
@@ -416,10 +392,10 @@ class Test(unittest.TestCase):
         Test calculation of Center of Mass
         """
         ch4 = Block(filePath=self.ch4Car, fragmentType='A')
-        ch4.translate(numpy.array([1.0,2.0,3.0]))
+        ch4.translate(np.array([1.0,2.0,3.0]))
         com = ch4.centerOfMass()
-        correct = numpy.array([  1.000000, 2.000000, 3.000000 ])
-        self.assertTrue(numpy.allclose(correct, com, rtol=1e-6, atol=1e-6),
+        correct = np.array([  1.000000, 2.000000, 3.000000 ])
+        self.assertTrue(np.allclose(correct, com, rtol=1e-6, atol=1e-6),
                          msg="testCenterOfMass incorrect COM: {0}".format(com))
         return
 
@@ -428,15 +404,14 @@ class Test(unittest.TestCase):
 
         ch4_1 = Block(filePath=self.benzeneCar, fragmentType='A')
         ch4_2 = ch4_1.copy()
-        ch4_3 = ch4_1.copy()
 
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
-#         # Check just across bonds
+        # Check just across bonds
         ref = [ (1, 0, 11, 16),
                 (1, 0, 11, 12),
                 (5, 0, 11, 16),
@@ -462,9 +437,45 @@ class Test(unittest.TestCase):
 
         return
     
+    def testFreeEndGroups(self):
+        ch4_1 = Block(filePath=self.ch4Car, fragmentType='A')
+        ch4_2 = ch4_1.copy()
+        b1 = Block(filePath=self.benzeneCar, fragmentType='B')
+
+        # create a chain of ch4 - c6h6 - ch4
+        eg1 = b1.freeEndGroups()[0]
+        eg2 = ch4_1.freeEndGroups()[0]
+        b1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
+        bond = Bond(eg1, eg2)
+        bond.engage()
+
+        eg1s = b1.freeEndGroups()
+        self.assertEqual(len(eg1s), 4)
+        eg = eg1s[0]
+        ref_idxs = [0, 11, 2, 12]
+        idxs = [eg.fragmentEndGroupIdx, eg.blockEndGroupIdx, eg.fragmentCapIdx, eg.blockCapIdx]
+        self.assertEqual(idxs, ref_idxs)
+        
+        eg = eg1s[-1]
+        ref_idxs = [3, 3, 7, 7]
+        idxs = [eg.fragmentEndGroupIdx, eg.blockEndGroupIdx, eg.fragmentCapIdx, eg.blockCapIdx]
+        self.assertEqual(idxs, ref_idxs)
+        
+        eg2s = ch4_2.freeEndGroups()
+        self.assertEqual(len(eg2s), 4)
+        eg = eg2s[0]
+        ref_idxs = [0, 0, 1, 1]
+        idxs = [eg.fragmentEndGroupIdx, eg.blockEndGroupIdx, eg.fragmentCapIdx, eg.blockCapIdx]
+        self.assertEqual(idxs, ref_idxs)
+        
+        eg = eg2s[-1]
+        ref_idxs = [0, 0, 4, 4]
+        idxs = [eg.fragmentEndGroupIdx, eg.blockEndGroupIdx, eg.fragmentCapIdx, eg.blockCapIdx]       
+        self.assertEqual(idxs, ref_idxs)
+    
     def testMaxBond(self):
         carfile = os.path.join(BLOCKS_DIR, "DCX.car")
-        f = fragment.Fragment(filePath=carfile, fragmentType='A')
+        f = ab_fragment.Fragment(filePath=carfile, fragmentType='A')
         f.setMaxBond('A:CH', 1)
         block1 = Block(initFragment=f)
         
@@ -478,7 +489,7 @@ class Test(unittest.TestCase):
         eg1 = block1.freeEndGroups(endGroupTypes='A:CH')[0]
         eg2 = block2.freeEndGroups()[0]
         bond = Bond(eg1, eg2)
-        block1.bondBlock(bond)
+        bond.engage()
         
         # Now see if the other three are blocked - we need to include the three from the second block
         self.assertEqual(len(block1.freeEndGroups()),5)
@@ -486,7 +497,7 @@ class Test(unittest.TestCase):
     
     def testBondingFunction(self):
         carfile = os.path.join(BLOCKS_DIR, "benzene6.car")
-        f = fragment.Fragment(filePath=carfile, fragmentType='A')
+        f = ab_fragment.Fragment(filePath=carfile, fragmentType='A')
         def x(endGroup):
             fragment = endGroup.fragment
             egt = endGroup.type()
@@ -524,7 +535,7 @@ class Test(unittest.TestCase):
         eg1 = block1.freeEndGroups(endGroupTypes='A:a')[0]
         eg2 = block2.freeEndGroups()[0]
         bond = Bond(eg1, eg2)
-        block1.bondBlock(bond)
+        bond.engage()
         
         # Now see if the other two are blocked - we need to include the three from the second block
         self.assertEqual(len(block1.freeEndGroups()),6)
@@ -532,37 +543,28 @@ class Test(unittest.TestCase):
 
     def testMultiEndGroups(self):
         """Test we can move correctly"""
-
-
         # Try with no settings
-        f = fragment.Fragment(filePath=self.ch4_1Car, fragmentType='A')
+        f = ab_fragment.Fragment(filePath=self.ch4_1Car, fragmentType='A')
         m1 = Block(initFragment=f)
         m2 = m1.copy()
-
         eg1 = m1.freeEndGroups()[0]
         eg2 = m2.freeEndGroups()[0]
-
         m1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        m1.bondBlock(bond)
-
+        bond.engage()
         self.assertEqual(6, len(m1.freeEndGroups()))
 
         # Try with specifying bond
-        f = fragment.Fragment(filePath=self.ch4_1Car, fragmentType='A')
+        f = ab_fragment.Fragment(filePath=self.ch4_1Car, fragmentType='A')
         m1 = Block(initFragment=f)
         f.setMaxBond('A:a', 1)
         m2 = m1.copy()
-
         eg1 = m1.freeEndGroups()[0]
         eg2 = m2.freeEndGroups()[0]
-
         m1.positionGrowBlock(eg1, eg2)
         bond = Bond(eg1, eg2)
-        m1.bondBlock(bond)
-
+        bond.engage()
         self.assertEqual(4, len(m1.freeEndGroups()))
-
         return
 
     def testMove(self):
@@ -570,12 +572,12 @@ class Test(unittest.TestCase):
 
         paf = Block(filePath=self.benzeneCar, fragmentType='A')
         m = paf.copy()
-        m.translate(numpy.array([5, 5, 5]))
+        m.translate(np.array([5, 5, 5]))
         c = m.centroid()
         paf.translateCentroid(c)
         p = paf.centroid()
 
-        self.assertTrue(numpy.allclose(p, c, rtol=1e-9, atol=1e-9), "simple move")
+        self.assertTrue(np.allclose(p, c, rtol=1e-9, atol=1e-9), "simple move")
         return
 
     def testPositionGrowBlock(self):
@@ -600,7 +602,7 @@ class Test(unittest.TestCase):
 
         # After move, the endGroup of the growBlock should be at newPos
         endGroupCoord = growBlock.coord(endGroup2.blockEndGroupIdx)
-        self.assertTrue(numpy.allclose(newPos, endGroupCoord, rtol=1e-9, atol=1e-7),
+        self.assertTrue(np.allclose(newPos, endGroupCoord, rtol=1e-9, atol=1e-7),
                          msg="testCenterOfMass incorrect COM.")
 
         return
@@ -634,7 +636,7 @@ class Test(unittest.TestCase):
 
         # After move, the endGroup of the growBlock should be at newPos
         endGroupCoord = growBlock.coord(endGroup2.blockEndGroupIdx)
-        self.assertTrue(numpy.allclose(newPos, endGroupCoord, rtol=1e-9, atol=1e-7),
+        self.assertTrue(np.allclose(newPos, endGroupCoord, rtol=1e-9, atol=1e-7),
                          msg="testCenterOfMass incorrect COM.")
 
         return
@@ -653,17 +655,15 @@ class Test(unittest.TestCase):
         endGroup2 = growBlock.freeEndGroups()[ 0 ]
 
         # Get position to check
-        newPos = staticBlock.newBondPosition(endGroup1,
-                                              growBlock.symbol(endGroup2.blockEndGroupIdx),
-                                               )
-
+        staticBlock.newBondPosition(endGroup1,
+                                    growBlock.symbol(endGroup2.blockEndGroupIdx))
         # Position the block
         staticBlock.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi / 2)
 
         # Hacky - just use one of the coords I checked manually
-        hcheck = numpy.array([11.98409351860, 8.826721156800, -1.833703434310])
+        hcheck = np.array([11.98409351860, 8.826721156800, -1.833703434310])
         endGroupCoord = growBlock.coord(11)
-        self.assertTrue(numpy.allclose(hcheck, endGroupCoord, rtol=1e-9, atol=1e-7),
+        self.assertTrue(np.allclose(hcheck, endGroupCoord, rtol=1e-9, atol=1e-7),
                          msg="testCenterOfMass incorrect COM.")
 
         # self.catBlocks( [staticBlock, growBlock ], "both2.xyz")
@@ -696,31 +696,31 @@ class Test(unittest.TestCase):
 
         ch4 = Block(filePath=self.ch4Car, fragmentType='A')
 
-        array1 = numpy.array([ -0.51336 , 0.889165, -0.363 ])
-        self.assertTrue(numpy.array_equal(ch4.coord(4), array1),
+        array1 = np.array([ -0.51336 , 0.889165, -0.363 ])
+        self.assertTrue(np.array_equal(ch4.coord(4), array1),
                          msg="testRotate arrays before rotation incorrect.")
 
-        axis = numpy.array([1, 2, 3])
+        axis = np.array([1, 2, 3])
         angle = 2
         ch4.rotate(axis, angle)
 
-        array2 = numpy.array([  1.05612011, -0.04836936, -0.26113713 ])
+        array2 = np.array([  1.05612011, -0.04836936, -0.26113713 ])
 
-        # Need to use assertTrue as we get a numpy.bool returned and need to test this will
+        # Need to use assertTrue as we get a np.bool returned and need to test this will
         # bool - assertIs fails
-        self.assertTrue(numpy.allclose(ch4.coord(4), array2, rtol=1e-9, atol=1e-8),
+        self.assertTrue(np.allclose(ch4.coord(4), array2, rtol=1e-9, atol=1e-8),
                          msg="testRotate arrays after rotation incorrect.")
 
         # Check rotation by 360
-        axis = numpy.array([1, 2, 3])
-        angle = numpy.pi * 2
+        axis = np.array([1, 2, 3])
+        angle = np.pi * 2
         ch4.rotate(axis, angle)
 
-        array2 = numpy.array([  1.05612011, -0.04836936, -0.26113713 ])
+        array2 = np.array([  1.05612011, -0.04836936, -0.26113713 ])
 
-        # Need to use assertTrue as we get a numpy.bool returned and need to test this will
+        # Need to use assertTrue as we get a np.bool returned and need to test this will
         # bool - assertIs fails
-        self.assertTrue(numpy.allclose(ch4.coord(4), array2, rtol=1e-9, atol=1e-8),
+        self.assertTrue(np.allclose(ch4.coord(4), array2, rtol=1e-9, atol=1e-8),
                          msg="testRotate arrays after rotation incorrect.")
 
         return
@@ -739,28 +739,29 @@ class Test(unittest.TestCase):
         eg2 = ch4_1.freeEndGroups()[0]
         b1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        b1.bondBlock(bond)
+        bond.engage()
 
         eg1 = b1.freeEndGroups()[-1]
         eg2 = ch4_2.freeEndGroups()[0]
         b1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        b1.bondBlock(bond)
+        bond.engage()
 
         # b1.writeCml("foo1.cml")
         # b1.writeXyz("foo.xyz")
 
         coords, symbols, bonds = b1.dataByFragment('A')
-        cmlFilename = "foo.cml"
-        util.writeCml(cmlFilename,
-                      coords,
-                      symbols,
-                      bonds=bonds)
+        cmlFilename = "test.cml"
+        xyz_util.writeCml(cmlFilename,
+                          coords,
+                          symbols,
+                          bonds=bonds,
+                          prettyPrint=True)
 
         with open(cmlFilename) as f:
             test = f.readlines()
 
-        with open(os.path.join(AMBUILD_DIR, "tests", "testSplitFragment.cml")) as f:
+        with open(os.path.join(TESTDATA_DIR, 'testSplitFragment.cml')) as f:
             ref = f.readlines()
 
         self.assertEqual(test, ref, "cml compare")
@@ -772,13 +773,12 @@ class Test(unittest.TestCase):
         """foo"""
         ch4_1 = Block(filePath=self.benzeneCar, fragmentType='A')
         ch4_2 = ch4_1.copy()
-        ch4_3 = ch4_1.copy()
 
         eg1 = ch4_1.freeEndGroups()[0]
         eg2 = ch4_2.freeEndGroups()[0]
         ch4_1.positionGrowBlock(eg1, eg2, dihedral=math.radians(180))
         bond = Bond(eg1, eg2)
-        ch4_1.bondBlock(bond)
+        bond.engage()
 
         # Write out the cml and see if it matches what we've saved
         fname = "test.cml"
@@ -786,12 +786,10 @@ class Test(unittest.TestCase):
         with open(fname) as f:
             test = f.readlines()
 
-        with open(os.path.join(AMBUILD_DIR, "tests", "benzeneBond.cml")) as f:
+        with open(os.path.join(TESTDATA_DIR, "benzeneBond.cml")) as f:
             ref = f.readlines()
-
         self.assertEqual(test, ref, "cml compare")
         os.unlink(fname)
-
         return
 if __name__ == '__main__':
     """
