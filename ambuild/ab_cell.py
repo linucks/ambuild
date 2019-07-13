@@ -959,7 +959,8 @@ class Cell():
         RIGIDPARTICLES = rigidBody and ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] > 1
         if noRigidParticles: # required for when we write out cml
             RIGIDPARTICLES = False
-        self.rigidParticleMgr.reset()
+        if RIGIDPARTICLES:
+            self.rigidParticleMgr.reset()
         # Object to hold the cell data
         d = ab_celldata.CellData()
         d.cell = self.dim
