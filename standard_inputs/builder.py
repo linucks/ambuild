@@ -1,20 +1,12 @@
 #!/usr/bin/env python
-
-#
-# Annotated example amorphous builder script
-#
 import os
-# Import sys module so that we can add the path the builder directory that contains the ambuild modules
 import sys
 
-# If you run ambuild from a directory other than the builder directory, you will need to put the
-# path to the builder directory in builderHome variable below
-builderHome="/opt/ambuild"
-#builderHome="/opt/ambuild"
-sys.path.insert(0,os.path.join(builderHome,"builder"))
+ambuild_home = "/opt/ambuild.git"
+sys.path.insert(0, ambuild_home)
 
 # This imports the builder cell module - this is the only module that should be required
-import cell
+from ambuild import ab_cell
 
 #
 # Initialising the system
@@ -23,14 +15,14 @@ boxDim=[20,20,20] # Create a variable to hold the cell dimensions - this is the 
 
 # Create a cell object called mycell and specify the parameters that will dictate how close the atoms are permitted
 # and what bonds are acceptable
-mycell = cell.Cell(boxDim, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15)
+mycell = ab_cell.Cell(boxDim, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15)
 
 #
 # Create two variables that hold the path to the .car files with the coordinates. A corresponding .csv file with
 # the endGroup information will need to be found in the same location, so for the amine, there will need to be a
 # file called: /Users/jmht/Documents/abbie/AMBI/ambuild/blocks/amine_typed.csv"
-fragA=os.path.join(builderHome,"blocks/amine_typed.car")
-fragB=os.path.join(builderHome,"blocks/triquin_typed.car")
+fragA=os.path.join(ambuild_home,"blocks/amine_typed.car")
+fragB=os.path.join(ambuild_home,"blocks/triquin_typed.car")
 
 # Add the two fragments to the cell and name the fragment type - can be anything you want that doesn't contain a "-"
 # or ":" character
@@ -54,7 +46,7 @@ mycell.seed(5, fragmentType='amine', center=True )
 toAdd=5
 added = mycell.seed( toAdd, fragmentType='triquin')
 if added != toAdd:
-    print "Failed to seed enough triquin fragments!"
+    print("Failed to seed enough triquin fragments!")
     mycell.dump() # Save the pickle file
     sys.exit() # Exit the script
 
@@ -73,7 +65,7 @@ mycell.dump()
 toAdd=5
 added = mycell.growBlocks(toAdd, cellEndGroups=['amine:a'], libraryEndGroups=['triquin:b'], dihedral=0)
 if added != toAdd:
-    print "Failed to grow enough blocks!"
+    print("Failed to grow enough blocks!")
     mycell.dump() # Save the pickle file
     sys.exit() # Exit the script
 
@@ -92,21 +84,20 @@ ok = mycell.optimiseGeometry(rigidBody=True,
                         optCycles = 1000000,
                         rCut=5.0,
                         dt=0.005,
-                        Etol=1e-5,
-                        )
+                        Etol=1e-5)
 
 # Save the result of the optimisation regardless
 mycell.dump()
 
 # check if it worked
 if not ok:
-    print "Failed to optimise!"
+    print("Failed to optimise!")
     sys.exit() # Exit the script
 
 # We now create a loop where we run some MD to jiggle the system about, see if we can zip any blocks together
 # and optimise the result if we make any bonds
 for i in range(3):
-    print "Running zip loop: {0}".format(i)
+    print("Running zip loop: {0}".format(i))
 
     # Run a few cycles of MD
     mycell.runMD( doDihedral=True,
@@ -115,33 +106,29 @@ for i in range(3):
                   mdCycles=100,
                   T=1.0,
                   tau=0.5,
-                  dt=0.0005,
-                )
+                  dt=0.0005)
 
     # We now see if any endGroups have come close enough to bond
     # Set clashCheck to True to disallow the bond if any atoms come close to the bond vector
-    added = mycell.zipBlocks( bondMargin=5, bondAngleMargin=45, clashCheck=True )
+    added = mycell.zipBlocks(bondMargin=5, bondAngleMargin=45, clashCheck=True)
     if added > 0:
-        print "Added {0} bonds in zip step".format(added)
+        print("Added {0} bonds in zip step".format(added))
         # We've made some bonds! We now optimise the geometry of the new structure
         ok = mycell.optimiseGeometry(rigidBody=True,
                         doDihedral=True,
                         optCycles = 1000000,
                         rCut=5.0,
                         dt=0.005,
-                        Etol=1e-5,
-                        )
+                        Etol=1e-5)
         # Save the result
         mycell.dump()
 
         # check if it worked
         if not ok:
-            print "Failed to optimise!"
+            print("Failed to optimise!")
             sys.exit() # Exit the script
 
         # End of loop, so go around again
 
 # The loop has finished so dump out the last state
 mycell.dump()
-
-# End of the script

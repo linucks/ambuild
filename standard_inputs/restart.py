@@ -1,7 +1,10 @@
 #!/usr/bin/env python
-import sys
-sys.path.append("/opt/ambuild/builder")
+import os, sys
+ambuild_home = "/opt/ambuild.git"
+sys.path.insert(0, ambuild_home)
 
-import util
+# This imports the builder cell module - this is the only module that should be required
+from ambuild import ab_util
 
-mycell = util.cellFromPickle("step_628.pkl")
+
+mycell = ab_util.cellFromPickle("step_628.pkl")
