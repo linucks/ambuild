@@ -39,7 +39,8 @@ class FfieldParameters(object):
     
     def _processBonds(self,bond_file):
         bond_params = read_bond_params(bond_file)
-        if not len(bond_params): raise RuntimeError("Could not read any parameters from bond file: {0}".format(bond_file))
+        if not len(bond_params):
+            raise RuntimeError("Could not read any parameters from bond file: {0}".format(bond_file))
         bonds = {}
         for p in bond_params:
             try: 
@@ -59,8 +60,12 @@ class FfieldParameters(object):
             reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
-                    if row != header: raise RuntimeError("Header for {0} file, should be: {1}".format(angle_file, ",".join(header)))
-                    else: continue
+                    if row != header:
+                        raise RuntimeError("Header for {0} file, should be: {1}".format(angle_file, ",".join(header)))
+                    else:
+                        continue
+                if row[0].startswith('#'):
+                    continue
                 try:
                     angle = row[0]
                     k = float(row[1])
@@ -80,9 +85,12 @@ class FfieldParameters(object):
             reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
-                    if row != header: raise RuntimeError("Header for {0} file, should be: {1}".format(dihedral_file, ",".join(header)))
-                    else: continue
-                if row[0].startswith('#'): continue
+                    if row != header:
+                        raise RuntimeError("Header for {0} file, should be: {1}".format(dihedral_file, ",".join(header)))
+                    else:
+                        continue
+                if row[0].startswith('#'):
+                    continue
                 try:
                     dihedral = row[0]
                     k = float(row[1])
@@ -103,8 +111,12 @@ class FfieldParameters(object):
             reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
-                    if row != header: raise RuntimeError("Header for {0} file, should be: {1}".format(improper_file, ",".join(header)))
-                    else: continue
+                    if row != header:
+                        raise RuntimeError("Header for {0} file, should be: {1}".format(improper_file, ",".join(header)))
+                    else:
+                        continue
+                if row[0].startswith('#'):
+                    continue
                 try:
                     improper = row[0]
                     k = float(row[1])
@@ -124,8 +136,12 @@ class FfieldParameters(object):
             reader = csv.reader(f, delimiter=PARAM_SEP, quotechar='"')
             for i, row in enumerate(reader):
                 if i == 0:
-                    if row != header: raise RuntimeError("Header for {0} file, should be: {1}".format(pairs_file, ",".join(header)))
-                    else: continue
+                    if row != header:
+                        raise RuntimeError("Header for {0} file, should be: {1}".format(pairs_file, ",".join(header)))
+                    else:
+                        continue
+                if row[0].startswith('#'):
+                    continue
                 try:
                     atom1 = row[0]
                     atom2 = row[1]
