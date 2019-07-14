@@ -1,4 +1,6 @@
+import logging
 from ambuild.ab_util import run_command
+
 
 NAME_STEM = 'poreblazer'
 
@@ -41,7 +43,7 @@ DEFAULTS_DAT = """UFF.atoms
 0.2
 20.0, 0.25
 21908391 
-1
+2
 
 ! Default forcefield: UFF
 ! Helium atom sigma (A), helium atom epsilon (K), nitrogen atom sigma (A), temperature (K)
@@ -54,6 +56,8 @@ DEFAULTS_DAT = """UFF.atoms
 
 ! Do not change these values unless you know what you are doing 
 """
+
+logger = logging.getLogger()
 
 
 def write_input_dat(xyzin, A, B, C):
@@ -71,6 +75,7 @@ def write_input_dat(xyzin, A, B, C):
 
 
 def run_poreblazer(poreblazer_exe, input_dat):
+    logger.info("Running poreblazer using executable: ".format(poreblazer_exe))
     with open('defaults.dat', 'w') as w:
         w.write(DEFAULTS_DAT)
     with open('UFF.atoms', 'w') as w:
