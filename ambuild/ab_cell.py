@@ -1827,6 +1827,22 @@ class Cell():
                 return True
         return False
 
+    def poreblazer(self, poreblazer_exe):
+        from ambuild import ab_poreblazer
+        rundir = "{}_{}".format(ab_poreblazer.NAME_STEM, self._fileCount)
+        if os.path.isdir(rundir):
+            raise RuntimeError("Poreblazer directory already exists: {}".format(rundir))
+        owd = os.getcwd()
+        os.mkdir(rundir)
+        os.chdir(rundir)
+        xyzin = 'ambuild.xyz'
+        self.writeXyz(xyzin)
+        input_dat = ab_poreblazer.write_input_dat(xyzin, self.dim[0], self.dim[1], self.dim[2])
+        ret = ab_poreblazer.run_poreblazer(poreblazer_exe, input_dat)
+        if ret != 0:
+            logger.critical("Error running poreblazer - check files in directory: {}".format(rundir))
+        os.chdir(owd)
+
     def positionInCell(self, block):
         """Make sure the given block is positioned within the cell"""
         bradius = block.blockRadius()

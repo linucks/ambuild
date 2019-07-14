@@ -12,6 +12,8 @@ import gzip
 import logging
 import os
 import numpy as np
+import subprocess
+import tempfile
 if PYTHONFLAVOUR < 3:
     import cPickle as pickle
 else:
@@ -265,6 +267,97 @@ def pickleObj(obj, fileName, compress=True):
     with popen(fileName, mode) as pfile:
             pickle.dump(obj, pfile)
     return fileName
+
+
+def run_command(cmd, logfile=None, directory=None, dolog=True, stdin=None, check=False, **kwargs):
+    """Execute a command and return the exit code.
+
+    Parameters
+    ----------
+    cmd : list
+       Command to run as a list
+    stdin : str or filehandle, optional
+       Stdin for the command
+    logfile : str, optional
+       The path to the logfile
+    directory : str, optional
+       The directory to run the job in (cwd assumed)
+    dolog : bool, optional
+       Whether to output info to the system log [default: False]
+
+    Returns
+    -------
+    returncode : int
+       Subprocess exit code
+
+    Notes
+    -----
+    We take care of outputting stuff to the logs and opening/closing logfiles
+
+    """
+    assert type(cmd) is list, "run_command needs a list!"
+    if check and not is_exe(cmd[0]):
+        raise RuntimeError("run_command cannot find executable: {0}".format(cmd[0]))
+
+    if not directory:
+        directory = os.getcwd()
+
+    if dolog:
+        logger.debug("In directory %s", directory)
+        logger.debug("Running command: %s", " ".join(cmd))
+        if kwargs:
+            logger.debug("kwargs are: %s", str(kwargs))
+
+    file_handle = False
+    if logfile:
+        try:
+            logfile = os.path.abspath(logfile)
+        except TypeError:
+            file_handle = True
+        if file_handle:
+            logf = logfile
+            logfile = os.path.abspath(logf.name)
+        else:
+            logf = open(logfile, "w")
+            logfile = os.path.abspath(logfile)
+        if dolog:
+            logger.debug("Logfile is: %s", logfile)
+    else:
+        logf = tempfile.NamedTemporaryFile(dir=directory, delete=False, suffix='')
+    if stdin is not None:
+        stdinstr = stdin
+        stdin = subprocess.PIPE
+    # Windows needs some special treatment
+    if os.name == "nt":
+        kwargs.update({'bufsize': 0, 'shell' : "False"})
+    p = subprocess.Popen(cmd, stdin=stdin, stdout=logf, stderr=subprocess.STDOUT, cwd=directory, **kwargs)
+
+    if stdin is not None:
+        p.stdin.write(stdinstr.encode())
+        p.stdin.close()
+        if dolog:
+            logger.debug("stdin for cmd was: %s", stdinstr)
+    p.wait()
+    if not file_handle:
+        logf.close()
+    return p.returncode
+
+
+def is_exe(fpath):
+    """Check if an executable exists
+
+    Parameters
+    ----------
+    fpath : str
+       The path to the executable
+
+    Returns
+    -------
+    bool
+
+    """
+    return fpath and os.path.exists(fpath) and os.access(fpath, os.X_OK)
+
 
 if __name__ == '__main__':
     import argparse

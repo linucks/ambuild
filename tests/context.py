@@ -9,6 +9,7 @@ from ambuild import ab_cell
 from ambuild import ab_ffield
 from ambuild import ab_fragment
 from ambuild import ab_paths
+from ambuild import ab_poreblazer
 from ambuild import ab_rigidparticle
 from ambuild import ab_subunit
 from ambuild import ab_util
