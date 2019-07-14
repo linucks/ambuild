@@ -1,12 +1,12 @@
 angle,k,t0,comments
-nh-c-c,140.42,118.34,abbieforjens
-hn-nh-c,140.42,118.34,abbieforjens
-nh-c-h,140.42,118.34,abbieforjens
-c-nh-c,140.42,118.34,abbieforjens
-c-c-c,140.42,118.34,abbieforjens
-h-c-h,140.42,118.34,jens
+nh-c-c,140.42,118.34,
+hn-nh-c,140.42,118.34,
+nh-c-h,140.42,118.34,
+c-nh-c,140.42,118.34,
+c-c-c,140.42,118.34,
+h-c-h,140.42,118.34,
 c-c-h,330,109,
 h-c-c,330,109,
 h1-c1-cp,330,109,
 cp-cp-cp,300,120,
-cp-cp-hc,96.92,120,benzene-fda-acid gaff
+cp-cp-hc,96.92,120,

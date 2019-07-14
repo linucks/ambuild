@@ -1,9 +1,9 @@
 dihedral,k,d,n,comments
-h-c-c-h,1,1,3,abbieforjens
-c-c-c-h,1,1,3,abbieforjens
-h-c-c-c,1,1,3,abbieforjens
-c-c-c-c,1,1,3,abbieforjens
-cp-cp-cp-cp,7,-1,2,benzene-fda-acid gaff
-cp-cp-cp-hc,7,-1,2,benzene-fda-acid gaff
-hc-cp-cp-cp,7,-1,2,link1 gaff
-hc-cp-cp-hc,7,-1,2,benzene-fda-acid gaff
+h-c-c-h,1,1,3,
+c-c-c-h,1,1,3,
+h-c-c-c,1,1,3,
+c-c-c-c,1,1,3,
+cp-cp-cp-cp,7,-1,2,
+cp-cp-cp-hc,7,-1,2,
+hc-cp-cp-cp,7,-1,2,
+hc-cp-cp-hc,7,-1,2,
