@@ -2234,7 +2234,7 @@ class Cell():
         Whenever we ditch hoomdblue 1, we can (probably) revert to using an instance.
         """
         if hoomdVersion is None:
-            logger.critical("HOOMD-BLUE could not be found! MD functionality will be unavaiable.")
+            logger.critical("HOOMD-BLUE could not be found! MD functionality will be unavailable.")
             return
         if hoomdVersion[0] < 2:
             from ambuild.hoomd1 import Hoomd1
