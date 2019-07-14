@@ -47,7 +47,7 @@ class Block(object):
         '''
         # Need to change so cannot create block withough fragmentType
         if filePath:
-            assert os.path.isfile(filePath) and fragmentType
+            assert os.path.isfile(filePath) and fragmentType, "Missing file: {}".format(filePath)
             initFragment = Fragment(filePath, fragmentType)
         self.fragments = []
         if initFragment:

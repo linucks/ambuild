@@ -772,20 +772,6 @@ class Test(unittest.TestCase):
         self.assertFalse(self.clashes(mycell))
         return
 
-    def testGrowLimited2(self):
-        """Test we can add blocks correctly"""
-        boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
-        mycell.libraryAddFragment(filename=self.dcxCar, fragmentType='A')
-        mycell.addBondType('A:CH-A:CCl')
-        mycell.setMaxBond('A:CH', 1)
-        mycell.seed(1, center=True, random=False)
-        mycell.growBlocks(10, cellEndGroups=['A:CH'], random=False)
-        block = list(mycell.blocks.values())[0]
-        self.assertTrue(np.allclose(block.centroid(), [  6.17554446, 4.10903953, 17.51814496]))
-        self.assertFalse(self.clashes(mycell))
-        return
-
     def testGrowBlocks2(self):
         """Test we can add blocks correctly"""
 
@@ -852,10 +838,10 @@ class Test(unittest.TestCase):
         mycell = Cell(boxDim)
 
         mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
-        mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
-        mycell.addBondType('amine:a-triquin:b')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
+        mycell.addBondType('amine:a-B:a')
 
-        mycell.seed(1, fragmentType='triquin', center=True)
+        mycell.seed(1, fragmentType='B', center=True)
         mycell.growBlocks(toGrow=1, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
         self.assertFalse(self.clashes(mycell))
 
@@ -1256,11 +1242,11 @@ class Test(unittest.TestCase):
     
     def testSetStaticBlock(self):
         mycell = Cell(filePath=self.graphiteCar)
-        mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
-        mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
-        mycell.addBondType('amine:a-triquin:b')
-        mycell.seed(3, fragmentType='triquin', center=True)
-        mycell.growBlocks(toGrow=2, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=10)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
+        mycell.addBondType('A:a-B:a')
+        mycell.seed(3, fragmentType='A', center=True)
+        mycell.growBlocks(toGrow=2, cellEndGroups=None, libraryEndGroups=['A:a'], maxTries=10)
         mycell.setStaticBlock(filePath=self.graphiteCar, replace=True)
         return
     

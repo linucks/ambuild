@@ -474,19 +474,16 @@ class Test(unittest.TestCase):
         self.assertEqual(idxs, ref_idxs)
     
     def testMaxBond(self):
-        carfile = os.path.join(BLOCKS_DIR, "DCX.car")
-        f = ab_fragment.Fragment(filePath=carfile, fragmentType='A')
-        f.setMaxBond('A:CH', 1)
+        f = ab_fragment.Fragment(filePath=self.ch4_1Car, fragmentType='A')
+        f.setMaxBond('A:b', 1)
         block1 = Block(initFragment=f)
-        
         block2 = Block(filePath=self.ch4Car, fragmentType='B')
         
-        # Check we have 6 free endGroups at the start
-        self.assertEqual(len(block1.freeEndGroups()),6)
+        self.assertEqual(len(block1.freeEndGroups()),4)
         self.assertEqual(len(block2.freeEndGroups()),4)
         
         # Create a bond to the maxBonded type
-        eg1 = block1.freeEndGroups(endGroupTypes='A:CH')[0]
+        eg1 = block1.freeEndGroups(endGroupTypes='A:b')[0]
         eg2 = block2.freeEndGroups()[0]
         bond = Bond(eg1, eg2)
         bond.engage()
