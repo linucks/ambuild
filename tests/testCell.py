@@ -1001,6 +1001,7 @@ class Test(unittest.TestCase):
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testOptimiseGeometryRigid(self):
         mycell = self.createTestCell(boxWidth=30)
+        print("OOO")
         mycell.optimiseGeometry(rigidBody=True,
                                         doDihedral=True,
                                         quiet=True,
@@ -1017,20 +1018,12 @@ class Test(unittest.TestCase):
 
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testOptimiseGeometryAll(self):
-        boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
-        mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
-        mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
-        mycell.addBondType('amine:a-triquin:b')
-
-        mycell.seed(1, fragmentType='triquin', center=True)
-        mycell.growBlocks(toGrow=2, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
+        mycell = self.createTestCell(boxWidth=30)
         ok = mycell.optimiseGeometry(rigidBody=False,
                                 doDihedral=True,
                                 optCycles=1000,
                                 dump=False,
-                                quiet=False
-                                 )
+                                quiet=False)
 
         self.assertTrue(ok, "All Optimisation failed!")
         self.assertFalse(self.clashes(mycell))
@@ -1039,17 +1032,7 @@ class Test(unittest.TestCase):
 
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testRunMDAll(self):
-        """
-        """
-
-        boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
-        mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
-        mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
-        mycell.addBondType('amine:a-triquin:b')
-
-        mycell.seed(1, fragmentType='triquin', center=True)
-        mycell.growBlocks(toGrow=1, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=1)
+        mycell = self.createTestCell(boxWidth=30)
         mycell.runMD(rigidBody=False,
                      doDihedral=True,
                      rCut=5.0,
@@ -1058,8 +1041,7 @@ class Test(unittest.TestCase):
                      tau=0.5,
                      dt=0.0005,
                      dump=False,
-                     quiet=True
-                     )
+                     quiet=True)
         self.assertFalse(self.clashes(mycell))
         return
 
@@ -1077,27 +1059,18 @@ class Test(unittest.TestCase):
     
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testOptimiseGeometryStatic(self):
-        """
-        """
+        """Test reading in a static structure defined in the cell"""
         mycell = Cell(filePath=self.graphiteCar)
-        mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
-        mycell.libraryAddFragment(filename=self.triquinCar, fragmentType='triquin')
-        mycell.addBondType('amine:a-triquin:b')
-
-        mycell.seed(3, fragmentType='triquin', center=True)
-        mycell.growBlocks(toGrow=2, cellEndGroups=None, libraryEndGroups=['amine:a'], maxTries=10)
-        
-        # mycell.dump()
-
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.addBondType('A:a-A:a')
+        mycell.seed(3, fragmentType='A', center=True)
+        mycell.growBlocks(toGrow=2, cellEndGroups=None, libraryEndGroups=['A:a'], maxTries=10)
         ok = mycell.optimiseGeometry(rigidBody=False,
-                                doDihedral=True,
-                                optCycles=1000,
-                                dump=False,
-                                quiet=False
-                                 )
+                                     doDihedral=True,
+                                     optCycles=1000,
+                                     dump=False,
+                                     quiet=False)
         self.assertFalse(self.clashes(mycell))
-        # mycell.dump()
-
         return
         
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
