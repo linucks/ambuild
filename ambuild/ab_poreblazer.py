@@ -75,7 +75,7 @@ def write_input_dat(xyzin, A, B, C):
 
 
 def run_poreblazer(poreblazer_exe, input_dat):
-    logger.info("Running poreblazer using executable: ".format(poreblazer_exe))
+    logger.info("Running poreblazer using executable: {}".format(poreblazer_exe))
     with open('defaults.dat', 'w') as w:
         w.write(DEFAULTS_DAT)
     with open('UFF.atoms', 'w') as w:

@@ -1,5 +1,5 @@
 #!/bin/bash
-/usr/local/bin/docker run \
+docker run \
 -it \
 --rm \
 --volume "$PWD":/home/glotzerlab \
