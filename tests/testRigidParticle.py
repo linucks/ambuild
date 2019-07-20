@@ -108,7 +108,7 @@ class Test(unittest.TestCase):
 
         boxWidth = 20
         boxDim = [boxWidth, boxWidth, boxWidth]
-        mycell = ab_cell.Cell(boxDim)
+        mycell = ab_cell.Cell(boxDim, paramsDir=PARAMS_DIR)
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
         mycell.libraryAddFragment(filename=ch4, fragmentType='A')
         mycell.addBondType('A:a-A:a')

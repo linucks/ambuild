@@ -16,3 +16,5 @@ from ambuild import ab_util
 from ambuild import dlpoly
 from ambuild import xyz_core
 from ambuild import xyz_util
+
+print("GOT ",dir())

@@ -52,7 +52,7 @@ class Test(unittest.TestCase):
         # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
         # From code looks like default r_buff is 0.4 and our default r_cut is 5.0
         boxDim = [boxWidth, boxWidth, boxWidth]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         # was seed 5 grow 8
@@ -82,7 +82,7 @@ class Test(unittest.TestCase):
     def testCX4(self):
         """First pass"""
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(fragmentType='A', filename=self.cx4Car)
         mycell.addBondType('A:a-A:a')
         mycell.seed(1)
@@ -91,7 +91,7 @@ class Test(unittest.TestCase):
 
     def testAmbody(self):
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Ca2Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         added = mycell.seed(3)
@@ -101,7 +101,7 @@ class Test(unittest.TestCase):
     def testBond(self):
         """First pass"""
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         fragmentType = 'A'
         mycell.libraryAddFragment(fragmentType=fragmentType, filename=self.benzeneCar)
         mycell.addBondType('A:a-A:a')
@@ -124,7 +124,7 @@ class Test(unittest.TestCase):
 
 
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
         mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
@@ -151,7 +151,7 @@ class Test(unittest.TestCase):
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testCat1Paf2(self):
         boxDim=[40,40,40]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='PAF' )
         mycell.libraryAddFragment( filename=self.nh4Car, fragmentType='cat', catalyst=True)
         mycell.addBondType('PAF:a-cat:a')
@@ -198,7 +198,7 @@ class Test(unittest.TestCase):
         between the catalysts, move the PAFS from one catalysts to the other, and then join the PAFS
         on that catalyst with all the PAFS"""
         boxDim=[40,40,40]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='PAF')
         mycell.libraryAddFragment( filename=self.nh4Car, fragmentType='cat', markBonded=True, catalyst=True)
         mycell.addBondType( 'PAF:a-PAF:a' )
@@ -262,7 +262,7 @@ class Test(unittest.TestCase):
         return
 
     def testCloseAtoms(self):
-        mycell = Cell([30, 30, 30], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15)
+        mycell = Cell([30, 30, 30], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         block1 = mycell.getLibraryBlock('A')
@@ -322,7 +322,7 @@ class Test(unittest.TestCase):
         return
 
     def testCloseAtoms2(self):
-        mycell = Cell([2.1, 2.1, 2.1], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15)
+        mycell = Cell([2.1, 2.1, 2.1], atomMargin=0.1, bondMargin=0.1, bondAngleMargin=15, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         block1 = mycell.getLibraryBlock('A')
@@ -355,7 +355,7 @@ class Test(unittest.TestCase):
         Test distance and close together
         """
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         block1 = mycell.getLibraryBlock('A')
@@ -375,7 +375,7 @@ class Test(unittest.TestCase):
     
     def testDeleteBlocksIndices(self):
         boxDim = [50, 50, 50]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         # See if we can delete a range of blocks
         toSeed = 10
@@ -395,7 +395,7 @@ class Test(unittest.TestCase):
         # Cell dimensions need to be: L > 2*(r_cut+r_buff) and L < 3*(r_cut+r_buff)
         # From code looks like default r_buff is 0.4 and our default r_cut is 5.0
         boxDim = [50, 50, 50]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
         #mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
         mycell.addBondType('A:a-A:a')
@@ -421,7 +421,7 @@ class Test(unittest.TestCase):
     
     def testDeleteBondType(self):
         boxDim = [50, 50, 50]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
         mycell.addBondType('A:a-A:a')
@@ -439,7 +439,7 @@ class Test(unittest.TestCase):
         
     def testDeleteFragment1(self):
         boxDim = [20, 20, 20]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
 
@@ -452,7 +452,7 @@ class Test(unittest.TestCase):
     
     def testDeleteFragment2(self):
         boxDim = [20, 20, 20]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
 
@@ -465,7 +465,7 @@ class Test(unittest.TestCase):
     
     def testDeleteFragment3(self):
         boxDim = [20, 20, 20]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
 
@@ -480,7 +480,7 @@ class Test(unittest.TestCase):
     def testDLPOLY(self):
         """testDLPOLY"""
         boxDim = [100.0, 100.0, 100.0]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         ch4Car = self.ch4Car
         # mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
@@ -521,7 +521,7 @@ class Test(unittest.TestCase):
 
         CELLA = CELLB = CELLC = 10
         boxDim = [CELLA, CELLB, CELLC]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         v1 = [ 2.46803012, 1.67131881, 1.96745421]
         v2 = [ 1.07988345, 0.10567109, 1.64897769]
@@ -556,7 +556,7 @@ class Test(unittest.TestCase):
     def testDihedral(self):
         CELLDIM = 30
         boxDim = [CELLDIM, CELLDIM, CELLDIM]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         p1 = np.array([ 0.0, 0.0, 0.0 ])
         p2 = np.array([ 10.0, 0.0, 0.0 ])
         p3 = np.array([ 10.0, 10.0, 0.0 ])
@@ -592,7 +592,7 @@ class Test(unittest.TestCase):
         """Test we can add a block correctly"""
 
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
         mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
@@ -664,7 +664,7 @@ class Test(unittest.TestCase):
         """
 
         boxDim = [100.0, 100.0, 100.0]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         ch4Car = self.ch4Car
         # mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
@@ -700,7 +700,7 @@ class Test(unittest.TestCase):
     def testGrowBlocks(self):
         """Test we can add blocks correctly"""
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim, debugLog=False)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         # mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
@@ -727,7 +727,7 @@ class Test(unittest.TestCase):
         return
     
     def testGetBox(self):
-        mycell = Cell([10, 10, 10])   
+        mycell = Cell([10, 10, 10], paramsDir=PARAMS_DIR)   
         boxSize = 1
         mycell.boxSize = boxSize
         mycell.numBoxes = [int(math.ceil(mycell.dim[0] / boxSize)),
@@ -760,7 +760,7 @@ class Test(unittest.TestCase):
     def testGrowLimited(self):
         """Test we can add blocks correctly"""
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4_1Car, fragmentType='A')
         mycell.addBondType('A:a-A:b')
         mycell.setMaxBond('A:a', 1)
@@ -776,7 +776,7 @@ class Test(unittest.TestCase):
         """Test we can add blocks correctly"""
 
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
@@ -807,7 +807,7 @@ class Test(unittest.TestCase):
         """Test we can add blocks correctly"""
 
         boxDim = [10, 10, 10]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
@@ -835,7 +835,7 @@ class Test(unittest.TestCase):
         """Test we can add blocks correctly"""
 
         boxDim = [10, 10, 10]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         mycell.libraryAddFragment(filename=self.amineCar, fragmentType='amine')
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
@@ -849,7 +849,7 @@ class Test(unittest.TestCase):
         
     def testGrowPolymer(self):
         boxDim = [15, 15, 15]
-        mycell = Cell(boxDim, debugLog=False)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
         mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
@@ -865,7 +865,7 @@ class Test(unittest.TestCase):
     def testGrowPolymerFail(self):
         """Make sure we only have a single monomer if we don't allow any bonds"""
         boxDim = [15, 15, 15]
-        mycell = Cell(boxDim, debugLog=False)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
         mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
@@ -878,7 +878,7 @@ class Test(unittest.TestCase):
     
     def testGrowPolymerRandom(self):
         boxDim = [20, 20, 20]
-        mycell = Cell(boxDim, debugLog=False)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         mycell.libraryAddFragment(fragmentType='A', filename=self.ch4Car)
         mycell.libraryAddFragment(fragmentType='B', filename=self.ch4Car)
@@ -899,7 +899,7 @@ class Test(unittest.TestCase):
 
     def testIntersectedCells(self):
         
-        mycell = Cell([10, 10, 10])   
+        mycell = Cell([10, 10, 10], paramsDir=PARAMS_DIR)   
         boxSize = 1
         mycell.boxSize = boxSize
         mycell.numBoxes = [int(math.ceil(mycell.dim[0] / boxSize)),
@@ -941,7 +941,7 @@ class Test(unittest.TestCase):
                                                           (0, 0, 0), (0, 0, 1), (0, 1, 1), (1, 1, 1)])
 
 
-        mycell = Cell([25, 25, 25])   
+        mycell = Cell([25, 25, 25], paramsDir=PARAMS_DIR)   
         mycell.boxSize = 1.91761148234
         mycell.numBoxes = [14, 14, 14]
 
@@ -956,7 +956,7 @@ class Test(unittest.TestCase):
         """Test we can add a block correctly"""
 
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
 
         # mycell.libraryAddFragment(filename=self.pafCar, fragmentType='A')
         mycell.libraryAddFragment(filename=self.benzene2Car, fragmentType='A')
@@ -1174,7 +1174,7 @@ class Test(unittest.TestCase):
     
     def testRestoreBlocks(self):
         boxDim = [50, 50, 50]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
         #mycell.addBondType('A:a-A:a')
@@ -1201,7 +1201,7 @@ class Test(unittest.TestCase):
         """Test we can seed correctly"""
 
         boxDim = [50, 50, 50]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         nblocks = 10
@@ -1230,7 +1230,7 @@ class Test(unittest.TestCase):
     def testSetBoxSize(self):
 
         boxDim = [10, 10, 10]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
 
@@ -1241,7 +1241,7 @@ class Test(unittest.TestCase):
         return
     
     def testSetStaticBlock(self):
-        mycell = Cell(filePath=self.graphiteCar)
+        mycell = Cell(filePath=self.graphiteCar, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
         mycell.addBondType('A:a-B:a')
@@ -1255,7 +1255,7 @@ class Test(unittest.TestCase):
         - uses same setup as ZipClash test
         """
         boxDim = [25, 25, 25]
-        mycell = Cell(boxDim, debugLog=True)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='B', solvent=True)
         mycell.addBondType('A:a-A:a')
@@ -1318,7 +1318,7 @@ class Test(unittest.TestCase):
         """
         """
         boxDim = [5, 5, 5]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         # box size=1 - need to set manually as not reading in a block
         mycell.maxAtomRadius = 0.5
         mycell.atomMargin = 0.0
@@ -1345,7 +1345,7 @@ class Test(unittest.TestCase):
     def testWall(self):
         """Test that we can implement a wall correctly"""
         boxDim = [10, 10, 10]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
         mycell.setWall(XOY=True, XOZ=False, YOZ=False)
         # first add a block in the center
@@ -1362,7 +1362,7 @@ class Test(unittest.TestCase):
     def testWallMd(self):
         """Test that we can implement a wall correctly"""
         boxDim = [20, 20, 20]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
         # Create the wall
         mycell.setWall(XOY=True, XOZ=True, YOZ=True)
@@ -1375,7 +1375,7 @@ class Test(unittest.TestCase):
 
     def testZipBlocks(self):
         boxDim = [12.0, 12.0, 12.0]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         ch4Car = self.ch4Car
         # mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.libraryAddFragment(filename=ch4Car, fragmentType='A')
@@ -1411,7 +1411,7 @@ class Test(unittest.TestCase):
 
     def testZipBlocks2(self):
         boxDim = [12.0, 12.0, 12.0]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         # Create block manually
@@ -1437,7 +1437,7 @@ class Test(unittest.TestCase):
     def testZipBlocks3(self):
         """Bonding with margin"""
         boxDim = [12.0, 12.0, 12.0]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         ch4Car = self.ch4Car
         mycell.libraryAddFragment(filename=ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
@@ -1467,7 +1467,7 @@ class Test(unittest.TestCase):
     def testZipClash1(self):
         """Test no clashes"""
         boxDim = [25, 25, 25]
-        mycell = Cell(boxDim, debugLog=True)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         # Create blocks manually
@@ -1497,7 +1497,7 @@ class Test(unittest.TestCase):
     def testZipClash2(self):
         """Test clash when bond is through a benzene ring"""
         boxDim = [25, 25, 25]
-        mycell = Cell(boxDim, debugLog=True)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         # Create blocks manually
@@ -1529,7 +1529,7 @@ class Test(unittest.TestCase):
     def testZipClashPBC1(self):
         """Test clash for bond across PBC"""
         boxDim = [25, 25, 25]
-        mycell = Cell(boxDim, debugLog=True)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         # Create blocks manually
@@ -1560,7 +1560,7 @@ class Test(unittest.TestCase):
     def testZipClashPBC2(self):
         """Test clash for bond across PBC"""
         boxDim = [25, 25, 25]
-        mycell = Cell(boxDim, debugLog=True)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         # Create blocks manually
@@ -1594,7 +1594,7 @@ class Test(unittest.TestCase):
         write out cml
         """
         boxDim = [100, 100, 100]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
@@ -1685,7 +1685,7 @@ class Test(unittest.TestCase):
         """
         from ambuild import hoomd1
         boxDim = [20, 20, 20]
-        mycell = Cell(boxDim)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.benzeneCar, fragmentType='A')
         mycell.addBondType('A:a-A:a')
 

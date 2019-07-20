@@ -29,21 +29,13 @@ Do we do a multi-step operation - e.g. bond the catalysts together and then remo
 
 import sys
 sys.path.append("/opt/ambuild/builder")
-
-# Python imports
-import cPickle
-import csv
-
-# Our imports
-import buildingBlock
-import cell
-import util
+from ambuild import ab_cell
 
 #cell dimensions:
 boxDim=[40,40,40]
 
 #Create Cell and seed it with the blocks
-mycell = cell.Cell(boxDim, atomMargin=0.1, bondMargin=0.5, bondAngleMargin=5, doLog=True )
+mycell = ab_cell.Cell(boxDim, atomMargin=0.1, bondMargin=0.5, bondAngleMargin=5, paramsDir='/opt/paramsDir')
 
 #import the two fragment files if you have 2 different building blocks
 #mycell.libraryAddFragment( filename='/opt/ambuild/blocks/PAF.car', fragmentType='PAF' )

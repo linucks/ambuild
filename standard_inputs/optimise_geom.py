@@ -9,7 +9,7 @@ from ambuild import ab_cell
 
 # Create Cell and seed it with the blocks
 cellDim=[100,100,100]
-mycell = ab_cell.Cell(cellDim,atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15)
+mycell = ab_cell.Cell(cellDim,atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, paramsDir='/opt/paramsDir')
    
 #import the two fragment files if you have 2 different building blocks
 fragA = os.path.join(ambuild_home, "blocks/amine_typed.car")

@@ -26,7 +26,6 @@ from ambuild import ab_endgroup
 from ambuild import ab_fragment
 from ambuild import ab_subunit
 from ambuild import ab_util
-from ambuild.ab_paths import PARAMS_DIR
 from ambuild import xyz_core
 from ambuild import xyz_util
 
@@ -46,8 +45,8 @@ class Cell():
                  atomMargin=0.5,
                  bondMargin=0.5,
                  bondAngleMargin=15,
-                 debugLog=False,
-                 paramsDir=None):
+                 paramsDir=None,
+                 debugLog=False):
         '''Construct an empty cell:
 
         Args:
@@ -111,13 +110,14 @@ class Cell():
         self._fileCount = 0  # for naming output files
         self._deterministicState = 0 # For adding blocks in a non-random manner (for testing)
         self.rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
-        if paramsDir is not None:
-            if not os.path.isdir(paramsDir):
-                msg = "Cannot find parameter directory: {0}".format(paramsDir)
+        if not paramsDir:
+                msg = "Need to supply a paramsDir with a path to a directory with parameter files."
                 logger.critical(msg)
                 raise RuntimeError(msg)
-        else:
-            paramsDir = PARAMS_DIR
+        if not os.path.isdir(paramsDir):
+            msg = "Cannot find parameter directory: {0}".format(paramsDir)
+            logger.critical(msg)
+            raise RuntimeError(msg)
         self.paramsDir = paramsDir
         # Use the parameters to set the bond lengts in the util module
         xyz_util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
