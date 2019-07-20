@@ -4,7 +4,7 @@ from ambuild.ab_util import run_command
 
 NAME_STEM = 'poreblazer'
 
-UFF_ATOMS = """27
+UFF_ATOMS = """29
 C       3.431   52.8    12.0
 O       3.118   30.2    16.0
 H       2.571   22.14   1.0
@@ -32,6 +32,8 @@ Zn      2.462   62.38   65.39
 Zr    2.783    34.70    91.224
 Mo    2.719    28.16    95.96
 Re    2.632    33.19    186.21
+Br    4.189    126.31   79.904
+Pd    2.899    0.048    106.42
 
 ! name of framework atom, diameter (LJ sigma) in A, epsilon in K, mol weight
 
