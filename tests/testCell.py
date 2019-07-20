@@ -573,7 +573,7 @@ class Test(unittest.TestCase):
     def testDump(self):
         """Test we can dump a cell"""
         boxDim = [30, 30, 30]
-        mycell = Cell(boxDim, debugLog=False)
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         
@@ -1046,7 +1046,7 @@ class Test(unittest.TestCase):
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testOptimiseGeometryStatic(self):
         """Test reading in a static structure defined in the cell"""
-        mycell = Cell(filePath=self.graphiteCar)
+        mycell = Cell(filePath=self.graphiteCar, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.addBondType('A:a-A:a')
         mycell.seed(3, fragmentType='A', center=True)

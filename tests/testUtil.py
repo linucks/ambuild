@@ -6,6 +6,7 @@ import unittest
 import context
 AMBUILD_DIR = context.ab_paths.AMBUILD_DIR
 from context import ab_util
+from context import ab_paths
 
 class Test(unittest.TestCase):
     
@@ -42,7 +43,7 @@ class Test(unittest.TestCase):
         pickleFile = os.path.join(AMBUILD_DIR,"tests", "test_data","oldversion.pkl")
         rigidBody = True
         skipDihedrals = True
-        ab_util.dumpDLPOLY(pickleFile, rigidBody=rigidBody, skipDihedrals=skipDihedrals)
+        ab_util.dumpDLPOLY(pickleFile, rigidBody=rigidBody, skipDihedrals=skipDihedrals, paramsDir=ab_paths.PARAMS_DIR)
         # For now just make sure we write something out...
         for fname in  ['CONFIG', 'CONTROL', 'FIELD']:
             self.assertTrue(os.path.isfile(fname))
