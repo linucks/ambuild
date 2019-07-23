@@ -199,8 +199,9 @@ class Hoomd1(FFIELD):
                 break # Break out of try/except loop
             except RuntimeError as e:
                 logger.info("Optimisation step {0} failed!\n{1}".format(i,e))
-                del xmld
-                del dcdd
+                if dump:
+                    del xmld
+                    del dcdd
                 if i+1 < retries_on_error:
                     dt_old = dt
                     dt = dt_old * 0.1
@@ -214,7 +215,7 @@ class Hoomd1(FFIELD):
             #    break
         # Delete variables before we return to stop memory leaks
         # del fire
-        if dump and False:
+        if dump:
             xmld.disable()
             dcdd.disable()
             del xmld
