@@ -1,0 +1,9 @@
+!BIOSYM archive 3
+PBC=OFF
+Materials Studio Generated CAR File
+!DATE Mon Aug 05 18:16:00 2019
+H1      -6.050010000    1.169890000    0.004730000 XXXX 1      hcat      H   0.000
+H2      -5.493530000    1.594420000   -0.005630000 XXXX 1      hcat      H   0.000
+H3      -4.907670000    1.211380000    0.000940000 XXXX 1      hcat      H   0.000
+end
+end
