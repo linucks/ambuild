@@ -16,6 +16,7 @@ xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
 
 
 class Test(unittest.TestCase):
+
     def testFragmentConfigStr(self):
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
         ftype = 'A'
@@ -29,6 +30,11 @@ class Test(unittest.TestCase):
         cstr = ftype + "1111"
         self.assertEqual(cstr, f1.configStr)
 
+    def testMultipleCapAtoms(self):
+        h3car = os.path.join(BLOCKS_DIR, "H3.car")
+        with self.assertRaises(RuntimeError):
+            ab_fragment.Fragment(filePath=h3car, fragmentType='A')
+
+
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

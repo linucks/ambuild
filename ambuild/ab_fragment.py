@@ -482,8 +482,12 @@ class Fragment(object):
                 # For now make sure first value is letter
                 assert row[0][0].isalpha(), "First column of ambi file needs to be a letter!"
                 endGroupTypes.append(row[0])
-                endGroups.append(int(row[1]))
-                capAtoms.append(int(row[2]))
+                endGroupIdx = int(row[1])
+                endGroups.append(endGroupIdx)
+                capAtomIdx = int(row[2])
+                if capAtomIdx in capAtoms:
+                    raise RuntimeError("multiple endGroups cannot share the same Cap Atom: {}".format(capAtomIdx))
+                capAtoms.append(capAtomIdx)
                 if len(row) >= 4 and row[3] and row[3] != -1:
                     dihedralAtoms.append(int(row[3]))
                 else:
