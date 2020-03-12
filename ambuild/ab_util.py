@@ -115,7 +115,11 @@ def cellFromPickle(pickleFile, paramsDir=None):
         mode += 'b'
     # Renamed cell class so need to alias here for old files
     with popen(pickleFile, mode) as f:
-        myCell = pickle.load(f)
+        try:
+            myCell = pickle.load(f)
+        except UnicodeDecodeError:
+            # This probably indicates we are trying to open a filed pickled with Python2 with Python3
+            myCell = pickle.load(f, encoding='latin1')
     del ab_block.Bond
     del sys.modules['buildingBlock']
     del sys.modules['cell']
