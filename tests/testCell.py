@@ -34,6 +34,7 @@ class Test(unittest.TestCase):
 
         cls.cx4Car = os.path.join(BLOCKS_DIR, "cx4.car")
         cls.ch4Car = os.path.join(BLOCKS_DIR, "ch4.car")
+        cls.ch4CarQ = os.path.join(BLOCKS_DIR, "ch4Q.car")
         cls.nh4Car =  os.path.join(BLOCKS_DIR, "nh4.car")
         cls.ch4_1Car = os.path.join(BLOCKS_DIR, "ch4_1.car")
         cls.capLinker = os.path.join(BLOCKS_DIR, "cap_linker.car")
@@ -1342,11 +1343,26 @@ class Test(unittest.TestCase):
         self.assertEqual(s, sb , "periodic: {0}".format(sb))
         return
     
+    def testUpdateFragmentCharges(self):
+        """Update all charges for a given fragment type"""
+        boxDim = [10, 10, 10]
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='B')
+        mycell.seed(1, fragmentType='A')
+        mycell.seed(1, fragmentType='B')
+        self.assertEqual(0.0, list(mycell.blocks.values())[0].charge(0))
+        self.assertEqual(0.0, list(mycell.blocks.values())[1].charge(0))
+        mycell.updateFragmentCharges(filename=self.ch4CarQ, fragmentType='A')
+        self.assertEqual(9.0, list(mycell.blocks.values())[0].charge(0))
+        self.assertEqual(0.0, list(mycell.blocks.values())[1].charge(0))
+        return
+
     def testWall(self):
         """Test that we can implement a wall correctly"""
         boxDim = [10, 10, 10]
         mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
-        mycell.libraryAddFragment( filename=self.ch4Car, fragmentType='A' )
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType='A')
         mycell.setWall(XOY=True, XOZ=False, YOZ=False)
         # first add a block in the center
         nblocks = 1

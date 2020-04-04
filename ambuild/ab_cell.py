@@ -2348,6 +2348,29 @@ class Cell():
             self.repopulateCells(boxShift=boxShift)
         return
 
+    def updateFragmentCharges(self, fragmentType=None, filename=None):
+        """Update the charges on all of the fragments of a given fragmentType within the cell.
+
+        This does not change the 'parent' fragment within the cell library so seeding/growing more
+        of the fragments will use the original charges.
+        
+        Args:
+        fragmentType: the fragmentType to update the charges for
+        filename: path to a CAR file with all the charges for the fragmentType specifie
+        """
+        if fragmentType not in self._fragmentLibrary:
+            raise RuntimeError("Cannot find fragmentType '%s' in fragmentLibrary" % fragmentType)
+        if not os.path.isfile(filename):
+            raise RuntimeError("Cannot find file: %s" % filename)
+        if not filename.endswith(".car"):
+            raise RuntimeError("updateCharges only works with car files: %s" % filename)
+        _, _, _, _, charges = ab_fragment.Fragment.fromCarFile(filename)
+        for block in self.blocks.values():
+            for frag in block.fragments:
+                if frag.fragmentType == fragmentType:
+                    frag.updateCharges(charges)
+        return
+
     def vecDiff(self, p1, p2):
         return xyz_core.vecDiff(p1, p2, dim=self.dim, pbc=self.pbc)
 

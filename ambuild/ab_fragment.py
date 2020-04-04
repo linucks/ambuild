@@ -45,7 +45,6 @@ class Fragment(object):
             '_bonded'          : [],  # List of which atoms are bonded to which
             'catalyst'         : catalyst, # Whether this block is a catalyst
             '_cellParameters'  : {},
-            '_charges'         : [],
             'fragmentType'     : fragmentType,
             '_labels'          : [],
             '_masses'          : [],
@@ -68,7 +67,8 @@ class Fragment(object):
         individualAttrs = {
             'block'           : None,
             'config'          : None,
-            'configStr'     : None,
+            'configStr'       : None,
+            '_charges'        : [],
             '_coords'         : [],
             '_centroid'       : None,
             '_centerOfMass'   : None,
@@ -292,7 +292,8 @@ class Fragment(object):
     def freeEndGroups(self):
         return [eg for eg in self._endGroups if eg.free()]
 
-    def fromCarFile(self, carFile):
+    @staticmethod
+    def fromCarFile(carFile):
         """"Abbie did this.
         Gulp...
         """
@@ -300,21 +301,15 @@ class Fragment(object):
         symbols = []
         atomTypes = []
         charges = []
-
-        # numpy array
-        coords = []
-
+        coords = []  # numpy array
         reading = True
         with open(carFile, "r") as f:
-
             # skip first line
             f.readline()
-
             # 2nd states whether PBC: PBC=OFF
             pbc, state = f.readline().strip().split("=")
             assert pbc.strip() == "PBC"
             state = state.strip()
-
             # skip two lines
             f.readline()
             f.readline()
@@ -326,59 +321,44 @@ class Fragment(object):
                 self._cellParameters['A'] = float(fields[1])
                 self._cellParameters['B'] = float(fields[2])
                 self._cellParameters['C'] = float(fields[3])
-
             count = 0
             while reading:
-                line = f.readline()
-
-                line = line.strip()
+                line = f.readline().strip()
                 if not line:
                     logger.critical("END OF CAR WITH NO END!!!")
                     break
                 fields = line.split()
                 label = fields[0]
-
                 # Check end of coordinates
                 if label.lower() == "end":
                     reading = False
                     break
-
                 labels.append(label)
                 coords.append(np.array(fields[1:4], dtype=np.float64))
                 atomTypes.append(fields[6])
                 symbols.append(fields[7])
                 charges.append(float(fields[8]))
-
                 count += 1
-
         return  (coords, labels, symbols, atomTypes, charges)
 
-    def fromXyzFile(self, xyzFile):
+    @staticmethod
+    def fromXyzFile(xyzFile):
         """"Jens did this.
         """
-
         labels = []
         symbols = []
         atomTypes = []  # hack...
         charges = []
-
-        # numpy array
-        coords = []
-
+        coords = [] # numpy array
         with open(xyzFile) as f:
-
             # First line is number of atoms
             line = f.readline()
             natoms = int(line.strip())
-
             # Skip title
             line = f.readline()
-
             count = 0
             for _ in range(natoms):
-
-                line = f.readline()
-                line = line.strip()
+                line = f.readline().strip()
                 fields = line.split()
                 label = fields[0]
                 labels.append(label)
@@ -387,9 +367,7 @@ class Fragment(object):
                 symbols.append(symbol)
                 atomTypes.append(symbols)
                 charges.append(0.0)
-
                 count += 1
-
         return (coords, labels, symbols, atomTypes, charges)
 
     def fromFile(self, filePath):
@@ -536,7 +514,7 @@ class Fragment(object):
         self._coords = self._coords  + center
         self._changed = True
         return
-    
+
     def setData(self,
                 coords=None,
                 labels=None,
@@ -547,23 +525,19 @@ class Fragment(object):
                 endGroups=None,
                 capAtoms=None,
                 dihedralAtoms=None,
-                uwAtoms=None
-                ):
+                uwAtoms=None):
 
-        self._charges = np.array([ c for c in charges])
-        self._coords = np.array([ c for c in coords])
+        self._charges = np.array(charges)
+        self._coords = np.array(coords)
         self._labels = labels
         self._symbols = symbols
         self._atomTypes = atomTypes
 
-        # Calculate anything we haven't been given
-        self.fillData()
-
+        self.fillData() # Calculate anything we haven't been explicitly given
         # If under PBC we need to change how we calculate the bonds
         dim = None
         if self._cellParameters and self.static:
             dim = np.array([self._cellParameters['A'], self._cellParameters['B'], self._cellParameters['C']])
-
         # Specify internal bonds - bond margin probably too big...
         logger.debug("Calculating bonds for fragmentType: {0}".format(self.fragmentType))
         self._bonds = xyz_util.calcBonds(self._coords,
@@ -571,22 +545,14 @@ class Fragment(object):
                                          dim=dim,
                                          maxAtomRadius=self.maxAtomRadius(),
                                          bondMargin=0.25)
-
-        # Create list of which atoms are bonded to each atom
         self._calcBonded()
-
-        # Set up endGroups
         self.setEndGroups(endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms)
-
         return
 
     def setEndGroups(self, endGroupTypes, endGroups, capAtoms, dihedralAtoms, uwAtoms):
-
-        # Now set up the endGroup information
         self._endGroups = []
         self._maxBonds = {}
         self._endGroupBonded = {}
-
         for i, e in enumerate(endGroups):
             eg = ab_endgroup.EndGroup()
             eg.fragment = self
@@ -595,9 +561,7 @@ class Fragment(object):
             eg.fragmentCapIdx = capAtoms[ i ]
             eg.fragmentDihedralIdx = dihedralAtoms[ i ]
             eg.fragmentUwIdx = uwAtoms[ i ]
-
             eg.capBondLength =  xyz_core.distance(self._coords[eg.fragmentCapIdx], self._coords[eg.fragmentEndGroupIdx ])
-
             if eg.type() not in self._maxBonds:
                 self._maxBonds[ eg.type() ] = None
             if eg.type() not in self._endGroupBonded:
@@ -612,14 +576,11 @@ class Fragment(object):
             if eg.fragmentUwIdx != -1:
                 assert eg.fragmentUwIdx in self._bonded[ eg.fragmentEndGroupIdx ], \
             "uwAtom {0} is not bonded to endGroup {1}".format(eg.fragmentUwIdx, eg.fragmentEndGroupIdx)
-
             self._endGroups.append(eg)
-
         # sanity check - make sure no endGroup is the cap Atom for another endGroup
         eg = set([ e.fragmentEndGroupIdx for e in self._endGroups ])
         caps = set([ e.fragmentCapIdx for e in self._endGroups ])
         assert len(eg.intersection(caps)) == 0, "Cap atom for one endGroup is another endGroup!"
-
         return
 
     def setMaxBond(self, endGroupType, maxBond):
@@ -655,7 +616,12 @@ class Fragment(object):
                 ecount += 1
         self.config = [False if eg.free() else True for eg in self._endGroups]
         self.configStr = self._calcConfigStr()
-        return
+
+    def updateCharges(self, charges):
+        """Update the charges on all atoms"""
+        if not len(charges) == len(self._charges):
+            raise RuntimeError("Charges arrays are of different lengths: %s vs %s" % (self._charges, charges))
+        self._charges = np.array(charges)
 
     def __str__(self):
         """List the data attributes of this object"""
@@ -669,4 +635,3 @@ class Fragment(object):
         for i, c in enumerate(self._coords):
             me += "{0}  {1:5} {2:0< 15} {3:0< 15} {4:0< 15} \n".format(i, self._labels[i], c[0], c[1], c[2])
         return "{0} : {1}".format(self.__repr__(), me)
-

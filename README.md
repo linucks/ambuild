@@ -265,6 +265,18 @@ zipBlocks is called thus:
 zipBlocks(bondMargin=5, bondAngleMargin=30, clashTest=True, clashDist=1.6)
 ```
 
+### Updating Blocks
+Blocks can be updated within the cell.
+
+updateFragmentCharges will update the charges on all of the fragments of a given fragmentType within the cell.
+
+This does not change the 'parent' fragment within the cell library so seeding/growing more of the fragments will use the original charges. The arguments to updateFragmentCharges are:
+
+Name | Description
+---- | -----------      
+**fragmentType** | the fragmentType to update the charges for
+**filename** | path to a CAR file with all the charges for the fragmentType specifie
+
 ### Deleting Blocks
 Blocks can be removed from the cell with deleteBlocks command. Its arguments are:
 
