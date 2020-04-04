@@ -2349,7 +2349,15 @@ class Cell():
         return
 
     def updateFragmentCharges(self, fragmentType=None, filename=None):
-        """Update the charges on all of the fragments of a given fragmentType"""
+        """Update the charges on all of the fragments of a given fragmentType within the cell.
+
+        This does not change the 'parent' fragment within the cell library so seeding/growing more
+        of the fragments will use the original charges.
+        
+        Args:
+        fragmentType: the fragmentType to update the charges for
+        filename: path to a CAR file with all the charges for the fragmentType specifie
+        """
         if fragmentType not in self._fragmentLibrary:
             raise RuntimeError("Cannot find fragmentType '%s' in fragmentLibrary" % fragmentType)
         if not os.path.isfile(filename):
