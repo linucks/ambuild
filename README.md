@@ -89,35 +89,29 @@ cd /opt
 git clone https://github.com/linucks/ambuild.git
 ```
 
-#### Run Ambuild
-Paste the following into a file called grow.py
+#### Run Ambuild with Docker
+To run Ambuild with docker a command like that below should be used.
+
+> **NB: the backslash at the end of each line is a continuation character, so the whole block of text is actually a single command and could be typed as a single line.**
+
 ```
-#!/usr/bin/env python3
-import os, sys
-ambuildHome = "/opt/ambuild"
-paramsDir =  'params'
-sys.path.insert(0, ambuildHome)
-
-# This imports the builder cell module - this is the only module that should be required
-from ambuild import ab_cell
-
-# Create Cell and seed it with the blocks
-cellDim=[50,50,50]
-mycell = ab_cell.Cell(cellDim, atomMargin=0.5, bondMargin=0.5, bondAngleMargin=15, paramsDir=paramsDir)
-
-#import the two fragment files if you have 2 different building blocks
-fragA = "blocks/ch4.car"
-
-mycell.libraryAddFragment( filename=fragA, fragmentType='A')
-mycell.addBondType('A:a-A:a')
-
-mycell.seed(1, fragmentType='A', center=True)
-for i in range(1):
-    mycell.growBlocks(toGrow=10, cellEndGroups='A:a', libraryEndGroups='A:a', maxTries=500)
-    mycell.optimiseGeometry()
-    mycell.dump()
+docker run -it --rm \
+--runtime=nvidia \
+--volume "$PWD":/home/glotzerlab \
+--workdir /home/glotzerlab \
+--volume /opt/ambuild/ambuild:/usr/lib/python3/dist-packages/ambuild \
+--volume /opt/ambuild/tests/params:/home/glotzerlab/params \
+glotzerlab/software \
+python3 ambuild_script.py
 ```
+Each line is explained below.
 
-Try running:
+1. ```docker run -it --rm ``` Run docker in interactive mode and remove the container on exit.
 
-```/opt/ambuild/misc/ambuild_docker.py ./grow.py```
+2. ```--runtime=nvidia``` use the Nvidia environment to take advantage of the GPU acceleration.
+3. ```--volume "$PWD":/home/glotzerlab``` Make the current working directory from where this command is run available inside the container as **/home/glotzerlab**/
+4. ```--workdir /home/glotzerlab``` Make the working directory inside the container **/home/glotzerlab** - this means that the current working directory (** "$PWD"**) - will be used as the working directory for running Ambuild.
+5. ```--volume /opt/ambuild/ambuild:/usr/lib/python3/dist-packages/ambuild``` Make the directory **/opt/ambuild/ambuild** on the local filesystem available as **/usr/lib/python3/dist-packages/ambuild** within the container. This makes it possible for the python3 executable within the container to find the ambuild code, so that ```import ambuild``` within the ambuild_script.py works.
+6. ```--volume /opt/ambuild/tests/params:/home/glotzerlab/params``` This is the only optional parameter - it makes the directory **/opt/ambuild/tests/params** available within the container as **/home/glotzerlab/params**, so that this directory will appear as **params** in the current working directory when the script is run. Any additional paths to directories outside the current working directory path will need to be added in this way.
+7. ```glotzerlab/software``` Use the docker image from [glotzerlab/software](https://hub.docker.com/r/glotzerlab/software/). This downloads the file from the docker repository (it's very large - several Gb - so the download can take some time, although it's only done once), and uses this to create the container.
+8. ```python3 ambuild_script.py``` Run the **ambuild_script.py** script, containing the Ambuild commands in the current directory with the python3 executable in the container.
