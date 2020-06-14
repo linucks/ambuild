@@ -2,11 +2,11 @@
 docker run \
 -it \
 --rm \
+--runtime=nvidia \
 --volume "$PWD":/home/glotzerlab \
---volume /opt/ambuild.git/ambuild:/usr/lib/python3/dist-packages/ambuild \
---volume /opt/ambuild.git/params:/home/glotzerlab/params \
---volume /opt/ambuild.git/blocks:/home/glotzerlab/blocks \
---volume /opt/ambuild.git/tests/test_data:/home/glotzerlab/test_data \
+--volume /opt/ambuild/ambuild:/usr/lib/python3/dist-packages/ambuild \
+--volume /opt/ambuild/tests/params:/home/glotzerlab/params \
+--volume /opt/ambuild/tests/blocks:/home/glotzerlab/blocks \
 --workdir /home/glotzerlab \
 glotzerlab/software \
 python3 $*
