@@ -108,12 +108,15 @@ python3 ambuild_script.py
 ```
 Each line is explained below.
 
-1. ```docker run -it --rm ``` Run docker in interactive mode and remove the container on exit.
+1. ```docker run -it --rm ``` run docker in interactive mode and remove the container on exit.
 
 2. ```--runtime=nvidia``` use the Nvidia environment to take advantage of the GPU acceleration.
 3. ```--volume "$PWD":/home/glotzerlab``` Make the current working directory from where this command is run available inside the container as ```/home/glotzerlab```
-4. ```--workdir /home/glotzerlab``` Make the working directory inside the container ```/home/glotzerlab``` - this means that the current working directory where the script is run (specified using the variable ```"$PWD"```) - will be used as the working directory for running Ambuild.
-5. ```--volume /opt/ambuild/ambuild:/usr/lib/python3/dist-packages/ambuild``` Make the directory ```/opt/ambuild/ambuild``` on the local filesystem available as ```/usr/lib/python3/dist-packages/ambuild``` within the container. This makes it possible for the python3 executable within the container to find the ambuild code, so that ```import ambuild``` within the ambuild_script.py works.
-6. ```--volume /home/abbie/Dropbox/Ambuild/params:/home/glotzerlab/params``` This is the only optional parameter - it makes the directory ```/home/abbie/Dropbox/Ambuild/params``` available within the container as ```/home/glotzerlab/params```. Any additional paths to directories outside the current working directory path will need to be added in this way and the ***internal*** container path used within the Ambuild script i.e. the path to the params directory within the Ambuild script would be ```/home/glotzerlab/params``` **NOT** ```/home/abbie/Dropbox/Ambuild/params```.
-7. ```glotzerlab/software``` Use the docker image from [glotzerlab/software](https://hub.docker.com/r/glotzerlab/software/). This downloads the file from the docker repository (it's very large - several Gb - so the download can take some time, although it's only done once), and uses this to create the container.
+4. ```--workdir /home/glotzerlab``` make the working directory inside the container ```/home/glotzerlab``` - this means that the current working directory where the script is run (specified using the variable ```"$PWD"```) - will be used as the working directory for running Ambuild.
+5. ```--volume /opt/ambuild/ambuild:/usr/lib/python3/dist-packages/ambuild```
+   >Make the directory ```/opt/ambuild/ambuild``` on the local filesystem available as ```/usr/lib/python3/dist-packages/ambuild``` within the container. This makes it possible for the python3 executable within the container to find the ambuild code, so that ```import ambuild``` within the ambuild_script.py works.
+6. ```--volume /home/abbie/Dropbox/Ambuild/params:/home/glotzerlab/params```
+   >This is the only optional parameter - it makes the directory ```/home/abbie/Dropbox/Ambuild/params``` available within the container as ```/home/glotzerlab/params```. Any additional paths to directories outside the current working directory path will need to be added in this way and the ***internal*** container path used within the Ambuild script i.e. the path to the params directory within the Ambuild script would be ```/home/glotzerlab/params``` **NOT** ```/home/abbie/Dropbox/Ambuild/params```.
+7. ```glotzerlab/software```
+   >Use the docker image from [glotzerlab/software](https://hub.docker.com/r/glotzerlab/software/). This downloads the file from the docker repository (it's very large - several Gb - so the download can take some time, although it's only done once), and uses this to create the container.
 8. ```python3 ambuild_script.py``` Run the ```ambuild_script.py``` script, containing the Ambuild commands in the current directory with the python3 executable in the container.
