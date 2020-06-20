@@ -2628,8 +2628,8 @@ class Cell():
         d = dict(self.__dict__)
         d['logcsv'] = d['analyse'].logfile
         del d['analyse']
-        if 'MDENGINE' in d:
-            del d['MDENGINE'] # Contains a reference to the hood-blue logger
+        if 'mdEngineCls' in d:
+            del d['mdEngineCls'] # Contains a reference to the hoomd-blue module and logger
         return d
 
     def __setstate__(self, d):
