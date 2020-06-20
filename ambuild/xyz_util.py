@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-'''
+"""
 Created on Feb 3, 2013
 
 @author: jmht
 
 Utility functions
-'''
+"""
 import logging
 import os
 import numpy as np
@@ -21,6 +21,7 @@ logger = logging.getLogger()
 
 DUMMY_DIAMETER = 0.1
 
+
 class BondLength(object):
     """Class to hold calculate bond lengths.
     
@@ -29,6 +30,7 @@ class BondLength(object):
     we initialise this object using a parameter file and set it as a module object for 
     use by the bondLength function
     """
+
     def __init__(self, bond_param_file):
         self.ATOM_TYPE_BOND_LENGTHS = {}
         for p in read_bond_params(bond_param_file):
@@ -36,41 +38,58 @@ class BondLength(object):
                 if p.B in self.ATOM_TYPE_BOND_LENGTHS:
                     self.ATOM_TYPE_BOND_LENGTHS[p.B][p.A] = float(p.r0)
                 else:
-                    self.ATOM_TYPE_BOND_LENGTHS[p.A] = { p.B : float(p.r0) }
+                    self.ATOM_TYPE_BOND_LENGTHS[p.A] = {p.B: float(p.r0)}
             else:
                 self.ATOM_TYPE_BOND_LENGTHS[p.A][p.B] = float(p.r0)
-    
+
     def bondLength(self, atomType1, atomType2):
         """ Get the characteristic lengths of single bonds as defined in:
             Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
         """
         # We first see if we can find the bond length in the ATOM_TYPE_BOND_LENGTHS table
         # If not we fall back to using the bonds calculated from element types
-        if atomType1 in self.ATOM_TYPE_BOND_LENGTHS and atomType2 in self.ATOM_TYPE_BOND_LENGTHS[ atomType1 ]:
-            #print "ATOM TYPE"
-            return self.ATOM_TYPE_BOND_LENGTHS[ atomType1 ][ atomType2 ]
-        elif atomType2 in self.ATOM_TYPE_BOND_LENGTHS and atomType1 in self.ATOM_TYPE_BOND_LENGTHS[ atomType2 ]:
-            #print "ATOM TYPE"
-            return self.ATOM_TYPE_BOND_LENGTHS[ atomType2 ][ atomType1 ]
-        
+        if (
+            atomType1 in self.ATOM_TYPE_BOND_LENGTHS
+            and atomType2 in self.ATOM_TYPE_BOND_LENGTHS[atomType1]
+        ):
+            # print "ATOM TYPE"
+            return self.ATOM_TYPE_BOND_LENGTHS[atomType1][atomType2]
+        elif (
+            atomType2 in self.ATOM_TYPE_BOND_LENGTHS
+            and atomType1 in self.ATOM_TYPE_BOND_LENGTHS[atomType2]
+        ):
+            # print "ATOM TYPE"
+            return self.ATOM_TYPE_BOND_LENGTHS[atomType2][atomType1]
+
         symbol1 = label2symbol(atomType1).upper()
         symbol2 = label2symbol(atomType2).upper()
-        if symbol1 in xyz_core.ELEMENT_TYPE_BOND_LENGTHS and symbol2 in xyz_core.ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ]:
-            #print "ELEMENT TYPE"
-            return xyz_core.ELEMENT_TYPE_BOND_LENGTHS[ symbol1 ][ symbol2 ]
-        elif symbol2 in xyz_core.ELEMENT_TYPE_BOND_LENGTHS and symbol1 in xyz_core.ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ]:
-            #print "ELEMENT TYPE"
-            return xyz_core.ELEMENT_TYPE_BOND_LENGTHS[ symbol2 ][ symbol1 ]
-        warnings.warn('No data for bond length for %s-%s' % (atomType1, atomType2))
+        if (
+            symbol1 in xyz_core.ELEMENT_TYPE_BOND_LENGTHS
+            and symbol2 in xyz_core.ELEMENT_TYPE_BOND_LENGTHS[symbol1]
+        ):
+            # print "ELEMENT TYPE"
+            return xyz_core.ELEMENT_TYPE_BOND_LENGTHS[symbol1][symbol2]
+        elif (
+            symbol2 in xyz_core.ELEMENT_TYPE_BOND_LENGTHS
+            and symbol1 in xyz_core.ELEMENT_TYPE_BOND_LENGTHS[symbol2]
+        ):
+            # print "ELEMENT TYPE"
+            return xyz_core.ELEMENT_TYPE_BOND_LENGTHS[symbol2][symbol1]
+        warnings.warn("No data for bond length for %s-%s" % (atomType1, atomType2))
         return 1.0
 
-# This needs to be set to the bondLength function of the BondLength class 
+
+# This needs to be set to the bondLength function of the BondLength class
 # See cell.Cell_setUtilBondLength
 # We set this to raise an error if unset
-def __STOP(x,y):
-    raise NotImplementedError("Need to set the bondLength function - see setModuleBondLength")
+def __STOP(x, y):
+    raise NotImplementedError(
+        "Need to set the bondLength function - see setModuleBondLength"
+    )
+
+
 bondLength = __STOP
-    
+
 
 def setModuleBondLength(paramFile):
     """Set the bondLength function of the util module"""
@@ -84,26 +103,28 @@ def calcBondsHACK(coords, symbols, bondMargin=0.2):
     """HACK FOR NETWORK"""
     bonds = []
     for i, coord1 in enumerate(coords):
-        symbol1 = symbols[ i ]
+        symbol1 = symbols[i]
         for j, coord2 in enumerate(coords):
             if j < i:
                 continue
-            symbol2 = symbols[ j ]
+            symbol2 = symbols[j]
             dist = xyz_core.distance(coord1, coord2)
-            if symbol1 == 'j' and symbol2 == 'C':
+            if symbol1 == "j" and symbol2 == "C":
                 bond_length = 4.31
-            elif symbol2 == 'j' and symbol1 == 'C':
+            elif symbol2 == "j" and symbol1 == "C":
                 bond_length = 4.31
             else:
                 bond_length = bondLength(symbol1, symbol2)
             # print "GOT ",symbol1,symbol2,bond_length, dist
-            if  bond_length - bondMargin < dist < bond_length + bondMargin:
+            if bond_length - bondMargin < dist < bond_length + bondMargin:
                 # print "BONDING"
                 bonds.append((i, j))
     return bonds
 
 
-def calcBonds(coords, symbols, dim=None, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0):
+def calcBonds(
+    coords, symbols, dim=None, maxAtomRadius=None, bondMargin=0.2, boxMargin=1.0
+):
     """Calculate the bonds for the fragments. This is done at the start when the only coordinates
     are those in the fragment.
     symbols can be chemical elements or atomTypes
@@ -116,17 +137,27 @@ def calcBonds(coords, symbols, dim=None, maxAtomRadius=None, bondMargin=0.2, box
     for idxAtom1, idxAtom2 in close:
         v1.append(coords[idxAtom1])
         v2.append(coords[idxAtom2])
-    
+
     distances = xyz_core.distance(np.array(v1), np.array(v2), dim=dim)
     bonds = []
-    
+
     for i, (idxAtom1, idxAtom2) in enumerate(close):
         bond_length = bondLength(symbols[idxAtom1], symbols[idxAtom2])
-        if bond_length < 0: continue
-        logger.debug("Dist:length {1}({0})-{3}({2}) {4} {5}".format( symbols[idxAtom1], idxAtom1, symbols[idxAtom2], idxAtom2, distances[i], bond_length ))
-        if  bond_length - bondMargin < distances[i] < bond_length + bondMargin:
+        if bond_length < 0:
+            continue
+        logger.debug(
+            "Dist:length {1}({0})-{3}({2}) {4} {5}".format(
+                symbols[idxAtom1],
+                idxAtom1,
+                symbols[idxAtom2],
+                idxAtom2,
+                distances[i],
+                bond_length,
+            )
+        )
+        if bond_length - bondMargin < distances[i] < bond_length + bondMargin:
             bonds.append((idxAtom1, idxAtom2))
-    
+
     # We sort the bonds on return so that results are deterministic and can be tested
     return sorted(bonds)
 
@@ -135,7 +166,13 @@ def closeAtoms(coords, symbols, dim=None, maxAtomRadius=None, boxMargin=1.0):
     """Return a list of which atoms in the cell are close to each other.
     Close is defined by the maxAtomRadius and boxMargin"""
     if maxAtomRadius is None:
-        maxAtomRadius = max([xyz_core.COVALENT_RADII[xyz_core.SYMBOL_TO_NUMBER[s.upper()]] * xyz_core.BOHR2ANGSTROM for s in set(symbols)])
+        maxAtomRadius = max(
+            [
+                xyz_core.COVALENT_RADII[xyz_core.SYMBOL_TO_NUMBER[s.upper()]]
+                * xyz_core.BOHR2ANGSTROM
+                for s in set(symbols)
+            ]
+        )
 
     boxSize = (maxAtomRadius * 2) + boxMargin
     # If we are under PBC calculate the number of boxes in each dimenson
@@ -143,42 +180,46 @@ def closeAtoms(coords, symbols, dim=None, maxAtomRadius=None, boxMargin=1.0):
     if dim is not None:
         if type(dim) is list:
             dim = np.array(dim)
-        boxNum = [int(math.ceil(dim[0] / boxSize)),
-                  int(math.ceil(dim[1] / boxSize)),
-                  int(math.ceil(dim[2] / boxSize))]
+        boxNum = [
+            int(math.ceil(dim[0] / boxSize)),
+            int(math.ceil(dim[1] / boxSize)),
+            int(math.ceil(dim[2] / boxSize)),
+        ]
 
     atomCells = []  # List of which cell each atom is in - matches coords array
     # For cells and hCells, the key is a triple of the indices of the cell position (a,b,c)
     cells = {}  # Dictionary of the cells, each containing a list of atoms in that cell
-    hCells = {}  # Dictionary keyed by cell with a list of the cells that surround a particular cell
+    hCells = (
+        {}
+    )  # Dictionary keyed by cell with a list of the cells that surround a particular cell
 
     # Work out which box each atom is in and the surrounding boxes
     for idxAtom1, coord in enumerate(coords):
         key = getCell(coord, boxSize, dim=dim)
         atomCells.append(key)
         if key in cells:
-            cells[ key ].append(idxAtom1)
+            cells[key].append(idxAtom1)
         else:
             # Add to main list
-            cells[ key ] = [ (idxAtom1) ]
+            cells[key] = [(idxAtom1)]
             # Map surrounding boxes
-            hCells[ key ] = haloCells(key, boxNum=boxNum)
+            hCells[key] = haloCells(key, boxNum=boxNum)
 
     # Now calculate the bonding
     _closeAtoms = []
     for idxAtom1 in range(len(coords)):
-        key = atomCells[ idxAtom1 ]
+        key = atomCells[idxAtom1]
         # Loop through all cells surrounding this one
-        for scell in hCells[ key ]:
+        for scell in hCells[key]:
             # Check if we have a cell with anything in it
             try:
-                alist = cells[ scell ]
+                alist = cells[scell]
             except KeyError:
                 continue  # Trigger exception to save searching through the keys
             for idxAtom2 in alist:
                 if idxAtom2 > idxAtom1:  # Skip atoms we've already processed
                     _closeAtoms.append((idxAtom1, idxAtom2))
-    
+
     return _closeAtoms
 
 
@@ -208,14 +249,14 @@ def haloCells(key, boxNum=None, pbc=[True, True, True]):
     a, b, c = key
     # cells = set()
     cells = set()
-    for  i in [ 0, -1, +1 ]:
-        for j in [ 0, -1, +1 ]:
-            for k in [ 0, -1, +1 ]:
+    for i in [0, -1, +1]:
+        for j in [0, -1, +1]:
+            for k in [0, -1, +1]:
                 ai = a + i
                 bj = b + j
                 ck = c + k
                 if boxNum:
-                    # Impose periodic boundaries 
+                    # Impose periodic boundaries
                     if ai < 0 and pbc[0]:
                         ai = boxNum[0] - 1
                     elif ai > boxNum[0] - 1 and pbc[0]:
@@ -249,46 +290,56 @@ def label2symbol(name):
         # 2 Character name, so see if it matches any 2-character elements
         sym2c = list(filter(lambda x: len(x) == 2, xyz_core.SYMBOL_TO_NUMBER.keys()))
         # HACK: NEED TO REMOVE NP and NB
-        sym2c.remove('NP')
-        sym2c.remove('NB')
+        sym2c.remove("NP")
+        sym2c.remove("NB")
         if name in sym2c:
             return name.capitalize()
     # If it was a valid 2 character symbol we should have picked it up so now only 1 symbol
     name = name[0]
     if not name.isalpha():
-        raise RuntimeError("label2symbol first character of name is not a character: {0}".format(origName))
+        raise RuntimeError(
+            "label2symbol first character of name is not a character: {0}".format(
+                origName
+            )
+        )
     # Hack - for x return x
-    if name.lower() == 'x':
-        return 'x'
+    if name.lower() == "x":
+        return "x"
     # Get 1 character element names
-    sym1c = list(filter(lambda x: len(x) == 1 and x != 'X', xyz_core.SYMBOL_TO_NUMBER.keys()))
+    sym1c = list(
+        filter(lambda x: len(x) == 1 and x != "X", xyz_core.SYMBOL_TO_NUMBER.keys())
+    )
     if name in sym1c:
         return name.capitalize()
-    raise RuntimeError("label2symbol cannot convert name {0} to symbol!".format(origName))
+    raise RuntimeError(
+        "label2symbol cannot convert name {0} to symbol!".format(origName)
+    )
     return
 
 
-def writeCml(cmlFilename,
-             coords,
-             symbols,
-             bonds=None,
-             atomTypes=None,
-             cell=None,
-             pruneBonds=False,
-             prettyPrint=False):
-    
+def writeCml(
+    cmlFilename,
+    coords,
+    symbols,
+    bonds=None,
+    atomTypes=None,
+    cell=None,
+    pruneBonds=False,
+    prettyPrint=False,
+):
+
     assert len(coords) == len(symbols)
     if pruneBonds:
         assert cell is not None
         pcoords = []  # need to save periodic coordinates
 
-    root = ET.Element('molecule')
-    root.attrib['xmlns'] = "http://www.xml-cml.org/schema"
-    root.attrib['xmlns:cml'] = "http://www.xml-cml.org/dict/cml"
-    root.attrib['xmlns:units'] = "http://www.xml-cml.org/units/units"
-    root.attrib['xmlns:xsd'] = "http://www.w3c.org/2001/XMLSchema"
-    root.attrib['xmlns:iupac'] = "http://www.iupac.org"
-    root.attrib['id'] = "mymolecule"
+    root = ET.Element("molecule")
+    root.attrib["xmlns"] = "http://www.xml-cml.org/schema"
+    root.attrib["xmlns:cml"] = "http://www.xml-cml.org/dict/cml"
+    root.attrib["xmlns:units"] = "http://www.xml-cml.org/units/units"
+    root.attrib["xmlns:xsd"] = "http://www.w3c.org/2001/XMLSchema"
+    root.attrib["xmlns:iupac"] = "http://www.iupac.org"
+    root.attrib["id"] = "mymolecule"
 
     if cell is not None:
         # First set up the cell
@@ -328,52 +379,54 @@ def writeCml(cmlFilename,
         # Need to collate atomTypes - sorted to ensure consistency for testing
         for atype in sorted(set(atomTypes)):
             atomTypeNode = ET.SubElement(root, "atomType")
-            atomTypeNode.attrib['name'] = atype
-            atomTypeNode.attrib['title'] = atype
+            atomTypeNode.attrib["name"] = atype
+            atomTypeNode.attrib["title"] = atype
     # Now atom data
     atomArrayNode = ET.SubElement(root, "atomArray")
     for i, coord in enumerate(coords):
         atomNode = ET.SubElement(atomArrayNode, "atom")
-        atomNode.attrib['id'] = "a{0}".format(i)
-        atomNode.attrib['elementType'] = symbols[i]
+        atomNode.attrib["id"] = "a{0}".format(i)
+        atomNode.attrib["elementType"] = symbols[i]
         if cell is not None:
             coord, _ = xyz_core.wrapCoord3(coord, cell, center=False)
             if pruneBonds:
                 pcoords.append(coord)
         x, y, z = coord
-        atomNode.attrib['x3'] = "{:.12}".format(x)
-        atomNode.attrib['y3'] = "{:.12}".format(y)
-        atomNode.attrib['z3'] = "{:.12}".format(z)
+        atomNode.attrib["x3"] = "{:.12}".format(x)
+        atomNode.attrib["y3"] = "{:.12}".format(y)
+        atomNode.attrib["z3"] = "{:.12}".format(z)
         if atomTypes:
             # Now add atomType as child node referring to the atomType
             atomTypeNode = ET.SubElement(atomNode, "atomType")
-            atomTypeNode.attrib['ref'] = atomTypes[ i ]
+            atomTypeNode.attrib["ref"] = atomTypes[i]
     if len(bonds):
         # Now do bonds
         if pruneBonds:
             # Hack to get vis working
             # Calculate all bond distances
-            distances = xyz_core.distance([ pcoords[b1] for b1, b2 in bonds],
-                                  [ pcoords[b2] for b1, b2 in bonds])
+            distances = xyz_core.distance(
+                [pcoords[b1] for b1, b2 in bonds], [pcoords[b2] for b1, b2 in bonds]
+            )
 
             # Complete hack - just see if it's longer then 0.5 the cell A distance - assumes cubic cell
-            bonds = [ b for i, b in enumerate(bonds) if distances[i] <= cell[0] * 0.5 ]
+            bonds = [b for i, b in enumerate(bonds) if distances[i] <= cell[0] * 0.5]
 
         bondArrayNode = ET.SubElement(root, "bondArray")
         for b in bonds:
             bondNode = ET.SubElement(bondArrayNode, "bond")
-            bondNode.attrib['atomRefs2'] = "a{0} a{1}".format(b[0], b[1])
-            bondNode.attrib['order'] = "1"
+            bondNode.attrib["atomRefs2"] = "a{0} a{1}".format(b[0], b[1])
+            bondNode.attrib["order"] = "1"
 
     cmlFilename = os.path.abspath(cmlFilename)
     if prettyPrint:
         estring = xml.dom.minidom.parseString(ET.tostring(root))
-        with open(cmlFilename, 'w') as w:
+        with open(cmlFilename, "w") as w:
             w.write(estring.toprettyxml())
     else:
         tree = ET.ElementTree(root)
         tree.write(cmlFilename, encoding="utf-8", xml_declaration=True)
     return cmlFilename
+
 
 def writeXyz(fileName, coords, symbols, cell=None):
     """Write out an xyz file to fileName
@@ -394,10 +447,11 @@ def writeXyz(fileName, coords, symbols, cell=None):
         x, y, z = coord
         xyz += "{0:5}   {1:0< 15}   {2:0< 15}   {3:0< 15}\n".format(symbols[i], x, y, z)
 
-    with open(fileName, 'w') as f:
+    with open(fileName, "w") as f:
         fpath = os.path.abspath(f.name)
         f.writelines(xyz)
     return fpath
+
 
 def hoomdCml(xmlFilename):
 
@@ -411,7 +465,7 @@ def hoomdCml(xmlFilename):
         line = line.strip()
         if line:
             x, y, z = line.split()
-            coords.append(np.array([ float(x), float(y), float(z) ]))
+            coords.append(np.array([float(x), float(y), float(z)]))
 
     symbols = []
     atext = root.findall(".//type")[0].text
@@ -429,12 +483,14 @@ def hoomdCml(xmlFilename):
             _, b1, b2 = line.split()
             bonds.append((b1, b2))
 
-    writeCml(xmlFilename + ".cml",
-             coords,
-             symbols,
-             bonds=bonds,
-             atomTypes=None,
-             cell=None,
-             pruneBonds=False)
+    writeCml(
+        xmlFilename + ".cml",
+        coords,
+        symbols,
+        bonds=bonds,
+        atomTypes=None,
+        cell=None,
+        pruneBonds=False,
+    )
 
     return

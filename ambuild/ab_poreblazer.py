@@ -2,7 +2,7 @@ import logging
 from ambuild.ab_util import run_command
 
 
-NAME_STEM = 'poreblazer'
+NAME_STEM = "poreblazer"
 
 UFF_ATOMS = """29
 C       3.431   52.8    12.0
@@ -44,42 +44,41 @@ DEFAULTS_DAT = """UFF.atoms
 12.8, 500
 0.2
 20.0, 0.25
-21908391 
+21908391
 2
 
 ! Default forcefield: UFF
 ! Helium atom sigma (A), helium atom epsilon (K), nitrogen atom sigma (A), temperature (K)
-! Cutoff distance (A), accessible surface area coefficient (1.0 for hard sphere 
-! surface, 1.122 for potential minimum surface), number of trials for surface area 
+! Cutoff distance (A), accessible surface area coefficient (1.0 for hard sphere
+! surface, 1.122 for potential minimum surface), number of trials for surface area
 ! calculation
 ! 0.2: Cubelet size (A)
 ! Largest anticipated pore diameter (A), size of the bin for PSD (A)
 ! Random number seed
 
-! Do not change these values unless you know what you are doing 
+! Do not change these values unless you know what you are doing
 """
 
 logger = logging.getLogger()
 
 
 def write_input_dat(xyzin, A, B, C):
-    d = {'xyzin' : xyzin,
-            'A' : A,
-            'B' : B,
-            'C' : C }
+    d = {"xyzin": xyzin, "A": A, "B": B, "C": C}
     input_dat = """{xyzin}
 {A:.4}  {B:.4}  {C:.4}
 90.00  90.00 90.00
-""".format(**d)
-    with open('input.dat', 'w') as w:
+""".format(
+        **d
+    )
+    with open("input.dat", "w") as w:
         w.write(input_dat)
     return input_dat
 
 
 def run_poreblazer(poreblazer_exe, input_dat):
     logger.info("Running poreblazer using executable: {}".format(poreblazer_exe))
-    with open('defaults.dat', 'w') as w:
+    with open("defaults.dat", "w") as w:
         w.write(DEFAULTS_DAT)
-    with open('UFF.atoms', 'w') as w:
+    with open("UFF.atoms", "w") as w:
         w.write(UFF_ATOMS)
-    return run_command([poreblazer_exe], stdin=input_dat, logfile='poreblazer.log')
+    return run_command([poreblazer_exe], stdin=input_dat, logfile="poreblazer.log")

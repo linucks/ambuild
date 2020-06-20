@@ -9,7 +9,7 @@ class CellData(object):
         self.diameters = []
         self.images = []
         self.masses = []
-        self.masked = [] # Atoms that are to be ignored in MD/optimisation
+        self.masked = []  # Atoms that are to be ignored in MD/optimisation
         self.symbols = []
         self.static = []  # If this atom is part of a group that isn't to be moved
         # multi-particle properties

@@ -1,8 +1,8 @@
-'''
+"""
 Created on Jan 15, 2013
 
 @author: abbietrewin
-'''
+"""
 VERSION = "a842475a64c9"
 import collections
 import copy
@@ -35,19 +35,22 @@ ENDGROUPSEP = ":"  # Character for separating endGroups in bonds
 logger = logging.getLogger(__name__)
 
 
-class Cell():
-    '''
+class Cell:
+    """
     classdocs
-    '''
-    def __init__(self,
-                 boxDim=None,
-                 filePath=None,
-                 atomMargin=0.5,
-                 bondMargin=0.5,
-                 bondAngleMargin=15,
-                 paramsDir=None,
-                 debugLog=False):
-        '''Construct an empty cell:
+    """
+
+    def __init__(
+        self,
+        boxDim=None,
+        filePath=None,
+        atomMargin=0.5,
+        bondMargin=0.5,
+        bondAngleMargin=15,
+        paramsDir=None,
+        debugLog=False,
+    ):
+        """Construct an empty cell:
 
         Args:
         boxDim - a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms)
@@ -62,14 +65,16 @@ class Cell():
         debugLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
                 and slows the program.
         paramsDir - path to the directory holding the forcefield parameter csv files (default ../params)
-        '''
+        """
         # For time being origin always 0,0,0
         self.origin = np.array([0, 0, 0], dtype=np.float64)
-        self.dim = None # The cell dimensions
+        self.dim = None  # The cell dimensions
         self.pbc = [True, True, True]
         self.walls = [False, False, False]
         self.wallAtomType = None
-        self.wallRadius = None # (determind from the covalent radius of the wallAtomType)
+        self.wallRadius = (
+            None  # (determind from the covalent radius of the wallAtomType)
+        )
         # additional distance to add on to the characteristic bond length
         # when checking whether 2 atoms are close enough to bond
         self.bondMargin = bondMargin
@@ -98,33 +103,35 @@ class Cell():
         # dictionary mapping id of the block to the block - can't use a list and indices
         # as we add and remove blocks and need to keep track of them
         self.blocks = collections.OrderedDict()
-        self.lastAdded = None # Tracks the id of the last block added to the cell
-        self.newBonds = [] # Tracks recently added bonds
+        self.lastAdded = None  # Tracks the id of the last block added to the cell
+        self.newBonds = []  # Tracks recently added bonds
         self.mdEngineCls = None
-        self._possibleBonds = [] # Holds possible bond after checkMove is run
+        self._possibleBonds = []  # Holds possible bond after checkMove is run
         # Logging functions
         self.logfile = None
         self.logcsv = None
         self.setupLogging(debugLog=debugLog)
         self._setupAnalyse()
         self._fileCount = 0  # for naming output files
-        self._deterministicState = 0 # For adding blocks in a non-random manner (for testing)
+        self._deterministicState = (
+            0  # For adding blocks in a non-random manner (for testing)
+        )
         self.rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
         if not paramsDir:
-                msg = "Need to supply a paramsDir with a path to a directory with parameter files."
-                logger.critical(msg)
-                raise RuntimeError(msg)
+            msg = "Need to supply a paramsDir with a path to a directory with parameter files."
+            logger.critical(msg)
+            raise RuntimeError(msg)
         if not os.path.isdir(paramsDir):
             msg = "Cannot find parameter directory: {0}".format(paramsDir)
             logger.critical(msg)
             raise RuntimeError(msg)
         self.paramsDir = paramsDir
         # Use the parameters to set the bond lengts in the util module
-        xyz_util.setModuleBondLength(os.path.join(paramsDir,'bond_params.csv'))
-        self.version = VERSION # Save as attribute so we can query pickle files
+        xyz_util.setModuleBondLength(os.path.join(paramsDir, "bond_params.csv"))
+        self.version = VERSION  # Save as attribute so we can query pickle files
         logger.info("AMBUILD version: {0}".format(VERSION))
         self.setMdEngineCls(ab_util.HOOMDVERSION)
-        if filePath: # Init from a car file
+        if filePath:
             self.setStaticBlock(filePath)
         if boxDim:
             self.setBoxSize(boxDim)
@@ -185,32 +192,49 @@ class Cell():
 
         Args:
         bondType - a string specifying the two endGroups separated by a "{1}"
-        """.format(ENDGROUPSEP,BONDTYPESEP)
+        """.format(
+            ENDGROUPSEP, BONDTYPESEP
+        )
 
         try:
             b1EndGroupType, b2EndGroupType = bondType.split(BONDTYPESEP)
             b1FragmentType = b1EndGroupType.split(ENDGROUPSEP)[0]
             b2FragmentType = b2EndGroupType.split(ENDGROUPSEP)[0]
         except ValueError:
-            raise RuntimeError("Error adding BondType {0} - string needs to be of form 'A:a-B:b'".format(bondType))
+            raise RuntimeError(
+                "Error adding BondType {0} - string needs to be of form 'A:a-B:b'".format(
+                    bondType
+                )
+            )
 
         # Checks
         # HACK FOR ADDING * TO SHOW BONDED GROUPS
-        assert b1FragmentType in self._fragmentLibrary, \
-        "No fragment type {0} in fragmentLibrary".format(b1FragmentType)
+        assert (
+            b1FragmentType in self._fragmentLibrary
+        ), "No fragment type {0} in fragmentLibrary".format(b1FragmentType)
         if not b1EndGroupType.endswith(ab_endgroup.ENDGROUPBONDED):
-            assert b1EndGroupType in self._fragmentLibrary[ b1FragmentType ].endGroupTypes(), \
-            "Fragment type {0} has no endGroup type {1}".format(b1FragmentType, b1EndGroupType)
+            assert (
+                b1EndGroupType in self._fragmentLibrary[b1FragmentType].endGroupTypes()
+            ), "Fragment type {0} has no endGroup type {1}".format(
+                b1FragmentType, b1EndGroupType
+            )
 
-            assert b1EndGroupType in self._endGroup2LibraryFragment.keys(), \
-            "No endGroup type {0} in fragmentLibrary!".format(b1EndGroupType)
-        assert b2FragmentType in self._fragmentLibrary, "No fragment type {0} in fragmentLibrary".format(b2FragmentType)
+            assert (
+                b1EndGroupType in self._endGroup2LibraryFragment.keys()
+            ), "No endGroup type {0} in fragmentLibrary!".format(b1EndGroupType)
+        assert (
+            b2FragmentType in self._fragmentLibrary
+        ), "No fragment type {0} in fragmentLibrary".format(b2FragmentType)
         if not b2EndGroupType.endswith(ab_endgroup.ENDGROUPBONDED):
-            assert b2EndGroupType in self._fragmentLibrary[ b2FragmentType ].endGroupTypes(), \
-            "Fragment type {0} has no endGroup type {1}".format(b2FragmentType, b2EndGroupType)
+            assert (
+                b2EndGroupType in self._fragmentLibrary[b2FragmentType].endGroupTypes()
+            ), "Fragment type {0} has no endGroup type {1}".format(
+                b2FragmentType, b2EndGroupType
+            )
 
-            assert b2EndGroupType in self._endGroup2LibraryFragment.keys(), \
-            "No endGroup type {0} in fragmentLibrary!".format(b2EndGroupType)
+            assert (
+                b2EndGroupType in self._endGroup2LibraryFragment.keys()
+            ), "No endGroup type {0} in fragmentLibrary!".format(b2EndGroupType)
 
         bt = (b1EndGroupType, b2EndGroupType)
         if bt in self.bondTypes:
@@ -256,7 +280,7 @@ class Cell():
 
         # Now add growBlock to the cell so we can check for clashes
         blockId = self.addBlock(growBlock)
-        #logger.debug("GOT {0} {1}".format(staticEndGroup, growEndGroup))
+        # logger.debug("GOT {0} {1}".format(staticEndGroup, growEndGroup))
 
         # Check it doesn't clash
         if self.checkMove(blockId) and self.processBonds() > 0:
@@ -273,7 +297,7 @@ class Cell():
 
             # Determine the axis and center to rotate about
             blockEndGroup = growBlock.coord(growEndGroup.endGroupIdx())
-            blockS = self.blocks[ idxStaticBlock ]
+            blockS = self.blocks[idxStaticBlock]
             blockSEndGroup = blockS.coord(staticEndGroup.endGroupIdx())
             axis = blockSEndGroup - blockEndGroup
             center = blockSEndGroup
@@ -284,10 +308,13 @@ class Cell():
                 # remove the growBlock from the cell
                 self.delBlock(blockId)
                 # rotate by increment
-                logger.debug("attachBlock rotating by {0} to {1}".format(math.degrees(step),
-                                                                         math.degrees(angle)))
+                logger.debug(
+                    "attachBlock rotating by {0} to {1}".format(
+                        math.degrees(step), math.degrees(angle)
+                    )
+                )
                 growBlock.rotate(axis, angle, center=center)
-                self.addBlock(growBlock) # add it and check
+                self.addBlock(growBlock)  # add it and check
                 if self.checkMove(blockId) and self.processBonds() > 0:
                     logger.debug("attachBlock rotate worked")
                     return True
@@ -319,7 +346,7 @@ class Cell():
         """
         logger.debug("cell bondBlock: {0}".format(bond))
         # logger.debug("before bond: {0} - {1}".format( bond.idxBlock1, bond.block1._bondObjects) )
-        selfBond = True# HACK
+        selfBond = True  # HACK
         # We need to remove the block even if we are bonding to self as we need to recalculate the atomCell list
         if bond.isInternalBond() and not selfBond:
             logger.info("bondBlock skipped self-bonded Block")
@@ -336,8 +363,10 @@ class Cell():
     def bondClash(self, bond, clashDist):
         """Check if any atoms are clashDist from bond.
         """
-        if  clashDist > self.boxSize:
-            raise RuntimeError("clashDist needs to be less than the boxSize: {0}".format(self.boxSize))
+        if clashDist > self.boxSize:
+            raise RuntimeError(
+                "clashDist needs to be less than the boxSize: {0}".format(self.boxSize)
+            )
         # Create bond coordinates method
         idxAtom1 = bond.endGroup1.endGroupIdx()
         idxCap1 = bond.endGroup1.capIdx()
@@ -353,8 +382,10 @@ class Cell():
         # Now build up a list of the cells surrounding the cells on the bond vector
         allcells = set(cells)
         for cell in cells:
-            try: surround = self.box3[cell]
-            except KeyError: continue
+            try:
+                surround = self.box3[cell]
+            except KeyError:
+                continue
             allcells.update(surround)
 
         # loop through all the atoms in the cells
@@ -366,10 +397,16 @@ class Cell():
                 continue
             for (idxBlock3, idxAtom3) in atomList:
                 # Dont' check the bond atoms or the cap atoms
-                if idxBlock3 == idxBlock1 and idxAtom3 == idxAtom1 or \
-                idxBlock3 == idxBlock2 and idxAtom3 == idxAtom2 or \
-                idxBlock3 == idxBlock1 and idxAtom3 == idxCap1 or \
-                idxBlock3 == idxBlock2 and idxAtom3 == idxCap2:
+                if (
+                    idxBlock3 == idxBlock1
+                    and idxAtom3 == idxAtom1
+                    or idxBlock3 == idxBlock2
+                    and idxAtom3 == idxAtom2
+                    or idxBlock3 == idxBlock1
+                    and idxAtom3 == idxCap1
+                    or idxBlock3 == idxBlock2
+                    and idxAtom3 == idxCap2
+                ):
                     continue
                 block3 = self.blocks[idxBlock3]
                 if block3.solvent():
@@ -394,12 +431,18 @@ class Cell():
         """A CAT bonded to two PAF goups"""
         # See if either of the blocks connected is the cat
         cfrag = None
-        if bond.rootFragment.catalyst and bond.targetFragment.fragmentType in fragmentTypes:
+        if (
+            bond.rootFragment.catalyst
+            and bond.targetFragment.fragmentType in fragmentTypes
+        ):
             cfrag = bond.rootFragment
-        elif bond.targetFragment.catalyst and bond.rootFragment.fragmentType in fragmentTypes:
+        elif (
+            bond.targetFragment.catalyst
+            and bond.rootFragment.fragmentType in fragmentTypes
+        ):
             cfrag = bond.targetFragment
         else:
-            return False # Nothing to do
+            return False  # Nothing to do
 
         # The block may have multiple fragments, but we are only interested in this cat fragment
         # and if this has two bonds made to it and both are to PAF
@@ -416,21 +459,31 @@ class Cell():
         cat = catEG1.block()
         bond1, bond2 = None, None
         for bond in cat._blockBonds:
-            if bond.endGroup1 in [catEG1, catEG2] and bond.targetFragment.fragmentType in fragmentTypes:
+            if (
+                bond.endGroup1 in [catEG1, catEG2]
+                and bond.targetFragment.fragmentType in fragmentTypes
+            ):
                 if bond1:
                     assert not bond2
                     bond2 = bond
                 else:
                     bond1 = bond
-            elif bond.endGroup2 in [catEG1, catEG2] and bond.rootFragment.fragmentType in fragmentTypes:
+            elif (
+                bond.endGroup2 in [catEG1, catEG2]
+                and bond.rootFragment.fragmentType in fragmentTypes
+            ):
                 if bond1:
                     assert not bond2
                     bond2 = bond
                 else:
                     bond1 = bond
-        #assert paf1EG and paf2EG,"Could not find two PAF endGroups: {0}".format([str(b) for b in cat._blockBonds])
-        if  bond1 is None or bond2 is None:
-            logger.info("Could not find two PAF-cat bonds : {0}".format([str(b) for b in cat._blockBonds]))
+        # assert paf1EG and paf2EG,"Could not find two PAF endGroups: {0}".format([str(b) for b in cat._blockBonds])
+        if bond1 is None or bond2 is None:
+            logger.info(
+                "Could not find two PAF-cat bonds : {0}".format(
+                    [str(b) for b in cat._blockBonds]
+                )
+            )
             return
         return self._joinPaf(fragmentTypes, bond1, bond2)
 
@@ -466,7 +519,7 @@ class Cell():
 
         # First check if this bond is between 2 cat groups
         if not (cat1EG.bondedCatalyst() and cat2EG.bondedCatalyst()):
-            return False # Nothing to do
+            return False  # Nothing to do
         logger.info("_cat2Paf2 processing bond: {0}".format(cc_bond))
 
         # Select the block that is to contain all the fragments - we call it cat1 as we're going to break
@@ -480,14 +533,20 @@ class Cell():
         paf1EG = None
         paf2EG = None
         for bond in cat1._blockBonds:
-            if bond.rootFragment.fragmentType in fragmentTypes and bond.endGroup2.fragment in [cat1EG.fragment, cat2EG.fragment]:
+            if (
+                bond.rootFragment.fragmentType in fragmentTypes
+                and bond.endGroup2.fragment in [cat1EG.fragment, cat2EG.fragment]
+            ):
                 if bond.targetFragment == cat1EG.fragment:
                     paf1EG = bond.endGroup1
                     bond1 = bond
                 else:
                     paf2EG = bond.endGroup1
                     bond2 = bond
-            elif bond.targetFragment.fragmentType in fragmentTypes and bond.rootFragment in [cat1EG.fragment,cat2EG.fragment]:
+            elif (
+                bond.targetFragment.fragmentType in fragmentTypes
+                and bond.rootFragment in [cat1EG.fragment, cat2EG.fragment]
+            ):
                 if bond.rootFragment == cat1EG.fragment:
                     paf1EG = bond.endGroup2
                     bond1 = bond
@@ -495,7 +554,7 @@ class Cell():
                     paf2EG = bond.endGroup2
                     bond2 = bond
 
-        assert paf1EG and paf2EG,"Could not find PAF endGroups"
+        assert paf1EG and paf2EG, "Could not find PAF endGroups"
 
         # Break the bond between the two cat blocks
         cat2 = cat1.deleteBond(cc_bond, root=cat1EG.fragment)
@@ -507,16 +566,18 @@ class Cell():
         # off the PAF block
         if cat2:
             # We ignore paf2 as it's only the container for the paf fragment, which is joined to cat1 below using the endGroup
-            paf2 = cat2.deleteBond(bond2,root=cat2EG.fragment)
+            paf2 = cat2.deleteBond(bond2, root=cat2EG.fragment)
         else:
-            logger.info("Breaking bond cat-cat did not create two blocks so PAF blocks are joined in a chain")
-            cat2 = cat1.deleteBond(bond2,root=paf2EG.fragment)
+            logger.info(
+                "Breaking bond cat-cat did not create two blocks so PAF blocks are joined in a chain"
+            )
+            cat2 = cat1.deleteBond(bond2, root=paf2EG.fragment)
 
         # Put the separated off catalyst back in the cell
         self.addBlock(cat2)
 
         # Now bond the PAF to the first catalyst
-        cp_bond1 = ab_bond.Bond(cat1EG,paf2EG)
+        cp_bond1 = ab_bond.Bond(cat1EG, paf2EG)
         cat1.bondBlock(cp_bond1)
 
         # Put the newly bonded cat block back in the cell
@@ -524,7 +585,7 @@ class Cell():
 
         # Run optimisation to move CAT away
         logger.info("_cat2Paf2 Optimisation")
-        #self.dump()
+        # self.dump()
         self.optimiseGeometry(rigidBody=True, quiet=True, dt=0.00001, optCycles=1000000)
 
         # Now dealing with a CAT bonded to two PAF groups
@@ -537,7 +598,7 @@ class Cell():
             if bond.targetFragment.catalyst and bond.endGroup1 == paf1EG:
                 cp_bond2 = bond
                 break
-        assert cp_bond2,"Could not find second cat/PAF bond"
+        assert cp_bond2, "Could not find second cat/PAF bond"
         self._joinPaf(fragmentTypes, cp_bond1, cp_bond2)
         return True
 
@@ -546,23 +607,37 @@ class Cell():
 
         logger.info("Entering _joinPaf: {0} {1}".format(bond1, bond2))
         # Get the PAF endgroups and the block
-        catBlock = bond1.endGroup1.block() # should all be part of the same block
+        catBlock = bond1.endGroup1.block()  # should all be part of the same block
         catEG, paf1EG, paf2EG = None, None, None
-        if bond1.rootFragment.fragmentType in fragmentTypes and bond1.targetFragment.catalyst:
+        if (
+            bond1.rootFragment.fragmentType in fragmentTypes
+            and bond1.targetFragment.catalyst
+        ):
             paf1EG = bond1.endGroup1
             catEG = bond1.endGroup2
-        elif bond1.rootFragment.catalyst and bond1.targetFragment.fragmentType in fragmentTypes:
+        elif (
+            bond1.rootFragment.catalyst
+            and bond1.targetFragment.fragmentType in fragmentTypes
+        ):
             paf1EG = bond1.endGroup2
             catEG = bond1.endGroup1
 
-        if bond2.rootFragment.fragmentType in fragmentTypes and bond2.targetFragment.catalyst:
+        if (
+            bond2.rootFragment.fragmentType in fragmentTypes
+            and bond2.targetFragment.catalyst
+        ):
             paf2EG = bond2.endGroup1
-            #catEG = bond2.endGroup2
-        elif bond2.rootFragment.catalyst and bond2.targetFragment.fragmentType in fragmentTypes:
+            # catEG = bond2.endGroup2
+        elif (
+            bond2.rootFragment.catalyst
+            and bond2.targetFragment.fragmentType in fragmentTypes
+        ):
             paf2EG = bond2.endGroup2
-            #catEG = bond2.endGroup1
+            # catEG = bond2.endGroup1
 
-        assert catEG and paf1EG and paf2EG, "Could not find endGroups: {0} {1}".format(bond1, bond2)
+        assert catEG and paf1EG and paf2EG, "Could not find endGroups: {0} {1}".format(
+            bond1, bond2
+        )
 
         self.delBlock(catBlock.id)
         paf1 = catBlock.deleteBond(bond1, root=catEG.fragment)
@@ -577,12 +652,12 @@ class Cell():
             self.addBlock(paf2)
 
         # We now need to bond the two PAF groups
-        assert paf1EG.free() and paf2EG.free(),"PAF endgroups aren't free!"
+        assert paf1EG.free() and paf2EG.free(), "PAF endgroups aren't free!"
         bond = ab_bond.Bond(paf1EG, paf2EG)
         self.bondBlock(bond)
-        #self.dump()
-        #self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False)
-        #self.clearUnbonded()
+        # self.dump()
+        # self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False)
+        # self.clearUnbonded()
         return True
 
     def clearUnbonded(self):
@@ -594,49 +669,74 @@ class Cell():
 
     def cat1Paf2(self, fragmentTypes, dt=0.00001, optCycles=1000000):
         """Function to unbond a Ni-catalyst bonded to two PAF groups"""
-        assert type(fragmentTypes) is list and len(fragmentTypes) > 0 and all([type(f) is str for f in fragmentTypes]),\
-            "Need a list of fragmentTypes"
+        assert (
+            type(fragmentTypes) is list
+            and len(fragmentTypes) > 0
+            and all([type(f) is str for f in fragmentTypes])
+        ), "Need a list of fragmentTypes"
         if not len(self.newBonds):
             return False
-        #logger.info("ca1tPaf2 got new bonds %s" % [str(b) for b in self.newBonds ])
+        # logger.info("ca1tPaf2 got new bonds %s" % [str(b) for b in self.newBonds ])
         nbonds = len([self._cat1Paf2(b, fragmentTypes) for b in self.newBonds])
         if nbonds > 0:
-            logger.info("cat1Paf2 undertook %d processes. Now running optimisation", nbonds)
-            self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1)
+            logger.info(
+                "cat1Paf2 undertook %d processes. Now running optimisation", nbonds
+            )
+            self.optimiseGeometry(
+                rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1
+            )
             self.clearUnbonded()
             return True
         return False
 
     def cat2Paf2(self, fragmentTypes, dt=0.00001, optCycles=1000000):
         """Function to unbond a Ni-catalyst bonded to two PAF groups"""
-        assert type(fragmentTypes) is list and len(fragmentTypes) > 0 and all([type(f) is str for f in fragmentTypes]),"Need a list of fragmentTypes"
-        if not len(self.newBonds): return False
-        #logger.info("cat2Paf2 got new bonds %s" % [str(b) for b in self.newBonds ])
+        assert (
+            type(fragmentTypes) is list
+            and len(fragmentTypes) > 0
+            and all([type(f) is str for f in fragmentTypes])
+        ), "Need a list of fragmentTypes"
+        if not len(self.newBonds):
+            return False
+        # logger.info("cat2Paf2 got new bonds %s" % [str(b) for b in self.newBonds ])
         nbonds = len([self._cat2Paf2(b, fragmentTypes) for b in self.newBonds])
         if nbonds > 0:
-            logger.info("cat2Paf2 undertook %d processes. Now running optimisation", nbonds)
-            self.optimiseGeometry(rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1)
+            logger.info(
+                "cat2Paf2 undertook %d processes. Now running optimisation", nbonds
+            )
+            self.optimiseGeometry(
+                rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1
+            )
             self.clearUnbonded()
             return True
         return False
-            
-    def canBond(self,
-                 staticBlock,
-                 idxStaticAtom,
-                 addBlock,
-                 idxAddAtom,
-                 distance,
-                 bondMargin,
-                 bondAngleMargin):
+
+    def canBond(
+        self,
+        staticBlock,
+        idxStaticAtom,
+        addBlock,
+        idxAddAtom,
+        distance,
+        bondMargin,
+        bondAngleMargin,
+    ):
         # The check should have been made before this is called on whether the two atoms are endGroup
         # Check length
-        bond_length = xyz_util.bondLength(addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom))
+        bond_length = xyz_util.bondLength(
+            addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom)
+        )
         if bond_length < 0:
-            raise RuntimeError("Missing bond distance for: {0}-{1}".format(addBlock.symbol(idxAddAtom),
-                                                                            staticBlock.symbol(idxStaticAtom)))
+            raise RuntimeError(
+                "Missing bond distance for: {0}-{1}".format(
+                    addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom)
+                )
+            )
         # See if the distance between them is acceptable
         # print "CHECKING BOND ATOMS ",bond_length,self.distance( addCoord, staticCoord )
-        if  not (max(0.1, bond_length - bondMargin) < distance < bond_length + bondMargin):
+        if not (
+            max(0.1, bond_length - bondMargin) < distance < bond_length + bondMargin
+        ):
             logger.debug("Cannot bond due to distance: {0}".format(distance))
             return False
         # Now loop over all endGroups seeing if any of the angles are satisfied
@@ -647,11 +747,14 @@ class Cell():
                     break
                 assert staticEndGroup.free() and addEndGroup.free()
                 # We need to check that we've not already added these endGroups as possible bonds
-                if self._endGroupsInPossibleBonds([ staticEndGroup, addEndGroup ]):
+                if self._endGroupsInPossibleBonds([staticEndGroup, addEndGroup]):
                     continue
                 if not self.bondAllowed(staticEndGroup, addEndGroup):
-                    logger.debug("Bond disallowed by bonding rules: {0} : {1}".format(staticEndGroup,
-                                                                                      addEndGroup))
+                    logger.debug(
+                        "Bond disallowed by bonding rules: {0} : {1}".format(
+                            staticEndGroup, addEndGroup
+                        )
+                    )
                     continue
                 # print "Possible bond for {0} {1} {2} dist {3}".format( idxAddAtom,
                 #                                                       idxStaticBlock,
@@ -670,18 +773,31 @@ class Cell():
                 #                             (self.bondAngle+bondAngleMargin) * util.RADIANS2DEGREES  )
 
                 # Check if atoms are in line (zero degrees) within margin
-                if not ((0.0 - bondAngleMargin < angle1 < 0.0 + bondAngleMargin and \
-                           0.0 - bondAngleMargin < angle2 < 0.0 + bondAngleMargin)):
-                    logger.debug("Cannot bond due to angles: {0} : {1}".format(math.degrees(angle1),
-                                                                               math.degrees(angle2)))
+                if not (
+                    (
+                        0.0 - bondAngleMargin < angle1 < 0.0 + bondAngleMargin
+                        and 0.0 - bondAngleMargin < angle2 < 0.0 + bondAngleMargin
+                    )
+                ):
+                    logger.debug(
+                        "Cannot bond due to angles: {0} : {1}".format(
+                            math.degrees(angle1), math.degrees(angle2)
+                        )
+                    )
                     continue
-                logger.debug("Acceptable bond with angles: {0} : {1} | distance {2}".format(math.degrees(angle1),
-                                                                                            math.degrees(angle2),
-                                                                                            distance))
+                logger.debug(
+                    "Acceptable bond with angles: {0} : {1} | distance {2}".format(
+                        math.degrees(angle1), math.degrees(angle2), distance
+                    )
+                )
                 # Create bond object and set the parameters
                 bond = ab_bond.Bond(staticEndGroup, addEndGroup)
                 self._possibleBonds.append(bond)
-                logger.debug("canBond returning True with bonds: {0}".format([str(b) for b in self._possibleBonds]))
+                logger.debug(
+                    "canBond returning True with bonds: {0}".format(
+                        [str(b) for b in self._possibleBonds]
+                    )
+                )
                 return True
 
         logger.debug("canBond returning False")
@@ -689,7 +805,7 @@ class Cell():
 
     def capBlocks(self, fragmentType=None, filename=None):
         # Create the cap block
-        capBlock = ab_block.Block(filePath=filename, fragmentType='cap')
+        capBlock = ab_block.Block(filePath=filename, fragmentType="cap")
         # The endgroup is always the first only endGroup
         capEndGroup = capBlock.freeEndGroups()[0]
         # Get a list of blocks - need to do it this way or else we are changing the list of blocks while
@@ -698,11 +814,16 @@ class Cell():
         for blockId, block in cblocks.items():
 
             if block.numFreeEndGroups() == 0:
-                logger.info("capBlocks block {0} already has no free endGroups".format(blockId))
+                logger.info(
+                    "capBlocks block {0} already has no free endGroups".format(blockId)
+                )
                 continue
             else:
-                logger.info("capBlocks capping {0} endGroups of block {1}".format(block.numFreeEndGroups(),
-                                                                                        blockId))
+                logger.info(
+                    "capBlocks capping {0} endGroups of block {1}".format(
+                        block.numFreeEndGroups(), blockId
+                    )
+                )
             # If there are no free this won't loop
             for endGroup in block.freeEndGroups(endGroupTypes=[fragmentType]):
                 cblock = capBlock.copy()
@@ -710,9 +831,13 @@ class Cell():
                 idxBlock = self.addBlock(cblock)
                 # Test for Clashes with other blocks
                 if self.checkMove(idxBlock) and self.processBonds() > 0:
-                    logger.info("Capped block {0} endGroup {1}".format(blockId, endGroup))
+                    logger.info(
+                        "Capped block {0} endGroup {1}".format(blockId, endGroup)
+                    )
                 else:
-                    logger.critical("Failed to cap block {0} endGroup {1}".format(blockId, endGroup))
+                    logger.critical(
+                        "Failed to cap block {0} endGroup {1}".format(blockId, endGroup)
+                    )
                     # Unsuccessful so remove the block from cell
                     self.delBlock(idxBlock)
         return
@@ -728,41 +853,52 @@ class Cell():
         get pairs of close atoms
 
         """
-        close, wallClashes = self.closeAtoms(idxAddBlock, walls=self.walls) # Get a list of the close atoms
+        close, wallClashes = self.closeAtoms(
+            idxAddBlock, walls=self.walls
+        )  # Get a list of the close atoms
         if wallClashes:
             logger.debug("_checkMove got clash with wall")
             return 1
         if len(close) is 0:
             logger.debug("_checkMove no close contacts")
             return 0
-        addBlock = self.blocks[ idxAddBlock ]
+        addBlock = self.blocks[idxAddBlock]
         clashAtoms = []
         self._possibleBonds = []
         for (idxAddAtom, staticBlock, idxStaticAtom, distance) in close:
-#             logger.debug("CHECKING  ATOMS {}:{} {} -> {}:{} {}= {}".format( idxAddBlock,
-#                                                               idxAddAtom,
-#                                                               addBlock.symbol(idxAddAtom),
-#                                                               staticBlock.id,
-#                                                               idxStaticAtom,
-#                                                               staticBlock.symbol( idxStaticAtom ),
-#                                                               distance ))
-            if not (addBlock.isEndGroup(idxAddAtom) and \
-                     staticBlock.isEndGroup(idxStaticAtom) and \
-                     self.canBond(staticBlock,
-                                   idxStaticAtom,
-                                   addBlock,
-                                   idxAddAtom,
-                                   distance,
-                                   self.bondMargin,
-                                   self.bondAngleMargin)
-                    ):
+            #             logger.debug("CHECKING  ATOMS {}:{} {} -> {}:{} {}= {}".format( idxAddBlock,
+            #                                                               idxAddAtom,
+            #                                                               addBlock.symbol(idxAddAtom),
+            #                                                               staticBlock.id,
+            #                                                               idxStaticAtom,
+            #                                                               staticBlock.symbol( idxStaticAtom ),
+            #                                                               distance ))
+            if not (
+                addBlock.isEndGroup(idxAddAtom)
+                and staticBlock.isEndGroup(idxStaticAtom)
+                and self.canBond(
+                    staticBlock,
+                    idxStaticAtom,
+                    addBlock,
+                    idxAddAtom,
+                    distance,
+                    self.bondMargin,
+                    self.bondAngleMargin,
+                )
+            ):
                 # No bond so just check if the two atoms are close enough for a clash
-                d = addBlock.radius(idxAddAtom) + staticBlock.radius(idxStaticAtom) + self.atomMargin
+                d = (
+                    addBlock.radius(idxAddAtom)
+                    + staticBlock.radius(idxStaticAtom)
+                    + self.atomMargin
+                )
                 if distance <= d:
-                    #logger.debug("CLASH {}{}->{}{} = {} > {}".format( addBlock.type(idxAddAtom), addBlock.coord(idxAddAtom),\
+                    # logger.debug("CLASH {}{}->{}{} = {} > {}".format( addBlock.type(idxAddAtom), addBlock.coord(idxAddAtom),\
                     #                                           staticBlock.type(idxStaticAtom), staticBlock.coord(idxStaticAtom), \
                     #                                       d, distance  ))
-                    clashAtoms.append((staticBlock, idxStaticAtom, addBlock, idxAddAtom))
+                    clashAtoms.append(
+                        (staticBlock, idxStaticAtom, addBlock, idxAddAtom)
+                    )
 
         # Now have list of possible bonds and clashes
         # Nothing so return True
@@ -793,18 +929,30 @@ class Cell():
             b1BondAtoms.remove(b1Cap)
             b2BondAtoms = b2Block.atomBonded1(b2EndGroup)
             b2BondAtoms.remove(b2Cap)
-            toGo = []  # Need to remember indices as we can't remove from a list while we cycle through it
-            for i, (cellBlock, idxCellAtom, addBlock, idxAddAtom) in enumerate(clashAtoms):
+            toGo = (
+                []
+            )  # Need to remember indices as we can't remove from a list while we cycle through it
+            for i, (cellBlock, idxCellAtom, addBlock, idxAddAtom) in enumerate(
+                clashAtoms
+            ):
                 # logger.debug("CHECKING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                 # Remove any clashes with the cap atoms
-                if (b1Block == cellBlock and idxCellAtom == b1Cap) or \
-                   (b2Block == addBlock  and idxAddAtom == b2Cap):
+                if (b1Block == cellBlock and idxCellAtom == b1Cap) or (
+                    b2Block == addBlock and idxAddAtom == b2Cap
+                ):
                     # logger.debug("REMOVING {0} {1} {2} {3}".format( idxAddBlock, idxAddAtom, idxStaticBlock, idxStaticAtom ) )
                     toGo.append(i)
                     continue
                 # remove any clashes with directly bonded atoms
-                if (b1Block == cellBlock and idxCellAtom == b1EndGroup and idxAddAtom  in b2BondAtoms) or \
-                   (b2Block == b2Block   and idxAddAtom == b2EndGroup and idxCellAtom in b1BondAtoms):
+                if (
+                    b1Block == cellBlock
+                    and idxCellAtom == b1EndGroup
+                    and idxAddAtom in b2BondAtoms
+                ) or (
+                    b2Block == b2Block
+                    and idxAddAtom == b2EndGroup
+                    and idxCellAtom in b1BondAtoms
+                ):
                     # logger.info( "REMOVING BOND ATOMS FROM CLASH TEST" )
                     toGo.append(i)
             # End of loop so now remove the items
@@ -848,21 +996,26 @@ class Cell():
         c2 = []
         allContacts = []
         count = 0
-        block1 = self.blocks[ idxBlock1 ]
+        block1 = self.blocks[idxBlock1]
         wallCheck = False if walls is None else any(walls)
         for idxAtom1, coord1 in enumerate(block1.iterCoord()):
 
             # First check if the atom is close to a wall
             if wallCheck:
                 radius = block1.radius(idxAtom1) + self.wallRadius + self.atomMargin
-                if walls[0] and (coord1[0] < radius or coord1[0] > self.dim[0] - radius) or \
-                   walls[1] and (coord1[1] < radius or coord1[1] > self.dim[1] - radius) or \
-                   walls[2] and (coord1[2] < radius or coord1[2] > self.dim[2] - radius):
+                if (
+                    walls[0]
+                    and (coord1[0] < radius or coord1[0] > self.dim[0] - radius)
+                    or walls[1]
+                    and (coord1[1] < radius or coord1[1] > self.dim[1] - radius)
+                    or walls[2]
+                    and (coord1[2] < radius or coord1[2] > self.dim[2] - radius)
+                ):
                     # Got a clash with a wall, so we can stop all other checks
                     return None, True
 
             # Get the box this atom is in
-            key = block1.atomCell[ idxAtom1 ]
+            key = block1.atomCell[idxAtom1]
             # Skip checking dummy atoms
             if key is None:
                 continue
@@ -872,7 +1025,7 @@ class Cell():
                 # For each box, get the list of the atoms as (block,coord1) tuples
                 # Check if we have a box with anything in it
                 try:
-                    alist = self.box1[ sbox ]
+                    alist = self.box1[sbox]
                 except KeyError:
                     continue
                 for (idxBlock2, idxAtom2) in alist:
@@ -890,21 +1043,32 @@ class Cell():
         # Calculate array of distances for all coordinates
         distances = self.distance(np.array(c1), np.array(c2))
         # prune contacts array according to distances
-        return [ (c[0], c[1], c[2], distances[i]) for i, c in enumerate(allContacts) if distances[i] < self.boxSize ], False
+        return (
+            [
+                (c[0], c[1], c[2], distances[i])
+                for i, c in enumerate(allContacts)
+                if distances[i] < self.boxSize
+            ],
+            False,
+        )
 
     def cellEndGroupPair(self, cellEndGroups=None):
         """Return two free endGroups from two different blocks in the cell"""
         # Get a list of available free endGroups in the cell
         endGroupTypes2Block = self.endGroupTypes2Block()
         if len(endGroupTypes2Block.keys()) == 0:
-            logger.critical("cellEndGroupPair: No available endGroups for: {0}".format(cellEndGroups))
+            logger.critical(
+                "cellEndGroupPair: No available endGroups for: {0}".format(
+                    cellEndGroups
+                )
+            )
             return None, None
         # If the user supplied a list of cellEndGroups we use this to determine what can bond -
         # other wise we use all available endGroups
         allTypes = endGroupTypes2Block.keys()  # just for informing the user
         if cellEndGroups is not None:
             if isinstance(cellEndGroups, str):
-                cellEndGroups = [ cellEndGroups ]
+                cellEndGroups = [cellEndGroups]
             cellEndGroups = set(cellEndGroups)
         else:
             cellEndGroups = set(endGroupTypes2Block.keys())
@@ -914,50 +1078,78 @@ class Cell():
         for eg in self._bondTable:
             if eg not in cellEndGroups:
                 # First remove all references in the keys
-                del cell2cell[ eg ]
+                del cell2cell[eg]
             else:
                 # The key is valid so remove any missing endGroups from the values
-                ceg = cellEndGroups.intersection(cell2cell[ eg ])
+                ceg = cellEndGroups.intersection(cell2cell[eg])
                 # Need to check there are some other types that this can bond to, but also there is at least
                 # one other block if both are of the same type
                 # NB the strange next/iter thing is the only way to get an item from the set
-                if len(ceg) == 0 or \
-                   (len(ceg) == 1 and eg == next(iter(ceg)) and len(endGroupTypes2Block[ eg ]) < 2):
+                if len(ceg) == 0 or (
+                    len(ceg) == 1
+                    and eg == next(iter(ceg))
+                    and len(endGroupTypes2Block[eg]) < 2
+                ):
                     # No valid blocks that could bond with this endGroup so delete the entire key
-                    del cell2cell[ eg ]
+                    del cell2cell[eg]
                 else:
-                    cell2cell[ eg ] = ceg
+                    cell2cell[eg] = ceg
         if len(cell2cell.keys()) == 0:
-            logger.critical("cellEndGroupPair: No endGroups of types {0} are available to bond from {1}".format(cellEndGroups, allTypes))
+            logger.critical(
+                "cellEndGroupPair: No endGroups of types {0} are available to bond from {1}".format(
+                    cellEndGroups, allTypes
+                )
+            )
             return None, None
 
         # At this point we assume we can definitely bond at least 2 blocks
-        logger.debug("cellEndGroupPair got cell/library endGroups: {0}".format(cell2cell))
+        logger.debug(
+            "cellEndGroupPair got cell/library endGroups: {0}".format(cell2cell)
+        )
         # Select a random block/endGroup from the list
         eg1Type = _random.choice(list(cell2cell.keys()))
-        block1 = _random.choice(list(endGroupTypes2Block[ eg1Type ]))
+        block1 = _random.choice(list(endGroupTypes2Block[eg1Type]))
         endGroup1 = block1.selectEndGroup(endGroupTypes=[eg1Type])
         # Pick a random endGroup type that can bond to this
-        eg2Type = _random.sample(cell2cell[ eg1Type ], 1)[0]
+        eg2Type = _random.sample(cell2cell[eg1Type], 1)[0]
         # Select a random block/endGroup of that type
         # (REM: need to remove the first block from the list of possibles hence the difference thing
         # XXX Also need to convert to list as sets don't support random.choice
         # Using choice and list as sample was giving error "ValueError: sample larger than population"
         # block2 = random.sample( endGroupTypes2Block[ eg2Type ].difference(set([block1])), 1 )[0]
         try:
-            block2 = _random.choice(list(endGroupTypes2Block[ eg2Type ].difference(set([block1]))))
+            block2 = _random.choice(
+                list(endGroupTypes2Block[eg2Type].difference(set([block1])))
+            )
             # This will trigger an IndexError if there isn't a free block of the given type
         except IndexError:
-            logger.critical("cellEndGroupPair: No 2nd block available for cellEndGroups".format(cellEndGroups))
+            logger.critical(
+                "cellEndGroupPair: No 2nd block available for cellEndGroups".format(
+                    cellEndGroups
+                )
+            )
             return None, None
         endGroup2 = block2.selectEndGroup(endGroupTypes=[eg2Type])
 
-        logger.debug("cellEndGroupPair returning: {0} {1}".format(endGroup1.type(), endGroup2.type()))
+        logger.debug(
+            "cellEndGroupPair returning: {0} {1}".format(
+                endGroup1.type(), endGroup2.type()
+            )
+        )
         return endGroup1, endGroup2
 
-    def cellData(self, rigidBody=True, periodic=True, center=False, fragmentType=None, noRigidParticles=False):
-        RIGIDPARTICLES = rigidBody and ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] > 1
-        if noRigidParticles: # required for when we write out cml
+    def cellData(
+        self,
+        rigidBody=True,
+        periodic=True,
+        center=False,
+        fragmentType=None,
+        noRigidParticles=False,
+    ):
+        RIGIDPARTICLES = (
+            rigidBody and ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] > 1
+        )
+        if noRigidParticles:  # required for when we write out cml
             RIGIDPARTICLES = False
         if RIGIDPARTICLES:
             self.rigidParticleMgr.reset()
@@ -966,15 +1158,17 @@ class Cell():
         d.cell = self.dim
         if fragmentType is not None:
             if RIGIDPARTICLES:
-                assert False,"Need to update for HOOMD2"
+                assert False, "Need to update for HOOMD2"
             # Only returning data for one type of fragment
-            assert fragmentType in self.fragmentTypes(), "FragmentType {0} not in cell!".format(fragmentType)
+            assert (
+                fragmentType in self.fragmentTypes()
+            ), "FragmentType {0} not in cell!".format(fragmentType)
             atomIdx = 0
             for b in self.blocks.values():
                 coords, symbols, bonds = b.dataByFragment(fragmentType)
                 d.coords += coords
                 d.symbols += symbols
-                d.bonds += [ (b1 + atomIdx, b2 + atomIdx) for (b1, b2) in bonds ]
+                d.bonds += [(b1 + atomIdx, b2 + atomIdx) for (b1, b2) in bonds]
                 atomIdx += len(coords)
             return d
         atomIdx = 0
@@ -984,31 +1178,47 @@ class Cell():
             if not rigidBody:
                 # add all bonds, angles and dihederals throughout the whole block
                 d.bonds += [(a1 + atomIdx, a2 + atomIdx) for a1, a2 in block.bonds()]
-                d.bondLabels += ["{0}-{1}".format(block.type(a1), block.type(a2)) for a1, a2 in block.bonds()]
+                d.bondLabels += [
+                    "{0}-{1}".format(block.type(a1), block.type(a2))
+                    for a1, a2 in block.bonds()
+                ]
                 angles, propers, impropers = block.anglesAndDihedrals()
-                d.angles += [(a1 + atomIdx, a2 + atomIdx, a3 + atomIdx) for a1, a2, a3 in angles]
-                d.angleLabels += ["{0}-{1}-{2}".format(block.type(a1), block.type(a2), block.type(a3)) for a1, a2, a3 in angles]
-                d.propers += [(a1 + atomIdx, a2 + atomIdx, a3 + atomIdx, a4 + atomIdx) \
-                              for a1, a2, a3, a4 in propers]
-                d.properLabels += ["{0}-{1}-{2}-{3}".format(block.type(a1),
-                                                            block.type(a2),
-                                                            block.type(a3),
-                                                            block.type(a4)
-                                                            ) for a1, a2, a3, a4 in propers]
-                d.impropers += [(a1 + atomIdx, a2 + atomIdx, a3 + atomIdx, a4 + atomIdx) \
-                                for a1, a2, a3, a4 in impropers]
-                d.improperLabels += ["{0}-{1}-{2}-{3}".format(block.type(a1),
-                                                              block.type(a2),
-                                                              block.type(a3),
-                                                              block.type(a4)
-                                                              ) for a1, a2, a3, a4 in impropers]
+                d.angles += [
+                    (a1 + atomIdx, a2 + atomIdx, a3 + atomIdx) for a1, a2, a3 in angles
+                ]
+                d.angleLabels += [
+                    "{0}-{1}-{2}".format(block.type(a1), block.type(a2), block.type(a3))
+                    for a1, a2, a3 in angles
+                ]
+                d.propers += [
+                    (a1 + atomIdx, a2 + atomIdx, a3 + atomIdx, a4 + atomIdx)
+                    for a1, a2, a3, a4 in propers
+                ]
+                d.properLabels += [
+                    "{0}-{1}-{2}-{3}".format(
+                        block.type(a1), block.type(a2), block.type(a3), block.type(a4)
+                    )
+                    for a1, a2, a3, a4 in propers
+                ]
+                d.impropers += [
+                    (a1 + atomIdx, a2 + atomIdx, a3 + atomIdx, a4 + atomIdx)
+                    for a1, a2, a3, a4 in impropers
+                ]
+                d.improperLabels += [
+                    "{0}-{1}-{2}-{3}".format(
+                        block.type(a1), block.type(a2), block.type(a3), block.type(a4)
+                    )
+                    for a1, a2, a3, a4 in impropers
+                ]
             else:
                 # Just add the bonds between blocks. Also add angles for all atoms connected to the bonds
                 # we do this so that we can exclude them from VdW interactions in MD codes
                 for b1, b2 in block.blockBonds():
                     # The bonds themselves
                     d.bonds.append((b1 + atomIdx, b2 + atomIdx))
-                    d.bondLabels.append("{0}-{1}".format(block.type(b1), block.type(b2)))
+                    d.bondLabels.append(
+                        "{0}-{1}".format(block.type(b1), block.type(b2))
+                    )
                     _angles = set()
                     # Atoms connected to the endGroup that we need to specify as connected so we add as angles
                     for batom in block.atomBonded1(b1):
@@ -1024,21 +1234,25 @@ class Cell():
                     # Add to overall lists
                     for a1, a2, a3 in _angles:
                         d.angles.append((a1 + atomIdx, a2 + atomIdx, a3 + atomIdx))
-                        l = "{0}-{1}-{2}".format(block.type(a1),
-                                                  block.type(a2),
-                                                  block.type(a3))
+                        l = "{0}-{1}-{2}".format(
+                            block.type(a1), block.type(a2), block.type(a3)
+                        )
                         d.angleLabels.append(l)
                     # Dihedrals
                     for dindices in block.dihedrals(b1, b2):
-                        dihedral = (dindices[0] + atomIdx,
-                                     dindices[1] + atomIdx,
-                                     dindices[2] + atomIdx,
-                                     dindices[3] + atomIdx)
+                        dihedral = (
+                            dindices[0] + atomIdx,
+                            dindices[1] + atomIdx,
+                            dindices[2] + atomIdx,
+                            dindices[3] + atomIdx,
+                        )
                         d.propers.append(dihedral)
-                        dlabel = "{0}-{1}-{2}-{3}".format(block.type(dindices[0]),
-                                                           block.type(dindices[1]),
-                                                           block.type(dindices[2]),
-                                                           block.type(dindices[3]) )
+                        dlabel = "{0}-{1}-{2}-{3}".format(
+                            block.type(dindices[0]),
+                            block.type(dindices[1]),
+                            block.type(dindices[2]),
+                            block.type(dindices[3]),
+                        )
                         d.properLabels.append(dlabel)
             # Now loop through fragments and coordinates
             for frag in block.fragments:
@@ -1046,10 +1260,14 @@ class Cell():
                     d.natoms += body.natoms
                     atomIdx += body.natoms
                     if RIGIDPARTICLES:
-                        d.rigidParticles.append(self.rigidParticleMgr.createParticle(body))
+                        d.rigidParticles.append(
+                            self.rigidParticleMgr.createParticle(body)
+                        )
                     else:
                         coords = body.coords
-                        coords, images = xyz_core.wrapCoord3(coords, dim=self.dim, center=center)
+                        coords, images = xyz_core.wrapCoord3(
+                            coords, dim=self.dim, center=center
+                        )
                         d.coords += list(coords)
                         d.images += list(images)
                         d.atomTypes += body.atomTypes
@@ -1070,7 +1288,7 @@ class Cell():
         """
         Remove the block with the given index from the cell
         """
-        block = self.blocks[ blockId ]
+        block = self.blocks[blockId]
         # Remove each atom from the list
         keys = []
         for iatom, key in enumerate(block.atomCell):
@@ -1102,7 +1320,9 @@ class Cell():
         A list of the blocks that were removed - suitable for re-adding with restoreBlocks
         """
         if fragmentTypes is not None:
-            return self._deleteBlocksType(fragmentTypes, numBlocks=numBlocks, maxFrags=maxFrags)
+            return self._deleteBlocksType(
+                fragmentTypes, numBlocks=numBlocks, maxFrags=maxFrags
+            )
         elif indices is not None:
             return self._deleteBlocksIndices(indices)
 
@@ -1120,14 +1340,22 @@ class Cell():
             raise RuntimeError("indices needs to be a int or list of int")
         for i, idx in enumerate(indices):
             if not (type(idx) is int and (0 <= idx < len(self.blocks))):
-                raise RuntimeError("Bad value for index {0} : {1}".format(i,idx))
-        toRemove = [(blockId, block) for i, (blockId, block) in enumerate(self.blocks.items())  if i in indices]
+                raise RuntimeError("Bad value for index {0} : {1}".format(i, idx))
+        toRemove = [
+            (blockId, block)
+            for i, (blockId, block) in enumerate(self.blocks.items())
+            if i in indices
+        ]
         removed = []
         for blockId, block in toRemove:
             self.delBlock(blockId)
             removed.append(block)
         count = len(toRemove)
-        logger.info("deleteBlocksIndices deleted {0} blocks. Cell now contains {1} blocks.".format(count,len(self.blocks)))
+        logger.info(
+            "deleteBlocksIndices deleted {0} blocks. Cell now contains {1} blocks.".format(
+                count, len(self.blocks)
+            )
+        )
         return removed
 
     def _deleteBlocksType(self, fragmentTypes, numBlocks=0, maxFrags=1):
@@ -1145,10 +1373,11 @@ class Cell():
         # First get a list of all the blocks that contain fragments that match the fragment type
         for blockId, block in self.blocks.items():
             # Check if is multiple or not
-            if maxFrags > 0 and len(block.fragments) > maxFrags: continue
+            if maxFrags > 0 and len(block.fragments) > maxFrags:
+                continue
             # Add this block if it contains any of the fragmentTypes
             if set(block.fragmentTypes()).intersection(fragmentTypes):
-                allBlocks.append((blockId,block))
+                allBlocks.append((blockId, block))
         # We have a list of valid blocks, we now randomly remove them - randomly in case we aren't deleting all of them
         if numBlocks > 0:
             toRemove = min(numBlocks, len(allBlocks))
@@ -1159,18 +1388,28 @@ class Cell():
             for _ in range(toRemove):
                 blockId, block = _random.choice(allBlocks)
                 self.delBlock(blockId)
-                allBlocks.remove((blockId,block))
+                allBlocks.remove((blockId, block))
                 removed.append(block)
-            logger.info("Delete removed {0} blocks. Cell now contains {1} blocks".format(len(removed), len(self.blocks)))
+            logger.info(
+                "Delete removed {0} blocks. Cell now contains {1} blocks".format(
+                    len(removed), len(self.blocks)
+                )
+            )
         else:
-            logger.info("Could not remove any blocks of type(s) {0}".format(fragmentTypes))
+            logger.info(
+                "Could not remove any blocks of type(s) {0}".format(fragmentTypes)
+            )
         return removed
 
     def deleteBondType(self, bondType):
         """Remove the given bondType from the list of acceptable bonds"""
         b1EndGroupType, b2EndGroupType = bondType.split(BONDTYPESEP)
         bt = (b1EndGroupType, b2EndGroupType)
-        assert bt in self.bondTypes,"{0} is not in the list of acceptable bonds {1}".format(bondType,self.bondTypes)
+        assert (
+            bt in self.bondTypes
+        ), "{0} is not in the list of acceptable bonds {1}".format(
+            bondType, self.bondTypes
+        )
         self.bondTypes.remove(bt)
         self._updateBondTable()
         return
@@ -1184,7 +1423,7 @@ class Cell():
                     if f is frag:
                         block = b
                         break
-        assert block,"Need to know which block to remove the fragment from!"
+        assert block, "Need to know which block to remove the fragment from!"
         # deleteFragment will return a list of blocks to be added back to the cell
         # The original block may have been deleted during the fragment deletion processs so we always need to
         # remove it and add the blocks returned by deleteFragment
@@ -1201,7 +1440,9 @@ class Cell():
 
     def density(self):
         """The density of the cell"""
-        d = (sum([ b.blockMass() for b in self.blocks.values() ]) / (self.dim[0] * self.dim[1] * self.dim[2]))
+        d = sum([b.blockMass() for b in self.blocks.values()]) / (
+            self.dim[0] * self.dim[1] * self.dim[2]
+        )
         return d * (10 / 6.022)
 
     def dihedral(self, p1, p2, p3, p4):
@@ -1234,13 +1475,13 @@ class Cell():
                     s = c
                 else:
                     s += "|" + c
-        return[str(self._fileCount), s]
+        return [str(self._fileCount), s]
 
     def _endGroupsInPossibleBonds(self, endGroups):
         """Check if any of the endGroups are already in the list of possible bonds"""
         eg = set()
         for b in self._possibleBonds:
-            eg.update([ b.endGroup1, b.endGroup2 ])
+            eg.update([b.endGroup1, b.endGroup2])
         return bool(eg.intersection(frozenset(endGroups)))
 
     def endGroupTypes2Block(self):
@@ -1254,31 +1495,35 @@ class Cell():
             # Get a list of the free endGroup types in the block
             for endGroupType in block.freeEndGroupTypes():
                 if endGroupType not in endGroupTypes2Block:
-                    endGroupTypes2Block[ endGroupType ] = set()
-                endGroupTypes2Block[ endGroupType ].add(block)
+                    endGroupTypes2Block[endGroupType] = set()
+                endGroupTypes2Block[endGroupType].add(block)
         return endGroupTypes2Block
 
-    def fragMaxEnergy(self,
-                  rigidBody=True,
-                  doDihedral=False,
-                  doImproper=False,
-                  xmlFilename="hoomdCalc.xml",
-                  **kw):
+    def fragMaxEnergy(
+        self,
+        rigidBody=True,
+        doDihedral=False,
+        doImproper=False,
+        xmlFilename="hoomdCalc.xml",
+        **kw
+    ):
         if not self.mdEngineCls:
             raise RuntimeError("No mdEngine defined - cannot run.")
         mdEngine = self.mdEngineCls(self.paramsDir)
         data = self.cellData(periodic=True, center=True, rigidBody=rigidBody)
-        if 'rCut' in kw:
-            self.rCut = kw['rCut']
+        if "rCut" in kw:
+            self.rCut = kw["rCut"]
         else:
             self.rCut = self.MDENGINE.rCut
         logger.info("Running fragMaxEnergy")
-        maxe, idxBlock, idxFragment = self.mdEngine.fragMaxEnergy(data,
-                                                                  xmlFilename,
-                                                                  rigidBody=rigidBody,
-                                                                  doDihedral=doDihedral,
-                                                                  doImproper=doImproper,
-                                                                  **kw)
+        maxe, idxBlock, idxFragment = self.mdEngine.fragMaxEnergy(
+            data,
+            xmlFilename,
+            rigidBody=rigidBody,
+            doDihedral=doDihedral,
+            doImproper=doImproper,
+            **kw
+        )
         return
 
     def fragmentTypes(self):
@@ -1287,9 +1532,9 @@ class Cell():
             d = b.fragmentTypeDict()
             for k, v in d.items():
                 try:
-                    ft[ k ] += v
+                    ft[k] += v
                 except:
-                    ft[ k ] = v
+                    ft[k] = v
         return ft
 
     def fragmentTypeFromEndGroupType(self, endGroupType):
@@ -1311,19 +1556,23 @@ class Cell():
                 self._deterministicState += 1
         # sanity check
         if not fragmentType in self._fragmentLibrary:
-            raise RuntimeError("Asking for a non-existing initBlock type: {0}".format(fragmentType))
+            raise RuntimeError(
+                "Asking for a non-existing initBlock type: {0}".format(fragmentType)
+            )
         # Copy the init fragment
-        f = self._fragmentLibrary[ fragmentType ].copy()
+        f = self._fragmentLibrary[fragmentType].copy()
         return ab_block.Block(initFragment=f)
 
-    def growBlocks(self,
-                   toGrow,
-                   cellEndGroups=None,
-                   libraryEndGroups=None,
-                   endGroupType=None,
-                   dihedral=None,
-                   maxTries=50,
-                   random=True):
+    def growBlocks(
+        self,
+        toGrow,
+        cellEndGroups=None,
+        libraryEndGroups=None,
+        endGroupType=None,
+        dihedral=None,
+        maxTries=50,
+        random=True,
+    ):
         """
         Add toGrow new blocks to the cell.
 
@@ -1341,7 +1590,9 @@ class Cell():
         logger.info("Growing {0} new blocks".format(toGrow))
         assert len(self.blocks), "Need to seed blocks before growing!"
         if endGroupType:
-            logger.warn('endGroupType is deprecated! Use cellEndGroups/libraryEndGroups instead')
+            logger.warn(
+                "endGroupType is deprecated! Use cellEndGroups/libraryEndGroups instead"
+            )
             assert not cellEndGroups or libraryEndGroups
             libraryEndGroups = endGroupType
 
@@ -1352,16 +1603,22 @@ class Cell():
         attemptedPairs = set()
         while added < toGrow:
             if tries >= maxTries:
-                logger.critical("growBlocks - exceeded maxtries {0} when joining blocks!".format(maxTries))
+                logger.critical(
+                    "growBlocks - exceeded maxtries {0} when joining blocks!".format(
+                        maxTries
+                    )
+                )
                 return added
             if self.numFreeEndGroups() == 0:
                 logger.critical("growBlocks got no free endGroups!")
                 return added
             # Select two random blocks that can be bonded
             try:
-                endGroupPair = self.libraryEndGroupPair(cellEndGroups=cellEndGroups,
-                                                                         libraryEndGroups=libraryEndGroups,
-                                                                         random=random)
+                endGroupPair = self.libraryEndGroupPair(
+                    cellEndGroups=cellEndGroups,
+                    libraryEndGroups=libraryEndGroups,
+                    random=random,
+                )
             except RuntimeError as e:
                 logger.critical("growBlocks cannot grow more blocks: {0}".format(e))
                 return added
@@ -1380,8 +1637,10 @@ class Cell():
             ok = self.attachBlock(libraryEndGroup, cellEndGroup, dihedral=dihedral)
             if ok:
                 added += 1
-                logger.info("growBlocks added block {0} after {1} tries.".format(added, tries))
-                self.analyse.stop('grow', d={'num_tries':tries})
+                logger.info(
+                    "growBlocks added block {0} after {1} tries.".format(added, tries)
+                )
+                self.analyse.stop("grow", d={"num_tries": tries})
                 tries = 0
             else:
                 tries += 1
@@ -1412,11 +1671,14 @@ class Cell():
         gives: [ABBAAAB]
 
         """
-        logger.info("growPolymer, building polymer with monomers: {0}, ratio: {1}, length: {2}, random={3}".format(monomers,
-                                                                                                                    ratio,
-                                                                                                                    length,
-                                                                                                                    random))
-        totalTally = [0] * len(monomers) # Trakcs the overall number of fragments in the polymer
+        logger.info(
+            "growPolymer, building polymer with monomers: {0}, ratio: {1}, length: {2}, random={3}".format(
+                monomers, ratio, length, random
+            )
+        )
+        totalTally = [0] * len(
+            monomers
+        )  # Trakcs the overall number of fragments in the polymer
         # Determine the first endGroup type
         if random:
             monomer = _random.choice(monomers)
@@ -1428,29 +1690,37 @@ class Cell():
         polymer = self.blocks[idxPolymer]
         fragment = polymer.fragments[0]
         # Create subunit going forward
-        subunit = ab_subunit.subUnit(monomers=monomers,
-                                     ratio=ratio,
-                                     polymer=polymer,
-                                     totalTally=totalTally,
-                                     direction=1,
-                                     fragment=fragment,
-                                     random=random)
+        subunit = ab_subunit.subUnit(
+            monomers=monomers,
+            ratio=ratio,
+            polymer=polymer,
+            totalTally=totalTally,
+            direction=1,
+            fragment=fragment,
+            random=random,
+        )
         switched = False
-        for _ in range(length-1):
+        for _ in range(length - 1):
             if not subunit.addMonomer(self):
                 if switched:
                     logger.critical("Failed to complete polymer!")
                     break
                 logger.debug("Failed to add Monomer to intial endPoint - switching end")
                 # Switch to other end of the chain -set switched flag so we know wev've done this
-                subunit = ab_subunit.subUnit(monomers=monomers,
-                                             ratio=ratio,
-                                             polymer=polymer,
-                                             totalTally=totalTally,
-                                             direction=-1,
-                                             random=random)
+                subunit = ab_subunit.subUnit(
+                    monomers=monomers,
+                    ratio=ratio,
+                    polymer=polymer,
+                    totalTally=totalTally,
+                    direction=-1,
+                    random=random,
+                )
                 switched = True
-        logger.info("growPolymer finalTally ({0} % {1}): {2}".format(ratio, length, subunit.totalTally))
+        logger.info(
+            "growPolymer finalTally ({0} % {1}): {2}".format(
+                ratio, length, subunit.totalTally
+            )
+        )
         # Bit of a hack - currently just so we can test the results
         self.polymerTally = subunit.totalTally
         return
@@ -1468,7 +1738,9 @@ class Cell():
         Could potentially speed things up by not returning the endpoints as they will be found by the surroundingCells algorithm
         and we then only search the ends.
         """
-        TMAXMAX = max(self.dim[0], self.dim[1], self.dim[2])  # Not 100% sure - just needs to be bigger than any possible value in the cell
+        TMAXMAX = max(
+            self.dim[0], self.dim[1], self.dim[2]
+        )  # Not 100% sure - just needs to be bigger than any possible value in the cell
         # Wrap into a single cell
         if self.pbc[0]:
             p1[0] % self.dim[0]
@@ -1514,7 +1786,8 @@ class Cell():
         cells = [(X, Y, Z)]  # Start with this cell
         while True:
             # Stop when we've reached the cell with p2
-            if X == outX and Y == outY and Z == outZ: break
+            if X == outX and Y == outY and Z == outZ:
+                break
             if tMaxX < tMaxY:
                 if tMaxX < tMaxZ:
                     # PBC
@@ -1593,7 +1866,7 @@ class Cell():
         added = 0
         tries = 0
         while added < toJoin:
-            if len (self.blocks) == 1:
+            if len(self.blocks) == 1:
                 logger.info("joinBlocks Hooray! - no more blocks to join!")
                 return added
             if tries > maxTries:
@@ -1603,7 +1876,9 @@ class Cell():
                 logger.critical("joinBlocks got no free endGroups!")
                 return added
             # Select 2 random blocks that can be joined
-            moveEndGroup, staticEndGroup = self.cellEndGroupPair(cellEndGroups=cellEndGroups)
+            moveEndGroup, staticEndGroup = self.cellEndGroupPair(
+                cellEndGroups=cellEndGroups
+            )
             if moveEndGroup == None or staticEndGroup == None:
                 logger.critical("joinBlocks cannot join any more blocks")
                 return added
@@ -1613,12 +1888,18 @@ class Cell():
             blockCopy = moveBlock.copy()
             # Remove from cell so we don't check against itself and pick a different out
             self.delBlock(idxMoveBlock)
-            logger.debug("joinBlocks calling attachBlock: {0} {1}".format(moveEndGroup, staticEndGroup))
+            logger.debug(
+                "joinBlocks calling attachBlock: {0} {1}".format(
+                    moveEndGroup, staticEndGroup
+                )
+            )
             # now attach it
             ok = self.attachBlock(moveEndGroup, staticEndGroup, dihedral=dihedral)
             if ok:
                 added += 1
-                logger.info("joinBlocks joined block {0} after {1} tries.".format(added, tries))
+                logger.info(
+                    "joinBlocks joined block {0} after {1} tries.".format(added, tries)
+                )
                 tries = 0
             else:
                 # Put the original block back in the cell
@@ -1627,7 +1908,14 @@ class Cell():
         logger.info("After joinBlocks numBlocks: {0}".format(len(self.blocks)))
         return added
 
-    def libraryAddFragment(self, filename, fragmentType='A', solvent=False, markBonded=False, catalyst=False):
+    def libraryAddFragment(
+        self,
+        filename,
+        fragmentType="A",
+        solvent=False,
+        markBonded=False,
+        catalyst=False,
+    ):
         """Add a fragment of type fragmentType defined in the .car file filename
 
         Args:
@@ -1642,86 +1930,120 @@ class Cell():
         # assert not len(self.blocks),"Cannot add library fragments with populated cell!"
         # Make sure the type is valid
         if BONDTYPESEP in fragmentType or ENDGROUPSEP in fragmentType:
-            raise RuntimeError("fragmentType cannot containing {0} or {1} characters!".format(BONDTYPESEP, ENDGROUPSEP))
+            raise RuntimeError(
+                "fragmentType cannot containing {0} or {1} characters!".format(
+                    BONDTYPESEP, ENDGROUPSEP
+                )
+            )
         # Create fragment
-        frag = ab_fragment.Fragment(filename,
-                                    fragmentType,
-                                    solvent=solvent,
-                                    markBonded=markBonded,
-                                    catalyst=catalyst)
+        frag = ab_fragment.Fragment(
+            filename,
+            fragmentType,
+            solvent=solvent,
+            markBonded=markBonded,
+            catalyst=catalyst,
+        )
         # Update cell parameters for this fragment
         maxAtomRadius = frag.maxAtomRadius()
-        if  maxAtomRadius > self.maxAtomRadius:
+        if maxAtomRadius > self.maxAtomRadius:
             self.updateCellSize(maxAtomRadius=maxAtomRadius)
         # Add to _fragmentLibrary
         self._fragmentLibrary[fragmentType] = frag
         # create dictionary keyed by endGroup types
         for ft in frag.endGroupTypes():
-            assert ft not in self._endGroup2LibraryFragment, "Adding existing endGroup type to library: {0}".format(ft)
+            assert (
+                ft not in self._endGroup2LibraryFragment
+            ), "Adding existing endGroup type to library: {0}".format(ft)
             self._endGroup2LibraryFragment[ft] = fragmentType
         return
 
-    def  _getCell2Library(self, endGroupTypes2Block, cellEndGroups=None, libraryEndGroups=None):
-        if len(endGroupTypes2Block.keys()) == 0: raise RuntimeError("No available endGroups in the cell")
+    def _getCell2Library(
+        self, endGroupTypes2Block, cellEndGroups=None, libraryEndGroups=None
+    ):
+        if len(endGroupTypes2Block.keys()) == 0:
+            raise RuntimeError("No available endGroups in the cell")
         # We create a dictionary mapping cell endGroups to possible libraryEndGroups
         cell2Library = {}
         for ceg in endGroupTypes2Block.keys():
             # We add those endGroup types that can be bonded to that are also in the library
             if ceg in self._bondTable:
-                leg = self._bondTable[ ceg ].intersection(self._endGroup2LibraryFragment.keys())
-                if len(leg) > 0: cell2Library[ ceg ] = leg
+                leg = self._bondTable[ceg].intersection(
+                    self._endGroup2LibraryFragment.keys()
+                )
+                if len(leg) > 0:
+                    cell2Library[ceg] = leg
 
         # Check that there are some available
         if len(cell2Library.keys()) == 0:
-            raise RuntimeError("No library fragments available to bond under the given rules: {0}".format(endGroupTypes2Block.keys()))
+            raise RuntimeError(
+                "No library fragments available to bond under the given rules: {0}".format(
+                    endGroupTypes2Block.keys()
+                )
+            )
 
         # If the user supplied a list of cellEndGroups we prune the list of cell endGroups to those that are in this list
         if cellEndGroups is not None:
             # Convert to a set - make sure is a list first
             if isinstance(cellEndGroups, str):
-                cellEndGroups = [ cellEndGroups ]
+                cellEndGroups = [cellEndGroups]
             for ceg in list(cell2Library.keys()):
                 if ceg not in cellEndGroups:
-                    del cell2Library[ ceg ]
+                    del cell2Library[ceg]
             if len(cell2Library.keys()) == 0:
-                raise RuntimeError("No free endGroups of types in cellEndGroups: {0} - {1}".format(cellEndGroups,
-                                                                                                    endGroupTypes2Block.keys()))
+                raise RuntimeError(
+                    "No free endGroups of types in cellEndGroups: {0} - {1}".format(
+                        cellEndGroups, endGroupTypes2Block.keys()
+                    )
+                )
 
         # If the user supplied a list of libraryEndGroups we remove any library endGroups that aren't in the list
         if libraryEndGroups is not None:
             # Convert to a set - make sure is a list first
             if isinstance(libraryEndGroups, str):
-                libraryEndGroups = [ libraryEndGroups ]
-            libraryEndGroups = set(libraryEndGroups)  # Save old so we can warn user and also find matching
+                libraryEndGroups = [libraryEndGroups]
+            libraryEndGroups = set(
+                libraryEndGroups
+            )  # Save old so we can warn user and also find matching
             tmp = cell2Library
             cell2Library = {}
             for ceg, leg in tmp.items():
                 # Only select those that are in the libraryEndGroups
                 pleg = libraryEndGroups.intersection(leg)
                 if len(pleg) > 0:
-                    cell2Library[ ceg ] = pleg
+                    cell2Library[ceg] = pleg
             if not len(cell2Library.keys()):
-                raise RuntimeError("No library fragments of type {0} available to bond under the given rules: {0}".format(libraryEndGroups,
-                                                                                                                           endGroupTypes2Block.keys()))
+                raise RuntimeError(
+                    "No library fragments of type {0} available to bond under the given rules: {0}".format(
+                        libraryEndGroups, endGroupTypes2Block.keys()
+                    )
+                )
         return cell2Library
 
-    def libraryEndGroupPair(self, cellEndGroups=None, libraryEndGroups=None, random=True):
+    def libraryEndGroupPair(
+        self, cellEndGroups=None, libraryEndGroups=None, random=True
+    ):
         """Return a fee endGroup from the cell and one from the library that can be bonded to it."""
         endGroupTypes2Block = self.endGroupTypes2Block()
-        cell2Library = self._getCell2Library(endGroupTypes2Block,
-                                             cellEndGroups=cellEndGroups,
-                                             libraryEndGroups=libraryEndGroups)
-        logger.debug("libraryEndGroupPair got cell/library endGroups: {0}".format(cell2Library))
+        cell2Library = self._getCell2Library(
+            endGroupTypes2Block,
+            cellEndGroups=cellEndGroups,
+            libraryEndGroups=libraryEndGroups,
+        )
+        logger.debug(
+            "libraryEndGroupPair got cell/library endGroups: {0}".format(cell2Library)
+        )
         if random:
             # Now we can pick a random endGroup from the cell, get the corresponding library group
             cellEgT = _random.choice(list(cell2Library.keys()))
 
             # First get a block that contains this type of endGroup
             # Need to use sample as sets don't support random.choice
-            cellBlock = _random.sample(endGroupTypes2Block[ cellEgT ], 1)[0]
+            cellBlock = _random.sample(endGroupTypes2Block[cellEgT], 1)[0]
 
             # Now select a random endGroup of that type from it
-            cellEndGroup = cellBlock.selectEndGroup(endGroupTypes=[cellEgT], random=random)
+            cellEndGroup = cellBlock.selectEndGroup(
+                endGroupTypes=[cellEgT], random=random
+            )
 
             # Now get a corresponding library endGroup
             # We need to pick a random one of the types that we can bond to that is also in libraryTypes
@@ -1729,7 +2051,9 @@ class Cell():
 
             # Now determine the fragmentType and create the block and fragment
             fragmentType = self._endGroup2LibraryFragment[libEgT]
-            libraryBlock = self.getLibraryBlock(fragmentType=fragmentType, random=random)
+            libraryBlock = self.getLibraryBlock(
+                fragmentType=fragmentType, random=random
+            )
 
             # now get the endGroup
             libraryEndGroup = libraryBlock.selectEndGroup(endGroupTypes=[libEgT])
@@ -1739,17 +2063,28 @@ class Cell():
             cellEgT = sorted(cell2Library.keys())[i]
             i = self._deterministicState % len(endGroupTypes2Block[cellEgT])
             # sort blocks by id - what we use is irrelevant, it just needs to be consistent
-            cellBlock = sorted(list(endGroupTypes2Block[cellEgT]),
-                               key=lambda block: block.id)[i]
-            cellEndGroup = cellBlock.selectEndGroup(endGroupTypes=[cellEgT], random=random)
+            cellBlock = sorted(
+                list(endGroupTypes2Block[cellEgT]), key=lambda block: block.id
+            )[i]
+            cellEndGroup = cellBlock.selectEndGroup(
+                endGroupTypes=[cellEgT], random=random
+            )
             i = self._deterministicState % len(cell2Library[cellEgT])
             libEgT = sorted(list(cell2Library[cellEgT]))[i]
             fragmentType = self._endGroup2LibraryFragment[libEgT]
-            libraryBlock = self.getLibraryBlock(fragmentType=fragmentType, random=random)
-            libraryEndGroup = libraryBlock.selectEndGroup(endGroupTypes=[libEgT], random=random)
+            libraryBlock = self.getLibraryBlock(
+                fragmentType=fragmentType, random=random
+            )
+            libraryEndGroup = libraryBlock.selectEndGroup(
+                endGroupTypes=[libEgT], random=random
+            )
             self._deterministicState += 1
         # Return them both - phew!
-        logger.debug("libraryEndGroupPair returning: {0} {1}".format(cellEndGroup.type(), libraryEndGroup.type()))
+        logger.debug(
+            "libraryEndGroupPair returning: {0} {1}".format(
+                cellEndGroup.type(), libraryEndGroup.type()
+            )
+        )
         return (cellEndGroup, libraryEndGroup)
 
     def numBlocks(self):
@@ -1761,18 +2096,20 @@ class Cell():
         return sum([len(b.fragments) for b in self.blocks.values()])
 
     def numFreeEndGroups(self):
-        return sum([ b.numFreeEndGroups() for b in self.blocks.values() ])
+        return sum([b.numFreeEndGroups() for b in self.blocks.values()])
 
     def numAtoms(self):
-        return sum([ b.numAtoms() for b in self.blocks.values() ])
+        return sum([b.numAtoms() for b in self.blocks.values()])
 
-    def optimiseGeometry(self,
-                         rigidBody=True,
-                         doDihedral=False,
-                         doImproper=False,
-                         doCharges=True,
-                         xmlFilename="hoomdOpt.xml",
-                         **kw):
+    def optimiseGeometry(
+        self,
+        rigidBody=True,
+        doDihedral=False,
+        doImproper=False,
+        doCharges=True,
+        xmlFilename="hoomdOpt.xml",
+        **kw
+    ):
         """Optimise the geometry with hoomdblue
 
         Rigid-body optimisation is carried out with the hoomdblue integrator: mode_minimize_rigid_fire
@@ -1795,17 +2132,19 @@ class Cell():
         self.setRcut(rigidBody, mdEngine, kw)
         data = self.cellData(periodic=True, center=True, rigidBody=rigidBody)
         d = {}  # for printing results
-        ok = mdEngine.optimiseGeometry(data,
-                                        xmlFilename=xmlFilename,
-                                        rigidBody=rigidBody,
-                                        doDihedral=doDihedral,
-                                        doImproper=doImproper,
-                                        doCharges=doCharges,
-                                        d=d,
-                                        walls=self.walls,
-                                        wallAtomType=self.wallAtomType,
-                                        **kw)
-        self.analyse.stop('optimiseGeometry', d)
+        ok = mdEngine.optimiseGeometry(
+            data,
+            xmlFilename=xmlFilename,
+            rigidBody=rigidBody,
+            doDihedral=doDihedral,
+            doImproper=doImproper,
+            doCharges=doCharges,
+            d=d,
+            walls=self.walls,
+            wallAtomType=self.wallAtomType,
+            **kw
+        )
+        self.analyse.stop("optimiseGeometry", d)
         if ok:
             logger.info("Optimisation succeeded")
             mdEngine.updateCell(self)
@@ -1813,34 +2152,53 @@ class Cell():
         else:
             logger.critical("Optimisation Failed")
             return False
-    
+
     def oversizeBonds(self, bondMargin=None):
         """Return True if any bonds are longer then would be permitted by the current bonding parameters"""
         if bondMargin is None:
             bondMargin = self.bondMargin
         for block in self.cell.blocks.values():
-            bond_lengths = np.array([ self.cell.distance(block.coord(idx1), block.coord(idx2))  for (idx1, idx2) in block.blockBonds()])
-            max_bond_lengths = np.array([ xyz_util.bondLength(block.symbol(idx1), block.symbol(idx2)) + bondMargin  for (idx1, idx2) in block.blockBonds()])
+            bond_lengths = np.array(
+                [
+                    self.cell.distance(block.coord(idx1), block.coord(idx2))
+                    for (idx1, idx2) in block.blockBonds()
+                ]
+            )
+            max_bond_lengths = np.array(
+                [
+                    xyz_util.bondLength(block.symbol(idx1), block.symbol(idx2))
+                    + bondMargin
+                    for (idx1, idx2) in block.blockBonds()
+                ]
+            )
             oversized = bond_lengths > max_bond_lengths
             if any(oversized):
-                logger.critical("Got oversized bonds: %s\n%s", (bond_lengths[oversized], max_bond_lengths[oversized]))
+                logger.critical(
+                    "Got oversized bonds: %s\n%s",
+                    (bond_lengths[oversized], max_bond_lengths[oversized]),
+                )
                 return True
         return False
 
     def poreblazer(self, poreblazer_exe):
         from ambuild import ab_poreblazer
+
         rundir = "{}_{}".format(ab_poreblazer.NAME_STEM, self._fileCount)
         if os.path.isdir(rundir):
             raise RuntimeError("Poreblazer directory already exists: {}".format(rundir))
         owd = os.getcwd()
         os.mkdir(rundir)
         os.chdir(rundir)
-        xyzin = 'ambuild.xyz'
+        xyzin = "ambuild.xyz"
         self.writeXyz(xyzin)
-        input_dat = ab_poreblazer.write_input_dat(xyzin, self.dim[0], self.dim[1], self.dim[2])
+        input_dat = ab_poreblazer.write_input_dat(
+            xyzin, self.dim[0], self.dim[1], self.dim[2]
+        )
         ret = ab_poreblazer.run_poreblazer(poreblazer_exe, input_dat)
         if ret != 0:
-            logger.critical("Error running poreblazer - check files in directory: {}".format(rundir))
+            logger.critical(
+                "Error running poreblazer - check files in directory: {}".format(rundir)
+            )
         os.chdir(owd)
 
     def positionInCell(self, block):
@@ -1849,12 +2207,22 @@ class Cell():
         oradius = bradius + (2 * self.boxMargin)
         # Check there is enough space
         if oradius >= self.dim[0] or oradius >= self.dim[1] or oradius >= self.dim[2]:
-            raise RuntimeError("Cannot fit block with radius {0} into cell {1}!".format(bradius, self.dim))
+            raise RuntimeError(
+                "Cannot fit block with radius {0} into cell {1}!".format(
+                    bradius, self.dim
+                )
+            )
         # get a range for x, y and z that would fit the block in the cell, pick random values within that
         # and stick the block there
-        x = _random.uniform(bradius + self.boxMargin, self.dim[0] - bradius - self.boxMargin)
-        y = _random.uniform(bradius + self.boxMargin, self.dim[1] - bradius - self.boxMargin)
-        z = _random.uniform(bradius + self.boxMargin, self.dim[2] - bradius - self.boxMargin)
+        x = _random.uniform(
+            bradius + self.boxMargin, self.dim[0] - bradius - self.boxMargin
+        )
+        y = _random.uniform(
+            bradius + self.boxMargin, self.dim[1] - bradius - self.boxMargin
+        )
+        z = _random.uniform(
+            bradius + self.boxMargin, self.dim[2] - bradius - self.boxMargin
+        )
         coord = np.array([x, y, z], dtype=np.float64)
         block.translateCentroid(coord)
         logger.debug("positionInCell block moved to: {0}".format(block.centroid()))
@@ -1871,7 +2239,9 @@ class Cell():
             logger.debug("processBonds got no bonds")
             return 0
         # Here no atoms clash and we have a list of possible bonds - so bond'em!
-        logger.debug("processBonds got bonds: {0}".format([str(s) for s in self._possibleBonds]))
+        logger.debug(
+            "processBonds got bonds: {0}".format([str(s) for s in self._possibleBonds])
+        )
         logger.debug("processBonds blocks are: {0}".format(sorted(self.blocks)))
         bondsMade = 0
         self.newBonds = []
@@ -1888,15 +2258,20 @@ class Cell():
         self._possibleBonds = []
         return bondsMade
 
-    def positionBlock(self, block, margin=None, point=None, radius=None, zone=None, random=True):
+    def positionBlock(
+        self, block, margin=None, point=None, radius=None, zone=None, random=True
+    ):
         """Randomly move the given block
          If margin is given, use this as a buffer from the edges of the cell
          when selecting the coord
         """
         if point:
-            assert len(point) == 3,"Point needs to be a list of three floats!"
-            if not (0 <= point[0] <= self.dim[0] and 0 <= point[1] <= self.dim[1] and \
-                    0 <= point[2] <= self.dim[2] ):
+            assert len(point) == 3, "Point needs to be a list of three floats!"
+            if not (
+                0 <= point[0] <= self.dim[0]
+                and 0 <= point[1] <= self.dim[1]
+                and 0 <= point[2] <= self.dim[2]
+            ):
                 raise RuntimeError("Point needs to be inside the cell.")
             if radius:
                 coord = self.randomSpherePoint(point, radius)
@@ -1904,12 +2279,19 @@ class Cell():
                 coord = np.array(point, dtype=np.float64)
         elif zone:
             if not len(zone) == 6:
-                raise RuntimeError("Zone needs to be a list of 6 floats: [x0,x1,y1,y2,z1,z1]")
-            if not zone[0] >= 0 and zone[1] <= self.dim[0] and\
-                zone[2] >= 0 and zone[3] <= self.dim[1] and \
-                zone[4] >= 0 and zone[5] <= self.dim[2]:
+                raise RuntimeError(
+                    "Zone needs to be a list of 6 floats: [x0,x1,y1,y2,z1,z1]"
+                )
+            if (
+                not zone[0] >= 0
+                and zone[1] <= self.dim[0]
+                and zone[2] >= 0
+                and zone[3] <= self.dim[1]
+                and zone[4] >= 0
+                and zone[5] <= self.dim[2]
+            ):
                 raise RuntimeError("Zone needs to be within the cell")
-            #bmargin = block.blockRadius()
+            # bmargin = block.blockRadius()
             bmargin = 0
             x = _random.uniform(zone[0] + bmargin, zone[1] - bmargin)
             y = _random.uniform(zone[2] + bmargin, zone[3] - bmargin)
@@ -1939,9 +2321,9 @@ class Cell():
         From: http://mathworld.wolfram.com/SpherePointPicking.html
         """
         # We use spherical coordinates and calculate theta and phi
-        theta = 2 * math.pi * _random.uniform(0,1)
-        phi = math.acos(2 * _random.uniform(0,1) - 1)
-        rradius = _random.uniform(0,radius)
+        theta = 2 * math.pi * _random.uniform(0, 1)
+        phi = math.acos(2 * _random.uniform(0, 1) - 1)
+        rradius = _random.uniform(0, radius)
         # coordinate of point centered at origin is therefore:
         x = rradius * math.cos(theta) * math.sin(phi)
         y = rradius * math.sin(theta) * math.sin(phi)
@@ -1959,21 +2341,25 @@ class Cell():
         if len(blocks):
             logger.debug("repopulateCells, adding blocks into new cells")
             for idxBlock, block in blocks.items():
-                if boxShift: block.translate(boxShift)  # Need to move if box has been resizes
+                if boxShift:
+                    block.translate(boxShift)  # Need to move if box has been resizes
                 self.addBlock(block, idxBlock=idxBlock)
             del blocks
         return
 
     def restoreBlocks(self, blocks, fragmentTypes=None):
-        assert len(blocks) > 0,"Need blocks to restore!"
+        assert len(blocks) > 0, "Need blocks to restore!"
         added = 0
         if fragmentTypes is not None:
-            if type(fragmentTypes) is str: fragmentTypes = [fragmentTypes]
+            if type(fragmentTypes) is str:
+                fragmentTypes = [fragmentTypes]
             toAdd = []
             fragmentTypes = set(fragmentTypes)
             for block in blocks:
                 if fragmentTypes.intersection(set(block.fragmentTypes())):
-                    toAdd.append(block) #if any of the fragments are within the blocks remove this block
+                    toAdd.append(
+                        block
+                    )  # if any of the fragments are within the blocks remove this block
             # Remove the blocks
             if len(toAdd):
                 for block in toAdd:
@@ -1984,13 +2370,15 @@ class Cell():
         logger.info("restoreBlocks re-added {0} blocks to the cell".format(added))
         return added
 
-    def runMD(self,
-              xmlFilename="hoomdMD.xml",
-              rigidBody=True,
-              doDihedral=False,
-              doImproper=False,
-              doCharges=True,
-              **kw):
+    def runMD(
+        self,
+        xmlFilename="hoomdMD.xml",
+        rigidBody=True,
+        doDihedral=False,
+        doImproper=False,
+        doCharges=True,
+        **kw
+    ):
         """Run a rigidbody molecular dynamics run using the hoomd blue nvt_rigid integrator
 
         Arguments:
@@ -2013,27 +2401,31 @@ class Cell():
         self.setRcut(rigidBody, mdEngine, kw)
         d = {}
         data = self.cellData(periodic=True, center=True, rigidBody=rigidBody)
-        ok = mdEngine.runMD(data,
-                             xmlFilename=xmlFilename,
-                             rigidBody=rigidBody,
-                             doDihedral=doDihedral,
-                             doImproper=doImproper,
-                             doCharges=doCharges,
-                             d=d,
-                             walls=self.walls,
-                             wallAtomType=self.wallAtomType,
-                             **kw)
-        self.analyse.stop('runMD', d)
+        ok = mdEngine.runMD(
+            data,
+            xmlFilename=xmlFilename,
+            rigidBody=rigidBody,
+            doDihedral=doDihedral,
+            doImproper=doImproper,
+            doCharges=doCharges,
+            d=d,
+            walls=self.walls,
+            wallAtomType=self.wallAtomType,
+            **kw
+        )
+        self.analyse.stop("runMD", d)
         mdEngine.updateCell(self)
         return ok
 
-    def runMDAndOptimise(self,
-                         xmlFilename="hoomdMDOpt.xml",
-                         rigidBody=True,
-                         doDihedral=False,
-                         doImproper=False,
-                         doCharges=True,
-                         **kw):
+    def runMDAndOptimise(
+        self,
+        xmlFilename="hoomdMDOpt.xml",
+        rigidBody=True,
+        doDihedral=False,
+        doImproper=False,
+        doCharges=True,
+        **kw
+    ):
 
         """Run an MD simulation followed by a Geometry optimisation.
 
@@ -2049,32 +2441,36 @@ class Cell():
         self.setRcut(rigidBody, mdEngine, kw)
         d = {}
         data = self.cellData(periodic=True, center=True, rigidBody=rigidBody)
-        ok = mdEngine.runMDAndOptimise(data,
-                                        xmlFilename=xmlFilename,
-                                        rigidBody=rigidBody,
-                                        doDihedral=doDihedral,
-                                        doImproper=doImproper,
-                                        doCharges=doCharges,
-                                        d=d,
-                                        walls=self.walls,
-                                        wallAtomType=self.wallAtomType,
-                                        **kw)
+        ok = mdEngine.runMDAndOptimise(
+            data,
+            xmlFilename=xmlFilename,
+            rigidBody=rigidBody,
+            doDihedral=doDihedral,
+            doImproper=doImproper,
+            doCharges=doCharges,
+            d=d,
+            walls=self.walls,
+            wallAtomType=self.wallAtomType,
+            **kw
+        )
 
         if ok:
             logger.info("runMDAndOptimise succeeded")
-        self.analyse.stop('runMDAndOptimise', d)
+        self.analyse.stop("runMDAndOptimise", d)
         mdEngine.updateCell(self)
         return ok
 
-    def seed(self,
-             nblocks,
-             fragmentType=None,
-             maxTries=500,
-             center=False,
-             point=None,
-             radius=None,
-             zone=None,
-             random=True):
+    def seed(
+        self,
+        nblocks,
+        fragmentType=None,
+        maxTries=500,
+        center=False,
+        point=None,
+        radius=None,
+        zone=None,
+        random=True,
+    ):
         """ Seed a cell with nblocks of type fragmentType.
 
         Args:
@@ -2104,44 +2500,64 @@ class Cell():
         numBlocksAdded = 0
         # Loop through the nblocks adding the blocks to the cell
         for seedCount in range(nblocks):
-            newblock = self.getLibraryBlock(fragmentType=fragmentType) # Create new block
+            newblock = self.getLibraryBlock(
+                fragmentType=fragmentType
+            )  # Create new block
             tries = 0
             while True:
                 # quit on maxTries
                 if tries >= maxTries:
-                    logger.critical("Exceeded maxtries when seeding after adding {0}".format(numBlocksAdded))
-                    self.analyse.stop('seed', d={'num_tries':tries})
+                    logger.critical(
+                        "Exceeded maxtries when seeding after adding {0}".format(
+                            numBlocksAdded
+                        )
+                    )
+                    self.analyse.stop("seed", d={"num_tries": tries})
                     return numBlocksAdded
                 # if center put the first one in the center of the cell
                 # only if this is the first attempt as otherwise we always fail if there is already something there
                 if center and seedCount == 0 and tries == 0:
-                    newblock.translateCentroid([ self.dim[0] / 2, self.dim[1] / 2, self.dim[2] / 2 ])
+                    newblock.translateCentroid(
+                        [self.dim[0] / 2, self.dim[1] / 2, self.dim[2] / 2]
+                    )
                 else:
                     # Move the block and rotate it
-                    self.positionBlock(newblock, point=point, radius=radius, zone=zone, random=random)
+                    self.positionBlock(
+                        newblock, point=point, radius=radius, zone=zone, random=random
+                    )
                 # Add the block so we can check for clashes/bonds
                 idxBlock = self.addBlock(newblock)
                 # Test for Clashes with other molecules
                 if self.checkMove(idxBlock):
                     if self.processBonds() > 0:
                         logger.info("Added bond in seed!")
-                    logger.debug("seed added block {0} after {1} tries.".format(seedCount + 1, tries))
-                    self.analyse.stop('seed', d={'num_tries':tries})
+                    logger.debug(
+                        "seed added block {0} after {1} tries.".format(
+                            seedCount + 1, tries
+                        )
+                    )
+                    self.analyse.stop("seed", d={"num_tries": tries})
                     numBlocksAdded += 1
                     break
                 # Unsuccessful so remove the block from cell
                 self.delBlock(idxBlock)
                 # If seed fails with center need to bail on first one.
                 if center and seedCount == 0 and tries == 0:
-                    logger.warn("Seed with center failed to place first block in center!")
-                tries += 1 # increment tries counter
+                    logger.warn(
+                        "Seed with center failed to place first block in center!"
+                    )
+                tries += 1  # increment tries counter
             # End Clash loop
         # End of loop to seed cell
-        logger.info("Seed added {0} blocks. Cell now contains {1} blocks".format(numBlocksAdded, len(self.blocks)))
+        logger.info(
+            "Seed added {0} blocks. Cell now contains {1} blocks".format(
+                numBlocksAdded, len(self.blocks)
+            )
+        )
         return numBlocksAdded
 
     def setBondingFunction(self, fragmentType, onbondFunction):
-        fragment = self._fragmentLibrary[ fragmentType ]
+        fragment = self._fragmentLibrary[fragmentType]
         fragment.onbondFunction = onbondFunction
         return
 
@@ -2149,22 +2565,31 @@ class Cell():
         # A, B and C are cell vectors - for the time being we assume they are orthogonal
         # so they are just floats
         if not type(boxDim) is list and len(boxDim) == 3:
-            raise RuntimeError("setBoxSize needs list of 3 numbers setting the cell dimensions!")
+            raise RuntimeError(
+                "setBoxSize needs list of 3 numbers setting the cell dimensions!"
+            )
         old_dim = None
-        if self.dim is not None: old_dim = self.dim
+        if self.dim is not None:
+            old_dim = self.dim
         self.dim = np.array([float(boxDim[0]), float(boxDim[1]), float(boxDim[2])])
-        assert self.dim[0] > 0 and self.dim[1] > 0 and self.dim[2] > 0, "Invalid box dimensions: {0}".format(self.dim)
+        assert (
+            self.dim[0] > 0 and self.dim[1] > 0 and self.dim[2] > 0
+        ), "Invalid box dimensions: {0}".format(self.dim)
         boxShift = None
         if old_dim is not None and not np.allclose(self.dim, old_dim):
-            if not (self.dim[0] >= old_dim[0] and \
-                self.dim[1] >= old_dim[1] and
-                self.dim[2] >= old_dim[2]):
+            if not (
+                self.dim[0] >= old_dim[0]
+                and self.dim[1] >= old_dim[1]
+                and self.dim[2] >= old_dim[2]
+            ):
                 raise RuntimeError("Can currently only increase box size!")
             # If we've made the cell bigger we need to shift all blocks so that they sit
             # in the centre again
-            boxShift = [ (self.dim[0] - old_dim[0]) / 2, \
-                         (self.dim[1] - old_dim[1]) / 2, \
-                         (self.dim[2] - old_dim[2]) / 2 ]
+            boxShift = [
+                (self.dim[0] - old_dim[0]) / 2,
+                (self.dim[1] - old_dim[1]) / 2,
+                (self.dim[2] - old_dim[2]) / 2,
+            ]
         self.updateCellSize(boxShift=boxShift)
         return
 
@@ -2174,23 +2599,39 @@ class Cell():
         f = ab_fragment.Fragment(filePath, fragmentType=name, static=True)
         p = f.cellParameters()
         if not p:
-            raise RuntimeError("car file needs to have PBC=ON and a PBC line defining the cell!")
-        logger.info("Read cell parameters A={0}, B={1}, C={2} from car file: {3}".format(
-            p['A'],p['B'],p['C'],filePath))
-        self.setBoxSize([p['A'], p['B'], p['C']])
+            raise RuntimeError(
+                "car file needs to have PBC=ON and a PBC line defining the cell!"
+            )
+        logger.info(
+            "Read cell parameters A={0}, B={1}, C={2} from car file: {3}".format(
+                p["A"], p["B"], p["C"], filePath
+            )
+        )
+        self.setBoxSize([p["A"], p["B"], p["C"]])
         # Update cell parameters for this fragment
         maxAtomRadius = f.maxAtomRadius()
-        if  maxAtomRadius > self.maxAtomRadius:
+        if maxAtomRadius > self.maxAtomRadius:
             self.updateCellSize(maxAtomRadius=maxAtomRadius)
         block = ab_block.Block(initFragment=f)
         # Check the molecule fits in the cell
         for i, coord in enumerate(block.iterCoord()):
-            if coord[0] < 0 or coord[0] > self.dim[0] or \
-               coord[1] < 0 or coord[1] > self.dim[1] or \
-               coord[2] < 0 or coord[2] > self.dim[2]:
-                raise RuntimeError("Static block doesn't fit in the cell! First failing coord is #{0}: {1}".format(i, coord))
+            if (
+                coord[0] < 0
+                or coord[0] > self.dim[0]
+                or coord[1] < 0
+                or coord[1] > self.dim[1]
+                or coord[2] < 0
+                or coord[2] > self.dim[2]
+            ):
+                raise RuntimeError(
+                    "Static block doesn't fit in the cell! First failing coord is #{0}: {1}".format(
+                        i, coord
+                    )
+                )
         if replace:
-            self.delBlock(list(self.blocks.keys())[0]) # Assumes a static block is always the first
+            self.delBlock(
+                list(self.blocks.keys())[0]
+            )  # Assumes a static block is always the first
         idxBlock = self.addBlock(block)
         if len(self.blocks) > 1:
             # If the cell already has blocks in, we need to remove them all and then add this as the first one
@@ -2218,69 +2659,81 @@ class Cell():
 
         """
         fragmentType = bondType.split(ENDGROUPSEP)[0]
-        fragment = self._fragmentLibrary[ fragmentType ]
+        fragment = self._fragmentLibrary[fragmentType]
         return fragment.setMaxBond(bondType, count)
 
     def setMdEngineCls(self, hoomdVersion):
         """Set the class definition for the MdEngine
-        
+
         We set a class rather then an instance as otherwise when running mutiple optimisations certain variables
         get stored in the instance and aren't deleted on restart, generating errors in hoomd1 along the lines of:
-        
+
         *Warning*: Not all saved variables were cleared before calling reset()
         *Warning*: 17 references to the particle data still exist somewhere
         *Warning*: Going to try and reset anyways, further errors (such as out of memory) may result
-        
+
         Whenever we ditch hoomdblue 1, we can (probably) revert to using an instance.
         """
         if hoomdVersion is None:
-            logger.critical("HOOMD-BLUE could not be found! MD functionality will be unavailable.")
+            logger.critical(
+                "HOOMD-BLUE could not be found! MD functionality will be unavailable."
+            )
             return
         if hoomdVersion[0] < 2:
             from ambuild.hoomd1 import Hoomd1
+
             self.mdEngineCls = Hoomd1
         else:
             from ambuild.hoomd2 import Hoomd2
+
             self.mdEngineCls = Hoomd2
-        logger.info("Using HOOMD-BLUE version: {0}.{1}.{2}".format(*ab_util.HOOMDVERSION))
+        logger.info(
+            "Using HOOMD-BLUE version: {0}.{1}.{2}".format(*ab_util.HOOMDVERSION)
+        )
         return
-    
+
     def setRcut(self, rigidBody, mdEngine, kw):
         """if rCut not in kw, for hoomd2 rigidBodies calculate from max block size or use mdEngine default"""
-        RIGIDPARTICLES = rigidBody and ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] > 1
-        if 'rCut' in kw:
-            rCut = kw['rCut']
+        RIGIDPARTICLES = (
+            rigidBody and ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] > 1
+        )
+        if "rCut" in kw:
+            rCut = kw["rCut"]
         elif RIGIDPARTICLES:
-            rmax =  max([b.blockRadius() for b in self.blocks.values()])
+            rmax = max([b.blockRadius() for b in self.blocks.values()])
             cell_r = np.max(self.dim) / 2
             rCut = min(rmax, cell_r)
             logger.info("Rigid Particle code setting rCut to: %f", rCut)
         else:
             rCut = mdEngine.rCut
-        self.rCut =rCut
+        self.rCut = rCut
         logger.debug("Set rCut to %f", rCut)
         return
 
-    def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType='c'):
+    def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType="c"):
         """Create walls along the specified sides.
         """
         self.walls = [XOY, XOZ, YOZ]
-        self.pbc = [ not b for b in self.walls ]
+        self.pbc = [not b for b in self.walls]
 
         self.wallAtomType = wallAtomType
         symbol = wallAtomType.upper()
         if symbol not in xyz_core.SYMBOL_TO_NUMBER:
-            raise RuntimeError("Data for atomType {0} not available. Supported atomTypes are: {1}".format(wallAtomType,sorted(xyz_core.SYMBOL_TO_NUMBER.keys())))
-        z = xyz_core.SYMBOL_TO_NUMBER[ symbol ]
+            raise RuntimeError(
+                "Data for atomType {0} not available. Supported atomTypes are: {1}".format(
+                    wallAtomType, sorted(xyz_core.SYMBOL_TO_NUMBER.keys())
+                )
+            )
+        z = xyz_core.SYMBOL_TO_NUMBER[symbol]
         r = xyz_core.COVALENT_RADII[z] * xyz_core.BOHR2ANGSTROM
         self.wallRadius = r
         return
-    
-    def _setupAnalyse(self, logfile='ambuild.csv'):
+
+    def _setupAnalyse(self, logfile="ambuild.csv"):
         self.analyse = ab_analyse.Analyse(self, logfile=logfile)
         return
 
-    def setupLogging(self, logfile="ambuild.log", mode='w', debugLog=False):
+    def setupLogging(self, logfile="ambuild.log", mode="w", debugLog=False):
         """
         Set up the various log files/console logging and return the logger
         """
@@ -2302,7 +2755,9 @@ class Cell():
             fl.setLevel(logging.DEBUG)
         else:
             fl.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
         fl.setFormatter(formatter)
         logger.addHandler(fl)
         # Now create console logger for outputting stuff
@@ -2313,21 +2768,23 @@ class Cell():
         except TypeError:
             cl = logging.StreamHandler(strm=sys.stdout)
         cl.setLevel(logging.INFO)
-        #cl.setLevel( logging.DEBUG )
+        # cl.setLevel( logging.DEBUG )
         # Always add a blank line after every print
-        formatter = logging.Formatter('%(asctime)s: %(message)s\n')
+        formatter = logging.Formatter("%(asctime)s: %(message)s\n")
         cl.setFormatter(formatter)
         logger.addHandler(cl)
         logger = logger
         return
 
-    def updateCellSize(self, boxMargin=None, maxAtomRadius=None, MARGIN=0.01, boxShift=None):
+    def updateCellSize(
+        self, boxMargin=None, maxAtomRadius=None, MARGIN=0.01, boxShift=None
+    ):
         """The cell size is the vdw radius of the largest atom plus the largest of atom or bondMargin
         plus a MARGIN to account for overflows
         """
-        if maxAtomRadius != None:
+        if maxAtomRadius is not None:
             self.maxAtomRadius = maxAtomRadius
-        if not boxMargin is None:
+        if boxMargin is not None:
             self.boxMargin = boxMargin
         else:
             assert self.atomMargin and self.bondMargin
@@ -2339,10 +2796,11 @@ class Cell():
         self.numBoxes[0] = int(math.ceil(self.dim[0] / self.boxSize))
         self.numBoxes[1] = int(math.ceil(self.dim[1] / self.boxSize))
         self.numBoxes[2] = int(math.ceil(self.dim[2] / self.boxSize))
-        logger.debug("updateCellSize: boxSize {0} nboxes: {1} maxR {2} margin {3}".format(self.boxSize,
-                                                                                      self.numBoxes,
-                                                                                     self.maxAtomRadius,
-                                                                                     self.boxMargin))
+        logger.debug(
+            "updateCellSize: boxSize {0} nboxes: {1} maxR {2} margin {3}".format(
+                self.boxSize, self.numBoxes, self.maxAtomRadius, self.boxMargin
+            )
+        )
         # If there are already blocks in the cell, we need to add them to the new boxes
         if len(self.blocks):
             self.repopulateCells(boxShift=boxShift)
@@ -2353,18 +2811,20 @@ class Cell():
 
         This does not change the 'parent' fragment within the cell library so seeding/growing more
         of the fragments will use the original charges.
-        
+
         Args:
         fragmentType: the fragmentType to update the charges for
         filename: path to a CAR file with all the charges for the fragmentType specifie
         """
         if fragmentType not in self._fragmentLibrary:
-            raise RuntimeError("Cannot find fragmentType '%s' in fragmentLibrary" % fragmentType)
+            raise RuntimeError(
+                "Cannot find fragmentType '%s' in fragmentLibrary" % fragmentType
+            )
         if not os.path.isfile(filename):
             raise RuntimeError("Cannot find file: %s" % filename)
         if not filename.endswith(".car"):
             raise RuntimeError("updateCharges only works with car files: %s" % filename)
-        _, _, _, _, charges = ab_fragment.Fragment.fromCarFile(filename)
+        _, _, _, _, charges, _ = ab_fragment.Fragment.fromCarFile(filename)
         for block in self.blocks.values():
             for frag in block.fragments:
                 if frag.fragmentType == fragmentType:
@@ -2410,45 +2870,64 @@ class Cell():
         tstr = time.strftime("%a %b %d %H:%M:%S %Y", time.gmtime())
         car += "!DATE {0}\n".format(tstr)
         if periodic:
-            car += "PBC  {0: < 9.4F} {1: < 9.4F} {2: < 9.4F}  90.0000   90.0000   90.0000 (P1)\n".format(data['A'],
-                                                                                                          data['B'],
-                                                                                                          data['C'])
-#         for i, ( idxBlock, block ) in enumerate( self.blocks.items() ):
-#             for j, coord in enumerate( block.iterCoord() ):
-        for i, coord in enumerate(data['coord']):
-                if periodic:
-                    coord, _ = xyz_core.wrapCoord3(coord, np.array([data['A'], data['B'], data['C']]), center=False)
-                atype = data['type'][ i ]
-                charge = data['charge'][ i ]
-                label = data['label'][ i ][:5]
-                symbol = data['symbol'][ i ]
-                car += "{0: <5} {1: >15.10} {2: >15.10} {3: >15.10} XXXX 1      {4: <4}    {5: <2} {6: > 2.3f}\n".format(label, coord[0], coord[1], coord[2], atype, symbol, charge)
+            car += "PBC  {0: < 9.4F} {1: < 9.4F} {2: < 9.4F}  90.0000   90.0000   90.0000 (P1)\n".format(
+                data["A"], data["B"], data["C"]
+            )
+        #         for i, ( idxBlock, block ) in enumerate( self.blocks.items() ):
+        #             for j, coord in enumerate( block.iterCoord() ):
+        for i, coord in enumerate(data["coord"]):
+            if periodic:
+                coord, _ = xyz_core.wrapCoord3(
+                    coord, np.array([data["A"], data["B"], data["C"]]), center=False
+                )
+            atype = data["type"][i]
+            charge = data["charge"][i]
+            label = data["label"][i][:5]
+            symbol = data["symbol"][i]
+            car += "{0: <5} {1: >15.10} {2: >15.10} {3: >15.10} XXXX 1      {4: <4}    {5: <2} {6: > 2.3f}\n".format(
+                label, coord[0], coord[1], coord[2], atype, symbol, charge
+            )
 
         car += "end\nend\n\n"
 
-        with open(ofile, 'w') as f:
+        with open(ofile, "w") as f:
             fpath = os.path.abspath(f.name)
             f.writelines(car)
 
         logger.info("Wrote car file: {0}".format(fpath))
         return
 
-    def writeCml(self, cmlFilename, data=None, rigidBody=True, periodic=True, pruneBonds=False, prettyPrint=False):
+    def writeCml(
+        self,
+        cmlFilename,
+        data=None,
+        rigidBody=True,
+        periodic=True,
+        pruneBonds=False,
+        prettyPrint=False,
+    ):
         if data is None:
-            d = self.cellData(periodic=periodic, rigidBody=rigidBody, fragmentType=None, noRigidParticles=True)
+            d = self.cellData(
+                periodic=periodic,
+                rigidBody=rigidBody,
+                fragmentType=None,
+                noRigidParticles=True,
+            )
         else:
             d = data
         cell = None
         if periodic:
             cell = self.dim
-        cmlFilename = xyz_util.writeCml(cmlFilename,
-                                        d.coords,
-                                        d.symbols,
-                                        bonds=d.bonds,
-                                        atomTypes=d.atomTypes,
-                                        cell=cell,
-                                        pruneBonds=pruneBonds,
-                                        prettyPrint=prettyPrint)
+        cmlFilename = xyz_util.writeCml(
+            cmlFilename,
+            d.coords,
+            d.symbols,
+            bonds=d.bonds,
+            atomTypes=d.atomTypes,
+            cell=cell,
+            pruneBonds=pruneBonds,
+            prettyPrint=prettyPrint,
+        )
 
         logger.info("Wrote cml file: {0}".format(cmlFilename))
         return
@@ -2468,19 +2947,21 @@ class Cell():
                 fpath = xyz_util.writeXyz(ofile, d.coords, d.symbols, cell=self.dim)
         else:
             if atomTypes:
-                fpath = xyz_util.writeXyz(ofile, d.coords,d.atomTypes)
+                fpath = xyz_util.writeXyz(ofile, d.coords, d.atomTypes)
             else:
                 fpath = xyz_util.writeXyz(ofile, d.coords, d.symbols)
 
         logger.info("Wrote cell file: {0}".format(fpath))
         return
 
-    def zipBlocks(self,
-                  bondMargin=0.5,
-                  bondAngleMargin=15,
-                  clashCheck=False,
-                  clashDist=1.6,
-                  selfBond=True):
+    def zipBlocks(
+        self,
+        bondMargin=0.5,
+        bondAngleMargin=15,
+        clashCheck=False,
+        clashDist=1.6,
+        selfBond=True,
+    ):
         """Join existing blocks in the cell by changing the bondMargin and bondAngleMargin parameters that were
         specified when the cell was created, and then looping over all the free endGroups to see if any can bond
         with the new parameters. The blocks are not moved in this step.
@@ -2497,7 +2978,11 @@ class Cell():
         """
         if bondMargin > max(self.dim):
             raise RuntimeError("bondMargin is greater then the cell")
-        logger.info("Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(bondMargin, bondAngleMargin))
+        logger.info(
+            "Zipping blocks with bondMargin: {0} bondAngleMargin {1}".format(
+                bondMargin, bondAngleMargin
+            )
+        )
         # Convert to radians
         bondAngleMargin = math.radians(bondAngleMargin)
         # Calculate the number of boxes - should calculate max possible bond length
@@ -2543,11 +3028,13 @@ class Cell():
                 # Map the cells surrounding this one
                 cell3[key] = xyz_util.haloCells(key, numBoxes, pbc=self.pbc)
         # Loop through all the end groups and run canBond
-        egPairs = collections.OrderedDict() # Use dict keys as effectively implements an ordered set
+        egPairs = (
+            collections.OrderedDict()
+        )  # Use dict keys as effectively implements an ordered set
         c1 = []
         c2 = []
         for block1, idxEndGroup1 in endGroups:
-            key = block1.zipCell[idxEndGroup1] # Get the box this atom is in
+            key = block1.zipCell[idxEndGroup1]  # Get the box this atom is in
             surroundingCells = cell3[key]
             for sbox in surroundingCells:
                 # Check if we have a box with anything in it
@@ -2557,11 +3044,13 @@ class Cell():
                 except KeyError:
                     continue
                 for (block2, idxEndGroup2) in alist:
-                    if block1 == block2: 
+                    if block1 == block2:
                         # Self-bonded blocks need special care
                         if not selfBond:
                             continue
-                        if idxEndGroup1 == idxEndGroup2: # Don't check endGroups against themselves
+                        if (
+                            idxEndGroup1 == idxEndGroup2
+                        ):  # Don't check endGroups against themselves
                             continue
                         # Make sure the two atoms are separated by at least 3 bonds.
                         # Could put this check in canBond but it would slow the normal bonding down
@@ -2579,14 +3068,18 @@ class Cell():
             return 0
         distances = self.distance(np.array(c1), np.array(c2))
         self._possibleBonds = []
-        for i, (block1, idxEndGroup1, block2, idxEndGroup2) in enumerate(egPairs.keys()):
-            got = self.canBond(block1,
-                                idxEndGroup1,
-                                block2,
-                                idxEndGroup2,
-                                distances[i],
-                                bondMargin,
-                                bondAngleMargin)
+        for i, (block1, idxEndGroup1, block2, idxEndGroup2) in enumerate(
+            egPairs.keys()
+        ):
+            got = self.canBond(
+                block1,
+                idxEndGroup1,
+                block2,
+                idxEndGroup2,
+                distances[i],
+                bondMargin,
+                bondAngleMargin,
+            )
         # Process any bonds
         if len(self._possibleBonds) == 0:
             logger.info("zipBlocks: no acceptable bonds found")
@@ -2594,28 +3087,39 @@ class Cell():
         # Check the bonds don't clash with anything
         if clashCheck:
             logger.info("zipBlocks: checking for clashes with bonds...")
-            toRemove = [bond for bond in self._possibleBonds if self.bondClash(bond=bond, clashDist=clashDist)]
+            toRemove = [
+                bond
+                for bond in self._possibleBonds
+                if self.bondClash(bond=bond, clashDist=clashDist)
+            ]
             if len(toRemove):
-                logger.info("zipBlocks: {0} bonds not accepted due to clashes".format(len(toRemove)))
-                for b in toRemove: self._possibleBonds.remove(b)
+                logger.info(
+                    "zipBlocks: {0} bonds not accepted due to clashes".format(
+                        len(toRemove)
+                    )
+                )
+                for b in toRemove:
+                    self._possibleBonds.remove(b)
                 if not len(self._possibleBonds):
                     logger.info("zipBlocks: No bonds remaining after clash checks")
                     return 0
         logger.info("zipBlocks found %d additional bonds", len(self._possibleBonds))
-#         for b in self._possibleBonds:
-#             print "Attempting to bond: {0} {1} {2} -> {3} {4} {5}".format( b.block1.id(),
-#                                                                    b.endGroup1.blockEndGroupIdx,
-#                                                                    b.block1.atomCoord( b.endGroup1.blockEndGroupIdx),
-#                                                                    b.block2.id(),
-#                                                                    b.endGroup2.blockEndGroupIdx,
-#                                                                    b.block2.atomCoord( b.endGroup2.blockEndGroupIdx),
-#                                                                 )
-#
+        #         for b in self._possibleBonds:
+        #             print "Attempting to bond: {0} {1} {2} -> {3} {4} {5}".format( b.block1.id(),
+        #                                                                    b.endGroup1.blockEndGroupIdx,
+        #                                                                    b.block1.atomCoord( b.endGroup1.blockEndGroupIdx),
+        #                                                                    b.block2.id(),
+        #                                                                    b.endGroup2.blockEndGroupIdx,
+        #                                                                    b.block2.atomCoord( b.endGroup2.blockEndGroupIdx),
+        #                                                                 )
+        #
         todo = len(self._possibleBonds)
         bondsMade = self.processBonds(selfBond=selfBond)
         if bondsMade != todo:
-            logger.debug("Made fewer bonds than expected in zip: %d -> %d", todo, bondsMade)
-        self.analyse.stop('zip')
+            logger.debug(
+                "Made fewer bonds than expected in zip: %d -> %d", todo, bondsMade
+            )
+        self.analyse.stop("zip")
         return bondsMade
 
     def __getstate__(self):
@@ -2626,23 +3130,25 @@ class Cell():
         by calling shutdown)."""
         # Return everything bar our logger
         d = dict(self.__dict__)
-        d['logcsv'] = d['analyse'].logfile
-        del d['analyse']
-        if 'mdEngineCls' in d:
-            del d['mdEngineCls'] # Contains a reference to the hoomd-blue module and logger
+        d["logcsv"] = d["analyse"].logfile
+        del d["analyse"]
+        if "mdEngineCls" in d:
+            del d[
+                "mdEngineCls"
+            ]  # Contains a reference to the hoomd-blue module and logger
         return d
 
     def __setstate__(self, d):
         """Called when we are unpickled """
         self.__dict__.update(d)
-        if 'logfile' in d:  # Hack for older versions with no logfile attribute
-            logfile = ab_util.newFilename(d['logfile'])
+        if "logfile" in d:  # Hack for older versions with no logfile attribute
+            logfile = ab_util.newFilename(d["logfile"])
         else:
-            logfile = 'ambuild_1.log'
+            logfile = "ambuild_1.log"
         self.setupLogging(logfile=logfile)
-        if 'logcsv' in d:
-            self.logcsv = ab_util.newFilename(d['logcsv'])
+        if "logcsv" in d:
+            self.logcsv = ab_util.newFilename(d["logcsv"])
         else:
-            self.logcsv = 'ambuild_1.csv'
+            self.logcsv = "ambuild_1.csv"
         self._setupAnalyse(logfile=self.logcsv)
         return

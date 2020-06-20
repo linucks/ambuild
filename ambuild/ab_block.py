@@ -1,4 +1,4 @@
-'''
+"""
 Created on Jan 15, 2013
 
 @author: abbietrewin
@@ -11,7 +11,7 @@ http://en.wikipedia.org/wiki/Periodic_boundary_conditions
 http://mail.scipy.org/pipermail/scipy-dev/2012-March/017177.html
 https://groups.google.com/forum/?fromgroups=#!topic/scipy-user/P6k8LEo30ws
 https://github.com/patvarilly/periodic_kdtree
-'''
+"""
 
 # Python imports
 import copy
@@ -31,33 +31,40 @@ from ambuild import xyz_util
 
 logger = logging.getLogger(__name__)
 
+
 class Block(object):
-    '''
+    """
     Structure is:
     * a list of fragments
     * each fragment my contain endGroups
     * each endGroup handles the change to atoms required on bonding
     * fragments may be bonded to each other with bonds
     * bonds just point to two endGroups that are bonded to each other
-    '''
+    """
 
     def __init__(self, filePath=None, fragmentType=None, initFragment=None):
-        '''
+        """
         Constructor
-        '''
+        """
         # Need to change so cannot create block withough fragmentType
         if filePath:
-            assert os.path.isfile(filePath) and fragmentType, "Missing file: {}".format(filePath)
+            assert os.path.isfile(filePath) and fragmentType, "Missing file: {}".format(
+                filePath
+            )
             initFragment = Fragment(filePath, fragmentType)
         self.fragments = []
         if initFragment:
             self.fragments.append(initFragment)
-        self._blockBonds = [] # List of bond objects between blocks
-        self._bonds = [] # List of tuples of atoms that are bonded
-        self._bondsByFragmentType = [] # List of the bonds within fragments as a tuple (fragmentType, bond)
-        self._bondedToAtom = [] # List of which atom is bonded to which
-        self._dataMap = [] # list of tuples of ( idFrag, idxData )
-        self._bodies = []  # List of which body in the block each atom belongs too - frags can contain multiple bodies
+        self._blockBonds = []  # List of bond objects between blocks
+        self._bonds = []  # List of tuples of atoms that are bonded
+        self._bondsByFragmentType = (
+            []
+        )  # List of the bonds within fragments as a tuple (fragmentType, bond)
+        self._bondedToAtom = []  # List of which atom is bonded to which
+        self._dataMap = []  # list of tuples of ( idFrag, idxData )
+        self._bodies = (
+            []
+        )  # List of which body in the block each atom belongs too - frags can contain multiple bodies
         # The list of atoms that are endGroups and their corresponding angleAtoms
         self._freeEndGroups = {}
         self._numFreeEndGroups = 0
@@ -71,7 +78,7 @@ class Block(object):
         self._radius = None
         self._blockMass = 0
         self.id = id(self)
-        self._deterministicState = 0 # For keeping track of things during testing
+        self._deterministicState = 0  # For keeping track of things during testing
         if self.fragments:
             self._update()
         return
@@ -80,7 +87,8 @@ class Block(object):
         """Move molecule so two atoms are aligned along refVector"""
         atom1 = self.coord(atom1Idx)
         atom2 = self.coord(atom2Idx)
-        if isinstance(refVector, list): refVector = np.array(refVector, dtype=np.float64)
+        if isinstance(refVector, list):
+            refVector = np.array(refVector, dtype=np.float64)
         return self.alignVector(atom1, atom2, refVector)
 
     def alignVector(self, pos1, pos2, refVector):
@@ -92,12 +100,20 @@ class Block(object):
         """
         # Move so that pos1 is at origin so the vector of pos2 can be aligned with the refVector
 
-        self.translate(-pos1) # Shift block so angleAtom at center,
+        self.translate(-pos1)  # Shift block so angleAtom at center,
         if np.array_equal(refVector, [0, 0, 0]) or np.array_equal(pos2, [0, 0, 0]):
-            raise RuntimeError("alignBlock - one of the vectors is zero!\nrefVector: {0} endGroup: {1}".format(refVector, pos2))
+            raise RuntimeError(
+                "alignBlock - one of the vectors is zero!\nrefVector: {0} endGroup: {1}".format(
+                    refVector, pos2
+                )
+            )
 
-        if np.array_equal(pos2 / np.linalg.norm(pos2), refVector / np.linalg.norm(refVector)):
-            logger.debug("alignBlock - block already aligned along vector. May not be a problem, but you should know...")
+        if np.array_equal(
+            pos2 / np.linalg.norm(pos2), refVector / np.linalg.norm(refVector)
+        ):
+            logger.debug(
+                "alignBlock - block already aligned along vector. May not be a problem, but you should know..."
+            )
             self.translate(pos1)  # NEW - put it back
             return
         # print "alignBlock BEFORE: {0} | {1}".format( endGroup, refVector )
@@ -114,25 +130,29 @@ class Block(object):
             # Normalised cross to rotate about
             ncross = cross / np.linalg.norm(cross)
             self.rotate(ncross, angle)
-        self.translate(pos1) # Now shift back
+        self.translate(pos1)  # Now shift back
         return
 
     def atomBonded1(self, idxAtom):
         """Return the indices of all atoms directly bonded to idxAtom"""
         # We return a copy or else modifying the list changes the actual bond list
-        return set(self._bondedToAtom[idxAtom ])
+        return set(self._bondedToAtom[idxAtom])
 
     def atomBonded2(self, idxAtom):
         """Return the indices of all atoms bonded by <= 2 bonds to idxAtom"""
         bonded = set(self.atomBonded1(idxAtom))
-        for a1 in list(bonded):  # Copy to list so we're not changing while looping thru it
+        for a1 in list(
+            bonded
+        ):  # Copy to list so we're not changing while looping thru it
             bonded.update(self.atomBonded1(a1))
         return bonded
 
     def atomBonded3(self, idxAtom):
         """Return the indices of all atoms bonded by <= 3 bonds to idxAtom"""
         bonded = set(self.atomBonded2(idxAtom))
-        for a1 in list(bonded):  # Copy to list so we're not changing while looping thru it
+        for a1 in list(
+            bonded
+        ):  # Copy to list so we're not changing while looping thru it
             bonded.update(self.atomBonded1(a1))
         return bonded
 
@@ -239,7 +259,10 @@ class Block(object):
 
     def blockBonds(self):
         """External indices"""
-        return [ (b.endGroup1.blockEndGroupIdx, b.endGroup2.blockEndGroupIdx) for b in self._blockBonds ]
+        return [
+            (b.endGroup1.blockEndGroupIdx, b.endGroup2.blockEndGroupIdx)
+            for b in self._blockBonds
+        ]
 
     def bondBlock(self, bond):
         """ Add newBlock to this one
@@ -254,12 +277,12 @@ class Block(object):
             self._blockBonds += bond.endGroup2.block()._blockBonds
         self._blockBonds.append(bond)
         return self._update()
-    
+
     def blockRadius(self):
         if self._changed:
             self._calcProperties()
         return self._radius
-    
+
     def _calcCenters(self):
         sumG = np.zeros(3)
         sumM = np.zeros(3)
@@ -302,7 +325,7 @@ class Block(object):
         """
         Return or calculate the center of mass for this building block.
         """
-        #print "centerOfMass changed ", self._changed
+        # print "centerOfMass changed ", self._changed
         if self._changed:
             self._calcProperties()
         return self._centerOfMass
@@ -311,7 +334,8 @@ class Block(object):
         """
         Return or calculate the center of geometry for the building block.
         """
-        if self._changed: self._calcProperties()
+        if self._changed:
+            self._calcProperties()
         return self._centroid
 
     def copy(self):
@@ -329,14 +353,17 @@ class Block(object):
         atomCount = 0
         fbondRen = {}
         for i in range(len(self._dataMap)):
-            if  self.fragmentType(i) == fragmentType:
+            if self.fragmentType(i) == fragmentType:
                 fbondRen[i] = atomCount
                 coords.append(self.coord(i))
                 symbols.append(self.symbol(i))
                 atomCount += 1
 
-        bonds = [ (fbondRen[b1], fbondRen[b2]) \
-                 for ftype, (b1, b2) in self._bondsByFragmentType if ftype == fragmentType ]
+        bonds = [
+            (fbondRen[b1], fbondRen[b2])
+            for ftype, (b1, b2) in self._bondsByFragmentType
+            if ftype == fragmentType
+        ]
 
         return coords, symbols, bonds
 
@@ -345,16 +372,19 @@ class Block(object):
         if not len(self._blockBonds):
             return None
         assert bond in self._blockBonds
-        
+
         # Take the two fragments on either side of the bond
         f1 = bond.rootFragment
         f2 = bond.targetFragment
         if root:
-            assert root in [f1, f2],"Root must be attached to the bond"
+            assert root in [f1, f2], "Root must be attached to the bond"
         self._blockBonds.remove(bond)
 
         # Create dictionary of which fragments are bonded to which fragments
-        bondedToFragment = { f1 : set(), f2 : set() } # Need to add those from bond as might not be connected
+        bondedToFragment = {
+            f1: set(),
+            f2: set(),
+        }  # Need to add those from bond as might not be connected
         for b in self._blockBonds:
             if b.rootFragment not in bondedToFragment:
                 bondedToFragment[b.rootFragment] = set()
@@ -362,7 +392,7 @@ class Block(object):
                 bondedToFragment[b.targetFragment] = set()
             bondedToFragment[b.rootFragment].add(b.targetFragment)
             bondedToFragment[b.targetFragment].add(b.rootFragment)
-        
+
         def addFragments(startf, f1set):
             # Trundle through the bond topology for f1 and set True for all fragments we reach
             for f in bondedToFragment[startf]:
@@ -382,17 +412,17 @@ class Block(object):
             bond.separate()
             self._update()
             return None
-        
+
         # Bit cludgy - we need to make sure that the root fragment is always first in the list of fragments
         # jmht - consider adding rootFragment attribute?
         f1list = list(f1set)
         f1list.remove(f1)
         f1list.insert(0, f1)
-        
+
         f2list = list(f2set)
         f2list.remove(f2)
         f2list.insert(0, f2)
-        
+
         # Breaking the bond splits the block in two, so we separate the two fragments, keep the largest
         # for ourselves and return the new block. We set f1 and f1set to be the biggest
         if root:
@@ -412,7 +442,7 @@ class Block(object):
                 tmp = f1
                 f1 = f2
                 f2 = tmp
-                
+
         # How to partition the bonds? - use lists as we want to preserve order if possible
         f1bonds = []
         f2bonds = []
@@ -421,34 +451,41 @@ class Block(object):
                 f1bonds.append(b)
             elif b.rootFragment in f2list and b.targetFragment in f2list:
                 f2bonds.append(b)
-            else: raise RuntimeError("Bond crosses set: {0}".format(b))
+            else:
+                raise RuntimeError("Bond crosses set: {0}".format(b))
         bond.separate()
         # Create a new block with the smaller fragments
         newBlock = Block()
         newBlock.fragments = f2list
         newBlock._blockBonds = f2bonds
         newBlock._update()
-        assert newBlock.id,"newBlock has no id!"
-        
-        # Update our list of bonds 
+        assert newBlock.id, "newBlock has no id!"
+
+        # Update our list of bonds
         self.fragments = f1list
         self._blockBonds = f1bonds
         self._update()
-        assert self.id,"self has no id!"
+        assert self.id, "self has no id!"
         return newBlock
-    
+
     def deleteFragment(self, frag):
         if frag not in self.fragments:
-            raise RuntimeError("Cannot find fragment {0} in block".format(frag.fragmentType))
-        
+            raise RuntimeError(
+                "Cannot find fragment {0} in block".format(frag.fragmentType)
+            )
+
         if len(self.fragments) == 1:
             # This is the only fragment in the block, so we need to be deleted - return an empty list
             return []
-            
+
         # Get the list of bonds that this fragment makes
-        dbonds = [ b for b in self._blockBonds if b.rootFragment == frag or b.targetFragment == frag ]
-        assert len(dbonds),"Fragment is not involved in any bonds!"
-        
+        dbonds = [
+            b
+            for b in self._blockBonds
+            if b.rootFragment == frag or b.targetFragment == frag
+        ]
+        assert len(dbonds), "Fragment is not involved in any bonds!"
+
         # Loop through deleting all bonds and returning any blocks created
         # The fragment we are deleting will always stay within this block as we use the root= keyword
         blocks = []
@@ -456,7 +493,7 @@ class Block(object):
             block = self.deleteBond(bond, root=frag)
             if block:
                 blocks.append(block)
-            
+
         # Now we need to delete the fragment from ourself and update
         if len(self.fragments) > 1:
             self.fragments.remove(frag)
@@ -465,7 +502,7 @@ class Block(object):
         else:
             assert frag in self.fragments
             # The only remainig block was the one to delete so we don't do anything
-        
+
         return blocks
 
     def dihedrals(self, atom1Idx, atom2Idx, bondOnly=False):
@@ -484,35 +521,35 @@ class Block(object):
         for a1 in self.atomBonded1(atom1Idx):
             if a1 == atom2Idx:
                 continue
-            atom1Bonded[ a1 ] = []
+            atom1Bonded[a1] = []
             for a2 in self.atomBonded1(a1):
                 if a2 == atom1Idx:
                     continue
                 assert not a2 == atom2Idx, "Dihedral atom loops back onto bond!"
-                atom1Bonded[ a1 ].append(a2)
+                atom1Bonded[a1].append(a2)
 
         # Create list of what's bonded to atom2 - we exclude anything that loops back on itself
         atom2Bonded = {}
         for a1 in self.atomBonded1(atom2Idx):
             if a1 == atom1Idx:
                 continue
-            atom2Bonded[ a1 ] = []
+            atom2Bonded[a1] = []
             for a2 in self.atomBonded1(a1):
                 if a2 == atom2Idx:
                     continue
                 assert not a2 == atom1Idx, "Dihedral atom loops back onto bond!"
-                atom2Bonded[ a1 ].append(a2)
+                atom2Bonded[a1].append(a2)
 
         dindices = []
         if not bondOnly:
             # Add all dihedrals on endGroup1's side of the bond
             for a3 in atom1Bonded:
-                for a4 in atom1Bonded[ a3 ]:
+                for a4 in atom1Bonded[a3]:
                     dindices.append((atom2Idx, atom1Idx, a3, a4))
 
             # Add all dihedrals on endGroup2's side of the bond
             for a3 in atom2Bonded:
-                for a4 in atom2Bonded[ a3 ]:
+                for a4 in atom2Bonded[a3]:
                     dindices.append((atom1Idx, atom2Idx, a3, a4))
 
         # Now add dihedrals across the bond
@@ -540,14 +577,14 @@ class Block(object):
         self.rotate(rotAxis, np.pi)
 
         return
-    
+
     def endGroupConfig(self, fragmentType):
         """See endGroupConfig in cell"""
         c = []
         for f in self.fragments:
             if f.fragmentType == fragmentType:
                 # calculate number of bonded endGroups
-                #c.append(len(f.endGroups()) - len(f.freeEndGroups()))
+                # c.append(len(f.endGroups()) - len(f.freeEndGroups()))
                 c.append(f.numBondedEndGroups())
         if len(c):
             return ":".join([str(n) for n in c])
@@ -569,7 +606,7 @@ class Block(object):
     def fragmentTypeDict(self):
         """A dictionary with the number of the different types of fragment we contain"""
         return self._fragmentTypeDict
-    
+
     def fragmentTypes(self):
         return self._fragmentTypeDict.keys()
 
@@ -581,18 +618,24 @@ class Block(object):
         """
         if endGroupTypes is not None:
             if isinstance(endGroupTypes, str):
-                endGroupTypes = [ endGroupTypes ]
+                endGroupTypes = [endGroupTypes]
             endGroups = []
             for eType in endGroupTypes:
                 if eType in self._endGroupType2EndGroups:
-                    endGroups += self._endGroupType2EndGroups[ eType ]
+                    endGroups += self._endGroupType2EndGroups[eType]
         else:
             # http://stackoverflow.com/questions/952914/making-a-flat-list-out-of-list-of-lists-in-python
-            endGroups = [endGroup for endGroupList in self._freeEndGroups.values() for endGroup in endGroupList]
-        
+            endGroups = [
+                endGroup
+                for endGroupList in self._freeEndGroups.values()
+                for endGroup in endGroupList
+            ]
+
         if fragment is not None:
-            endGroups = [endGroup for endGroup in endGroups if endGroup.fragment == fragment]
-        
+            endGroups = [
+                endGroup for endGroup in endGroups if endGroup.fragment == fragment
+            ]
+
         # return sorted for consistency to faciliate testing
         return sorted(endGroups, key=lambda eg: eg.fragmentEndGroupIdx)
 
@@ -672,36 +715,46 @@ class Block(object):
         # the bond length
         symbol = growBlock.symbol(growEndGroup.blockEndGroupIdx)
         bondPos = self.newBondPosition(endGroup, symbol)
-        #print "got bondPos for {0}: {1}".format( symbol, bondPos )
+        # print "got bondPos for {0}: {1}".format( symbol, bondPos )
 
         # Align along the staticBlock bond
-        growBlock.alignAtoms(growEndGroup.blockEndGroupIdx,
-                              growEndGroup.blockCapIdx,
-                              refVector)
-        #print "GROW ",growBlock
+        growBlock.alignAtoms(
+            growEndGroup.blockEndGroupIdx, growEndGroup.blockCapIdx, refVector
+        )
+        # print "GROW ",growBlock
         # Now need to place the endGroup at the bond coord to do this now we just add the bondPos
         growBlock.translate(bondPos)
 
         # We need to rotate to adhere to the specified dihedral angle
         if dihedral is not None:
             assert 0 <= dihedral < math.pi * 2
-            assert endGroup.blockDihedralIdx != -1 and growEndGroup.blockDihedralIdx != -1, \
-            "Need to have specified dihedrals as 3rd column in ambi file first!"
+            assert (
+                endGroup.blockDihedralIdx != -1 and growEndGroup.blockDihedralIdx != -1
+            ), "Need to have specified dihedrals as 3rd column in ambi file first!"
             # Get current angle
-            current = xyz_core.dihedral(self.coord(endGroup.blockDihedralIdx),
-                                     self.coord(endGroup.blockEndGroupIdx),
-                                     growBlock.coord(growEndGroup.blockEndGroupIdx),
-                                     growBlock.coord(growEndGroup.blockDihedralIdx))
+            current = xyz_core.dihedral(
+                self.coord(endGroup.blockDihedralIdx),
+                self.coord(endGroup.blockEndGroupIdx),
+                growBlock.coord(growEndGroup.blockEndGroupIdx),
+                growBlock.coord(growEndGroup.blockDihedralIdx),
+            )
 
             # Find how much we need to rotate by
             angle = dihedral - current
-            if not (np.allclose(angle, 0.0, rtol=1e-05) or np.allclose(angle, math.pi*2, rtol=1e-05)):
+            if not (
+                np.allclose(angle, 0.0, rtol=1e-05)
+                or np.allclose(angle, math.pi * 2, rtol=1e-05)
+            ):
                 # Need to rotate so get the axis to rotate about
-                axis = self.coord(endGroup.blockEndGroupIdx) - growBlock.coord(growEndGroup.blockEndGroupIdx)
-                growBlock.rotate(axis, angle, center=self.coord(endGroup.blockEndGroupIdx))
+                axis = self.coord(endGroup.blockEndGroupIdx) - growBlock.coord(
+                    growEndGroup.blockEndGroupIdx
+                )
+                growBlock.rotate(
+                    axis, angle, center=self.coord(endGroup.blockEndGroupIdx)
+                )
         return
 
-    def randomRotate(self, origin=[ 0, 0, 0 ], atOrigin=False):
+    def randomRotate(self, origin=[0, 0, 0], atOrigin=False):
         """Randomly rotate a block.
 
          Args:
@@ -711,9 +764,9 @@ class Block(object):
             position = self.centroid()
             self.translateCentroid(origin)
 
-        xAxis = [ 1, 0, 0 ]
-        yAxis = [ 0, 1, 0 ]
-        zAxis = [ 0, 0, 1 ]
+        xAxis = [1, 0, 0]
+        yAxis = [0, 1, 0]
+        zAxis = [0, 0, 1]
 
         angle = _random.uniform(0, 2 * np.pi)
         self.rotate(xAxis, angle)
@@ -724,12 +777,13 @@ class Block(object):
         angle = _random.uniform(0, 2 * np.pi)
         self.rotate(zAxis, angle)
 
-        if not atOrigin: self.translateCentroid(position)
+        if not atOrigin:
+            self.translateCentroid(position)
         return
 
     def rotate(self, axis, angle, center=None):
         if center is None:
-            center = np.array([ 0, 0, 0 ])
+            center = np.array([0, 0, 0])
         rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         for f in self.fragments:
             f.rotate(rotationMatrix, center)
@@ -738,14 +792,14 @@ class Block(object):
     def rotateT(self, axis, angle, center=None):
         """Rotation with translation to center"""
         position = self.centroid()
-        origin = np.array([ 0, 0, 0 ])
+        origin = np.array([0, 0, 0])
         self.translateCentroid(origin)
         rotationMatrix = xyz_core.rotation_matrix(axis, angle)
         for f in self.fragments:
             f.rotate(rotationMatrix, origin)
         self.translateCentroid(position)
         return
-    
+
     def solvent(self):
         return len(self.fragments) == 1 and self.fragments[0].solvent is True
 
@@ -760,23 +814,33 @@ class Block(object):
                 endGroup = self.freeEndGroups()[i]
         else:
             # Make sure we have a list to check against
-            if isinstance(endGroupTypes, str): endGroupTypes = [ endGroupTypes ]
+            if isinstance(endGroupTypes, str):
+                endGroupTypes = [endGroupTypes]
             # See if any in common
-            common = frozenset(self.freeEndGroupTypes()).intersection(frozenset(endGroupTypes))
+            common = frozenset(self.freeEndGroupTypes()).intersection(
+                frozenset(endGroupTypes)
+            )
             if not bool(common):
-                raise RuntimeError("Cannot find {0} in available types {1}".format(endGroupTypes, self.freeEndGroupTypes()))
+                raise RuntimeError(
+                    "Cannot find {0} in available types {1}".format(
+                        endGroupTypes, self.freeEndGroupTypes()
+                    )
+                )
 
             # We can definitely return something so pick a random fragment type and get a random endGroup
             if random:
                 ftype = _random.choice(list(common))
-                endGroup = _random.choice(self.freeEndGroups(endGroupTypes=[ ftype ]))
+                endGroup = _random.choice(self.freeEndGroups(endGroupTypes=[ftype]))
             else:
                 i = self._deterministicState % len(common)
                 ftype = sorted(common)[i]
-                i = self._deterministicState % len(self.freeEndGroups(endGroupTypes=[ ftype ]))
-                endGroup = self.freeEndGroups(endGroupTypes=[ ftype ])[i]
-        
-        if not random: self._deterministicState += 1
+                i = self._deterministicState % len(
+                    self.freeEndGroups(endGroupTypes=[ftype])
+                )
+                endGroup = self.freeEndGroups(endGroupTypes=[ftype])[i]
+
+        if not random:
+            self._deterministicState += 1
         return endGroup
 
     def translate(self, tvector):
@@ -816,10 +880,12 @@ class Block(object):
             # Count the number of each type of fragment in the block (see Analyse)
             t = fragment.fragmentType
             if t not in self._fragmentTypeDict:
-                self._fragmentTypeDict[ t ] = 1
+                self._fragmentTypeDict[t] = 1
             else:
-                self._fragmentTypeDict[ t ] += 1
-            fragment.blockIdx = len(self._dataMap)  # Mark where the data starts in the block
+                self._fragmentTypeDict[t] += 1
+            fragment.blockIdx = len(
+                self._dataMap
+            )  # Mark where the data starts in the block
             for i in range(fragment.numAtoms()):
                 self._dataMap.append((fragment, i))
                 # Bring up the bodies
@@ -842,14 +908,14 @@ class Block(object):
                 if endGroup.free():
                     # Add to the list of all free endGroups
                     try:
-                        self._freeEndGroups[ endGroup.blockEndGroupIdx ].append(endGroup)
+                        self._freeEndGroups[endGroup.blockEndGroupIdx].append(endGroup)
                     except KeyError:
-                        self._freeEndGroups[ endGroup.blockEndGroupIdx ] = [ endGroup ]
+                        self._freeEndGroups[endGroup.blockEndGroupIdx] = [endGroup]
                     self._numFreeEndGroups += 1
                     # Now add to the type list
                     if endGroup.type() not in self._endGroupType2EndGroups:
-                        self._endGroupType2EndGroups[ endGroup.type() ] = []
-                    self._endGroupType2EndGroups[ endGroup.type() ].append(endGroup)
+                        self._endGroupType2EndGroups[endGroup.type()] = []
+                    self._endGroupType2EndGroups[endGroup.type()].append(endGroup)
         # Now need to create the list of all bonds throughout the block
         self._bonds = []
         self._bondsByFragmentType = []
@@ -864,12 +930,18 @@ class Block(object):
         # Then all bonds between fragments
         cap2EndGroup = {}
         for b in self._blockBonds:
-            self._bonds.append((b.endGroup1.blockEndGroupIdx, b.endGroup2.blockEndGroupIdx))
+            self._bonds.append(
+                (b.endGroup1.blockEndGroupIdx, b.endGroup2.blockEndGroupIdx)
+            )
             # Need to map cap atoms to their bonded counterparts so we can look these up when we
             # fix the endGroup indices - we map the fragment, fragmentIndex to the corresponding block index
             # This is somewhat untidy as we use the internal fragment index here - which really should be hidden
-            cap2EndGroup[ (b.endGroup1.fragment, b.endGroup1.fragmentCapIdx) ] = b.endGroup2.blockEndGroupIdx
-            cap2EndGroup[ (b.endGroup2.fragment, b.endGroup2.fragmentCapIdx) ] = b.endGroup1.blockEndGroupIdx
+            cap2EndGroup[
+                (b.endGroup1.fragment, b.endGroup1.fragmentCapIdx)
+            ] = b.endGroup2.blockEndGroupIdx
+            cap2EndGroup[
+                (b.endGroup2.fragment, b.endGroup2.fragmentCapIdx)
+            ] = b.endGroup1.blockEndGroupIdx
         # Now create the list of which atoms are bonded to which
         self._bondedToAtom = []
         for i in range(len(self._dataMap)):
@@ -894,14 +966,16 @@ class Block(object):
             symbols.append(self.symbol(i))
             atomTypes.append(self.type(i))
 
-        cmlFilename = xyz_util.writeCml(cmlFilename,
-                                        coords,
-                                        symbols,
-                                        bonds=self.bonds(),
-                                        atomTypes=atomTypes,
-                                        cell=cell,
-                                        pruneBonds=False,
-                                        prettyPrint=True)
+        cmlFilename = xyz_util.writeCml(
+            cmlFilename,
+            coords,
+            symbols,
+            bonds=self.bonds(),
+            atomTypes=atomTypes,
+            cell=cell,
+            pruneBonds=False,
+            prettyPrint=True,
+        )
 
         logger.info("wrote block CML file: {0}".format(cmlFilename))
         return
@@ -924,7 +998,7 @@ class Block(object):
         mystr = "Block: {0}\n".format(self.id)
 
         mystr += "Num fragments: {0}\n".format(len(self.fragments))
-        mystr += "endGroups: {0}\n".format([ str(e) for e in self.freeEndGroups() ])
+        mystr += "endGroups: {0}\n".format([str(e) for e in self.freeEndGroups()])
         # mystr += "_bondedCapAtoms: {0}\n".format( self._bondedCapIdxs )
         mystr += "Block bonds: {0}\n".format(self._blockBonds)
         mystr += "bonds: {0}\n".format(self._bonds)
@@ -932,6 +1006,8 @@ class Block(object):
 
         for i, c in enumerate(self.iterCoord()):
             # mystr += "{0:4}:{1:5} [ {2:0< 15},{3:0< 15},{4:0< 15} ]\n".format( i+1, self._labels[i], c[0], c[1], c[2])
-            mystr += "{0}  {1:5} {2:0< 15} {3:0< 15} {4:0< 15} \n".format(i, self.label(i), c[0], c[1], c[2])
+            mystr += "{0}  {1:5} {2:0< 15} {3:0< 15} {4:0< 15} \n".format(
+                i, self.label(i), c[0], c[1], c[2]
+            )
 
         return mystr

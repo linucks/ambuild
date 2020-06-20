@@ -1,19 +1,21 @@
-'''
+"""
 Created on Jan 15, 2013
 
 @author: abbietrewin
-'''
+"""
 import logging
 import numpy as np
 
-ENDGROUPBONDED = '*'
+ENDGROUPBONDED = "*"
 logger = logging.getLogger()
 
-class EndGroup(object):
 
+class EndGroup(object):
     def __init__(self):
 
-        self.blocked = False # Used for indicating that this endGroup is unbonded but not free
+        self.blocked = (
+            False  # Used for indicating that this endGroup is unbonded but not free
+        )
         self.bonded = False
         self._endGroupType = None
         self.fragment = None
@@ -82,16 +84,18 @@ class EndGroup(object):
         self.fragment.delBond(self.type())
         # Unmask cap and set the coordinate to the coordinate of the last block atom
         # NOTE - NEED TO SCALE BY CORRECT LENGTH
-        if hasattr(bondEndGroup, 'coord'):
+        if hasattr(bondEndGroup, "coord"):
             # Reposition the cap atom based on the bond vector
-            #self.fragment._coords[self.fragmentCapIdx] = bondEndGroup.coord()
+            # self.fragment._coords[self.fragmentCapIdx] = bondEndGroup.coord()
             # Get vector from this endGroup to the other endGroup
             egPos = self.fragment._coords[self.fragmentEndGroupIdx]
             v1 = bondEndGroup.coord() - egPos
             # Now get unit vector
             uv = v1 / np.linalg.norm(v1)
             # calculate noew position
-            self.fragment._coords[self.fragmentCapIdx] = egPos + (uv * self.capBondLength)
+            self.fragment._coords[self.fragmentCapIdx] = egPos + (
+                uv * self.capBondLength
+            )
 
         # Unhide the cap atom
         self.fragment.masked[self.fragmentCapIdx] = False
@@ -100,7 +104,7 @@ class EndGroup(object):
 
         if self.fragmentUwIdx != -1:
             raise RuntimeError("Cannot unbond masked endGroups yet!")
-            self.fragment.masked[ self.fragmentUwIdx ] = True
+            self.fragment.masked[self.fragmentUwIdx] = True
         self.fragment.update()
         return
 
@@ -117,46 +121,64 @@ class EndGroup(object):
             # opposite endGroup as this has now become our cap atom
             self.blockCapIdx = cap2endGroup[(self.fragment, self.fragmentCapIdx)]
         else:
-            self.blockCapIdx = self.fragment._int2ext[self.fragmentCapIdx] + self.fragment.blockIdx
+            self.blockCapIdx = (
+                self.fragment._int2ext[self.fragmentCapIdx] + self.fragment.blockIdx
+            )
 
         # -1 means no dihedral or uw atom set
         if self.fragmentDihedralIdx != -1:
             if self.fragment.masked[self.fragmentDihedralIdx]:
                 # Now work out which atom this is bonded to
-                self.blockDihedralIdx = cap2endGroup[(self.fragment, self.fragmentDihedralIdx)]
+                self.blockDihedralIdx = cap2endGroup[
+                    (self.fragment, self.fragmentDihedralIdx)
+                ]
             else:
-                self.blockDihedralIdx = self.fragment._int2ext[self.fragmentDihedralIdx] + self.fragment.blockIdx
+                self.blockDihedralIdx = (
+                    self.fragment._int2ext[self.fragmentDihedralIdx]
+                    + self.fragment.blockIdx
+                )
 
         # -1 means no uw atom and if it is masked then there will not be an external index
         if self.fragmentUwIdx != -1 and not self.fragment.masked[self.fragmentUwIdx]:
             # assert not self.fragment.isMasked( self.fragmentUwIdx )
-            self.blockUwIdx = self.fragment._int2ext[self.fragmentUwIdx] + self.fragment.blockIdx
+            self.blockUwIdx = (
+                self.fragment._int2ext[self.fragmentUwIdx] + self.fragment.blockIdx
+            )
         return
 
     def updateEndGroupIndex(self):
         """The block has been updated so we need to update our block indices based on where the
         fragment starts in the block"""
-        self.blockEndGroupIdx = self.fragment._int2ext[self.fragmentEndGroupIdx] + self.fragment.blockIdx
+        self.blockEndGroupIdx = (
+            self.fragment._int2ext[self.fragmentEndGroupIdx] + self.fragment.blockIdx
+        )
         return
 
     def __str__(self):
         """List the data attributes of this object"""
-#         me = {}
-#         for slot in dir(self):
-#             attr = getattr(self, slot)
-#             if not slot.startswith("__") and not ( isinstance(attr, types.MethodType) or
-#               isinstance(attr, types.FunctionType) ):
-#                 me[slot] = attr
-#
-#         t = []
-#         for k in sorted(me):
-#             t.append( str( ( k, me[k] ) ) )
-#
-#         return "{0} : {1}".format(self.__repr__(), ",".join( t ) )
-        #EndGroup:
-        s = "{0} {1}:{2} {3}({4})->{5}({6}) {7}->{8}".format(self.type(), id(self.fragment), id(self),
-                                                    self.fragmentEndGroupIdx, self.fragment._symbols[self.fragmentEndGroupIdx],
-                                                    self.fragmentCapIdx,self.fragment._symbols[self.fragmentCapIdx],
-                                                    self.blockEndGroupIdx, self.blockCapIdx)
+        #         me = {}
+        #         for slot in dir(self):
+        #             attr = getattr(self, slot)
+        #             if not slot.startswith("__") and not ( isinstance(attr, types.MethodType) or
+        #               isinstance(attr, types.FunctionType) ):
+        #                 me[slot] = attr
+        #
+        #         t = []
+        #         for k in sorted(me):
+        #             t.append( str( ( k, me[k] ) ) )
+        #
+        #         return "{0} : {1}".format(self.__repr__(), ",".join( t ) )
+        # EndGroup:
+        s = "{0} {1}:{2} {3}({4})->{5}({6}) {7}->{8}".format(
+            self.type(),
+            id(self.fragment),
+            id(self),
+            self.fragmentEndGroupIdx,
+            self.fragment._symbols[self.fragmentEndGroupIdx],
+            self.fragmentCapIdx,
+            self.fragment._symbols[self.fragmentCapIdx],
+            self.blockEndGroupIdx,
+            self.blockCapIdx,
+        )
 
         return s
