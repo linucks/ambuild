@@ -1211,7 +1211,10 @@ class Test(unittest.TestCase):
         # os.unlink("runmd.dcd")
         return
 
-    @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
+    @unittest.skipUnless(
+        ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] == 1,
+        "Need HOOMD-BLUE 1 to run",
+    )
     def testRunMDAndOptimise(self):
         """
         """
