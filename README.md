@@ -97,7 +97,7 @@ To run Ambuild with docker a command like that below should be used.
 The key thing to understand is that the Docker container cannot _see_ the local computer filesystem - it can only access the directory structure within the container. In order to access files on the local computer, any directories will need to be mounted into the container using ```--volume``` arguments, and then the _internal_ container path used within any scripts.
 
 ```
-docker run -it --rm \
+docker run --rm \
 --runtime=nvidia \
 --volume "$PWD":"$PWD" \
 --workdir "$PWD" \
