@@ -15,7 +15,6 @@ fi
 
 # Run
 docker run \
--it \
 --rm \
 --runtime=nvidia \
 --volume $run_dir:$run_dir \
