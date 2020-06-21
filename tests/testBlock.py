@@ -6,15 +6,14 @@ import unittest
 import numpy as np
 
 import context
-
-AMBUILD_DIR = context.ab_paths.AMBUILD_DIR
-BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
-PARAMS_DIR = context.ab_paths.PARAMS_DIR
-TESTDATA_DIR = context.ab_paths.TESTDATA_DIR
-Bond = context.ab_bond.Bond
-Block = context.ab_block.Block
 from context import ab_fragment
 from context import xyz_util
+
+BLOCKS_DIR = context.BLOCKS_DIR
+PARAMS_DIR = context.PARAMS_DIR
+TESTDATA_DIR = context.TESTDATA_DIR
+Bond = context.ab_bond.Bond
+Block = context.ab_block.Block
 
 
 logger = logging.getLogger(__name__)

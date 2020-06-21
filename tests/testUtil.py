@@ -3,18 +3,15 @@ import os
 import unittest
 
 # our imports
-import context
-
-AMBUILD_DIR = context.ab_paths.AMBUILD_DIR
 from context import ab_util
-from context import ab_paths
+from context import PARAMS_DIR, TESTDATA_DIR
 
 
 class Test(unittest.TestCase):
     @unittest.skipUnless(ab_util.PYTHONFLAVOUR == 2, "pkl file created with Python2")
     def testCellFromPickle(self):
         """Get old pickle file from Pierre"""
-        pickleFile = os.path.join(AMBUILD_DIR, "tests", "test_data", "oldversion.pkl")
+        pickleFile = os.path.join(TESTDATA_DIR, "oldversion.pkl")
         mycell = ab_util.cellFromPickle(pickleFile)
         self.assertEqual(
             len(mycell.blocks),
@@ -31,7 +28,7 @@ class Test(unittest.TestCase):
 
     @unittest.skipUnless(ab_util.PYTHONFLAVOUR == 2, "pkl file created with Python2")
     def testCellFromPickleGzip(self):
-        pickleFile = os.path.join(AMBUILD_DIR, "tests", "test_data", "new.pkl.gz")
+        pickleFile = os.path.join(TESTDATA_DIR, "new.pkl.gz")
         mycell = ab_util.cellFromPickle(pickleFile)
         self.assertEqual(
             len(mycell.blocks),
@@ -49,14 +46,14 @@ class Test(unittest.TestCase):
     @unittest.skipUnless(ab_util.PYTHONFLAVOUR == 2, "pkl file created with Python2")
     def testDumpDLPOLY(self):
         """Get old pickle file from Pierre"""
-        pickleFile = os.path.join(AMBUILD_DIR, "tests", "test_data", "oldversion.pkl")
+        pickleFile = os.path.join(TESTDATA_DIR, "oldversion.pkl")
         rigidBody = True
         skipDihedrals = True
         ab_util.dumpDLPOLY(
             pickleFile,
             rigidBody=rigidBody,
             skipDihedrals=skipDihedrals,
-            paramsDir=ab_paths.PARAMS_DIR,
+            paramsDir=PARAMS_DIR,
         )
         # For now just make sure we write something out...
         for fname in ["CONFIG", "CONTROL", "FIELD"]:

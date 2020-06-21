@@ -7,9 +7,9 @@ import os
 import shutil
 import unittest
 
-from context import ab_paths
 from context import ab_cell
 from context import ab_poreblazer
+from context import PARAMS_DIR, BLOCKS_DIR
 
 
 class Test(unittest.TestCase):
@@ -17,8 +17,8 @@ class Test(unittest.TestCase):
         """Run with a dummy executable just to make sure the code runs"""
         boxWidth = 20.0
         boxDim = [boxWidth, boxWidth, boxWidth]
-        mycell = ab_cell.Cell(boxDim, paramsDir=ab_paths.PARAMS_DIR)
-        ch4Car = os.path.join(ab_paths.BLOCKS_DIR, "ch4.car")
+        mycell = ab_cell.Cell(boxDim, paramsDir=PARAMS_DIR)
+        ch4Car = os.path.join(BLOCKS_DIR, "ch4.car")
         mycell.libraryAddFragment(filename=ch4Car, fragmentType="A")
         mycell.addBondType("A:a-A:a")
         mycell.seed(

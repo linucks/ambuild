@@ -5,10 +5,8 @@ import unittest
 # external imports
 import numpy as np
 
-import context
-
-PARAMS_DIR = context.ab_paths.PARAMS_DIR
 from context import xyz_util
+from context import PARAMS_DIR
 
 
 class Test(unittest.TestCase):

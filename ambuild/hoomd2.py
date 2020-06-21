@@ -21,7 +21,6 @@ class Hoomd2(object):
     """
     TODO in 2
     * fix masked atoms
-    * handle reading data back into cell - need to exclude central particles
 
     TODO in 1
     * change checkParameters to use self.particleTypes etc
@@ -610,7 +609,7 @@ class Hoomd2(object):
         """
         if walls is None:
             return
-        assert len(walls) is 3  # array of three booleans - one per wall
+        assert len(walls) == 3  # array of three booleans - one per wall
         if not any(walls):
             return
         assert wallAtomType is not None, "Need to set a wallAtomType!"
@@ -623,15 +622,15 @@ class Hoomd2(object):
                         wtype, wallAtomType
                     )
                 )
-                if wtype is "XOY":
+                if wtype == "XOY":
                     originFront = (0, 0, -self.system.box.Lz / 2)
                     originBack = (0, 0, self.system.box.Lz / 2)
                     normal = (0, 0, 1)
-                elif wtype is "XOZ":
+                elif wtype == "XOZ":
                     originFront = (0, -self.system.box.Ly / 2, 0)
                     originBack = (0, self.system.box.Ly / 2, 0)
                     normal = (0, 1, 0)
-                elif wtype is "YOZ":
+                elif wtype == "YOZ":
                     originFront = (-self.system.box.Lx / 2, 0, 0)
                     originBack = (self.system.box.Lx / 2, 0, 0)
                     normal = (1, 0, 0)
@@ -735,7 +734,7 @@ def snap2xyz(snapshot, fpath="foo.xyz"):
 
 
 if __name__ == "__main__":
-    from ab_paths import PARAMS_DIR
+    PARAMS_DIR = "INSERT_PATH_HERE"
     import ab_util
 
     mycell = ab_util.cellFromPickle(sys.argv[1])

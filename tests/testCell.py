@@ -7,20 +7,19 @@ import unittest
 import numpy as np
 
 import context
-
-AMBUILD_DIR = context.ab_paths.AMBUILD_DIR
-BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
-PARAMS_DIR = context.ab_paths.PARAMS_DIR
-TESTDATA_DIR = context.ab_paths.TESTDATA_DIR
-Bond = context.ab_bond.Bond
-Block = context.ab_block.Block
-Cell = context.ab_cell.Cell
 from context import ab_block
 from context import ab_subunit
 from context import ab_util
 from context import dlpoly
 from context import xyz_core
 from context import xyz_util
+
+BLOCKS_DIR = context.BLOCKS_DIR
+PARAMS_DIR = context.PARAMS_DIR
+TESTDATA_DIR = context.TESTDATA_DIR
+Bond = context.ab_bond.Bond
+Block = context.ab_block.Block
+Cell = context.ab_cell.Cell
 
 
 if ab_util.PYTHONFLAVOUR < 3:
@@ -186,7 +185,6 @@ class Test(unittest.TestCase):
         # Add catalyst
         mycell.seed(1, fragmentType="cat", center=True)
         # Now join the pafs to the cat
-        catid = list(mycell.blocks.keys())[0]
         cat = list(mycell.blocks.values())[0]
         paf1eg = paf1.freeEndGroups()[0]
         paf2eg = paf2.freeEndGroups()[0]
@@ -1973,7 +1971,7 @@ class Test(unittest.TestCase):
         # Test what we've written out matches the reference file
         with open(xmlFilename) as f:
             test = f.readlines()
-        with open(os.path.join(AMBUILD_DIR, "tests", xmlFilename)) as f:
+        with open(os.path.join(TESTDATA_DIR, xmlFilename)) as f:
             ref = f.readlines()
         self.assertEqual(test, ref, "xml compare")
         if hoomd1.init.is_initialized():

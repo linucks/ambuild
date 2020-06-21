@@ -7,11 +7,11 @@ import os
 import unittest
 
 import context
-
-BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
-PARAMS_DIR = context.ab_paths.PARAMS_DIR
 from context import ab_fragment
 from context import xyz_util
+
+BLOCKS_DIR = context.BLOCKS_DIR
+PARAMS_DIR = context.PARAMS_DIR
 
 xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
 

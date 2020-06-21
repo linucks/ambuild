@@ -9,13 +9,12 @@ import unittest
 import numpy as np
 
 import context
-
-BLOCKS_DIR = context.ab_paths.BLOCKS_DIR
-PARAMS_DIR = context.ab_paths.PARAMS_DIR
 from context import ab_fragment
-from context import ab_rigidparticle
 from context import xyz_core
 from context import xyz_util
+
+BLOCKS_DIR = context.BLOCKS_DIR
+PARAMS_DIR = context.PARAMS_DIR
 
 # Not sure where best to do this
 xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
