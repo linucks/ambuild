@@ -108,7 +108,7 @@ python3 ambuild_script.py
 ```
 Each line is explained below.
 
-1. ```docker run -it --rm ``` run docker in interactive mode and remove the container on exit.
+1. ```docker run --rm ``` run docker and remove the container on exit.
 
 2. ```--runtime=nvidia``` use the Nvidia environment to take advantage of the GPU acceleration.
 3. ```--volume "$PWD":"$PWD"``` make the current working directory from where this command is run (specified using the variable ```"$PWD"```) available inside the container.
