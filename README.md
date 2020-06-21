@@ -1,6 +1,8 @@
 # Amorphous Builder (Ambuild)
 Ambuild is a python program for creating polymeric molecular structures.
 
+The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group at the [University of Lancaster](https://www.lancaster.ac.uk/sci-tech/about-us/people/abbie-trewin).
+
 ## Installation
 ### Ubuntu/Debian
 
