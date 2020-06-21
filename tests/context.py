@@ -1,7 +1,6 @@
 import os
 import sys
 
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../ambuild')))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from ambuild import ab_block
@@ -17,5 +16,3 @@ from ambuild import ab_util
 from ambuild import dlpoly
 from ambuild import xyz_core
 from ambuild import xyz_util
-
-print("GOT ", dir())
