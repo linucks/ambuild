@@ -5,6 +5,10 @@ Please feel free to follow Ambuild on [twitter](https://twitter.com/Ambuild2).
 The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group at the [University of Lancaster](https://www.lancaster.ac.uk/sci-tech/about-us/people/abbie-trewin).
 
 ## Installation
+In order to run at all, Ambuild requires [numpy](https://numpy.org/), which is easily installed into any Python installation with a command such as ```pip install numpy```.
+
+With numpy installed Ambuild can be used to create molecular structures, but cannot run any Molecular Dynamics or Optimisation steps. In order to do that, [HOOMD-Blue](http://glotzerlab.engin.umich.edu/hoomd-blue/) is required, and in order to run systems of a reasonable size, HOOMD-Blue will need to be running on GPUs. If you already have HOOMD-Blue installed you are ready to start using Ambuild, otherwise the instructions below detail how to install Ambuild and HOOMD-Blue.
+
 ### Ubuntu/Debian
 
 * install git
