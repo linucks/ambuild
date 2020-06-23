@@ -66,7 +66,7 @@ Workaround for: https://github.com/docker/compose/issues/6691
 ```
 # Seem to need this too:
 sudo apt install nvidia-container-runtime
-# Copy into /etc/docker/daemon.json
+# Create a file called /etc/docker/daemon.json containing the following text:
 {
     "runtimes": {
         "nvidia": {
