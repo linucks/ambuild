@@ -70,7 +70,8 @@ Workaround for: https://github.com/docker/compose/issues/6691
 ```
 # Seem to need this too:
 sudo apt install nvidia-container-runtime
-# Create a file called /etc/docker/daemon.json containing the following text:
+# Create a file called /etc/docker/daemon.json with the following command (copy and paste everything from "sudo" up to and including the "EOF" characters):
+sudo cat > /etc/docker/daemon.json << EOF
 {
     "runtimes": {
         "nvidia": {
@@ -79,6 +80,7 @@ sudo apt install nvidia-container-runtime
         }
     }
 }
+EOF
 # Then:
 sudo systemctl restart docker
 ```
