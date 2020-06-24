@@ -44,7 +44,7 @@ To allow users to run docker/ambuild without having sudo access, create docker g
 # NB: may not be required
 sudo groupadd docker
 # Add user abbie
-sudo usermod -aG docker
+sudo usermod -aG docker $USER
 # Active group (to save logging out/in)
 newgrp docker
 # Test can run hello world
