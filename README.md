@@ -85,11 +85,12 @@ EOF
 sudo systemctl restart docker
 ```
 **Disable video GPU.**
+If you have more then one GPU card (e.g. you have card specifically for running jobs), the you may need to disable your video GPU card for running jobs so that any GPU jobs are placed on the specialised card rather then then using the video card. This will not disable the video card for viewing your screen - it will just prevent it being used to run computational simulation jobs.
 ```
-# Find ID of card to disable
+# Find ID of card to disable (this will print the UUID string, that you can then use in the command below).
 nvidia-smi -L
-# Disable video GPU by setting mode to 2/PROHIBITED
-nvidia-smi -c 2 -i GPU-4030396e-e7b4-aa4d-e035-22758536dba5
+# Disable video GPU by setting mode to 2/PROHIBITED for the GPU card who's UUID we identified with the command above.
+sudo nvidia-smi -c 2 -i GPU-4030396e-e7b4-aa4d-e035-22758536dba5
 ```
 
 ### Checkout Ambuild
