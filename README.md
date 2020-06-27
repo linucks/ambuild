@@ -135,3 +135,14 @@ The file [run_ambuild_docker.sh](https://github.com/linucks/ambuild/blob/master/
 --volume /home/abbie/Dropbox/Ambuild_Files:/home/abbie/Dropbox/Ambuild_Files \
 cell_size_test.py
 ```
+## Installation of optional dependencies
+### Poreblazer
+To install [poreblzser](https://github.com/richardjgowers/poreblazer) for use by Ambuild, the following steps are required.
+
+1. Checkout or download poreblazer from github:
+```git clone https://github.com/richardjgowers/poreblazer.git```
+
+2. Install the [gfortran](https://gcc.gnu.org/wiki/GFortran) compiler. On Ubuntu/Debian, this should just be a case of running:
+```sudo apt-get install gfortran```
+
+3. Compile the poreblazer executable. This is done in the ```src``` directory of the poreblazer directory, so cd into this directory and then run the command:```make``` This should created the ```poreblazer.exe``` executable in this directory.
