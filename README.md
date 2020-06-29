@@ -137,7 +137,7 @@ cell_size_test.py
 ```
 ## Installation of optional dependencies
 ### Poreblazer
-To install [poreblzser](https://github.com/richardjgowers/poreblazer) for use by Ambuild, the following steps are required.
+To install [poreblazer](https://github.com/richardjgowers/poreblazer) for use by Ambuild, the following steps are required.
 
 1. Checkout or download poreblazer from github:
 ```git clone https://github.com/richardjgowers/poreblazer.git```
