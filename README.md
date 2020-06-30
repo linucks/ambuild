@@ -145,4 +145,4 @@ To install [poreblazer](https://github.com/richardjgowers/poreblazer) for use by
 2. Install the [gfortran](https://gcc.gnu.org/wiki/GFortran) compiler. On Ubuntu/Debian, this should just be a case of running:
 ```sudo apt-get install gfortran```
 
-3. Compile the poreblazer executable. This is done in the ```src``` directory of the poreblazer directory, so cd into this directory and then run the command:```make``` This should created the ```poreblazer.exe``` executable in this directory.
+3. Compile the poreblazer executable. This is done in the ```src``` directory of the poreblazer directory, so cd into this directory and then run the command:```make``` This should create the ```poreblazer.exe``` executable in this directory.
