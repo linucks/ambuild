@@ -14,7 +14,7 @@ With numpy installed Ambuild can be used to create molecular structures, but can
 * install git
 ```sudo apt-get install git```
 
-#### Install Docker
+#### 1. Install Docker
 Instructions from: https://docs.docker.com/engine/install/ubuntu/
 ```
 # Remove any old versions:
@@ -51,7 +51,7 @@ newgrp docker
 docker run hello-world
 ```
 
-#### Install NVIDIA Docker Runtime
+#### 2. Install NVIDIA Docker Runtime
 Instructions: https://github.com/NVIDIA/nvidia-docker
 
 ```
@@ -62,7 +62,7 @@ sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
 sudo systemctl restart docker
 ```
 
-Test nvidia-smi with the latest official CUDA image
+2.1 Test nvidia-smi with the latest official CUDA image
 
 ```docker run --gpus all nvidia/cuda:10.0-base nvidia-smi```
 
@@ -93,13 +93,13 @@ nvidia-smi -L
 sudo nvidia-smi -c 2 -i GPU-4030396e-e7b4-aa4d-e035-22758536dba5
 ```
 
-### Checkout Ambuild
+### 3. Checkout Ambuild
 ```
 cd /opt
 git clone https://github.com/linucks/ambuild.git
 ```
 
-#### Run Ambuild with Docker
+#### 4. Run Ambuild with Docker
 To run Ambuild with docker a command like that below should be used.
 
 > **NB: the backslash at the end of each line is a continuation character, so the whole block of text is actually a single command and could be typed as a single line.**
