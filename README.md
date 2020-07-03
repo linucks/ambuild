@@ -1,5 +1,5 @@
 # Amorphous Builder (Ambuild)
-Ambuild is a python program for creating polymeric molecular structures. 
+Ambuild is a python program for creating polymeric molecular structures.
 Please feel free to follow Ambuild on [twitter](https://twitter.com/Ambuild2).
 
 The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group at the [University of Lancaster](https://www.lancaster.ac.uk/sci-tech/about-us/people/abbie-trewin).
@@ -7,24 +7,25 @@ The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group
 Any lines preceded by '#' indicate a comment to help explain each line of code. To install Ambuild, copy and paste each line of code separately into your terminal window (unless otherwise indicated). Please do not copy and paste the comment lines preceded by a hashtag (#)!
 
 ## Installation
-In order to run at all, Ambuild requires [numpy](https://numpy.org/), which is easily installed into any Python installation with a command such as ```pip install numpy```.
+In order to run at all, Ambuild requires [numpy](https://numpy.org/), which is easily installed into any Python installation with a command such as:
+```
+pip install numpy
+```
 
 With numpy installed Ambuild can be used to create molecular structures, but cannot run any Molecular Dynamics or Optimisation steps. In order to do that, [HOOMD-Blue](http://glotzerlab.engin.umich.edu/hoomd-blue/) is required, and in order to run systems of a reasonable size, HOOMD-Blue will need to be running on GPUs. If you already have HOOMD-Blue installed you are ready to start using Ambuild, otherwise the instructions below detail how to install Ambuild and HOOMD-Blue.
 
 ### Ubuntu/Debian
 
-* Firstly, install git using:
-```sudo apt-get install git```
-
 #### 1. Install Docker
+
 Instructions from: https://docs.docker.com/engine/install/ubuntu/
 
-Firstly, remove any old versions with the command:
-```
+1. Firstly, remove any old versions with the command:
+  ```
 sudo apt-get remove docker docker-engine docker.io containerd runc
 ```
-Update the list of packages and install those required to install Docker with the following two commands:
-```
+  Update the list of packages and install those required to install Docker with the following two commands:
+  ```
 sudo apt-get update
 sudo apt-get install \
     apt-transport-https \
@@ -33,38 +34,41 @@ sudo apt-get install \
     gnupg-agent \
     software-properties-common
 ```
-Add Docker’s official GPG key (so that the downloaded packages can be validated) with the command:
+
+2. Add Docker’s official GPG key (so that the downloaded packages can be validated) with the command:
 ```
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 ```
-Add the Docker 'stable' repository to the list of available repositories, so that apt can download from it:
+3. Add the Docker 'stable' repository to the list of available repositories, so that apt can download from it:
 ```
 sudo add-apt-repository \
    "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
    $(lsb_release -cs) \
    stable"
 ```
-With the Docker respository added to the list, update the list of packages and then install docker:
+4. With the Docker respository added to the list, update the list of packages and then install docker:
 ```
 sudo apt-get update
 sudo apt-get install docker-ce docker-ce-cli containerd.io
 ```
+
+#### 2. Create Docker Group
 Non-root users cannot run Docker by default, so it usally needs to be run under sudo; however this means any files created are owned by root, which is not a good idea. To allow users to run docker/ambuild without having sudo access, create docker group and add any users to it who will be required to run docker/ambuild.
 
-First create the group for all users of docker. This may have already been done with the docker installation command, so it may not be required, but it's not a problem to run this command again
+1. First create the group for all users of docker. This may have already been done with the docker installation command, so it may not be required, but it's not a problem to run this command again
 ```
 sudo groupadd docker
 ```
 
-Add the current logged in user (specified by the $USER environment variable) to this group. Any other users can be added by replacing $USER in the below commmand with the unix username.
+2. Add the current logged in user (specified by the $USER environment variable) to this group. Any other users can be added by replacing $USER in the below commmand with the unix username.
 ```
 sudo usermod -aG docker $USER
 ````
-Activate the group (this just saves logging out/in again)
+3. Activate the group (this just saves logging out/in again)
 ```
 newgrp docker
 ```
-With Docker installed, the docker group set up and the current user added, test if you can run docker without using sudo:
+4. With Docker installed, the docker group set up and the current user added, test if you can run docker without using sudo:
 ```
 docker run hello-world
 ```
@@ -73,7 +77,9 @@ If this works, you have a working Docker installation!
 #### 2. Install NVIDIA Docker Runtime
 Instructions from: https://github.com/NVIDIA/nvidia-docker
 
-```
+1. Run the following commands to install the nvidia-container-toolkit:
+
+  ```
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
 curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
 curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
@@ -81,19 +87,19 @@ sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
 sudo systemctl restart docker
 ```
 
-2.1 Test nvidia-smi with the latest official CUDA image
+2. Test nvidia-smi with the latest official CUDA image
 
-```docker run --gpus all nvidia/cuda:10.0-base nvidia-smi```
+  ```docker run --gpus all nvidia/cuda:10.0-base nvidia-smi```
 
 There is currently a bug with the nvidia docker container runtime as detailed here: https://github.com/docker/compose/issues/6691
 
-To work around the bug carry out the following steps:
+To work around the bug carry out the following additional steps are required:
 
-1. Install the nvidia-container-runtime
+3. Install the nvidia-container-runtime
 ```
 sudo apt install nvidia-container-runtime
 ```
-2. Create a file called /etc/docker/daemon.json with the following content
+4. Create a file called /etc/docker/daemon.json with the following content
 ```
 {
     "runtimes": {
@@ -117,32 +123,40 @@ sudo tee -a /etc/docker/daemon.json << EOF
 }
 EOF
 ```
-3. Restart docker:
+5. Restart docker:
 ```
 sudo systemctl restart docker
 ```
 
-**Disable video GPU.**
+#### 3. Disable video GPU card
 If you have more than one GPU card (e.g. you have a card specifically for running jobs), then you may need to disable your video GPU card for running jobs so that any GPU jobs are placed on the specialised card rather than using the video card. This will not disable the video card for viewing your screen - it will just prevent it being used to run computational simulation jobs.
+
+1. Find ID of card to disable (this will print the UUID string, that you can then use in the command below).
 ```
-# Find ID of card to disable (this will print the UUID string, that you can then use in the command below).
 nvidia-smi -L
-# Disable video GPU by setting mode to 2/PROHIBITED for the GPU card who's UUID we identified with the command above.
+```
+
+2. Disable video GPU by setting mode to 2/PROHIBITED for the GPU card who's UUID we identified with the command above.
+```
 sudo nvidia-smi -c 2 -i GPU-4030396e-e7b4-aa4d-e035-22758536dba5
 ```
 
-### 3. Checkout Ambuild
+#### 4. Get Ambuild
+
+1. Firstly, install git using:
 ```
-cd /opt
+sudo apt-get install git
+```
+
+2. Checkout ambuild from the github repository.
+```
 git clone https://github.com/linucks/ambuild.git
 ```
 
-#### 4. Run Ambuild with Docker
-To run Ambuild with docker a command like that below should be used.
+#### 5. Run Ambuild with Docker
+To run Ambuild with docker a command like that below should be used. The key thing to understand is that the Docker container cannot _see_ the local computer filesystem - it can only access the directory structure within the container. In order to access files on the local computer, any directories will need to be mounted into the container using ```--volume``` arguments, and then the _internal_ container path used within any scripts.
 
 > **NB: the backslash at the end of each line is a continuation character, so the whole block of text is actually a single command and could be typed as a single line.**
-
-The key thing to understand is that the Docker container cannot _see_ the local computer filesystem - it can only access the directory structure within the container. In order to access files on the local computer, any directories will need to be mounted into the container using ```--volume``` arguments, and then the _internal_ container path used within any scripts.
 
 ```
 docker run --rm \
@@ -166,7 +180,7 @@ Each line is explained below.
 7. ```glotzerlab/software``` use the docker image from [glotzerlab/software](https://hub.docker.com/r/glotzerlab/software/). This downloads the file from the Docker repository (it's very large - several Gb - so the download can take some time, although it's only done once), and uses this to create the container.
 8. ```python3 ambuild_script.py``` run the ```ambuild_script.py``` script, containing the Ambuild commands in the current directory with the python3 executable in the container.
 
-#### Run Ambuild with Docker using the run_ambuild_docker.sh script
+##### 5.1 Run Ambuild with Docker using the run_ambuild_docker.sh script
 The file [run_ambuild_docker.sh](https://github.com/linucks/ambuild/blob/master/misc/run_ambuild_docker.sh) that is distributed with Ambuild in the ```misc``` directory faciliates running Ambuild with an installed Docker installation. It creates the command to run the Docker container, and accepts additional ```--volume``` arguments, as well as the path to the ambuild script to run. An example of using it is below, where Ambuild has been downloaded and unpacked into the ```/opt/``` directory, and the files in the ```/home/abbie/Dropbox/Ambuild_Files``` directory need to be accessed within the ```cell_size_test.py``` Ambuild script:
 ```
 /opt/ambuild/misc/run_ambuild_docker.sh \
