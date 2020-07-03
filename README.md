@@ -18,10 +18,13 @@ With numpy installed Ambuild can be used to create molecular structures, but can
 
 #### 1. Install Docker
 Instructions from: https://docs.docker.com/engine/install/ubuntu/
+
+Firstly, remove any old versions with the command:
 ```
-# Remove any old versions:
 sudo apt-get remove docker docker-engine docker.io containerd runc
-# Set up docker repository:
+```
+Update the list of packages and install those required to install Docker with the following two commands:
+```
 sudo apt-get update
 sudo apt-get install \
     apt-transport-https \
@@ -29,32 +32,46 @@ sudo apt-get install \
     curl \
     gnupg-agent \
     software-properties-common
-# Add Docker’s official GPG key:
+```
+Add Docker’s official GPG key (so that the downloaded packages can be validated) with the command:
+```
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-# Set up stable repository
+```
+Add the Docker 'stable' repository to the list of available repositories, so that apt can download from it:
+```
 sudo add-apt-repository \
    "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
    $(lsb_release -cs) \
    stable"
-# Install Docker
+```
+With the Docker respository added to the list, update the list of packages and then install docker:
+```
 sudo apt-get update
 sudo apt-get install docker-ce docker-ce-cli containerd.io
 ```
-To allow users to run docker/ambuild without having sudo access, create docker group and add any users to it who will be required to run docker/ambuild.
+Non-root users cannot run Docker by default, so it usally needs to be run under sudo; however this means any files created are owned by root, which is not a good idea. To allow users to run docker/ambuild without having sudo access, create docker group and add any users to it who will be required to run docker/ambuild.
 
+First create the group for all users of docker. This may have already been done with the docker installation command, so it may not be required, but it's not a problem to run this command again
 ```
-# NB: may not be required
 sudo groupadd docker
-# Add user abbie
+```
+
+Add the current logged in user (specified by the $USER environment variable) to this group. Any other users can be added by replacing $USER in the below commmand with the unix username.
+```
 sudo usermod -aG docker $USER
-# Active group (to save logging out/in)
+````
+Activate the group (this just saves logging out/in again)
+```
 newgrp docker
-# Test can run hello world
+```
+With Docker installed, the docker group set up and the current user added, test if you can run docker without using sudo:
+```
 docker run hello-world
 ```
+If this works, you have a working Docker installation!
 
 #### 2. Install NVIDIA Docker Runtime
-Instructions: https://github.com/NVIDIA/nvidia-docker
+Instructions from: https://github.com/NVIDIA/nvidia-docker
 
 ```
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
@@ -68,11 +85,27 @@ sudo systemctl restart docker
 
 ```docker run --gpus all nvidia/cuda:10.0-base nvidia-smi```
 
-Workaround for: https://github.com/docker/compose/issues/6691
+There is currently a bug with the nvidia docker container runtime as detailed here: https://github.com/docker/compose/issues/6691
+
+To work around the bug carry out the following steps:
+
+1. Install the nvidia-container-runtime
 ```
-# Seem to need this too:
 sudo apt install nvidia-container-runtime
-# Create a file called /etc/docker/daemon.json with the following command (copy and paste everything from "sudo" up to and including the "EOF" characters):
+```
+2. Create a file called /etc/docker/daemon.json with the following content
+```
+{
+    "runtimes": {
+        "nvidia": {
+            "path": "/usr/bin/nvidia-container-runtime",
+            "runtimeArgs": []
+        }
+    }
+}
+```
+  If you're unsure how to do this, cut and paste the following command into the terminal:
+```
 sudo tee -a /etc/docker/daemon.json << EOF
 {
     "runtimes": {
@@ -83,9 +116,12 @@ sudo tee -a /etc/docker/daemon.json << EOF
     }
 }
 EOF
-# Then:
+```
+3. Restart docker:
+```
 sudo systemctl restart docker
 ```
+
 **Disable video GPU.**
 If you have more than one GPU card (e.g. you have a card specifically for running jobs), then you may need to disable your video GPU card for running jobs so that any GPU jobs are placed on the specialised card rather than using the video card. This will not disable the video card for viewing your screen - it will just prevent it being used to run computational simulation jobs.
 ```
