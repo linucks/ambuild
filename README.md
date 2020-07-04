@@ -4,8 +4,6 @@ Please feel free to follow Ambuild on [twitter](https://twitter.com/Ambuild2).
 
 The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group at the [University of Lancaster](https://www.lancaster.ac.uk/sci-tech/about-us/people/abbie-trewin).
 
-Any lines preceded by '#' indicate a comment to help explain each line of code. To install Ambuild, copy and paste each line of code separately into your terminal window (unless otherwise indicated). Please do not copy and paste the comment lines preceded by a hashtag (#)!
-
 ## Installation
 In order to run at all, Ambuild requires [numpy](https://numpy.org/), which is easily installed into any Python installation with a command such as:
 ```
