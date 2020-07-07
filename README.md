@@ -97,14 +97,14 @@ sudo systemctl restart docker
 
   ```docker run --gpus all nvidia/cuda:10.0-base nvidia-smi```
 
-There is currently a bug with the nvidia docker container runtime as detailed here: https://github.com/docker/compose/issues/6691
-
-To work around the bug carry out the following additional steps are required:
-
 3. Install the nvidia-container-runtime
 ```
 sudo apt install nvidia-container-runtime
 ```
+There is currently a bug with the nvidia docker container runtime as detailed here: https://github.com/docker/compose/issues/6691
+
+To work around the bug carry out the following additional step:
+
 4. Create a file called /etc/docker/daemon.json with the following content
 ```
 {
