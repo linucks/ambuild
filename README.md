@@ -75,18 +75,9 @@ If this works, you have a working Docker installation!
 #### 3. Install NVIDIA Drivers
 In order for applications within the Docker container to take advantage of GPU acceleration, you will need to install the NVIDIA GPU drivers for your card - the drivers are the piece of software that allow different programmes to communicate with the GPU card. There are instructions for how to do this on the [NVIDIA webssite](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)
 
-1. Before you start, if you're going to install, make sure you don't have any existing drivers on there and if you do, make sure you remove them first.
-
-2. Go to https://developer.nvidia.com/cuda-downloads and download the relevant driver for your GPU card. This will also print out the relevant instructions for installing the drivers.
-
-3. Install the drivers. For a Tesla card on x86_64 Ubuntu, this is done with the following commands:
+On Ubunutu, the easiest way to do this seems to be with the command:
 ```
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
-sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
-sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
-sudo add-apt-repository "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /"
-sudo apt-get update
-sudo apt-get -y install cuda
+sudo ubuntu-drivers autoinstall
 ```
 
 #### 4. Install NVIDIA Docker Runtime
