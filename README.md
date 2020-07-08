@@ -73,9 +73,9 @@ docker run hello-world
 If this works, you have a working Docker installation!
 
 #### 3. Install NVIDIA Drivers
-In order for applications within the Docker container to take advantage of GPU acceleration, you will need to install the NVIDIA GPU drivers for your card - the drivers are the piece of software that allow different programmes to communicate with the GPU card. There are instructions for how to do this on the [NVIDIA webssite](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)
+In order for applications within the Docker container to take advantage of GPU acceleration, you will need to install the NVIDIA GPU drivers for your card - the drivers are the piece of software that allow different programmes to communicate with the GPU card. There are instructions for how to do this on the [NVIDIA website](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)
 
-On Ubunutu, the easiest way to do this seems to be with the command:
+On Ubuntu, the easiest way to do this seems to be with the command:
 ```
 sudo ubuntu-drivers autoinstall
 ```
