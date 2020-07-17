@@ -173,7 +173,17 @@ sudo nvidia-smi -c 2 -i GPU-4030396e-e7b4-aa4d-e035-22758536dba5
 ```
 E.g. in the example output above, the UUID string will be: ```GPU-66dc2593-494d-4b44-4574-2b92976db56b```, making the command in step 2 read:  ```sudo nvidia-smi -c 2 -i GPU-66dc2593-494d-4b44-4574-2b92976db56b```
 
-If you do not see an output like the one given as an example in step 1, we advise you to contact your local Linux specialist.
+If you do not see an output like the one given as an example in step 1, we advise you to firstly try running the three commands immediately below. If you still do not see an output as in the example given with step 1, we suggest contacting your local Linux specialist.
+
+```
+sudo apt-get --purge remove "*cublas*" "cuda" "nsight"
+```
+```
+sudo apt-get --purge remove "*nvidia*"
+```
+```
+sudo ubuntu-drivers autoinstall
+```
 
 #### 7. Get Ambuild
 
