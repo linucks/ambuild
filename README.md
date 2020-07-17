@@ -6,7 +6,7 @@ The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group
 
 Ambuild has previously been tested on Ubuntu/Debian machines, but should work for other Linux environments too. The instructions given below relate to installation on a Ubuntu/Debian Linux environment. We explain here how to install each component required to run Ambuild onto a new machine. Please feel free to skip any steps describing how to install any components which you have already installed.
 
-Copy each section in a grey box in its entirety, and paste these into your terminal in sequence to install the code. We recommend that Ambuild is installed in /opt, as we have done ourselves. This will allow the commands we use to run Ambuild (as seen in our wiki page) to match the commands you will run.
+Copy each section in a grey box in its entirety, and paste these into your terminal in sequence to install the code. We recommend that Ambuild is installed in /opt, as we have done ourselves. This will allow the commands we use to run Ambuild (as seen in our [wiki page](https://github.com/linucks/ambuild/wiki/08_Running_Ambuild)) to match the commands you will run.
 
 ## Installation
 
@@ -80,7 +80,7 @@ newgrp docker
 ```
 docker run hello-world
 ```
-If you see the following output when running the line above, you have a working Docker installation! If you do not see the output below please contact your local Linux specialist or visit the [Docker website] (https://docs.docker.com/).
+If you see the following output when running the line above, you have a working Docker installation! If you do not see the output below please contact your local Linux specialist or visit the [Docker website](https://docs.docker.com/).
 
 ###### Hello from Docker!
 ###### This message shows that your installation appears to be working correctly.
