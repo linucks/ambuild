@@ -182,7 +182,7 @@ If you do not see an output like the one given as an example in step 1, we advis
 sudo apt-get install git
 ```
 
-2. Checkout ambuild from the GitHub repository.
+2. Checkout ambuild from the GitHub repository. We recommend that you cd into /opt, and then run this command.
 ```
 git clone https://github.com/linucks/ambuild.git
 ```
