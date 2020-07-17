@@ -180,40 +180,6 @@ sudo apt-get install git
 git clone https://github.com/linucks/ambuild.git
 ```
 
-#### 8. Run Ambuild with Docker
-To run Ambuild with docker a command like that below should be used. The key thing to understand is that the Docker container cannot _see_ the local computer filesystem - it can only access the directory structure within the container. In order to access files on the local computer, any directories will need to be mounted into the container using ```--volume``` arguments, and then the _internal_ container path used within any scripts.
-
-> **NB: the backslash at the end of each line is a continuation character, so the whole block of text is actually a single command and could be typed as a single line.**
-
-```
-docker run --rm \
---runtime=nvidia \
---volume "$PWD":"$PWD" \
---workdir "$PWD" \
---volume /opt/ambuild/ambuild:/usr/lib/python3/dist-packages/ambuild \
---volume /home/abbie/Dropbox/Ambuild:/home/abbie/Dropbox/Ambuild \
-glotzerlab/software \
-python3 ambuild_script.py
-```
-Each line is explained below.
-
-1. ```docker run --rm ``` run docker and remove the container on exit.
-
-2. ```--runtime=nvidia``` use the Nvidia environment to take advantage of the GPU acceleration.
-3. ```--volume "$PWD":"$PWD"``` make the current working directory from where this command is run (specified using the variable ```"$PWD"```) available inside the container.
-4. ```--workdir $PWD``` make the working directory inside the container the full path to the working directory on the local machine. This means that the current working directory where the script is run, will be used as the working directory for running Ambuild.
-5. ```--volume /opt/ambuild/ambuild:/usr/lib/python3/dist-packages/ambuild``` make the directory ```/opt/ambuild/ambuild``` on the local filesystem available as ```/usr/lib/python3/dist-packages/ambuild``` within the container. This makes it possible for the python3 executable within the container to find the ambuild code, so that ```import ambuild``` within the ambuild_script.py works.
-6. ```--volume /home/abbie/Dropbox/Ambuild:/home/abbie/Dropbox/Ambuild``` this is the only optional parameter. It makes the directory ```/home/abbie/Dropbox/Ambuild/params``` available within the container. Any additional paths to directories outside the current working directory that are used within the Ambuild script will need to be added in this way.
-7. ```glotzerlab/software``` use the docker image from [glotzerlab/software](https://hub.docker.com/r/glotzerlab/software/). This downloads the file from the Docker repository (it's very large - several Gb - so the download can take some time, although it's only done once), and uses this to create the container.
-8. ```python3 ambuild_script.py``` run the ```ambuild_script.py``` script, containing the Ambuild commands in the current directory with the python3 executable in the container.
-
-##### 8.1 Run Ambuild with Docker using the run_ambuild_docker.sh script
-The file [run_ambuild_docker.sh](https://github.com/linucks/ambuild/blob/master/misc/run_ambuild_docker.sh) that is distributed with Ambuild in the ```misc``` directory facilitates running Ambuild with an installed Docker installation. It creates the command to run the Docker container, and accepts additional ```--volume``` arguments, as well as the path to the ambuild script to run. An example of using it is below, where Ambuild has been downloaded and unpacked into the ```/opt/``` directory, and the files in the ```/home/abbie/Dropbox/Ambuild_Files``` directory need to be accessed within the ```cell_size_test.py``` Ambuild script:
-```
-/opt/ambuild/misc/run_ambuild_docker.sh \
---volume /home/abbie/Dropbox/Ambuild_Files:/home/abbie/Dropbox/Ambuild_Files \
-cell_size_test.py
-```
 ## Installation of optional dependencies
 ### Poreblazer
 To install [poreblazer](https://github.com/richardjgowers/poreblazer) for use by Ambuild, the following steps are required.
