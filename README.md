@@ -4,6 +4,8 @@ Please feel free to follow Ambuild on [twitter](https://twitter.com/Ambuild2).
 
 The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group at the [University of Lancaster](https://www.lancaster.ac.uk/sci-tech/about-us/people/abbie-trewin).
 
+Copy each section in a grey box in its entirety, and paste these into your terminal in sequence to install the code.
+
 ## Installation
 In order to run at all, Ambuild requires [numpy](https://numpy.org/), which is easily installed into any Python installation with a command such as:
 ```
@@ -25,6 +27,8 @@ sudo apt-get remove docker docker-engine docker.io containerd runc
   Update the list of packages and install those required to install Docker with the following two commands:
   ```
 sudo apt-get update
+  ```
+  ```
 sudo apt-get install \
     apt-transport-https \
     ca-certificates \
@@ -47,6 +51,8 @@ sudo add-apt-repository \
 4. With the Docker respository added to the list, update the list of packages and then install docker:
 ```
 sudo apt-get update
+  ```
+  ```
 sudo apt-get install docker-ce docker-ce-cli containerd.io
 ```
 
@@ -124,7 +130,7 @@ To work around the bug carry out the following additional step:
     }
 }
 ```
-  If you're unsure how to do this, cut and paste the following command into the terminal:
+  If you're unsure how to do this, cut and paste the following command (from 'sudo' to the second 'EOF') into the terminal:
 ```
 sudo tee -a /etc/docker/daemon.json << EOF
 {
