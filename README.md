@@ -82,18 +82,19 @@ docker run hello-world
 ```
 If you see the following output when running the line above, you have a working Docker installation! If you do not see the output below please contact your local Linux specialist or visit the [Docker website](https://docs.docker.com/).
 
-###### Hello from Docker!
-###### This message shows that your installation appears to be working correctly.
+```
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
 
-###### To generate this message, Docker took the following steps:
-###### 1. The Docker client contacted the Docker daemon.
-###### 2. The Docker daemon pulled the "hello-world" image from the Docker Hub. (amd64)
-###### 3. The Docker daemon created a new container from that image which runs the executable that produces the output you are currently reading.
-###### 4. The Docker daemon streamed that output to the Docker client, which sent it to your terminal.
-###### To try something more ambitious, you can run an Ubuntu container with: $ docker run -it ubuntu bash
-###### Share images, automate workflows, and more with a free Docker ID: https://hub.docker.com/
-###### For more examples and ideas, visit: https://docs.docker.com/get-started/
-
+To generate this message, Docker took the following steps:
+1. The Docker client contacted the Docker daemon.
+2. The Docker daemon pulled the "hello-world" image from the Docker Hub. (amd64)
+3. The Docker daemon created a new container from that image which runs the executable that produces the output you are currently reading.
+4. The Docker daemon streamed that output to the Docker client, which sent it to your terminal.
+To try something more ambitious, you can run an Ubuntu container with: $ docker run -it ubuntu bash
+Share images, automate workflows, and more with a free Docker ID: https://hub.docker.com/
+For more examples and ideas, visit: https://docs.docker.com/get-started/
+```
 
 #### 4. Install NVIDIA Drivers
 In order for applications within the Docker container to take advantage of GPU acceleration, you will need to install the NVIDIA GPU drivers for your card - the drivers are the piece of software that allow different programmes to communicate with the GPU card. There are instructions for how to do this on the [NVIDIA website](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)
@@ -180,6 +181,9 @@ sudo apt-get --purge remove "*cublas*" "cuda" "nsight"
 ```
 ```
 sudo apt-get --purge remove "*nvidia*"
+```
+```
+sudo apt-get autoremove
 ```
 ```
 sudo ubuntu-drivers autoinstall
