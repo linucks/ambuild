@@ -3,7 +3,7 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 """
-VERSION = "a842475a64c9"
+VERSION = "1.0.0"
 import collections
 import copy
 import logging
