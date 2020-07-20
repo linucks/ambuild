@@ -205,20 +205,6 @@ tar -xzf ambuild-1.0.0.tar.gz
 
 This will create a directory called ```ambuild-1.0.0``` containing the Ambuild source code.
 
-##### Cloning the Ambuild repository
-Ambuild can also be checked out directly from the Ambuild github repository.
-
-1. Firstly, install git using:
-```
-sudo apt-get install git
-```
-
-2. Checkout ambuild from the GitHub repository. We recommend that you cd into /opt, and then run this command.
-```
-git clone https://github.com/linucks/ambuild.git
-```
-
-
 ## Installation of optional dependencies
 ### Poreblazer
 To install [poreblazer](https://github.com/richardjgowers/poreblazer) for use by Ambuild, the following steps are required.
