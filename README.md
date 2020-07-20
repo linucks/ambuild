@@ -205,7 +205,7 @@ tar -xzf ambuild-1.0.0.tar.gz
 
 This will create a directory called ```ambuild-1.0.0``` containing the Ambuild source code.
 
-Now you are ready to run Ambuild! Please see our [wiki](https://github.com/linucks/ambuild/wiki/08_Running_Ambuild) for more information.
+Now you are ready to run Ambuild! Please see our [wiki](https://github.com/linucks/ambuild/wiki/08_Running_Ambuild) for how to get started.
 
 ## Installation of optional dependencies
 ### Poreblazer
