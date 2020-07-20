@@ -1,11 +1,12 @@
 import setuptools
+from ambuild.version import __version__
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="ambuild",
-    version="1.0.0",
+    version=__version__,
     author="Jens Thomas",
     author_email="linucks42@gmail.com",
     description="A program for creating polymeric molecular structures.",

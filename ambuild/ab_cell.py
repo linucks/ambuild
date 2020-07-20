@@ -3,7 +3,6 @@ Created on Jan 15, 2013
 
 @author: abbietrewin
 """
-VERSION = "1.0.0"
 import collections
 import copy
 import logging
@@ -26,6 +25,7 @@ from ambuild import ab_endgroup
 from ambuild import ab_fragment
 from ambuild import ab_subunit
 from ambuild import ab_util
+from ambuild.version import __version__
 from ambuild import xyz_core
 from ambuild import xyz_util
 
@@ -128,8 +128,8 @@ class Cell:
         self.paramsDir = paramsDir
         # Use the parameters to set the bond lengts in the util module
         xyz_util.setModuleBondLength(os.path.join(paramsDir, "bond_params.csv"))
-        self.version = VERSION  # Save as attribute so we can query pickle files
-        logger.info("AMBUILD version: {0}".format(VERSION))
+        self.version = __version__  # Save as attribute so we can query pickle files
+        logger.info("AMBUILD version: {0}".format(self.version))
         self.setMdEngineCls(ab_util.HOOMDVERSION)
         if filePath:
             self.setStaticBlock(filePath)
