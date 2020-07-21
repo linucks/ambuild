@@ -125,11 +125,7 @@ sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
 sudo systemctl restart docker
   ```
 
-2. Test nvidia-smi with the latest official CUDA image
-
-  ```docker run --gpus all nvidia/cuda:10.0-base nvidia-smi```
-
-3. Install the nvidia-container-runtime
+2. Install the nvidia-container-runtime
 ```
 sudo apt install nvidia-container-runtime
 ```
@@ -137,7 +133,7 @@ There is currently a bug with the nvidia docker container runtime as detailed he
 
 To work around the bug, carry out the following additional step:
 
-4. Create a file called /etc/docker/daemon.json with the following content by typing the following (cut and paste the following command from 'sudo' to the second 'EOF' into the terminal):
+3. Create a file called /etc/docker/daemon.json with the following content by typing the following (cut and paste the following command from 'sudo' to the second 'EOF' into the terminal):
 
 ```
 sudo tee -a /etc/docker/daemon.json << EOF
@@ -151,10 +147,42 @@ sudo tee -a /etc/docker/daemon.json << EOF
 }
 EOF
 ```
-5. Restart docker:
+4. Restart docker:
 ```
 sudo systemctl restart docker
 ```
+
+6. Test nvidia-smi with the latest official CUDA image
+
+  ```docker run --gpus all nvidia/cuda:10.0-base nvidia-smi```
+
+This should generate output similar to the following:
+```
+Tue Jul 21 08:54:21 2020       
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 435.21       Driver Version: 435.21       CUDA Version: 10.1     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|===============================+======================+======================|
+|   0  Quadro M4000        Off  | 00000000:01:00.0  On |                  N/A |
+| 46%   34C    P8    10W / 120W |     43MiB /  8123MiB |      0%   Prohibited |
++-------------------------------+----------------------+----------------------+
+|   1  Tesla K20c          Off  | 00000000:02:00.0 Off |                    0 |
+| 30%   30C    P8    16W / 225W |      0MiB /  4743MiB |      0%      Default |
++-------------------------------+----------------------+----------------------+
+```
+
+If you do not see an output like the one given above, then there may be an issue with the NVIDIA installation. This can often be caused by conflicts with an existing NVIDIA/CUDA installation. This can often be resolved by uninstalling all previous NVIDIA/CUDA installations and just installing the NVIDA drivers. This can be done with the following commands:
+
+```
+sudo apt-get --purge remove "*cublas*" "cuda" "nsight"
+sudo apt-get --purge remove "*nvidia*"
+sudo apt-get autoremove
+sudo ubuntu-drivers autoinstall
+```
+
+If you still do not see an output as in the example given with step 6, we suggest contacting your local Linux specialist.
 
 #### 6. Disable secondary video GPU card
 If you have more than one GPU card (e.g. you have a card specifically for running jobs), then you may need to disable your video GPU card for running jobs so that any GPU jobs are placed on the specialised card rather than using the video card. This will not disable the video card for viewing your screen - it will just prevent it being used to run computational simulation jobs.
@@ -173,21 +201,6 @@ GPU 0: Tesla K40c (UUID: GPU-66dc2593-494d-4b44-4574-2b92976db56b)
 sudo nvidia-smi -c 2 -i GPU-4030396e-e7b4-aa4d-e035-22758536dba5
 ```
 E.g. in the example output above, the UUID string will be: ```GPU-66dc2593-494d-4b44-4574-2b92976db56b```, making the command in step 2 read:  ```sudo nvidia-smi -c 2 -i GPU-66dc2593-494d-4b44-4574-2b92976db56b```
-
-If you do not see an output like the one given as an example in step 1, we advise you to firstly try running the three commands immediately below. If you still do not see an output as in the example given with step 1, we suggest contacting your local Linux specialist.
-
-```
-sudo apt-get --purge remove "*cublas*" "cuda" "nsight"
-```
-```
-sudo apt-get --purge remove "*nvidia*"
-```
-```
-sudo apt-get autoremove
-```
-```
-sudo ubuntu-drivers autoinstall
-```
 
 #### 7. Get Ambuild
 
