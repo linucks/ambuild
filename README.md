@@ -109,21 +109,13 @@ Instructions from: https://github.com/NVIDIA/nvidia-docker
 
 1. Run the following commands to install the nvidia-container-toolkit:
 
-  ```
+```
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-  ```
-  ```
 curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
-  ```
-  ```
 curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
-  ```
-  ```
 sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-  ```
-  ```
 sudo systemctl restart docker
-  ```
+```
 
 2. Install the nvidia-container-runtime
 ```
@@ -152,7 +144,7 @@ EOF
 sudo systemctl restart docker
 ```
 
-6. Test nvidia-smi with the latest official CUDA image
+5. Test nvidia-smi with the latest official CUDA image
 
   ```docker run --gpus all nvidia/cuda:10.0-base nvidia-smi```
 
@@ -182,7 +174,7 @@ sudo apt-get autoremove
 sudo ubuntu-drivers autoinstall
 ```
 
-If you still do not see an output as in the example given with step 6, we suggest contacting your local Linux specialist.
+If you still do not see an output as in the example given with step 5, we suggest contacting your local Linux specialist.
 
 #### 6. Disable secondary video GPU card
 If you have more than one GPU card (e.g. you have a card specifically for running jobs), then you may need to disable your video GPU card for running jobs so that any GPU jobs are placed on the specialised card rather than using the video card. This will not disable the video card for viewing your screen - it will just prevent it being used to run computational simulation jobs.
