@@ -200,7 +200,7 @@ A tar.gz file of the latest release of Ambuild can be downloaded from the [relea
 
 You can also download the ambuild-1.0.0.tar.gz file directly with the following command:
 ```
-wget https://github.com/linucks/ambuild/archive/1.0.0.tar.gz
+curl -OL https://github.com/linucks/ambuild/archive/1.0.0.tar.gz
 ```
 
 Once downloaded, the file can be unpacked with the command:
