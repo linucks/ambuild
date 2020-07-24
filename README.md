@@ -97,7 +97,7 @@ For more examples and ideas, visit: https://docs.docker.com/get-started/
 ```
 
 #### 4. Install NVIDIA Drivers
-In order for applications within the Docker container to take advantage of GPU acceleration, you will need to install the NVIDIA GPU drivers for your card - the drivers are the piece of software that allow different programmes to communicate with the GPU card. There are instructions for how to do this on the [NVIDIA website](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)
+In order for applications to take advantage of GPU acceleration, you will need to install the NVIDIA GPU drivers for your card - the drivers are the piece of software that allow different programmes to communicate with the GPU card. There are instructions for how to do this on the [NVIDIA website](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)
 
 On Ubuntu, the easiest way to do this seems to be with the command:
 ```
@@ -105,7 +105,9 @@ sudo ubuntu-drivers autoinstall
 ```
 
 #### 5. Install NVIDIA Docker Runtime
-Instructions from: https://github.com/NVIDIA/nvidia-docker
+This is the layer of software that enables the Docker container to talk to the GPU card via the NVIDIA Drivers.
+
+These instructions are derived from: https://github.com/NVIDIA/nvidia-docker
 
 1. Run the following commands to install the nvidia-container-toolkit:
 
