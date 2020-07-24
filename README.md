@@ -21,7 +21,7 @@ With numpy installed Ambuild can be used to create molecular structures, but can
 
 #### 2. Install Docker
 
-Instructions from: https://docs.docker.com/engine/install/ubuntu/
+These instructions are derived from the [Docker Website](https://docs.docker.com/engine/install/ubuntu/). If you already have Docker installed, please skip ahead to section 4.
 
 1. Firstly, remove any old versions with the command:
   ```
