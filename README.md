@@ -113,9 +113,17 @@ These instructions are derived from: https://github.com/NVIDIA/nvidia-docker
 
 ```
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+```
+```
 curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+```
+```
 curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+```
+```
 sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+```
+```
 sudo systemctl restart docker
 ```
 
@@ -171,8 +179,14 @@ If you do not see an output like the one given above, then there may be an issue
 
 ```
 sudo apt-get --purge remove "*cublas*" "cuda" "nsight"
+```
+```
 sudo dpkg-query -l | grep nvidia | awk '{print $2}' | xargs sudo apt-get --purge remove
+```
+```
 sudo apt-get autoremove
+```
+```
 sudo ubuntu-drivers autoinstall
 ```
 
