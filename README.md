@@ -181,7 +181,7 @@ If you do not see an output like the one given above, then there may be an issue
 sudo apt-get --purge remove "*cublas*" "cuda" "nsight"
 ```
 ```
-sudo dpkg-query -l | grep nvidia | awk '{print $2}' | xargs sudo apt-get --purge remove
+sudo apt-get --purge remove $(dpkg-query -l | grep nvidia | awk '{print $2}')
 ```
 ```
 sudo apt-get autoremove
