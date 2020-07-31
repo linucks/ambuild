@@ -221,7 +221,7 @@ curl -OL https://github.com/linucks/ambuild/archive/1.0.0.tar.gz
 
 Once downloaded, the file can be unpacked with the command:
 ```
-tar -xzf ambuild-1.0.0.tar.gz
+tar -xzf 1.0.0.tar.gz
 ```
 
 This will create a directory called ```ambuild-1.0.0``` containing the Ambuild source code.
