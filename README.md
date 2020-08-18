@@ -4,6 +4,8 @@ Please feel free to follow Ambuild on [twitter](https://twitter.com/Ambuild2).
 
 The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group at the [University of Lancaster](https://www.lancaster.ac.uk/sci-tech/about-us/people/abbie-trewin). 
 
+### Visit our YouTube page to watch our [installation video](https://www.youtube.com/watch?v=cHBXM7fytNM), which talks you through how to install Ambuild on a Ubuntu or Debian machine. Alternatively, read on!
+
 Ambuild has previously been tested on Ubuntu/Debian machines, but should work for other Linux environments too. The instructions given below relate to installation on a Ubuntu/Debian Linux environment. We explain here how to install each component required to run Ambuild onto a new machine. Please feel free to skip any steps describing how to install any components which you have already installed.
 
 Copy each section in a grey box in its entirety, and paste these into your terminal in sequence to install the code. We recommend that Ambuild is installed in /opt, as we have done ourselves. This will allow the commands we use to run Ambuild (as seen in our [wiki page](https://github.com/linucks/ambuild/wiki/08_Running_Ambuild)) to match the commands you will run.
