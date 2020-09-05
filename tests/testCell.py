@@ -1164,6 +1164,22 @@ class Test(unittest.TestCase):
         return
 
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
+    def testOptimiseGeometryStaticRigid(self):
+        """Test reading in a static structure defined in the cell"""
+        mycell = Cell(filePath=self.graphiteCar, paramsDir=PARAMS_DIR)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType="A")
+        mycell.addBondType("A:a-A:a")
+        mycell.seed(3, fragmentType="A", center=True)
+        mycell.growBlocks(
+            toGrow=2, cellEndGroups=None, libraryEndGroups=["A:a"], maxTries=10
+        )
+        ok = mycell.optimiseGeometry(
+            rigidBody=True, doDihedral=True, optCycles=1000, dump=False, quiet=False
+        )
+        self.assertFalse(self.clashes(mycell))
+        return
+
+    @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testRunMD(self):
         """
         """

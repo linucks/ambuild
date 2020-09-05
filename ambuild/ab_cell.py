@@ -1259,11 +1259,13 @@ class Cell:
                 for body in frag.bodies():
                     d.natoms += body.natoms
                     atomIdx += body.natoms
-                    if RIGIDPARTICLES:
+                    body_is_static = all(body.static)  # hack - should have better way of identifying a body as static
+                    if RIGIDPARTICLES and not body_is_static:
                         d.rigidParticles.append(
                             self.rigidParticleMgr.createParticle(body)
                         )
                     else:
+                        # Either not using RIGIDPARTICLES or using RIGIDPARTICLES and this body is static
                         coords = body.coords
                         coords, images = xyz_core.wrapCoord3(
                             coords, dim=self.dim, center=center
