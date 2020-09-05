@@ -530,9 +530,10 @@ class Fragment(object):
         basename, suffix = os.path.splitext(filename)
         bodyFile = os.path.join(dirname, basename + ".ambody")
         if os.path.isfile(bodyFile):
-            self._bodies = np.array(
-                [int(l.strip()) for l in open(bodyFile)], dtype=np.int
-            )
+            with open(bodyFile) as f:
+                self._bodies = np.array(
+                    [int(l.strip()) for l in f], dtype=np.int
+                )
             assert len(self._bodies) == len(
                 self._coords
             ), "Must have as many bodies as coordinates: {0} - {1}!".format(

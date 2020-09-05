@@ -1259,8 +1259,7 @@ class Cell:
                 for body in frag.bodies():
                     d.natoms += body.natoms
                     atomIdx += body.natoms
-                    body_is_static = all(body.static)  # hack - should have better way of identifying a body as static
-                    if RIGIDPARTICLES and not body_is_static:
+                    if RIGIDPARTICLES and not body.static:
                         d.rigidParticles.append(
                             self.rigidParticleMgr.createParticle(body)
                         )
@@ -1275,10 +1274,10 @@ class Cell:
                         d.atomTypes += body.atomTypes
                         d.bodies += [bodyIdx] * body.natoms
                         d.charges += body.charges
-                        d.diameters += body.diameters
+                        d.diameters += list(body.diameters)
                         d.masked += body.masked
                         d.masses += list(body.masses)
-                        d.static += body.static
+                        d.static += body.staticAtoms
                         d.symbols += body.symbols
                 bodyIdx += 1
         if RIGIDPARTICLES:
@@ -1295,7 +1294,7 @@ class Cell:
         keys = []
         for iatom, key in enumerate(block.atomCell):
             # Skip dummy atoms
-            if key == None:
+            if key is None:
                 continue
             keys.append(key)
             self.box1[key].remove((blockId, iatom))
@@ -1881,7 +1880,7 @@ class Cell:
             moveEndGroup, staticEndGroup = self.cellEndGroupPair(
                 cellEndGroups=cellEndGroups
             )
-            if moveEndGroup == None or staticEndGroup == None:
+            if moveEndGroup is None or staticEndGroup is None:
                 logger.critical("joinBlocks cannot join any more blocks")
                 return added
             # Copy the original block so we can replace it if the join fails

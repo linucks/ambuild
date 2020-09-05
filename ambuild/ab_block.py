@@ -805,7 +805,7 @@ class Block(object):
 
     def selectEndGroup(self, endGroupTypes=None, random=True):
         """Return a random free endGroup in the block"""
-        if endGroupTypes == None:
+        if endGroupTypes is None:
             if random:
                 # We pick a random endGroup
                 endGroup = _random.choice(self.freeEndGroups())

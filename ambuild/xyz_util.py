@@ -94,8 +94,7 @@ bondLength = __STOP
 def setModuleBondLength(paramFile):
     """Set the bondLength function of the util module"""
     global bondLength
-    BL = BondLength(paramFile)
-    bondLength = BL.bondLength
+    bondLength = BondLength(paramFile).bondLength
     return
 
 
@@ -127,9 +126,6 @@ def calcBonds(
 ):
     """Calculate the bonds for the fragments. This is done at the start when the only coordinates
     are those in the fragment.
-    symbols can be chemical elements or atomTypes
-    If supplied cell is a list/numpy array with the dimensions of the simulation cell, in which case
-    PBC will be applied
     """
     close = closeAtoms(coords, symbols, dim, maxAtomRadius, boxMargin)
     v1 = []
@@ -140,7 +136,6 @@ def calcBonds(
 
     distances = xyz_core.distance(np.array(v1), np.array(v2), dim=dim)
     bonds = []
-
     for i, (idxAtom1, idxAtom2) in enumerate(close):
         bond_length = bondLength(symbols[idxAtom1], symbols[idxAtom2])
         if bond_length < 0:
@@ -157,7 +152,6 @@ def calcBonds(
         )
         if bond_length - bondMargin < distances[i] < bond_length + bondMargin:
             bonds.append((idxAtom1, idxAtom2))
-
     # We sort the bonds on return so that results are deterministic and can be tested
     return sorted(bonds)
 

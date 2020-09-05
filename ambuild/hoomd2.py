@@ -684,17 +684,16 @@ class Hoomd2(object):
         snapshot = self.system.take_snapshot()
         if self.rigidBody:
             idxFreeAtom = len(hoomd.group.rigid_center())
+            idxStaticAtom = self.idxStaticStart
         else:
             idxFreeAtom = 0
-        idxStaticAtom = self.idxStaticStart
         for block in cell.blocks.values():
             idxBlockAtom = 0
             for frag in block.fragments:
                 for body in frag.bodies():
-                    body_is_static = all(body.static)
                     for _ in range(len(body.coords)):
                         idx = None
-                        if body_is_static:
+                        if self.rigidBody and body.static:
                             idx = idxStaticAtom
                             idxStaticAtom += 1
                         else:

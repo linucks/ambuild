@@ -48,7 +48,7 @@ class Analyse:
 
     def start(self):
         """Called whenever we start a step"""
-        assert self._stepTime == None
+        assert self._stepTime is None
         assert self.last
         self.step += 1
         self._stepTime = time.time()

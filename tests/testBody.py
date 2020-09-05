@@ -29,6 +29,13 @@ class Test(unittest.TestCase):
             bstr = "{}{}{}".format(i, ftype, "0000")
             self.assertEqual(bstr, b.rigidConfigStr)
 
+    def testCoords(self):
+        ch4ca = os.path.join(BLOCKS_DIR, "ch4.car")
+        ftype = "A"
+        frag = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype)
+        body = list(frag.bodies())[0]
+        assert np.array_equal(body.coords, frag._coords)
+
     def testPrincipalMoments(self):
         """Test principal moments don't change with rotation"""
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
