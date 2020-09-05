@@ -576,7 +576,7 @@ class Hoomd2(object):
         # All atoms that are part of static fragments
         if any(data.static):
             self.groupStatic = hoomd.group.tag_list(
-                name="static", tags=[i for i, s in enumerate(data.static) if s]
+                name="static", tags=[self.idxStaticStart + i for i, s in enumerate(data.static) if s]
             )
             if self.rigidBody:
                 self.groupActive = hoomd.group.difference(

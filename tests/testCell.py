@@ -1158,7 +1158,7 @@ class Test(unittest.TestCase):
             toGrow=2, cellEndGroups=None, libraryEndGroups=["A:a"], maxTries=10
         )
         ok = mycell.optimiseGeometry(
-            rigidBody=False, doDihedral=True, optCycles=1000, dump=False, quiet=False
+            rigidBody=False, doDihedral=True, optCycles=1000, dump=False, quiet=True
         )
         self.assertFalse(self.clashes(mycell))
         return
@@ -1174,7 +1174,7 @@ class Test(unittest.TestCase):
             toGrow=2, cellEndGroups=None, libraryEndGroups=["A:a"], maxTries=10
         )
         ok = mycell.optimiseGeometry(
-            rigidBody=True, doDihedral=True, optCycles=1000, dump=False, quiet=False
+            rigidBody=True, doDihedral=True, optCycles=1000, dump=False, quiet=True
         )
         self.assertFalse(self.clashes(mycell))
         return
