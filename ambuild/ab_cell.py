@@ -1937,13 +1937,7 @@ class Cell:
                 )
             )
         # Create fragment
-        frag = ab_fragment.Fragment(
-            filename,
-            fragmentType,
-            solvent=solvent,
-            markBonded=markBonded,
-            catalyst=catalyst,
-        )
+        frag = ab_fragment.fragmentFactory(fragmentType, filename, solvent=solvent, markBonded=markBonded, catalyst=catalyst)
         # Update cell parameters for this fragment
         maxAtomRadius = frag.maxAtomRadius()
         if maxAtomRadius > self.maxAtomRadius:

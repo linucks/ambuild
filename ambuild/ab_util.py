@@ -92,20 +92,6 @@ def cellFromPickle(pickleFile, paramsDir=None):
             fragment._individualAttrs["configStr"] = fragment.configStr
         return
 
-    if not os.path.isfile(pickleFile):
-        raise RuntimeError("Cannot find file: {}".format(pickleFile))
-    if pickleFile.endswith(GZIP_PKL_SUFFIX):
-        compressed = True
-        popen = gzip.open
-    elif pickleFile.endswith(PKL_SUFFIX):
-        compressed = False
-        popen = open
-    else:
-        raise RuntimeError(
-            "Unrecognised pkl file suffix for file {}. Use {} or {}".format(
-                pickleFile, PKL_SUFFIX, GZIP_PKL_SUFFIX
-            )
-        )
     # This is another terrible hack for dealing with old pkl files that used the old class names
     from ambuild import ab_block
     from ambuild import ab_bond
@@ -120,16 +106,8 @@ def cellFromPickle(pickleFile, paramsDir=None):
     sys.modules["buildingBlock"] = ab_block
     sys.modules["cell"] = ab_cell
     sys.modules["fragment"] = ab_fragment
-    mode = "r"
-    if compressed or PYTHONFLAVOUR == 3:
-        mode += "b"
-    # Renamed cell class so need to alias here for old files
-    with popen(pickleFile, mode) as f:
-        try:
-            myCell = pickle.load(f)
-        except UnicodeDecodeError:
-            # This probably indicates we are trying to open a filed pickled with Python2 with Python3
-            myCell = pickle.load(f, encoding="latin1")
+
+    myCell = unpickleObj(pickleFile)
     del ab_block.Bond
     del sys.modules["buildingBlock"]
     del sys.modules["cell"]
@@ -381,6 +359,33 @@ def is_exe(fpath):
 
     """
     return fpath and os.path.exists(fpath) and os.access(fpath, os.X_OK)
+
+def unpickleObj(pickleFile):
+    if not os.path.isfile(pickleFile):
+        raise RuntimeError("Cannot find file: {}".format(pickleFile))
+    if pickleFile.endswith(GZIP_PKL_SUFFIX):
+        compressed = True
+        popen = gzip.open
+    elif pickleFile.endswith(PKL_SUFFIX):
+        compressed = False
+        popen = open
+    else:
+        raise RuntimeError(
+            "Unrecognised pkl file suffix for file {}. Use {} or {}".format(
+                pickleFile, PKL_SUFFIX, GZIP_PKL_SUFFIX
+            )
+        )
+    mode = "r"
+    if compressed or PYTHONFLAVOUR == 3:
+        mode += "b"
+    # Renamed cell class so need to alias here for old files
+    with popen(pickleFile, mode) as f:
+        try:
+            myObj = pickle.load(f)
+        except UnicodeDecodeError:
+            # This probably indicates we are trying to open a filed pickled with Python2 with Python3
+            myObj = pickle.load(f, encoding="latin1")
+    return myObj
 
 
 if __name__ == "__main__":

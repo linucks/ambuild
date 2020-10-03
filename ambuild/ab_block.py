@@ -28,6 +28,7 @@ import numpy as np
 from ambuild.ab_fragment import Fragment
 from ambuild import xyz_core
 from ambuild import xyz_util
+from ambuild import ab_fragment
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class Block(object):
             assert os.path.isfile(filePath) and fragmentType, "Missing file: {}".format(
                 filePath
             )
-            initFragment = Fragment(filePath, fragmentType)
+            initFragment = ab_fragment.fragmentFactory(fragmentType, filePath)
         self.fragments = []
         if initFragment:
             self.fragments.append(initFragment)

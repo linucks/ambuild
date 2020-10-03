@@ -21,83 +21,140 @@ from ambuild import xyz_util
 logger = logging.getLogger()
 
 
+def fragmentFactory(fragmentType, filePath, solvent=False, markBonded=False, catalyst=False):
+    """Dynamically create a fragment object.
+
+    Dynamic classes allow us to have fragments where all fragments of the same type share
+    class variables such as symbols that are the same between all fragments (to save memory),
+    but have instance variables for holding attributes like coordinates.
+
+    We need to define a reduce method as otherwise the dynamic classes can't be pickled:
+    https://stackoverflow.com/questions/11658511/pickling-dynamically-generated-classes
+
+    The fragment object implements it's own version of class/instance variables and a copying mechanism.
+    I tried using dynamic classes so that we created our specific Fragment class for each fragmentType using:
+
+    return type(fragmentType,(Fragment,),{})(filePath=filePath, solvent=solvent, markBonded=markBonded)
+
+    This works, but the fragment objects are then unable to be pickled as the class definition can't be found.
+
+    This is solvable by implementing a __reduce__ method that is capable of returning an uninstantiatd class
+    of the required type:
+
+    def mkCls(): return type(fragmentType,(Fragment,),{})
+    return type(fragmentType,(Fragment,),{'__reduce__' : lambda self: (mkCls, tuple())})(filePath=filePath, solvent=solvent, markBonded=markBonded)
+
+    Unfortunatley, using deepcopy to copy the fragment then falls over as deepcopy calls __reduce__ but expects an
+    instantiated version of the class to be returned.
+
+    https://stackoverflow.com/questions/1500718/what-is-the-right-way-to-override-the-copy-deepcopy-operations-on-an-object-in-p
+
+    I have therefore kept the rather cludgy code to separate class/instance variables and implementing my own copy method.
+import pickle
+import copy
+class Foo(object):
+    classv = 'CLASSV'
+    def __init__(self, i='foo'):
+        self.i = i
+        self.j = 'j'
+
+    def hello(self):
+        return "I am {0} with i {1}".format(self.__class__,self.i)
+
+    @property
+    def fragmentType(self):
+        return str(self.__class__).split('.')[-1].rstrip('\'>')
+
+x = Foo()
+print "x ",x
+print "x.hello ",x.hello()
+z = type('Bar',(Foo,),{})
+y = z(i='bar')
+print "y ",y
+print "y.hello ",y.hello()
+print "DIR ",dir(y)
+print "CLASSx ",x.__class__
+print "CLASSy ",y.__class__
+print "CLASSy ",y.__repr__()
+print "FT ",y.fragmentType
+print "x.i",x.i
+print "y.i",y.i
+with open('foo.pkl','w') as w:
+    pickle.dump(y,w)
+
+    """
+    # Make sure fragments don't pollute the namespace - probably needs more thinking about
+    assert not fragmentType in ['fragmentFactory', 'Fragment'], f"Unacceptable fragmentType: {fragmentType}"
+
+    def mkCls(): return type(fragmentType, (Fragment,), {})
+    fobj = type(fragmentType, (Fragment,), {'__reduce__': lambda self: (mkCls, tuple())})
+
+    # currently stuck as deepcopy uses the __reduce__ method, which deepcopy expects to return
+    # an instantiated class, whereas we now use one that creates an uninstantiated class
+    #fobj = type(fragmentType, (Fragment,), dict())
+
+    # Hack to store class name in globals for pickling - can't uas as namespace empties as soon as interpreter stops
+    # globals()[fragmentType] = fobj
+    return fobj(filePath=filePath, solvent=solvent, markBonded=markBonded, catalyst=catalyst)
+
+
 class Fragment(object):
     """
     classdocs
     """
+    # These class variables are shared by all fragments of a particular type
+    _atomTypes = []
+    _bodies = []  # a list of which body within this fragment each atom belongs to
+    _bonds = []  # List of internal fragment bonds
+    _bonded = []  # List of which atoms are bonded to which
+    catalyst = None
+    _cellParameters = {}
+    _charges = []
+    _labels = []
+    _masses = []
+    markBonded = False
+    onbondFunction = None  # A function to be called when we bond an endGroup
+    _radii = []
+    _maxBonds = {}
+    _radius = -1
+    solvent = None  # True if this fragment is solvent and should be excluded from clashChecks
+    static = False
+    _symbols = []  # ordered array of symbols (in upper case)
+    _totalMass = -1
 
     def __init__(
         self,
         filePath=None,
-        fragmentType=None,
         solvent=False,
         static=False,
         markBonded=False,
-        catalyst=False,
+        catalyst=False
     ):
         """
         Constructor
         """
-        # This first set of variables are shared by all fragments
-        # When we copy a fragment the new fragment gets references to the variables
-        # that were created for the first fragment (see copy)
-        sharedAttrs = {
-            "_atomTypes": [],
-            "_bodies": [],  # a list of which body within this fragment each atom belongs to
-            "_bonds": [],  # List of internal fragment bonds
-            "_bonded": [],  # List of which atoms are bonded to which
-            "catalyst": catalyst,  # Whether this block is a catalyst
-            "_cellParameters": {},
-            "fragmentType": fragmentType,
-            "_labels": [],
-            "_masses": [],
-            "markBonded": markBonded,
-            "onbondFunction": None,  # A function to be called when we bond an endGroup
-            "_radii": [],
-            "_maxBonds": {},
-            "_radius": -1,
-            "solvent": solvent,  # True if this fragment is solvent and should be excluded from clashChecks
-            "static": static,
-            "_symbols": [],  # ordered array of symbols (in upper case)
-            "_totalMass": -1,
-            "_individualAttrs": None,
-            "_sharedAttrs": None,
-        }
-
-        #
         # The variables below here are specific to a fragment and change as the fragment moves
         # and is involved in bonds - each fragment gets its own copy of these
-        individualAttrs = {
-            "block": None,
-            "config": None,
-            "configStr": None,
-            "_charges": [],
-            "_coords": [],
-            "_centroid": None,
-            "_centerOfMass": None,
-            "_ext2int": collections.OrderedDict(),
-            "_int2ext": collections.OrderedDict(),
-            "_centerOfMass": None,
-            "_maxAtomRadius": -1,
-            "_changed": True,  # Flag for when we've been moved and need to recalculate things
-            "blockIdx": None,  # The index in the list of block data where the data for this fragment starts
-            "_endGroups": [],  # A list of the endGroup objects
-            "_endGroupBonded": [],  # A list of the number of each endGroup that are used in bonds
-            "masked": [],  # bool - whether the atoms is hidden (e.g. cap or uw atom)
-            "unBonded": [],  # bool - whether an atom has just been unbonded
-        }
+        self.block           = None
+        self._coords         = []
+        self._centroid       = None
+        self._centerOfMass   = None
+        self._ext2int        = collections.OrderedDict()
+        self._int2ext        = collections.OrderedDict()
+        self._centerOfMass   = None
+        self._maxAtomRadius  = -1
+        self._changed        = True  # Flag for when we've been moved and need to recalculate things
+        self.blockIdx       = None  # The index in the list of block data where the data for this fragment starts
+        self._endGroups      = []  # A list of the endGroup objects
+        self._endGroupBonded = []  # A list of the number of each endGroup that are used in bonds
+        self.masked         = []  # bool - whether the atoms is hidden (e.g. cap or uw atom)
+        self.unBonded         = []  # bool - whether an atom has just been unbonded
 
-        # Set as attributes of self
-        for a, v in sharedAttrs.items():
-            setattr(self, a, v)
-
-        # Set as attributes of self
-        for a, v in individualAttrs.items():
-            setattr(self, a, v)
-
-        # Set these manually
-        self._individualAttrs = individualAttrs
-        self._sharedAttrs = sharedAttrs
+        # Init variables
+        self.catalyst = catalyst
+        self.markBonded = markBonded
+        self.solvent = solvent
+        self.static = static
 
         # Create from the file
         if filePath:
@@ -262,21 +319,10 @@ class Fragment(object):
         Those attributes in shared are just copied as references as they do not change between fragments
         of the same fragmentType
         Those in single are deep-copied as each fragment has its own"""
-
-        f = Fragment()
-        for a in f.__dict__:
-            if a in self._sharedAttrs.keys():
-                setattr(f, a, getattr(self, a))
-            elif a in self._individualAttrs.keys():
-                setattr(f, a, copy.deepcopy(getattr(self, a)))
-            else:
-                # HACKS FOR DEALING WITH OLD FILES
-                msg = "Missing attribute in fragment copy: {0}".format(a)
-                logger.critical(msg)
-                raise RuntimeError(msg)
-            # Update fragment references in the endGroups
-            for e in f._endGroups:
-                e.fragment = f
+        f = copy.deepcopy(self)
+        # Update fragment references in the endGroups
+        for e in f._endGroups:
+            e.fragment = f
         return f
 
     def endGroups(self):
@@ -304,6 +350,10 @@ class Fragment(object):
         )
         self._maxAtomRadius = np.max(self._radii)
         return
+
+    @property
+    def fragmentType(self):
+        return str(self.__class__).split('.')[-1].rstrip('\'>')
 
     def freeEndGroups(self):
         return [eg for eg in self._endGroups if eg.free()]
