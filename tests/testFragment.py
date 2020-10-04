@@ -35,13 +35,14 @@ class Test(unittest.TestCase):
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
         ftype = 'A'
         f1 = ab_fragment.fragmentFactory(ftype, ch4)
+        f2 = f1.copy()
+        labels = ['A', 'A', 'A', 'A', 'A']
+        f2._labels = labels
         fname = 'f1.pkl.gz'
-        ab_util.pickleObj(f1, fname)
-        f2 = ab_util.unpickleObj(fname)
-
-    def testUnpickleCold(self):
-        fname = 'f1.pkl.gz'
-        f2 = ab_util.unpickleObj(fname)
+        ab_util.pickleObj(f2, fname)
+        f3 = ab_util.unpickleObj(fname)
+        self.assertEqual(f3._labels, labels)
+        os.unlink(fname)
 
     def testConfigStr(self):
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")

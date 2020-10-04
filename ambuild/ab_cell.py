@@ -2590,8 +2590,8 @@ class Cell:
 
     def setStaticBlock(self, filePath, replace=False):
         # Create fragment
-        name = os.path.splitext(os.path.basename(filePath))[0]
-        f = ab_fragment.Fragment(filePath, fragmentType=name, static=True)
+        fragmentType = os.path.splitext(os.path.basename(filePath))[0]
+        f = ab_fragment.fragmentFactory(fragmentType, filePath=filePath, static=True)
         p = f.cellParameters()
         if not p:
             raise RuntimeError(

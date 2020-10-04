@@ -571,7 +571,7 @@ class Test(unittest.TestCase):
         self.assertEqual(idxs, ref_idxs)
 
     def testMaxBond(self):
-        f = ab_fragment.Fragment(filePath=self.ch4_1Car, fragmentType="A")
+        f = ab_fragment.fragmentFactory('A', self.ch4_1Car)
         f.setMaxBond("A:b", 1)
         block1 = Block(initFragment=f)
         block2 = Block(filePath=self.ch4Car, fragmentType="B")
@@ -591,7 +591,7 @@ class Test(unittest.TestCase):
 
     def testBondingFunction(self):
         carfile = os.path.join(BLOCKS_DIR, "benzene6.car")
-        f = ab_fragment.Fragment(filePath=carfile, fragmentType="A")
+        f = ab_fragment.fragmentFactory('A', carfile)
 
         def x(endGroup):
             fragment = endGroup.fragment
@@ -639,7 +639,7 @@ class Test(unittest.TestCase):
     def testMultiEndGroups(self):
         """Test we can move correctly"""
         # Try with no settings
-        f = ab_fragment.Fragment(filePath=self.ch4_1Car, fragmentType="A")
+        f = ab_fragment.fragmentFactory('A', self.ch4_1Car)
         m1 = Block(initFragment=f)
         m2 = m1.copy()
         eg1 = m1.freeEndGroups()[0]
@@ -650,7 +650,7 @@ class Test(unittest.TestCase):
         self.assertEqual(6, len(m1.freeEndGroups()))
 
         # Try with specifying bond
-        f = ab_fragment.Fragment(filePath=self.ch4_1Car, fragmentType="A")
+        f = ab_fragment.fragmentFactory('A', self.ch4_1Car)
         m1 = Block(initFragment=f)
         f.setMaxBond("A:a", 1)
         m2 = m1.copy()
