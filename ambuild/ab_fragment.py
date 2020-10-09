@@ -21,12 +21,14 @@ from ambuild import xyz_util
 logger = logging.getLogger()
 
 
-def fragmentFactory(fragmentType,
-                    filePath=None,
-                    catalyst=False,
-                    markBonded=False,
-                    solvent=False,
-                    static=False):
+def fragmentFactory(
+    fragmentType,
+    filePath=None,
+    catalyst=False,
+    markBonded=False,
+    solvent=False,
+    static=False,
+):
     """Dynamically create a fragment object.
 
     Dynamic classes allow us to have fragments where all fragments of the same type share
@@ -37,15 +39,25 @@ def fragmentFactory(fragmentType,
     https://stackoverflow.com/questions/11658511/pickling-dynamically-generated-classes
     """
     # Make sure fragments don't pollute the namespace - probably needs more thinking about
-    assert not fragmentType in ['fragmentFactory', 'Fragment'], f"Unacceptable fragmentType: {fragmentType}"
+    assert not fragmentType in [
+        "fragmentFactory",
+        "Fragment",
+    ], f"Unacceptable fragmentType: {fragmentType}"
     fobj = type(fragmentType, (Fragment,), dict())
-    return fobj(filePath=filePath, solvent=solvent, markBonded=markBonded, catalyst=catalyst, static=static)
+    return fobj(
+        filePath=filePath,
+        solvent=solvent,
+        markBonded=markBonded,
+        catalyst=catalyst,
+        static=static,
+    )
 
 
 class Fragment(object):
     """
     classdocs
     """
+
     # These class variables are shared by all fragments of a particular type
     _atomTypes = []
     _bodies = []  # a list of which body within this fragment each atom belongs to
@@ -61,7 +73,9 @@ class Fragment(object):
     _radii = []
     _maxBonds = {}
     _radius = -1
-    solvent = None  # True if this fragment is solvent and should be excluded from clashChecks
+    solvent = (
+        None  # True if this fragment is solvent and should be excluded from clashChecks
+    )
     static = False
     _symbols = []  # ordered array of symbols (in upper case)
     _totalMass = -1
@@ -72,7 +86,7 @@ class Fragment(object):
         solvent=False,
         static=False,
         markBonded=False,
-        catalyst=False
+        catalyst=False,
     ):
         """
         Constructor
@@ -87,10 +101,14 @@ class Fragment(object):
         self._int2ext = collections.OrderedDict()
         self._centerOfMass = None
         self._maxAtomRadius = -1
-        self._changed = True  # Flag for when we've been moved and need to recalculate things
+        self._changed = (
+            True  # Flag for when we've been moved and need to recalculate things
+        )
         self.blockIdx = None  # The index in the list of block data where the data for this fragment starts
         self._endGroups = []  # A list of the endGroup objects
-        self._endGroupBonded = []  # A list of the number of each endGroup that are used in bonds
+        self._endGroupBonded = (
+            []
+        )  # A list of the number of each endGroup that are used in bonds
         self.masked = []  # bool - whether the atoms is hidden (e.g. cap or uw atom)
         self.unBonded = []  # bool - whether an atom has just been unbonded
 
@@ -168,9 +186,6 @@ class Fragment(object):
         bonds = []
         for b1, b2 in self._bonds:
             if not (self.masked[b1] or self.masked[b2]):
-                # Map to internal and then add blockIdx to get position in block
-                # b1 = b1 + self.blockIdx
-                # b2 = b2 + self.blockIdx
                 bonds.append((self._int2ext[b1], self._int2ext[b2]))
         return bonds
 
@@ -192,8 +207,7 @@ class Fragment(object):
         return self.fragmentType + "".join(["1" if c else "0" for c in self.config])
 
     def _calcCenters(self):
-        """Calculate the center of mass and geometry for this fragment
-        """
+        """Calculate the center of mass and geometry for this fragment"""
         self._centroid = np.sum(self._coords, axis=0) / np.size(self._coords, axis=0)
         self._totalMass = np.sum(self._masses)
         # Centre of mass is sum of the products of the individual coordinates multiplied by the mass, divded by the total mass
@@ -203,7 +217,7 @@ class Fragment(object):
     def _calcRadius(self):
         """
         Calculate a simple size metric of the block so that we can screen for whether
-        two _blocks are within touching distance
+        two blocks are within touching distance
 
         First try a simple approach with a loop just to get a feel for things
         - Find the largest distance between any atom and the center of geometry
@@ -216,8 +230,7 @@ class Fragment(object):
         distances = [xyz_core.distance(self._centroid, coord) for coord in self._coords]
         imax = np.argmax(distances)
         dist = distances[imax]
-        # Add on the radius of the largest atom
-        self._radius = dist + self.maxAtomRadius()
+        self._radius = dist + self.maxAtomRadius() # Add on the radius of the largest atom
         return
 
     def _calcProperties(self):
@@ -297,7 +310,7 @@ class Fragment(object):
 
     @property
     def fragmentType(self):
-        return str(self.__class__).split('.')[-1].rstrip('\'>')
+        return str(self.__class__).split(".")[-1].rstrip("'>")
 
     def freeEndGroups(self):
         return [eg for eg in self._endGroups if eg.free()]
@@ -350,8 +363,7 @@ class Fragment(object):
 
     @staticmethod
     def fromXyzFile(xyzFile):
-        """"Jens did this.
-        """
+        """ "Jens did this."""
         labels = []
         symbols = []
         atomTypes = []
@@ -525,9 +537,7 @@ class Fragment(object):
         bodyFile = os.path.join(dirname, basename + ".ambody")
         if os.path.isfile(bodyFile):
             with open(bodyFile) as f:
-                self._bodies = np.array(
-                    [int(l.strip()) for l in f], dtype=np.int
-                )
+                self._bodies = np.array([int(l.strip()) for l in f], dtype=np.int)
             assert len(self._bodies) == len(
                 self._coords
             ), "Must have as many bodies as coordinates: {0} - {1}!".format(
@@ -549,8 +559,7 @@ class Fragment(object):
         return self._radius
 
     def rotate(self, rotationMatrix, center):
-        """ Rotate the molecule about the given axis by the angle in radians
-        """
+        """Rotate the molecule about the given axis by the angle in radians"""
         self._coords = self._coords - center
         # self._coords = np.array([ np.dot(rotationMatrix, c) for c in self._coords ])
         # I don't actually undestand why this works at all...
@@ -701,10 +710,11 @@ class Fragment(object):
         See: https://docs.python.org/3/library/pickle.html#object.__reduce__
         """
         state = self.__dict__.copy()
-        return (fragmentFactory,
-                (self.fragmentType,),
-                state,
-                )
+        return (
+            fragmentFactory,
+            (self.fragmentType,),
+            state,
+        )
 
     def __str__(self):
         """List the data attributes of this object"""

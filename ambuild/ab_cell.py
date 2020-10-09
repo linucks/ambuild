@@ -1315,7 +1315,7 @@ class Cell:
         fragmentTypes: the fragmentType, or list of fragmentTypes of the blocks to remove
         indices: list of indices of the blocks in the overall list of blocks in the cell to be deleted
         maxFrags: only blocks containing <= this number of fragments will be removed (default = 1)
-        numBlocks: optional - the number of blocks to remove, otherwise all blocks of the specified fragmentTypes will be removed
+        numBlocks: optional - number of blocks to remove, otherwise all blocks of specified fragmentTypes are removed
 
         Returns:
         A list of the blocks that were removed - suitable for re-adding with restoreBlocks
