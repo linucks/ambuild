@@ -31,14 +31,8 @@ class EndGroup(object):
         return
 
     def block(self):
-        f = True
-        b = True
-        if self.fragment.block is None:
-            b = False
-        if self.fragment is None:
-            f = False
-        if not b and f:
-            raise RuntimeError("None Block {0} Fragment {1}\n{2}".format(b, f, self))
+        if self.fragment is None or self.fragment.block is None:
+            raise RuntimeError("endGroup without fragment or block")
         return self.fragment.block
 
     def capIdx(self):
