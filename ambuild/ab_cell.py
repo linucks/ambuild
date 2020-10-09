@@ -1315,7 +1315,7 @@ class Cell:
         fragmentTypes: the fragmentType, or list of fragmentTypes of the blocks to remove
         indices: list of indices of the blocks in the overall list of blocks in the cell to be deleted
         maxFrags: only blocks containing <= this number of fragments will be removed (default = 1)
-        numBlocks: optional - the number of blocks to remove, otherwise all blocks of the specified fragmentTypes will be removed
+        numBlocks: optional - number of blocks to remove, otherwise all blocks of specified fragmentTypes are removed
 
         Returns:
         A list of the blocks that were removed - suitable for re-adding with restoreBlocks
@@ -1937,13 +1937,7 @@ class Cell:
                 )
             )
         # Create fragment
-        frag = ab_fragment.Fragment(
-            filename,
-            fragmentType,
-            solvent=solvent,
-            markBonded=markBonded,
-            catalyst=catalyst,
-        )
+        frag = ab_fragment.fragmentFactory(fragmentType, filename, solvent=solvent, markBonded=markBonded, catalyst=catalyst)
         # Update cell parameters for this fragment
         maxAtomRadius = frag.maxAtomRadius()
         if maxAtomRadius > self.maxAtomRadius:
@@ -2596,8 +2590,8 @@ class Cell:
 
     def setStaticBlock(self, filePath, replace=False):
         # Create fragment
-        name = os.path.splitext(os.path.basename(filePath))[0]
-        f = ab_fragment.Fragment(filePath, fragmentType=name, static=True)
+        fragmentType = os.path.splitext(os.path.basename(filePath))[0]
+        f = ab_fragment.fragmentFactory(fragmentType, filePath=filePath, static=True)
         p = f.cellParameters()
         if not p:
             raise RuntimeError(

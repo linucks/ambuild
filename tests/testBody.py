@@ -24,7 +24,7 @@ class Test(unittest.TestCase):
     def testBodyConfigStr(self):
         ch4ca = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
         ftype = "A"
-        f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype)
+        f1 = ab_fragment.fragmentFactory(ftype, ch4ca)
         for i, b in enumerate(f1.bodies()):
             bstr = "{}{}{}".format(i, ftype, "0000")
             self.assertEqual(bstr, b.rigidConfigStr)
@@ -32,14 +32,14 @@ class Test(unittest.TestCase):
     def testCoords(self):
         ch4ca = os.path.join(BLOCKS_DIR, "ch4.car")
         ftype = "A"
-        frag = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype)
+        frag = ab_fragment.fragmentFactory(ftype, ch4ca)
         body = list(frag.bodies())[0]
         assert np.array_equal(body.coords, frag._coords)
 
     def testPrincipalMoments(self):
         """Test principal moments don't change with rotation"""
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
-        frag = ab_fragment.Fragment(filePath=ch4, fragmentType="A")
+        frag = ab_fragment.fragmentFactory('A', ch4)
 
         body = list(frag.bodies())[0]
         pi1 = body.principalMoments

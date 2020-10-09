@@ -267,7 +267,6 @@ def haloCells(key, boxNum=None, pbc=[True, True, True]):
                 # print "sKey ({},{},{})->({})".format(a,b,c,skey)
                 # cells.add(skey)
                 cells.add(skey)
-
     return list(cells)
 
 
@@ -277,6 +276,12 @@ def label2symbol(name):
     """
     origName = name
     name = name.strip().upper()
+    if not name[0].isalpha():
+        raise RuntimeError(
+            "label2symbol first character of name is not a character: {0}".format(
+                origName
+            )
+        )
     # Determine the element from the first 2 chars of the name
     if len(name) > 2:
         name = name[0:2]
@@ -290,12 +295,6 @@ def label2symbol(name):
             return name.capitalize()
     # If it was a valid 2 character symbol we should have picked it up so now only 1 symbol
     name = name[0]
-    if not name.isalpha():
-        raise RuntimeError(
-            "label2symbol first character of name is not a character: {0}".format(
-                origName
-            )
-        )
     # Hack - for x return x
     if name.lower() == "x":
         return "x"
