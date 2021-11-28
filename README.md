@@ -235,9 +235,11 @@ Now you are ready to run Ambuild! Please see our [wiki](https://github.com/linuc
 To install [poreblazer](https://github.com/richardjgowers/poreblazer) for use by Ambuild, the following steps are required.
 
 1. Checkout or download poreblazer from GitHub:
-```git clone https://github.com/richardjgowers/poreblazer.git```
+```git clone https://github.com/SarkisovGroup/PoreBlazer```
 
 2. Install the [gfortran](https://gcc.gnu.org/wiki/GFortran) compiler. On Ubuntu/Debian, this should just be a case of running:
 ```sudo apt-get install gfortran```
 
-3. Compile the poreblazer executable. This is done in the ```src``` directory of the poreblazer directory, so cd into this directory and then run the command: ```make``` This should create the ```poreblazer.exe``` executable in this directory.
+3. Compile the poreblazer executable. This is done in the ```src``` directory of the poreblazer directory, so cd into this directory and open the ```Makefile```. Then, edit ```FORTRAN_COMPILER``` line so it reads: ```FORTRAN_COMPILER= gfortran```
+
+4. Run the command: ```make``` This should create the ```poreblazer.exe``` executable in this directory.
