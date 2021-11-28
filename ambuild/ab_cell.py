@@ -721,17 +721,22 @@ class Cell:
         bondMargin,
         bondAngleMargin,
     ):
-        # The check should have been made before this is called on whether the two atoms are endGroup
-        # Check length
+        # The check should have been made before this is called on whether the two atoms are endGroups
         bond_length = xyz_util.bondLength(
-            addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom)
+            addBlock.type(idxAddAtom), staticBlock.type(idxStaticAtom)
         )
         if bond_length < 0:
-            raise RuntimeError(
-                "Missing bond distance for: {0}-{1}".format(
-                    addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom)
-                )
+            bond_length = xyz_util.bondLength(
+                addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom)
             )
+            if bond_length < 0:
+                raise RuntimeError(
+                    "Missing bond distance for: {0}-{1} or {2}-{3}".format(
+                        addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom),
+                        addBlock.type(idxAddAtom), staticBlock.type(idxStaticAtom)
+                    )
+                )
+
         # See if the distance between them is acceptable
         # print "CHECKING BOND ATOMS ",bond_length,self.distance( addCoord, staticCoord )
         if not (

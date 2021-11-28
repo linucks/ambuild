@@ -1,8 +1,4 @@
-"""
-Created on 4 Mar 2018
-
-@author: jmht
-"""
+#!/usr/bin/env python3
 import os
 import unittest
 
@@ -18,27 +14,26 @@ xyz_util.setModuleBondLength(os.path.join(PARAMS_DIR, "bond_params.csv"))
 
 
 class Test(unittest.TestCase):
-
     def testFragmentType(self):
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
-        ftype = 'A'
+        ftype = "A"
         f1 = ab_fragment.fragmentFactory(ftype, ch4)
         self.assertEqual(ftype, f1.fragmentType)
 
     def testDisallowedFragmentType(self):
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
-        ftype = 'Fragment'
+        ftype = "Fragment"
         with self.assertRaises(AssertionError):
             f1 = ab_fragment.fragmentFactory(ftype, ch4)
 
     def testPickleRoundtrip(self):
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
-        ftype = 'A'
+        ftype = "A"
         f1 = ab_fragment.fragmentFactory(ftype, ch4)
         f2 = f1.copy()
-        labels = ['A', 'A', 'A', 'A', 'A']
+        labels = ["A", "A", "A", "A", "A"]
         f2._labels = labels
-        fname = 'f1.pkl.gz'
+        fname = "f1.pkl.gz"
         ab_util.pickleObj(f2, fname)
         f3 = ab_util.unpickleObj(fname)
         self.assertEqual(f3._labels, labels)
@@ -46,7 +41,7 @@ class Test(unittest.TestCase):
 
     def testConfigStr(self):
         ch4 = os.path.join(BLOCKS_DIR, "ch4.car")
-        ftype = 'A'
+        ftype = "A"
         f1 = ab_fragment.fragmentFactory(ftype, ch4)
         cstr = ftype + "0000"
         self.assertEqual(cstr, f1.configStr)
@@ -60,7 +55,7 @@ class Test(unittest.TestCase):
     def testMultipleCapAtoms(self):
         h3car = os.path.join(BLOCKS_DIR, "H3.car")
         with self.assertRaises(RuntimeError):
-            ab_fragment.fragmentFactory('A', h3car)
+            ab_fragment.fragmentFactory("A", h3car)
 
 
 if __name__ == "__main__":

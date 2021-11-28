@@ -24,10 +24,10 @@ DUMMY_DIAMETER = 0.1
 
 class BondLength(object):
     """Class to hold calculate bond lengths.
-    
+
     This is required because we use data stored in the ATOM_TYPE_BOND_LENGTHS dict
     which is calculated from the parameter files, which is read at run time. Therefore
-    we initialise this object using a parameter file and set it as a module object for 
+    we initialise this object using a parameter file and set it as a module object for
     use by the bondLength function
     """
 
@@ -43,8 +43,8 @@ class BondLength(object):
                 self.ATOM_TYPE_BOND_LENGTHS[p.A][p.B] = float(p.r0)
 
     def bondLength(self, atomType1, atomType2):
-        """ Get the characteristic lengths of single bonds as defined in:
-            Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
+        """Get the characteristic lengths of single bonds as defined in:
+        Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
         """
         # We first see if we can find the bond length in the ATOM_TYPE_BOND_LENGTHS table
         # If not we fall back to using the bonds calculated from element types
@@ -76,7 +76,7 @@ class BondLength(object):
             # print "ELEMENT TYPE"
             return xyz_core.ELEMENT_TYPE_BOND_LENGTHS[symbol2][symbol1]
         warnings.warn("No data for bond length for %s-%s" % (atomType1, atomType2))
-        return 1.0
+        return -1
 
 
 # This needs to be set to the bondLength function of the BondLength class
@@ -137,14 +137,20 @@ def calcBonds(
     distances = xyz_core.distance(np.array(v1), np.array(v2), dim=dim)
     bonds = []
     for i, (idxAtom1, idxAtom2) in enumerate(close):
-        bond_length = bondLength(symbols[idxAtom1], symbols[idxAtom2])
+        symbol1 = symbols[idxAtom1]
+        symbol2 = symbols[idxAtom2]
+        bond_length = bondLength(symbol1, symbol2)
         if bond_length < 0:
-            continue
+            warnings.warn(
+                "calcBonds: no data for bond length for %s-%s - setting to 1.0"
+                % (symbol1, symbol2)
+            )
+            bond_length = 1.0
         logger.debug(
             "Dist:length {1}({0})-{3}({2}) {4} {5}".format(
-                symbols[idxAtom1],
+                symbol1,
                 idxAtom1,
-                symbols[idxAtom2],
+                symbol2,
                 idxAtom2,
                 distances[i],
                 bond_length,
@@ -271,8 +277,8 @@ def haloCells(key, boxNum=None, pbc=[True, True, True]):
 
 
 def label2symbol(name):
-    """ Determine the element type of an atom from its name, e.g. Co_2b -> Co
-        Returns a capitalised element name
+    """Determine the element type of an atom from its name, e.g. Co_2b -> Co
+    Returns a capitalised element name
     """
     origName = name
     name = name.strip().upper()
