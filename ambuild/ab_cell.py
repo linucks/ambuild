@@ -323,8 +323,7 @@ class Cell:
         return False
 
     def bondAllowed(self, endGroup1, endGroup2):
-        """Check if the given bond is permitted from the types of the two fragments
-        """
+        """Check if the given bond is permitted from the types of the two fragments"""
         #    logger.debug( "checking bondAllowed {0} {1}".format( ftype1, ftype2 ) )
         if endGroup1.fragmentType() == "cap" or endGroup2.fragmentType() == "cap":
             assert False, "NEED TO FIX CAPS!"
@@ -342,8 +341,7 @@ class Cell:
         return False
 
     def bondBlock(self, bond, selfBond=True):
-        """ Bond the second block1 to the first and update the data structures
-        """
+        """Bond the second block1 to the first and update the data structures"""
         logger.debug("cell bondBlock: {0}".format(bond))
         # logger.debug("before bond: {0} - {1}".format( bond.idxBlock1, bond.block1._bondObjects) )
         selfBond = True  # HACK
@@ -361,8 +359,7 @@ class Cell:
         return True
 
     def bondClash(self, bond, clashDist):
-        """Check if any atoms are clashDist from bond.
-        """
+        """Check if any atoms are clashDist from bond."""
         if clashDist > self.boxSize:
             raise RuntimeError(
                 "clashDist needs to be less than the boxSize: {0}".format(self.boxSize)
@@ -732,8 +729,10 @@ class Cell:
             if bond_length < 0:
                 raise RuntimeError(
                     "Missing bond distance for: {0}-{1} or {2}-{3}".format(
-                        addBlock.symbol(idxAddAtom), staticBlock.symbol(idxStaticAtom),
-                        addBlock.type(idxAddAtom), staticBlock.type(idxStaticAtom)
+                        addBlock.symbol(idxAddAtom),
+                        staticBlock.symbol(idxStaticAtom),
+                        addBlock.type(idxAddAtom),
+                        staticBlock.type(idxStaticAtom),
                     )
                 )
 
@@ -1146,11 +1145,14 @@ class Cell:
     def cellData(
         self,
         rigidBody=True,
-        periodic=True,
         center=False,
         fragmentType=None,
         noRigidParticles=False,
     ):
+        d = ab_celldata.CellData(self.dim)  # Object to hold the cell data
+        if fragmentType is not None:
+            return self._cellDataByFragment(d, fragmentType)
+
         RIGIDPARTICLES = (
             rigidBody and ab_util.HOOMDVERSION and ab_util.HOOMDVERSION[0] > 1
         )
@@ -1158,24 +1160,7 @@ class Cell:
             RIGIDPARTICLES = False
         if RIGIDPARTICLES:
             self.rigidParticleMgr.reset()
-        # Object to hold the cell data
-        d = ab_celldata.CellData()
-        d.cell = self.dim
-        if fragmentType is not None:
-            if RIGIDPARTICLES:
-                assert False, "Need to update for HOOMD2"
-            # Only returning data for one type of fragment
-            assert (
-                fragmentType in self.fragmentTypes()
-            ), "FragmentType {0} not in cell!".format(fragmentType)
-            atomIdx = 0
-            for b in self.blocks.values():
-                coords, symbols, bonds = b.dataByFragment(fragmentType)
-                d.coords += coords
-                d.symbols += symbols
-                d.bonds += [(b1 + atomIdx, b2 + atomIdx) for (b1, b2) in bonds]
-                atomIdx += len(coords)
-            return d
+
         atomIdx = 0
         bodyIdx = 0
         for block in self.blocks.values():
@@ -1288,6 +1273,21 @@ class Cell:
         if RIGIDPARTICLES:
             self.rigidParticleMgr.checkConfigStrClashes(d.atomTypes)
             d.rigidParticleMgr = self.rigidParticleMgr
+        return d
+
+    def _cellDataByFragment(self, d, fragmentType):
+        """Return data just for the given type of fragment"""
+        # Only returning data for one type of fragment
+        assert (
+            fragmentType in self.fragmentTypes()
+        ), "FragmentType {0} not in cell!".format(fragmentType)
+        atomIdx = 0
+        for b in self.blocks.values():
+            coords, symbols, bonds = b.dataByFragment(fragmentType)
+            d.coords += coords
+            d.symbols += symbols
+            d.bonds += [(b1 + atomIdx, b2 + atomIdx) for (b1, b2) in bonds]
+            atomIdx += len(coords)
         return d
 
     def delBlock(self, blockId):
@@ -1942,7 +1942,13 @@ class Cell:
                 )
             )
         # Create fragment
-        frag = ab_fragment.fragmentFactory(fragmentType, filename, solvent=solvent, markBonded=markBonded, catalyst=catalyst)
+        frag = ab_fragment.fragmentFactory(
+            fragmentType,
+            filename,
+            solvent=solvent,
+            markBonded=markBonded,
+            catalyst=catalyst,
+        )
         # Update cell parameters for this fragment
         maxAtomRadius = frag.maxAtomRadius()
         if maxAtomRadius > self.maxAtomRadius:
@@ -2262,8 +2268,8 @@ class Cell:
         self, block, margin=None, point=None, radius=None, zone=None, random=True
     ):
         """Randomly move the given block
-         If margin is given, use this as a buffer from the edges of the cell
-         when selecting the coord
+        If margin is given, use this as a buffer from the edges of the cell
+        when selecting the coord
         """
         if point:
             assert len(point) == 3, "Point needs to be a list of three floats!"
@@ -2471,7 +2477,7 @@ class Cell:
         zone=None,
         random=True,
     ):
-        """ Seed a cell with nblocks of type fragmentType.
+        """Seed a cell with nblocks of type fragmentType.
 
         Args:
         nblocks - the number of blocks to add.
@@ -2711,8 +2717,7 @@ class Cell:
         return
 
     def setWall(self, XOY=False, XOZ=False, YOZ=False, wallAtomType="c"):
-        """Create walls along the specified sides.
-        """
+        """Create walls along the specified sides."""
         self.walls = [XOY, XOZ, YOZ]
         self.pbc = [not b for b in self.walls]
 
@@ -2857,8 +2862,7 @@ class Cell:
         return fileName
 
     def writeCar(self, ofile="ambuild.car", data=None, periodic=True, skipDummy=False):
-        """Car File
-        """
+        """Car File"""
         if not data:
             data = self.cellData()
         car = "!BIOSYM archive 3\n"
@@ -3139,7 +3143,7 @@ class Cell:
         return d
 
     def __setstate__(self, d):
-        """Called when we are unpickled """
+        """Called when we are unpickled"""
         self.__dict__.update(d)
         if "logfile" in d:  # Hack for older versions with no logfile attribute
             logfile = ab_util.newFilename(d["logfile"])
