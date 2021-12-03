@@ -863,7 +863,7 @@ class Cell:
         if wallClashes:
             logger.debug("_checkMove got clash with wall")
             return 1
-        if len(close) is 0:
+        if len(close) == 0:
             logger.debug("_checkMove no close contacts")
             return 0
         addBlock = self.blocks[idxAddBlock]
