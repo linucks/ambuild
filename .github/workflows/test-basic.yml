@@ -20,5 +20,5 @@ jobs:
         pip install numpy
     - name: Run Basic test
       run: |
-        cd ./test
+        cd ./tests
         ./test.py 
