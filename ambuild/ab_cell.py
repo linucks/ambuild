@@ -2941,7 +2941,7 @@ class Cell:
         If label is true we write out the atom label and block, otherwise the symbol
         """
         if data is None:
-            d = self.cellData(periodic=periodic, fragmentType=None)
+            d = self.cellData()
         else:
             d = data
         if periodic:
