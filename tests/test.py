@@ -9,7 +9,7 @@ import sys
 import unittest
 
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT_DIR)
 
 TEST_DIR = "."
@@ -23,4 +23,4 @@ if int(suite.countTestCases()) <= 0:
     sys.stderr.write(msg)
     sys.exit(1)
 
-return (verbosity=VERBOSITY, buffer=False).run(suite)
+return unittest.TextTestRunner(verbosity=VERBOSITY, buffer=False).run(suite)
