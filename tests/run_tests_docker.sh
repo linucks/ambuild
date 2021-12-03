@@ -18,4 +18,4 @@ docker run \
 --workdir $run_dir \
 --env PYTHONPATH=/usr/lib/python3/dist-packages \
 glotzerlab/software \
-python3 ./test.py
+python3 ./run_tests.py
