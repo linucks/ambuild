@@ -21,4 +21,4 @@ jobs:
     - name: Run Basic test
       run: |
         cd ./tests
-        ./test.py 
+        ./run_tests.py 
