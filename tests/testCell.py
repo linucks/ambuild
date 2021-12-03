@@ -576,7 +576,9 @@ class Test(unittest.TestCase):
 
         dc1 = mycell.distance(nv1, nv2)
         dn = np.linalg.norm(nv2 - nv1)
-        self.assertEqual(dc1, dn, "Distance within cell:{} | {}".format(dc1, dn))
+        self.assertAlmostEqual(
+            dc1, dn, 11, "Distance within cell:{} | {}".format(dc1, dn)
+        )
 
         x = v2[0] + 2 * CELLA
         y = v2[1] + 2 * CELLB
