@@ -1488,7 +1488,7 @@ class Test(unittest.TestCase):
         sumall = sum(count)
         current = [float(c) / float(sumall) for c in count]
         wratio = [float(r) / float(sum(ratio)) for r in ratio]
-        self.assertTrue(np.allclose(np.array(wratio), np.array(current), rtol=0.05))
+        self.assertTrue(np.allclose(np.array(wratio), np.array(current), rtol=0.1))
         return
 
     def testSurroundBoxes(self):
