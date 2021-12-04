@@ -23,4 +23,9 @@ if int(suite.countTestCases()) <= 0:
     sys.stderr.write(msg)
     sys.exit(1)
 
-sys.exit(unittest.TextTestRunner(verbosity=VERBOSITY, buffer=False).run(suite))
+
+result = unittest.TextTestRunner(verbosity=VERBOSITY, buffer=False).run(suite)
+if result.wasSuccessful():
+    sys.exit(0)
+else:
+    sys.exit(-1)
