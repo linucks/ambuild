@@ -13,7 +13,7 @@ ambuild_dir=$(cd $run_dir/..;pwd -P)
 
 docker run \
 --rm \
---volume $run_dir:$run_dir \
+--volume $run_dir:$run_dir:Z \
 --volume ${ambuild_dir}/ambuild:/usr/lib/python3/dist-packages/ambuild \
 --workdir $run_dir \
 --env PYTHONPATH=/usr/lib/python3/dist-packages \
