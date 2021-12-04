@@ -2136,7 +2136,7 @@ class Cell:
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
         self.setRcut(rigidBody, mdEngine, kw)
-        data = self.cellData(periodic=True, center=True, rigidBody=rigidBody)
+        data = self.cellData(center=True, rigidBody=rigidBody)
         d = {}  # for printing results
         ok = mdEngine.optimiseGeometry(
             data,
@@ -2406,7 +2406,7 @@ class Cell:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
         self.setRcut(rigidBody, mdEngine, kw)
         d = {}
-        data = self.cellData(periodic=True, center=True, rigidBody=rigidBody)
+        data = self.cellData(center=True, rigidBody=rigidBody)
         ok = mdEngine.runMD(
             data,
             xmlFilename=xmlFilename,
