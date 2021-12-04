@@ -21,4 +21,4 @@ jobs:
     - name: Run Tests with Docker (include Hoomdblue 2)
       run: |
         cd ./tests
-        ./run_tests_docker.sh
+       sudo  ./run_tests_docker.sh
