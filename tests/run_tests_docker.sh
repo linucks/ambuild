@@ -17,7 +17,7 @@ docker run \
 --volume ${ambuild_dir}/ambuild:/usr/lib/python3/dist-packages/ambuild \
 --workdir $run_dir \
 --env PYTHONPATH=/usr/lib/python3/dist-packages \
--it ubuntu /bin/bash ./script.sh
+ubuntu  /bin/bash ./script.sh
 
 #glotzerlab/software \
 #python3 ./run_tests.py
