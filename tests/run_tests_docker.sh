@@ -18,7 +18,5 @@ docker run \
 --workdir $run_dir \
 --env PYTHONPATH=/usr/lib/python3/dist-packages \
 --user 1001 \
-ubuntu  /bin/bash ./script.sh
-
-#glotzerlab/software \
-#python3 ./run_tests.py
+glotzerlab/software \
+python3 ./run_tests.py
