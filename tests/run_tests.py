@@ -15,13 +15,6 @@ sys.path.insert(0, ROOT_DIR)
 TEST_DIR = "."
 VERBOSITY = 2
 suite = unittest.TestLoader().discover(TEST_DIR)
-print("GOT SUITE ",suite)
-print("DIR ",dir(suite))
-for s in suite:
-    print(s)
-    for x in s:
-        print("    ",x)
-
 if int(suite.countTestCases()) <= 0:
     msg = (
         "Could not find any tests to run in directory: {0}".format(TEST_DIR)
