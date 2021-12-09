@@ -46,6 +46,7 @@ def fragmentFactory(
     fobj = type(fragmentType, (Fragment,), dict())
     return fobj(
         filePath=filePath,
+        fragmentType=fragmentType,
         solvent=solvent,
         markBonded=markBonded,
         catalyst=catalyst,
@@ -61,6 +62,7 @@ class Fragment(object):
     #### These class variables are shared by all fragments of a particular type
     ## Public variables
     catalyst = None
+    fragmentType = None
     markBonded = False
     onbondFunction = None  # A function to be called when we bond an endGroup
     solvent = (
@@ -86,6 +88,7 @@ class Fragment(object):
     def __init__(
         self,
         filePath=None,
+        fragmentType=None,
         solvent=False,
         static=False,
         markBonded=False,
@@ -117,6 +120,7 @@ class Fragment(object):
 
         # Init variables
         self.catalyst = catalyst
+        self.fragmentType = fragmentType
         self.markBonded = markBonded
         self.solvent = solvent
         self.static = static
@@ -313,9 +317,11 @@ class Fragment(object):
         self._maxAtomRadius = np.max(self._radii)
         return
 
-    @property
-    def fragmentType(self):
-        return str(self.__class__).split(".")[-1].rstrip("'>")
+    # Can't use as in some cases the class name doesn't seem to get saved on pickling and
+    # the fragment has the class 'Fragment'
+    # @property
+    # def fragmentType(self):
+    #     return str(self.__class__).split(".")[-1].rstrip("'>")
 
     def freeEndGroups(self):
         return [eg for eg in self._endGroups if eg.free()]
