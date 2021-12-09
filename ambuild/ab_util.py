@@ -163,13 +163,16 @@ def dumpPkl(pickleFile, split=None, nonPeriodic=False, paramsDir=None):
     if split == "fragments":
         for t in mycell.fragmentTypes().keys():
             data = mycell.cellData(fragmentType=t)
-            mycell.writeXyz("{0}_{1}_P.xyz".format(prefix, t), data=data, periodic=True)
-            mycell.writeCml(
-                "{0}_{1}_PV.cml".format(prefix, t),
-                data=data,
-                periodic=True,
-                pruneBonds=True,
-            )
+            if data:
+                mycell.writeXyz(
+                    "{0}_{1}_P.xyz".format(prefix, t), data=data, periodic=True
+                )
+                mycell.writeCml(
+                    "{0}_{1}_PV.cml".format(prefix, t),
+                    data=data,
+                    periodic=True,
+                    pruneBonds=True,
+                )
     elif split == "blocks":
         periodic = True
         for i, b in enumerate(mycell.blocks.values()):
@@ -183,21 +186,25 @@ def dumpPkl(pickleFile, split=None, nonPeriodic=False, paramsDir=None):
     else:
         if nonPeriodic:
             data = mycell.cellData(rigidBody=False, periodic=False)
-            mycell.writeCml(prefix + "_NP.cml", data, periodic=False, pruneBonds=False)
-            mycell.writeXyz(prefix + "_NP.xyz", data=data, periodic=False)
-            mycell.writeXyz(
-                prefix + "_NP_types.xyz", data=data, periodic=False, atomTypes=True
-            )
+            if data:
+                mycell.writeCml(
+                    prefix + "_NP.cml", data, periodic=False, pruneBonds=False
+                )
+                mycell.writeXyz(prefix + "_NP.xyz", data=data, periodic=False)
+                mycell.writeXyz(
+                    prefix + "_NP_types.xyz", data=data, periodic=False, atomTypes=True
+                )
         else:
             data = mycell.cellData(rigidBody=False)
-            mycell.writeXyz(prefix + "_P.xyz", data=data, periodic=True)
-            mycell.writeXyz(
-                prefix + "_P_types.xyz", data=data, periodic=True, atomTypes=True
-            )
-            # self.writeCar(prefix+"_P.car",data=data,periodic=True)
-            mycell.writeCml(
-                prefix + "_PV.cml", data=data, periodic=True, pruneBonds=True
-            )
+            if data:
+                mycell.writeXyz(prefix + "_P.xyz", data=data, periodic=True)
+                mycell.writeXyz(
+                    prefix + "_P_types.xyz", data=data, periodic=True, atomTypes=True
+                )
+                # self.writeCar(prefix+"_P.car",data=data,periodic=True)
+                mycell.writeCml(
+                    prefix + "_PV.cml", data=data, periodic=True, pruneBonds=True
+                )
     return
 
 
@@ -359,6 +366,7 @@ def is_exe(fpath):
 
     """
     return fpath and os.path.exists(fpath) and os.access(fpath, os.X_OK)
+
 
 def unpickleObj(pickleFile):
     if not os.path.isfile(pickleFile):

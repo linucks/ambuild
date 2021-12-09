@@ -1283,12 +1283,17 @@ class Cell:
         ), "FragmentType {0} not in cell!".format(fragmentType)
         atomIdx = 0
         for b in self.blocks.values():
-            coords, symbols, bonds = b.dataByFragment(fragmentType)
-            d.coords += coords
-            d.symbols += symbols
-            d.bonds += [(b1 + atomIdx, b2 + atomIdx) for (b1, b2) in bonds]
-            atomIdx += len(coords)
-        return d
+            data = b.dataByFragment(fragmentType)
+            if data:
+                coords, symbols, bonds = data
+                d.coords += coords
+                d.symbols += symbols
+                d.bonds += [(b1 + atomIdx, b2 + atomIdx) for (b1, b2) in bonds]
+                atomIdx += len(coords)
+        if atomIdx == 0:
+            return None
+        else:
+            return d
 
     def delBlock(self, blockId):
         """

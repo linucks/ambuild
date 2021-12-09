@@ -58,25 +58,28 @@ class Fragment(object):
     classdocs
     """
 
-    # These class variables are shared by all fragments of a particular type
-    _atomTypes = []
-    _bodies = []  # a list of which body within this fragment each atom belongs to
-    _bonds = []  # List of internal fragment bonds
-    _bonded = []  # List of which atoms are bonded to which
+    #### These class variables are shared by all fragments of a particular type
+    ## Public variables
     catalyst = None
-    _cellParameters = {}
-    _charges = []
-    _labels = []
-    _masses = []
     markBonded = False
     onbondFunction = None  # A function to be called when we bond an endGroup
-    _radii = []
-    _maxBonds = {}
-    _radius = -1
     solvent = (
         None  # True if this fragment is solvent and should be excluded from clashChecks
     )
     static = False
+
+    ## Private variables
+    _atomTypes = []
+    _bodies = []  # a list of which body within this fragment each atom belongs to
+    _bonds = []  # List of internal fragment bonds
+    _bonded = []  # List of which atoms are bonded to which
+    _cellParameters = {}
+    _charges = []
+    _labels = []
+    _masses = []
+    _radii = []
+    _maxBonds = {}
+    _radius = -1
     _symbols = []  # ordered array of symbols (in upper case)
     _totalMass = -1
 
@@ -230,7 +233,9 @@ class Fragment(object):
         distances = [xyz_core.distance(self._centroid, coord) for coord in self._coords]
         imax = np.argmax(distances)
         dist = distances[imax]
-        self._radius = dist + self.maxAtomRadius() # Add on the radius of the largest atom
+        self._radius = (
+            dist + self.maxAtomRadius()
+        )  # Add on the radius of the largest atom
         return
 
     def _calcProperties(self):
@@ -290,7 +295,7 @@ class Fragment(object):
         return set(self._endGroupBonded.keys())
 
     def fillData(self):
-        """ Fill the data arrays from the label """
+        """Fill the data arrays from the label"""
 
         self.masked = np.array([False] * len(self._coords))
         self.unBonded = [False] * len(self._coords)
@@ -317,7 +322,7 @@ class Fragment(object):
 
     @staticmethod
     def fromCarFile(carFile):
-        """"Abbie did this."""
+        """ "Abbie did this."""
         labels = []
         symbols = []
         atomTypes = []
@@ -537,7 +542,7 @@ class Fragment(object):
         bodyFile = os.path.join(dirname, basename + ".ambody")
         if os.path.isfile(bodyFile):
             with open(bodyFile) as f:
-                self._bodies = np.array([int(l.strip()) for l in f], dtype=np.int)
+                self._bodies = np.array([int(l.strip()) for l in f], dtype=int)
             assert len(self._bodies) == len(
                 self._coords
             ), "Must have as many bodies as coordinates: {0} - {1}!".format(
@@ -546,7 +551,7 @@ class Fragment(object):
             assert self._bodies[0] == 0, "Bodies must start with zero!"
         else:
             # Just create an array with 0
-            self._bodies = np.zeros(len(self._coords), dtype=np.int)
+            self._bodies = np.zeros(len(self._coords), dtype=int)
         return
 
     def radius(self, idxAtom):
@@ -671,7 +676,7 @@ class Fragment(object):
         return self._symbols[self._ext2int[idxAtom]]
 
     def translate(self, tvector):
-        """ translate the molecule by the given vector"""
+        """translate the molecule by the given vector"""
         self._coords += tvector
         self._changed = True
         return

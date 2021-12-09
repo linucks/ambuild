@@ -85,6 +85,7 @@ class Block(object):
         self._bodies = (
             []
         )  # List of which body in the block each atom belongs too - frags can contain multiple bodies
+        self._fragmentTypeDict = {}
         # The list of atoms that are endGroups and their corresponding angleAtoms
         self._freeEndGroups = {}
         self._numFreeEndGroups = 0
@@ -365,10 +366,13 @@ class Block(object):
 
     def dataByFragment(self, fragmentType):
         """Return the data for a specific fragmentType within the block"""
-
+        if fragmentType not in self.fragmentTypes():
+            logger.debug(
+                f"Cannot find fragmentType '{fragmentType}' in block: {self.fragmentTypes()}"
+            )
+            return None
         coords = []
         symbols = []
-
         atomCount = 0
         fbondRen = {}
         for i in range(len(self._dataMap)):
@@ -377,14 +381,15 @@ class Block(object):
                 coords.append(self.coord(i))
                 symbols.append(self.symbol(i))
                 atomCount += 1
-
-        bonds = [
-            (fbondRen[b1], fbondRen[b2])
-            for ftype, (b1, b2) in self._bondsByFragmentType
-            if ftype == fragmentType
-        ]
-
-        return coords, symbols, bonds
+        if atomCount > 0:
+            bonds = [
+                (fbondRen[b1], fbondRen[b2])
+                for ftype, (b1, b2) in self._bondsByFragmentType
+                if ftype == fragmentType
+            ]
+            return coords, symbols, bonds
+        else:
+            return None
 
     def deleteBond(self, bond, root=None):
         """root is an optional fragment which we want to stay in this block"""
@@ -626,7 +631,7 @@ class Block(object):
         return self._fragmentTypeDict
 
     def fragmentTypes(self):
-        return self._fragmentTypeDict.keys()
+        return list(self._fragmentTypeDict.keys())
 
     def freeEndGroups(self, endGroupTypes=None, fragment=None):
         """Return the list of free endGroups.
