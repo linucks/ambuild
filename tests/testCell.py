@@ -620,23 +620,45 @@ class Test(unittest.TestCase):
         self.assertEqual(ref, mycell.dihedral(p1, p2, p3, p4))
         return
 
-    @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testDump(self):
-        """Test we can dump a cell"""
+        """Test we can dump a cell and read it back in correctly"""
         boxDim = [30, 30, 30]
         mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType="A")
-        mycell.addBondType("A:a-A:a")
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType="B")
+        mycell.addBondType("A:a-B:a")
 
-        toSeed = 2
-        added = mycell.seed(toSeed, center=True, random=False)
-        self.assertEqual(added, toSeed, "seed")
+        toSeed = 1
         nblocks = 2
-        added = mycell.growBlocks(nblocks, endGroupType=None, maxTries=1, random=False)
-        self.assertEqual(added, nblocks, "growBlocks did not return ok")
-        mycell.optimiseGeometry(rigidBody=True, optCycles=10)
-        mycell.dump()
-        os.unlink("step_1" + ab_util.GZIP_PKL_SUFFIX)
+        ftype1 = "A"
+        ftype2 = "B"
+        ftypes = set([ftype1, ftype2])
+        mycell.seed(toSeed, fragmentType=ftype1)
+        mycell.seed(toSeed, fragmentType=ftype2)
+
+        # Run initial tests
+        self.assertEqual(len(mycell.blocks), nblocks)
+        cell_ftypes = set(mycell.fragmentTypes().keys())
+        self.assertEqual(ftypes, cell_ftypes)
+        for b in mycell.blocks.values():
+            self.assertEqual(len(b.fragments), 1)
+            f = b.fragments[0].fragmentType
+            self.assertIn(f, cell_ftypes)
+
+        # Dump and then read back in
+        dumpfile = mycell.dump()
+        mycell = ab_util.cellFromPickle(dumpfile)
+
+        # Run same tests again
+        self.assertEqual(len(mycell.blocks), nblocks)
+        cell_ftypes = set(mycell.fragmentTypes().keys())
+        self.assertEqual(ftypes, cell_ftypes)
+        for b in mycell.blocks.values():
+            self.assertEqual(len(b.fragments), 1)
+            f = b.fragments[0].fragmentType
+            self.assertIn(f, cell_ftypes)
+
+        os.unlink(dumpfile)
         return
 
     def testEndGroupTypes(self):
