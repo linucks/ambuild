@@ -36,6 +36,7 @@ class Test(unittest.TestCase):
         fname = "f1.pkl.gz"
         ab_util.pickleObj(f2, fname)
         f3 = ab_util.unpickleObj(fname)
+        self.assertEqual(f3.fragmentType, ftype)
         self.assertEqual(f3._labels, labels)
         os.unlink(fname)
 
