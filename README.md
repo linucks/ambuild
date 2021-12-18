@@ -2,7 +2,9 @@
 Ambuild is a python program for creating polymeric molecular structures.
 Please feel free to follow Ambuild on [twitter](https://twitter.com/Ambuild2).
 
-The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group at the [University of Lancaster](https://www.lancaster.ac.uk/sci-tech/about-us/people/abbie-trewin). 
+The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group at the [University of Lancaster](https://www.lancaster.ac.uk/sci-tech/about-us/people/abbie-trewin).
+
+Detailed instructions on how to run Ambuild can be found on our [wiki](https://github.com/linucks/ambuild/wiki/01_Introduction)
 
 ### Visit our YouTube page to watch our [installation video](https://www.youtube.com/watch?v=cHBXM7fytNM), which talks you through how to install Ambuild on a Ubuntu or Debian machine. Alternatively, read on!
 
