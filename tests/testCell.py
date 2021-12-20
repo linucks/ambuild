@@ -161,9 +161,13 @@ class Test(unittest.TestCase):
     def testCat1Paf2(self):
         boxDim = [40, 40, 40]
         mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
-        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType="PAF")
+        #paf = self.ch4Car 
+        #cat = self.nh4Car 
+        paf = self.benzeneCar 
+        cat = self.benzene2Car 
+        mycell.libraryAddFragment(filename=paf, fragmentType="PAF")
         mycell.libraryAddFragment(
-            filename=self.nh4Car, fragmentType="cat", catalyst=True
+            filename=cat, fragmentType="cat", catalyst=True
         )
         mycell.addBondType("PAF:a-cat:a")
         mycell.addBondType("PAF:a-PAF:a")

@@ -53,7 +53,7 @@ class Cell:
         """Construct an empty cell:
 
         Args:
-        boxDim - a list with three numbers specifying the size of the cell A,B and C dimensions (angstroms)
+        boxDim - a list with three numbers specifying the size of the cell A,B and C dimensions (Angstroms)
                  Dimensions are from 0 - A, B or C
         filePath - a (.car) file with the cell dimensions and the coordinates of molecules that will be kept
                    static throught the simulation.
@@ -62,40 +62,41 @@ class Cell:
         bondMargin - two atoms are considered close enough to bond if they are within the bond length
                      defined for the two atoms +/- the bondMargin
         bondAngleMargin - the tolerance (in degrees) from the ideal of 180 that defines an acceptable bond
+        paramsDir - path to the directory holding the forcefield parameter csv files (default ../params)
         debugLog - True/False - specifies if a log will be created - not recommended as it generates lots of data
                 and slows the program.
-        paramsDir - path to the directory holding the forcefield parameter csv files (default ../params)
+
         """
-        # For time being origin always 0,0,0
-        self.origin = np.array([0, 0, 0], dtype=np.float64)
-        self.dim = None  # The cell dimensions
+        self.origin = np.array(
+            [0, 0, 0], dtype=np.float64
+        )  # For time being origin always 0,0,0
+        self.dim = None
         self.pbc = [True, True, True]
         self.walls = [False, False, False]
         self.wallAtomType = None
         self.wallRadius = (
             None  # (determind from the covalent radius of the wallAtomType)
         )
-        # additional distance to add on to the characteristic bond length
-        # when checking whether 2 atoms are close enough to bond
+        # additional distance to add on to the characteristic bond length when checking whether 2 atoms are close enough to bond
         self.bondMargin = bondMargin
-        # additional distance to add on to the atom covalent radii when checking if two atoms
-        # are close enough to clash
+        # additional distance to add on to the atom covalent radii when checking if two atoms are close enough to clash
         self.atomMargin = atomMargin
         # convert bondAngle and bondMargin to angstroms
-        # Could check values are in degrees and not radians?
         self.bondAngleMargin = math.radians(bondAngleMargin)
         self.targetDensity = 10
         self.targetEndGroups = 100  # number of free endgroups left
-        # Dict mapping box key to a list of tuples defining the atoms in that box
-        self.box1 = {}
-        # Dict mapping key to list of boxes surrounding the keyed box
-        self.box3 = {}
-        # max atom radius - used to calculate box size
+        self.box1 = (
+            {}
+        )  # Dict mapping box key to a list of tuples defining the atoms in that box
+        self.box3 = {}  # Dict mapping key to list of boxes surrounding the keyed box
         self.boxSize = None
-        self.maxAtomRadius = -1
+        self.maxAtomRadius = -1  # max atom radius - used to calculate box size
         self.rCut = 5.0
-        # number of boxes in A,B,C axes - used for calculating PBC
-        self.numBoxes = [None, None, None]
+        self.numBoxes = [
+            None,
+            None,
+            None,
+        ]  # number of boxes in A,B,C axes - used for calculating PBC
         self._fragmentLibrary = {}  # fragmentType -> parentFragment
         self._endGroup2LibraryFragment = {}  # endGroup type -> parentFragment
         self.bondTypes = []
@@ -760,21 +761,12 @@ class Cell:
                         )
                     )
                     continue
-                # print "Possible bond for {0} {1} {2} dist {3}".format( idxAddAtom,
-                #                                                       idxStaticBlock,
-                #                                                       idxStaticAtom,
-                #                                                       self.distance( addCoord, staticCoord ) )
                 addCoord = addBlock.coord(idxAddAtom)
                 staticCoord = staticBlock.coord(idxStaticAtom)
                 addCapAtom = addBlock.coord(addEndGroup.capIdx())
                 angle1 = self.angle(addCapAtom, addCoord, staticCoord)
                 staticCapAtom = staticBlock.coord(staticEndGroup.capIdx())
                 angle2 = self.angle(staticCapAtom, staticCoord, addCoord)
-
-                # print "CHECKING ANGLE BETWEEN: {0} | {1} | {2}".format( angleAtom, addCoord, staticCoord )
-                # print "{} < {} < {}".format( (self.bondAngle-bondAngleMargin) * util.RADIANS2DEGREES,
-                #                             angle * util.RADIANS2DEGREES,
-                #                             (self.bondAngle+bondAngleMargin) * util.RADIANS2DEGREES  )
 
                 # Check if atoms are in line (zero degrees) within margin
                 if not (
@@ -2136,7 +2128,11 @@ class Cell:
         """
         logger.info("Running optimisation")
         if not self.mdEngineCls:
-            raise RuntimeError("No mdEngine defined - cannot run MD.")
+            import warnings
+
+            warnings.warn("No mdEngine defined - cannot run MD.")
+            return
+            # raise RuntimeError("No mdEngine defined - cannot run MD.")
         mdEngine = self.mdEngineCls(self.paramsDir)
         if doDihedral and doImproper:
             raise RuntimeError("Cannot have impropers and dihedrals at the same time")
@@ -3112,16 +3108,7 @@ class Cell:
                 if not len(self._possibleBonds):
                     logger.info("zipBlocks: No bonds remaining after clash checks")
                     return 0
-        logger.info("zipBlocks found %d additional bonds", len(self._possibleBonds))
-        #         for b in self._possibleBonds:
-        #             print "Attempting to bond: {0} {1} {2} -> {3} {4} {5}".format( b.block1.id(),
-        #                                                                    b.endGroup1.blockEndGroupIdx,
-        #                                                                    b.block1.atomCoord( b.endGroup1.blockEndGroupIdx),
-        #                                                                    b.block2.id(),
-        #                                                                    b.endGroup2.blockEndGroupIdx,
-        #                                                                    b.block2.atomCoord( b.endGroup2.blockEndGroupIdx),
-        #                                                                 )
-        #
+        logger.info("zipBlocks found %d potential bonds", len(self._possibleBonds))
         todo = len(self._possibleBonds)
         bondsMade = self.processBonds(selfBond=selfBond)
         if bondsMade != todo:

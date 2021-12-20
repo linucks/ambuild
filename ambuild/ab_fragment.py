@@ -77,6 +77,7 @@ class Fragment(object):
     _bonded = []  # List of which atoms are bonded to which
     _cellParameters = {}
     _charges = []
+    _coords = []
     _labels = []
     _masses = []
     _radii = []
@@ -671,6 +672,34 @@ class Fragment(object):
         assert (
             len(eg.intersection(caps)) == 0
         ), "Cap atom for one endGroup is another endGroup!"
+
+        self.setupCapTrilateration()
+        return
+
+    def setupCapTrilateration(self):
+        NUM_ANCHORS = 4
+        caps = set([e.fragmentCapIdx for e in self._endGroups])
+        # Get 4 atoms evenly spaced across the list of all of them - this
+        # should mean we get a good spacing for calculating distances
+        indexes = [i for i in range(len(self._coords)) if i not in caps]
+        if len(indexes) < NUM_ANCHORS:
+            # Cannot do trilateration without 4 non-cap atoms
+            return
+        triAtoms = np.round(np.linspace(0, len(indexes) - 1, NUM_ANCHORS)).astype(int)
+        for eg in self._endGroups:
+            eg.triAtoms = triAtoms
+            eg.triDistances = [
+                xyz_core.distance(self._coords[eg.fragmentCapIdx], self._coords[a])
+                for a in triAtoms
+            ]
+            # Check trilateration works for this set of atoms
+            check_pos = xyz_util.trilaterate3D(
+                eg.triDistances, [self._coords[p] for p in eg.triAtoms]
+            )
+            if not np.allclose(check_pos, self._coords[eg.fragmentCapIdx]):
+                raise RuntimeError(
+                    f"Incorrect trilateration check position: {check_pos} {self._coords[eg.fragmentCapIdx]}"
+                )
         return
 
     def setMaxBond(self, endGroupType, maxBond):

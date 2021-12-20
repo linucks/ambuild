@@ -335,10 +335,9 @@ def trilaterate3D(distances, points):
     j = np.dot(e_y, (p3 - p1))
     x = ((r1 ** 2) - (r2 ** 2) + (d ** 2)) / (2 * d)
     y = (((r1 ** 2) - (r3 ** 2) + (i ** 2) + (j ** 2)) / (2 * j)) - ((i / j) * (x))
-    print("SQRT ", r1, x, y)
-    print("ONE ", r1 ** 2 - x ** 2 - y ** 2)
-    z1 = np.sqrt(r1 ** 2 - x ** 2 - y ** 2)
-    z2 = np.sqrt(r1 ** 2 - x ** 2 - y ** 2) * (-1)
+    with np.errstate(invalid="raise"):
+        z1 = np.sqrt(r1 ** 2 - x ** 2 - y ** 2)
+        z2 = np.sqrt(r1 ** 2 - x ** 2 - y ** 2) * (-1)
     ans1 = p1 + (x * e_x) + (y * e_y) + (z1 * e_z)
     ans2 = p1 + (x * e_x) + (y * e_y) + (z2 * e_z)
     dist1 = np.linalg.norm(p4 - ans1)
@@ -349,13 +348,11 @@ def trilaterate3D(distances, points):
         return ans2
 
 
-def trilaterate3D_2(distances, points):
+def trilaterate3D_2(distances, points, tolerance=0.0001):
     """Taken from: https://math.stackexchange.com/questions/2272223/getting-wrong-coordinate-with-3d-trilateration-in-different-cases-noisy-environ
 
     See farmuaa6
     """
-    TOLERANCE = 0.0001
-
     r1 = distances[0]
     r2 = distances[1]
     r3 = distances[2]
@@ -367,7 +364,7 @@ def trilaterate3D_2(distances, points):
 
     p1x = p1[0]
     p1y = p1[1]
-    p1z = p2[2]
+    p1z = p1[2]
     p2x = p2[0]
     p2y = p2[1]
     p2z = p2[2]
@@ -380,7 +377,7 @@ def trilaterate3D_2(distances, points):
     z1 = p2z - p1z
     n1 = np.sqrt(x1 ** 2 + y1 ** 2 + z1 ** 2)
     if n1 <= 0.0:
-        raise RuntimeError("First and second anchor are at the same point.")
+        raise RuntimeError(f"First and second anchor are at the same point: {p1} {p2}")
 
     x1 = x1 / n1
     y1 = y1 / n1
@@ -392,9 +389,10 @@ def trilaterate3D_2(distances, points):
     y2 = p3y - p1y - i * y1
     z2 = p3z - p1z - i * z1
 
-    n2 = np.sqrt(x2 ** 2 + y2 ** 2 + z2 ** 2)
+    with np.errstate(invalid="raise"):
+        n2 = np.sqrt(x2 ** 2 + y2 ** 2 + z2 ** 2)
     if n2 <= 0.0:
-        raise RuntimeError("The three anchors are collinear")
+        raise RuntimeError(f"The three anchors are collinear: {p1} {p2} {p3}")
     x2 = x2 / n2
     y2 = y2 / n2
     z2 = z2 / n2
@@ -402,7 +400,8 @@ def trilaterate3D_2(distances, points):
     x3 = y1 * z2 - z1 * y2
     y3 = z1 * x2 - x1 * z2
     z3 = x1 * y2 - y1 * x2
-    n3 = np.sqrt(x3 ** 2 + y3 ** 2 + z3 ** 2)
+    with np.errstate(invalid="raise"):
+        n3 = np.sqrt(x3 ** 2 + y3 ** 2 + z3 ** 2)
     if n3 <= 0.0:
         raise RuntimeError("Something is wrong with anchors")
 
@@ -415,7 +414,8 @@ def trilaterate3D_2(distances, points):
 
     xr = (r1 ** 2 - r2 ** 2 + d ** 2) / (2 * d)
     yr = (r1 ** 2 - r3 ** 2 + i * i + j * j) / (2 * j) - i * xr / j
-    zr = np.sqrt(r1 ** 2 - xr ** 2 - yr ** 2)
+    with np.errstate(invalid="raise"):
+        zr = np.sqrt(r1 ** 2 - xr ** 2 - yr ** 2)
 
     pos1 = [
         p1x + xr * x1 + yr * x2 + zr * x3,
@@ -428,12 +428,12 @@ def trilaterate3D_2(distances, points):
         p1z + xr * z1 + yr * z2 - zr * z3,
     ]
 
-    if (xyz_core.distance(pos1, p4) - r4) < TOLERANCE:
+    dist1 = np.linalg.norm(p4 - pos1)
+    dist2 = np.linalg.norm(p4 - pos2)
+    if np.abs(r4 - dist1) < np.abs(r4 - dist2):
         return pos1
-    elif (xyz_core.distance(pos1, p4) - r4) < TOLERANCE:
-        return pos2
     else:
-        raise RuntimeError("No positions within tolerance!")
+        return pos2
 
 
 def writeCml(

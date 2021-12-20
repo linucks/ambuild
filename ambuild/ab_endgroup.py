@@ -4,7 +4,11 @@ Created on Jan 15, 2013
 @author: abbietrewin
 """
 import logging
+import warnings
+
 import numpy as np
+
+from ambuild import xyz_util
 
 ENDGROUPBONDED = "*"
 logger = logging.getLogger()
@@ -28,6 +32,8 @@ class EndGroup(object):
         self.blockDihedralIdx = -1
         self.fragmentUwIdx = -1
         self.blockUwIdx = -1
+        self.triAtoms = None
+        self.triDistances = None
         return
 
     def block(self):
@@ -69,27 +75,39 @@ class EndGroup(object):
         return
 
     def unBond(self, bondEndGroup):
+        """See:
+        https://github.com/akshayb6/trilateration-in-3d/blob/master/trilateration.py
+        """
         self.bonded = False
         # HACK WE REMOVE ALL SUFFIXES
         for eg in self.fragment.endGroups():
             if eg._endGroupType.endswith(ENDGROUPBONDED):
-                logger.debug("unBond ENDGROUPBONDED")
                 eg._endGroupType = eg._endGroupType.rstrip(ENDGROUPBONDED)
         self.fragment.delBond(self.type())
-        # Unmask cap and set the coordinate to the coordinate of the last block atom
-        # NOTE - NEED TO SCALE BY CORRECT LENGTH
         if hasattr(bondEndGroup, "coord"):
-            # Reposition the cap atom based on the bond vector
-            # self.fragment._coords[self.fragmentCapIdx] = bondEndGroup.coord()
-            # Get vector from this endGroup to the other endGroup
-            egPos = self.fragment._coords[self.fragmentEndGroupIdx]
-            v1 = bondEndGroup.coord() - egPos
-            # Now get unit vector
-            uv = v1 / np.linalg.norm(v1)
-            # calculate noew position
-            self.fragment._coords[self.fragmentCapIdx] = egPos + (
-                uv * self.capBondLength
+            # Reposition the cap atom
+            if self.triAtoms is None:
+                warnings.warn(f"Cannot unbond {bondEndGroup} as no triAtoms")
+                return
+            # Get positions of triAtoms
+            triAtoms = [self.fragment._coords[i] for i in self.triAtoms]
+            # Calculate the new position
+            self.fragment._coords[self.fragmentCapIdx] = xyz_util.trilaterate3D(
+                self.triDistances, triAtoms
             )
+
+            ## Original code
+            # # Reposition the cap atom based on the bond vector
+            # # self.fragment._coords[self.fragmentCapIdx] = bondEndGroup.coord()
+            # # Get vector from this endGroup to the other endGroup
+            # egPos = self.fragment._coords[self.fragmentEndGroupIdx]
+            # v1 = bondEndGroup.coord() - egPos
+            # # Now get unit vector
+            # uv = v1 / np.linalg.norm(v1)
+            # # calculate noew position
+            # self.fragment._coords[self.fragmentCapIdx] = egPos + (
+            #     uv * self.capBondLength
+            # )
 
         # Unhide the cap atom
         self.fragment.masked[self.fragmentCapIdx] = False
