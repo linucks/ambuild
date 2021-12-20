@@ -5,6 +5,7 @@ import unittest
 # external imports
 import numpy as np
 
+from context import xyz_core
 from context import xyz_util
 from context import PARAMS_DIR
 
@@ -74,6 +75,30 @@ class Test(unittest.TestCase):
         ]
         # order of atoms doesn't 'matter
         self.assertEqual(set(close), set(ref_close))
+
+    def testTrilateration(self):
+        """
+                 3[0,1,0]
+        2[-1,0,0] 1[0,0,0] 4[1,0,0]
+                 t[0,-1,0]
+        """
+
+        p1 = np.array([0.0, 0.0, 0.0])
+        p2 = np.array([-1.0, 0.0, 0.0])
+        p3 = np.array([0.0, 1.0, 0.0])
+        p4 = np.array([1.0, 0.0, 0.0])
+        points = [p1, p2, p3, p4]
+
+        t = np.array([0.0, -1.0, 0.0])
+        p1t = xyz_core.distance(t, p1)
+        p2t = xyz_core.distance(t, p2)
+        p3t = xyz_core.distance(t, p3)
+        p4t = xyz_core.distance(t, p4)
+        distances = [p1t, p2t, p3t, p4t]
+
+        # position = xyz_util.trilaterate3D_2(distances, points)
+        position = xyz_util.trilaterate3D(distances, points)
+        self.assertTrue(np.allclose(position, t))
 
 
 if __name__ == "__main__":
