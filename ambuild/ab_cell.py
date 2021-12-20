@@ -451,7 +451,6 @@ class Cell:
         assert len(endGroups) == 2, "Assumption is CAT only has 2 endGroups!"
         catEG1, catEG2 = endGroups
         logger.info("_cat1Paf2 processing bond %s" % bond)
-        logger.debug("_cat1Paf2 %s %s" % (catEG1, catEG2))
 
         # Now get the two paf endGroups that are bonded to the cat EndGroups
         cat = catEG1.block()
@@ -483,7 +482,11 @@ class Cell:
                 )
             )
             return
-        return self._joinPaf(fragmentTypes, bond1, bond2)
+        return self._joinPaf(
+            fragmentTypes,
+            bond1,
+            bond2,
+        )
 
     def _cat2Paf2(self, cc_bond, fragmentTypes):
         """Function to unbond a Ni-catalyst bonded to two PAF groups
@@ -680,9 +683,10 @@ class Cell:
             logger.info(
                 "cat1Paf2 undertook %d processes. Now running optimisation", nbonds
             )
-            self.optimiseGeometry(
-                rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1
-            )
+            if optCycles > 0:
+                self.optimiseGeometry(
+                    rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1
+                )
             self.clearUnbonded()
             return True
         return False
@@ -699,12 +703,13 @@ class Cell:
         # logger.info("cat2Paf2 got new bonds %s" % [str(b) for b in self.newBonds ])
         nbonds = len([self._cat2Paf2(b, fragmentTypes) for b in self.newBonds])
         if nbonds > 0:
-            logger.info(
-                "cat2Paf2 undertook %d processes. Now running optimisation", nbonds
-            )
-            self.optimiseGeometry(
-                rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1
-            )
+            if optCycles > 0:
+                logger.info(
+                    "cat2Paf2 undertook %d processes. Now running optimisation", nbonds
+                )
+                self.optimiseGeometry(
+                    rigidBody=True, dt=dt, optCycles=optCycles, dump=False, max_tries=1
+                )
             self.clearUnbonded()
             return True
         return False
