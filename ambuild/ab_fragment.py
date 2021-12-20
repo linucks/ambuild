@@ -696,7 +696,10 @@ class Fragment(object):
             check_pos = xyz_util.trilaterate3D(
                 eg.triDistances, [self._coords[p] for p in eg.triAtoms]
             )
-            if not np.allclose(check_pos, self._coords[eg.fragmentCapIdx]):
+
+            if not np.allclose(
+                check_pos, self._coords[eg.fragmentCapIdx], atol=1.0e-05
+            ):
                 raise RuntimeError(
                     f"Incorrect trilateration check position: {check_pos} {self._coords[eg.fragmentCapIdx]}"
                 )
