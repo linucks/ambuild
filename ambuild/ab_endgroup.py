@@ -78,6 +78,23 @@ class EndGroup(object):
         """See:
         https://github.com/akshayb6/trilateration-in-3d/blob/master/trilateration.py
         """
+
+        def unBondSimple(bondEndGroup):
+            """Fallback code - to be avoided as it will calculate incorrect positions
+            if the bond vector had moved due to the blocks moving through MD"""
+            #
+            # Reposition the cap atom based on the bond vector
+            # Get vector from this endGroup to the other endGroup
+            egPos = self.fragment._coords[self.fragmentEndGroupIdx]
+            v1 = bondEndGroup.coord() - egPos
+            # Now get unit vector
+            uv = v1 / np.linalg.norm(v1)
+            # calculate noew position
+            self.fragment._coords[self.fragmentCapIdx] = egPos + (
+                uv * self.capBondLength
+            )
+            return
+
         self.bonded = False
         # HACK WE REMOVE ALL SUFFIXES
         for eg in self.fragment.endGroups():
@@ -90,24 +107,22 @@ class EndGroup(object):
                 # Get positions of triAtoms
                 triAtoms = [self.fragment._coords[i] for i in self.triAtoms]
                 # Calculate the new position
-                self.fragment._coords[self.fragmentCapIdx] = xyz_util.trilaterate3D(
-                    self.triDistances, triAtoms
-                )
+                try:
+                    self.fragment._coords[self.fragmentCapIdx] = xyz_util.trilaterate3D(
+                        self.triDistances, triAtoms
+                    )
+                except Exception as err:
+                    logger.warning(
+                        f"Failed to trilaterate position for:\n"
+                        + "Distances: {self.triDistances}\n"
+                        + "Positions: {triAtoms}\n"
+                        + "Error was: {err}"
+                    )
+                    logger.warning("** Reverting to simple unbond **")
+                    unBondSimple(bondEndGroup)
             else:
                 warnings.warn(f"Cannot properly unbond {bondEndGroup} as no triAtoms")
-                # Fallback code - could calculate incorrect positions if the bond vector
-                # had moved due to the blocks moving through MD
-                #
-                # Reposition the cap atom based on the bond vector
-                # Get vector from this endGroup to the other endGroup
-                egPos = self.fragment._coords[self.fragmentEndGroupIdx]
-                v1 = bondEndGroup.coord() - egPos
-                # Now get unit vector
-                uv = v1 / np.linalg.norm(v1)
-                # calculate noew position
-                self.fragment._coords[self.fragmentCapIdx] = egPos + (
-                    uv * self.capBondLength
-                )
+                unBondSimple(bondEndGroup)
 
         # Unhide the cap atom
         self.fragment.masked[self.fragmentCapIdx] = False
