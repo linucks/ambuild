@@ -8,16 +8,13 @@ import numpy as np
 
 import context
 from context import ab_block
-from context import ab_subunit
+from context import ab_bond
+from context import ab_cell
 from context import ab_util
-from context import dlpoly
-from context import xyz_core
-from context import xyz_util
 
 BLOCKS_DIR = context.BLOCKS_DIR
 PARAMS_DIR = context.PARAMS_DIR
 TESTDATA_DIR = context.TESTDATA_DIR
-Cell = context.ab_cell.Cell
 
 
 class Test(unittest.TestCase):
@@ -33,7 +30,7 @@ class Test(unittest.TestCase):
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testCat1Paf2(self):
         boxDim = [40, 40, 40]
-        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
+        mycell = ab_cell.Cell(boxDim, paramsDir=PARAMS_DIR)
         paf = self.benzeneCar
         cat = self.benzene2Car
         mycell.libraryAddFragment(filename=paf, fragmentType="PAF")
@@ -68,7 +65,7 @@ class Test(unittest.TestCase):
 
         cat2eg = cat.freeEndGroups()[0]
         cat.positionGrowBlock(cat2eg, paf2eg)
-        bond = Bond(cat2eg, paf2eg)
+        bond = ab_bond.Bond(cat2eg, paf2eg)
         bond.engage()
         mycell.newBonds = [bond]  # Hack to set newBonds
 
@@ -83,7 +80,7 @@ class Test(unittest.TestCase):
         between the catalysts, move the PAFS from one catalysts to the other, and then join the PAFS
         on that catalyst with all the PAFS"""
         boxDim = [40, 40, 40]
-        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
+        mycell = ab_cell.Cell(boxDim, paramsDir=PARAMS_DIR)
         paf = self.benzeneCar
         cat = self.benzene2Car
         mycell.libraryAddFragment(filename=paf, fragmentType="PAF")
@@ -138,7 +135,7 @@ class Test(unittest.TestCase):
         """Atom positions are correct on unbonding"""
 
         boxDim = [40, 40, 40]
-        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
+        mycell = ab_cell.Cell(boxDim, paramsDir=PARAMS_DIR)
         dbb = self.benzeneCar
         cat = self.benzene2Car
         mycell.libraryAddFragment(filename=dbb, fragmentType="DBB")
