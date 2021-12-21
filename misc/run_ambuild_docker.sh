@@ -19,6 +19,7 @@ docker run \
 --runtime=nvidia \
 --volume $run_dir:$run_dir \
 --volume ${ambuild_dir}/ambuild:/usr/lib/python3/dist-packages/ambuild \
+--env PYTHONPATH=/usr/lib/python3/dist-packages \
 --workdir $run_dir \
 $extra_args \
 glotzerlab/software \
