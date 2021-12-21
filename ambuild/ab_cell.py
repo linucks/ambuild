@@ -585,9 +585,11 @@ class Cell:
         self.addBlock(cat1)
 
         # Run optimisation to move CAT away
-        logger.info("_cat2Paf2 Optimisation")
+        logger.info("** _cat2Paf2 Optimisation **")
         # self.dump()
-        self.optimiseGeometry(rigidBody=True, quiet=True, dt=0.00001, optCycles=1000000)
+        self.optimiseGeometry(
+            rigidBody=True, quiet=True, dt=0.000001, optCycles=1000000
+        )
 
         # Now dealing with a CAT bonded to two PAF groups
         # Need to select the other cat-paf bond
