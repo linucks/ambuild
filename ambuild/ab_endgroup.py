@@ -113,10 +113,10 @@ class EndGroup(object):
                     )
                 except Exception as err:
                     logger.warning(
-                        f"Failed to trilaterate position for:\n"
-                        + "Distances: {self.triDistances}\n"
-                        + "Positions: {triAtoms}\n"
-                        + "Error was: {err}"
+                        "Failed to trilaterate position for:\n"
+                        + f"Distances: {self.triDistances}\n"
+                        + f"Positions: {triAtoms}\n"
+                        + f"Error was: {err}"
                     )
                     logger.warning("** Reverting to simple unbond **")
                     unBondSimple(bondEndGroup)
