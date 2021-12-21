@@ -60,7 +60,7 @@ class Test(unittest.TestCase):
         paf2eg = paf2.freeEndGroups()[0]
         cat1eg = cat.freeEndGroups()[0]
         cat.positionGrowBlock(cat1eg, paf1eg)
-        bond = Bond(cat1eg, paf1eg)
+        bond = ab_bond.Bond(cat1eg, paf1eg)
         bond.engage()
 
         cat2eg = cat.freeEndGroups()[0]
