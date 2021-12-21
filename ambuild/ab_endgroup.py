@@ -86,7 +86,7 @@ class EndGroup(object):
         self.fragment.delBond(self.type())
         if hasattr(bondEndGroup, "coord"):
             # Reposition the cap atom
-            if self.triAtoms:
+            if self.triAtoms is not None:
                 # Get positions of triAtoms
                 triAtoms = [self.fragment._coords[i] for i in self.triAtoms]
                 # Calculate the new position
