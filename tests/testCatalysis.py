@@ -79,7 +79,7 @@ class Test(unittest.TestCase):
         """Given two catalysts bonded to each other, each with PAF blocks bonded, break the bond
         between the catalysts, move the PAFS from one catalysts to the other, and then join the PAFS
         on that catalyst with all the PAFS"""
-        boxDim = [40, 40, 40]
+        boxDim = [60, 60, 60]
         mycell = ab_cell.Cell(boxDim, paramsDir=PARAMS_DIR)
         paf = self.benzeneCar
         cat = self.benzene2Car
