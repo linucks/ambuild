@@ -768,8 +768,7 @@ def orientationQuaternion(mobileCoords, refCoords):
 
 
 def principalMoments(coords, masses):
-    """http://farside.ph.utexas.edu/teaching/336k/Newtonhtml/node67.html
-    """
+    """http://farside.ph.utexas.edu/teaching/336k/Newtonhtml/node67.html"""
     I = momentOfInertia(coords, masses)
     eigval, eigvec = np.linalg.eig(I)
     return np.sort(eigval)
@@ -840,18 +839,44 @@ def rigid_rotate(A, B):
     """Return rotation matrix to rotate A to B. Assumes both sets of points are already centred.
     Uses SVD to calculate the rotation.
     Taken from: http://nghiaho.com/?page_id=671"""
-    A = np.matrix(A)
-    B = np.matrix(B)
-    assert len(A) == len(B)
-    # dot is matrix multiplication for array
-    H = A.T * B
+
+    ## Original Code
+    # A = np.matrix(A)
+    # B = np.matrix(B)
+    # assert len(A) == len(B)
+    # # dot is matrix multiplication for array
+    # H = A.T * B
+    # U, S, Vt = np.linalg.svd(H)
+    # R = Vt.T * U.T
+    # # special reflection case
+    # if np.linalg.det(R) < 0:
+    #     # Reflection detected
+    #     Vt[2, :] *= -1
+    #     R = Vt.T * U.T
+
+    assert A.shape == B.shape
+
+    # Our matricies are in the opposite order so we need to transpose them
+    A = A.T
+    B = B.T
+
+    num_rows, num_cols = A.shape
+    if num_rows != 3:
+        raise Exception(f"matrix A is not 3xN, it is {num_rows}x{num_cols}: {A}")
+
+    num_rows, num_cols = B.shape
+    if num_rows != 3:
+        raise Exception(f"matrix B is not 3xN, it is {num_rows}x{num_cols}")
+
+    H = A @ np.transpose(B)
     U, S, Vt = np.linalg.svd(H)
-    R = Vt.T * U.T
+    R = Vt.T @ U.T
     # special reflection case
     if np.linalg.det(R) < 0:
         # Reflection detected
         Vt[2, :] *= -1
-        R = Vt.T * U.T
+        R = Vt.T @ U.T
+
     return R
 
 
@@ -877,12 +902,12 @@ def rotation_matrix(axis, angle):
 
 def vecDiff(v1, v2, dim=None, pbc=[True, True, True]):
     """Difference between vectors with numpy taking PBC into account
-    This works either with 2 points or a vector of any number of points
-    Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
-    Changed so that it can cope with distances across more than one cell
-   Args:
-   dim - 3 element array with dimensions of unit cell
-   pbc - 3 element boolean array indicating if this dimension has periodic boundaries
+     This works either with 2 points or a vector of any number of points
+     Adapted from: http://stackoverflow.com/questions/11108869/optimizing-python-distance-calculation-while-accounting-for-periodic-boundary-co
+     Changed so that it can cope with distances across more than one cell
+    Args:
+    dim - 3 element array with dimensions of unit cell
+    pbc - 3 element boolean array indicating if this dimension has periodic boundaries
     """
     # Currently (e.g. cell.dataDict return a list of coordinates rather than a numpy array, so we need to check if we have been given a list
     # or numpy array and convert accordingly
@@ -920,7 +945,7 @@ def vecDiff(v1, v2, dim=None, pbc=[True, True, True]):
 
 
 def vectorAngle(v1, v2):
-    """ Calculate the angle between two vectors
+    """Calculate the angle between two vectors
     Return value in Radians
     A . B = |A|*|B|*cos(theta)
     so: theta = arccos( X.Y / |X||Y| )
@@ -943,8 +968,7 @@ def vectorAngle(v1, v2):
 
 
 def unWrapCoord3(coord, image, ldim, centered=False, inplace=False):
-    """Unwrap a coordinate back into a cell
-    """
+    """Unwrap a coordinate back into a cell"""
     if not inplace:
         coord = np.copy(coord)
     if centered:

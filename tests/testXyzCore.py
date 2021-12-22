@@ -122,7 +122,7 @@ class Test(unittest.TestCase):
         center = True
         c1u, image = xyz_core.wrapCoord3(c1, dim, center=center)
         cref = np.array([-4.0, -8.0, -12.0])
-        iref = np.array([10, 10, 10], dtype=np.int)
+        iref = np.array([10, 10, 10], dtype=int)
         self.assertTrue(np.allclose(c1u, cref))
         self.assertTrue(np.array_equal(image, iref))
 
@@ -132,7 +132,7 @@ class Test(unittest.TestCase):
         center = True
         c1u, image = xyz_core.wrapCoord3(c1, dim, center=center)
         cref = np.array([4.0, 8.0, 12.0])
-        iref = np.array([-11, -11, -11], dtype=np.int)
+        iref = np.array([-11, -11, -11], dtype=int)
         self.assertTrue(np.allclose(c1u, cref))
         self.assertTrue(np.array_equal(image, iref))
 
@@ -142,13 +142,13 @@ class Test(unittest.TestCase):
         center = True
         c1u, image = xyz_core.wrapCoord3(c1, dim, center=center)
         cref = np.array([[-4.0, -8.0, -12.0], [4.0, 8.0, 12.0]])
-        iref = np.array([[10, 10, 10], [-11, -11, -11]], dtype=np.int)
+        iref = np.array([[10, 10, 10], [-11, -11, -11]], dtype=int)
         self.assertTrue(np.allclose(c1u, cref))
         self.assertTrue(np.array_equal(image, iref))
 
     def testUnWrapCoord3_1(self):
         cin = np.array([-4.0, -8.0, -12.0])
-        idxin = np.array([10, 10, 10], dtype=np.int)
+        idxin = np.array([10, 10, 10], dtype=int)
         dim = np.array([10, 20, 30])
         coord = xyz_core.unWrapCoord3(cin, idxin, dim, centered=True)
         self.assertTrue(np.allclose(coord, np.array([101.0, 202.0, 303.0])))
