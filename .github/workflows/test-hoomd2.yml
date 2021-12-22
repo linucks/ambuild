@@ -2,6 +2,11 @@ name: Test Ambuild Hoomd Blue 2
 
 on:
   workflow_dispatch:
+  push:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    # Run at 18:00 on Thursdays
+    - cron:  '00 18 * * 4'
 
 jobs:
   build:
