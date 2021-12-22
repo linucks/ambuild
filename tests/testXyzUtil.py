@@ -78,6 +78,8 @@ class Test(unittest.TestCase):
 
     def testTrilateration(self):
         """
+        Test Trilateration to determine atom position
+
                  3[0,1,0]
         2[-1,0,0] 1[0,0,0] 4[1,0,0]
                  t[0,-1,0]
