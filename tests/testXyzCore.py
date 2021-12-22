@@ -110,7 +110,7 @@ class Test(unittest.TestCase):
         return
 
     def testRotMat2Quat(self):
-        M = np.matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+        M = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
         Q = xyz_core.quaternion_from_matrix(M)
         ref = np.array([1.0, 0.0, 0.0, 0.0])
         self.assertTrue(np.allclose(Q, ref, rtol=0.0001))
@@ -155,10 +155,10 @@ class Test(unittest.TestCase):
 
     def testVectorAngle(self):
         """Test we can measure angles"""
-        v1 = np.array([0, 0, 0])
-        v2 = np.array([1, 0, 0])
+        v1 = np.array([1, 1, 0])
+        v2 = np.array([0, 1, 1])
         theta = xyz_core.vectorAngle(v1, v2)
-        self.assertEqual(180, math.degrees(theta))
+        self.assertAlmostEqual(60, math.degrees(theta))
         return
 
     def testVecDiff(self):
