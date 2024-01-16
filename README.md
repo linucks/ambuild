@@ -193,12 +193,12 @@ sudo ubuntu-drivers autoinstall
 
 1. Download Ambuild from the Releases section or enter the following into your terminal:
 ```
-$ curl -OL https://github.com/linucks/ambuild/archive/2.0.0.tar.gz
+curl -OL https://github.com/linucks/ambuild/archive/2.0.0.tar.gz
 ```
 
 2. Extract files using:
 ```
-$ tar -xzf 2.0.0.tar.gz
+tar -xzf 2.0.0.tar.gz
 ```
 Which will give a folder named ambuild-2.0.0 containing the Ambuild code.
 
