@@ -56,8 +56,6 @@ class Body(object):
 
     @property
     def diameters(self):
-        #return self.radii * 2.0
-        # We currently return a diameter of 0.1 as we don't want this influencing the simulation
         return [xyz_util.DUMMY_DIAMETER] * self.natoms
 
     @property
@@ -89,10 +87,6 @@ class Body(object):
         return xyz_core.principalMoments(self.coords, self.masses)
 
     @property
-    def radii(self):
-        return np.compress(self.indexes, self.fragment._radii, axis=0)
-
-    @property
     def rigidConfigStr(self):
         """return the type of this body based on the endGroup configuration"""
         return "{}{}".format(self.bodyIdx, self.fragment.configStr)
@@ -100,12 +94,10 @@ class Body(object):
     @property
     def static(self):
         if hasattr(self.fragment, "static") and self.fragment.static:
-            return True
-        return False
-
-    @property
-    def staticAtoms(self):
-        return [self.static] * self.natoms
+            v = True
+        else:
+            v = False
+        return [v] * self.natoms
 
     @property
     def symbols(self):

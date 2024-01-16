@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Test whether the code needs a restart
+
+# This is a demo that simply checks for the phrase 'Error computing cell list'
+# in the last line of the output file
+
+if [ $# -ne 1 ]; then
+   echo Usage: $0 "[filename]"
+   exit 1
+fi
+
+tail -n 1 $1|grep "Error computing cell list" > /dev/null
+
+if [ $? -eq 0 ]; then
+   exit 1
+else
+   exit 0
+fi

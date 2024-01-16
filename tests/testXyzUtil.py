@@ -5,7 +5,6 @@ import unittest
 # external imports
 import numpy as np
 
-from context import xyz_core
 from context import xyz_util
 from context import PARAMS_DIR
 
@@ -75,50 +74,6 @@ class Test(unittest.TestCase):
         ]
         # order of atoms doesn't 'matter
         self.assertEqual(set(close), set(ref_close))
-
-    def testTrilateration(self):
-        """
-        Test Trilateration to determine atom position
-
-                 3[0,1,0]
-        2[-1,0,0] 1[0,0,0] 4[1,0,0]
-                 t[0,-1,0]
-        """
-
-        p1 = np.array([0.0, 0.0, 0.0])
-        p2 = np.array([-1.0, 0.0, 0.0])
-        p3 = np.array([0.0, 1.0, 0.0])
-        p4 = np.array([1.0, 0.0, 0.0])
-        points = [p1, p2, p3, p4]
-
-        t = np.array([0.0, -1.0, 0.0])
-        p1t = xyz_core.distance(t, p1)
-        p2t = xyz_core.distance(t, p2)
-        p3t = xyz_core.distance(t, p3)
-        p4t = xyz_core.distance(t, p4)
-        distances = [p1t, p2t, p3t, p4t]
-
-        position = xyz_util.trilaterate3D(distances, points)
-        self.assertTrue(np.allclose(position, t))
-
-        #
-        # Real example with Benzene atoms
-        #
-        p1 = np.array([12.5632, 6.03464, -1.74782])
-        p2 = np.array([13.86152, 4.39379, 0.51081])
-        p3 = np.array([14.74447, 6.33331, -2.51304])
-        p4 = np.array([11.74412, 4.14417, 1.20077])
-        points = [p1, p2, p3, p4]
-
-        t = np.array([12.12731, 6.58007, -2.50777])
-        p1t = xyz_core.distance(t, p1)
-        p2t = xyz_core.distance(t, p2)
-        p3t = xyz_core.distance(t, p3)
-        p4t = xyz_core.distance(t, p4)
-        distances = [p1t, p2t, p3t, p4t]
-
-        position = xyz_util.trilaterate3D(distances, points)
-        self.assertTrue(np.allclose(position, t))
 
 
 if __name__ == "__main__":

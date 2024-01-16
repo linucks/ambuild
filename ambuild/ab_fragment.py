@@ -21,70 +21,10 @@ from ambuild import xyz_util
 logger = logging.getLogger()
 
 
-def fragmentFactory(
-    fragmentType,
-    filePath=None,
-    catalyst=False,
-    markBonded=False,
-    solvent=False,
-    static=False,
-):
-    """Dynamically create a fragment object.
-
-    Dynamic classes allow us to have fragments where all fragments of the same type share
-    class variables such as symbols that are the same between all fragments (to save memory),
-    but have instance variables for holding attributes like coordinates.
-
-    We need to define a __reduce__ method as otherwise the dynamic classes can't be pickled:
-    https://stackoverflow.com/questions/11658511/pickling-dynamically-generated-classes
-    """
-    # Make sure fragments don't pollute the namespace - probably needs more thinking about
-    assert not fragmentType in [
-        "fragmentFactory",
-        "Fragment",
-    ], f"Unacceptable fragmentType: {fragmentType}"
-    fobj = type(fragmentType, (Fragment,), dict())
-    return fobj(
-        filePath=filePath,
-        fragmentType=fragmentType,
-        solvent=solvent,
-        markBonded=markBonded,
-        catalyst=catalyst,
-        static=static,
-    )
-
-
 class Fragment(object):
     """
     classdocs
     """
-
-    #### These class variables are shared by all fragments of a particular type
-    ## Public variables
-    catalyst = None
-    fragmentType = None
-    markBonded = False
-    onbondFunction = None  # A function to be called when we bond an endGroup
-    solvent = (
-        None  # True if this fragment is solvent and should be excluded from clashChecks
-    )
-    static = False
-
-    ## Private variables
-    _atomTypes = []
-    _bodies = []  # a list of which body within this fragment each atom belongs to
-    _bonds = []  # List of internal fragment bonds
-    _bonded = []  # List of which atoms are bonded to which
-    _cellParameters = {}
-    _charges = []
-    _coords = []
-    _labels = []
-    _masses = []
-    _radii = []
-    _maxBonds = {}
-    _radius = -1
-    _symbols = []  # ordered array of symbols (in upper case)
-    _totalMass = -1
 
     def __init__(
         self,
@@ -98,33 +38,66 @@ class Fragment(object):
         """
         Constructor
         """
-        # The variables below here are specific to a fragment and change as the fragment moves
-        # and is involved in bonds; each fragment gets its own copy of these
-        self.block = None
-        self._coords = []
-        self._centroid = None
-        self._centerOfMass = None
-        self._ext2int = collections.OrderedDict()
-        self._int2ext = collections.OrderedDict()
-        self._centerOfMass = None
-        self._maxAtomRadius = -1
-        self._changed = (
-            True  # Flag for when we've been moved and need to recalculate things
-        )
-        self.blockIdx = None  # The index in the list of block data where the data for this fragment starts
-        self._endGroups = []  # A list of the endGroup objects
-        self._endGroupBonded = (
-            []
-        )  # A list of the number of each endGroup that are used in bonds
-        self.masked = []  # bool - whether the atoms is hidden (e.g. cap or uw atom)
-        self.unBonded = []  # bool - whether an atom has just been unbonded
+        # This first set of variables are shared by all fragments
+        # When we copy a fragment the new fragment gets references to the variables
+        # that were created for the first fragment (see copy)
+        sharedAttrs = {
+            "_atomTypes": [],
+            "_bodies": [],  # a list of which body within this fragment each atom belongs to
+            "_bonds": [],  # List of internal fragment bonds
+            "_bonded": [],  # List of which atoms are bonded to which
+            "catalyst": catalyst,  # Whether this block is a catalyst
+            "_cellParameters": {},
+            "fragmentType": fragmentType,
+            "_labels": [],
+            "_masses": [],
+            "markBonded": markBonded,
+            "onbondFunction": None,  # A function to be called when we bond an endGroup
+            "_radii": [],
+            "_maxBonds": {},
+            "_radius": -1,
+            "solvent": solvent,  # True if this fragment is solvent and should be excluded from clashChecks
+            "static": static,
+            "_symbols": [],  # ordered array of symbols (in upper case)
+            "_totalMass": -1,
+            "_individualAttrs": None,
+            "_sharedAttrs": None,
+        }
 
-        # Init variables
-        self.catalyst = catalyst
-        self.fragmentType = fragmentType
-        self.markBonded = markBonded
-        self.solvent = solvent
-        self.static = static
+        #
+        # The variables below here are specific to a fragment and change as the fragment moves
+        # and is involved in bonds - each fragment gets its own copy of these
+        individualAttrs = {
+            "block": None,
+            "config": None,
+            "configStr": None,
+            "_charges": [],
+            "_coords": [],
+            "_centroid": None,
+            "_centerOfMass": None,
+            "_ext2int": collections.OrderedDict(),
+            "_int2ext": collections.OrderedDict(),
+            "_centerOfMass": None,
+            "_maxAtomRadius": -1,
+            "_changed": True,  # Flag for when we've been moved and need to recalculate things
+            "blockIdx": None,  # The index in the list of block data where the data for this fragment starts
+            "_endGroups": [],  # A list of the endGroup objects
+            "_endGroupBonded": [],  # A list of the number of each endGroup that are used in bonds
+            "masked": [],  # bool - whether the atoms is hidden (e.g. cap or uw atom)
+            "unBonded": [],  # bool - whether an atom has just been unbonded
+        }
+
+        # Set as attributes of self
+        for a, v in sharedAttrs.items():
+            setattr(self, a, v)
+
+        # Set as attributes of self
+        for a, v in individualAttrs.items():
+            setattr(self, a, v)
+
+        # Set these manually
+        self._individualAttrs = individualAttrs
+        self._sharedAttrs = sharedAttrs
 
         # Create from the file
         if filePath:
@@ -194,6 +167,9 @@ class Fragment(object):
         bonds = []
         for b1, b2 in self._bonds:
             if not (self.masked[b1] or self.masked[b2]):
+                # Map to internal and then add blockIdx to get position in block
+                # b1 = b1 + self.blockIdx
+                # b2 = b2 + self.blockIdx
                 bonds.append((self._int2ext[b1], self._int2ext[b2]))
         return bonds
 
@@ -215,7 +191,8 @@ class Fragment(object):
         return self.fragmentType + "".join(["1" if c else "0" for c in self.config])
 
     def _calcCenters(self):
-        """Calculate the center of mass and geometry for this fragment"""
+        """Calculate the center of mass and geometry for this fragment
+        """
         self._centroid = np.sum(self._coords, axis=0) / np.size(self._coords, axis=0)
         self._totalMass = np.sum(self._masses)
         # Centre of mass is sum of the products of the individual coordinates multiplied by the mass, divded by the total mass
@@ -225,7 +202,7 @@ class Fragment(object):
     def _calcRadius(self):
         """
         Calculate a simple size metric of the block so that we can screen for whether
-        two blocks are within touching distance
+        two _blocks are within touching distance
 
         First try a simple approach with a loop just to get a feel for things
         - Find the largest distance between any atom and the center of geometry
@@ -238,9 +215,8 @@ class Fragment(object):
         distances = [xyz_core.distance(self._centroid, coord) for coord in self._coords]
         imax = np.argmax(distances)
         dist = distances[imax]
-        self._radius = (
-            dist + self.maxAtomRadius()
-        )  # Add on the radius of the largest atom
+        # Add on the radius of the largest atom
+        self._radius = dist + self.maxAtomRadius()
         return
 
     def _calcProperties(self):
@@ -286,10 +262,21 @@ class Fragment(object):
         Those attributes in shared are just copied as references as they do not change between fragments
         of the same fragmentType
         Those in single are deep-copied as each fragment has its own"""
-        f = copy.deepcopy(self)
-        # Update fragment references in the endGroups
-        for e in f._endGroups:
-            e.fragment = f
+
+        f = Fragment()
+        for a in f.__dict__:
+            if a in self._sharedAttrs.keys():
+                setattr(f, a, getattr(self, a))
+            elif a in self._individualAttrs.keys():
+                setattr(f, a, copy.deepcopy(getattr(self, a)))
+            else:
+                # HACKS FOR DEALING WITH OLD FILES
+                msg = "Missing attribute in fragment copy: {0}".format(a)
+                logger.critical(msg)
+                raise RuntimeError(msg)
+            # Update fragment references in the endGroups
+            for e in f._endGroups:
+                e.fragment = f
         return f
 
     def endGroups(self):
@@ -300,7 +287,7 @@ class Fragment(object):
         return set(self._endGroupBonded.keys())
 
     def fillData(self):
-        """Fill the data arrays from the label"""
+        """ Fill the data arrays from the label """
 
         self.masked = np.array([False] * len(self._coords))
         self.unBonded = [False] * len(self._coords)
@@ -318,18 +305,12 @@ class Fragment(object):
         self._maxAtomRadius = np.max(self._radii)
         return
 
-    # Can't use as in some cases the class name doesn't seem to get saved on pickling and
-    # the fragment has the class 'Fragment'
-    # @property
-    # def fragmentType(self):
-    #     return str(self.__class__).split(".")[-1].rstrip("'>")
-
     def freeEndGroups(self):
         return [eg for eg in self._endGroups if eg.free()]
 
     @staticmethod
     def fromCarFile(carFile):
-        """ "Abbie did this."""
+        """"Abbie did this."""
         labels = []
         symbols = []
         atomTypes = []
@@ -375,7 +356,8 @@ class Fragment(object):
 
     @staticmethod
     def fromXyzFile(xyzFile):
-        """ "Jens did this."""
+        """"Jens did this.
+        """
         labels = []
         symbols = []
         atomTypes = []
@@ -548,8 +530,9 @@ class Fragment(object):
         basename, suffix = os.path.splitext(filename)
         bodyFile = os.path.join(dirname, basename + ".ambody")
         if os.path.isfile(bodyFile):
-            with open(bodyFile) as f:
-                self._bodies = np.array([int(l.strip()) for l in f], dtype=int)
+            self._bodies = np.array(
+                [int(l.strip()) for l in open(bodyFile)], dtype=int
+            )
             assert len(self._bodies) == len(
                 self._coords
             ), "Must have as many bodies as coordinates: {0} - {1}!".format(
@@ -571,7 +554,8 @@ class Fragment(object):
         return self._radius
 
     def rotate(self, rotationMatrix, center):
-        """Rotate the molecule about the given axis by the angle in radians"""
+        """ Rotate the molecule about the given axis by the angle in radians
+        """
         self._coords = self._coords - center
         # self._coords = np.array([ np.dot(rotationMatrix, c) for c in self._coords ])
         # I don't actually undestand why this works at all...
@@ -672,37 +656,6 @@ class Fragment(object):
         assert (
             len(eg.intersection(caps)) == 0
         ), "Cap atom for one endGroup is another endGroup!"
-
-        self.setupCapTrilateration()
-        return
-
-    def setupCapTrilateration(self):
-        NUM_ANCHORS = 4
-        caps = set([e.fragmentCapIdx for e in self._endGroups])
-        # Get 4 atoms evenly spaced across the list of all of them - this
-        # should mean we get a good spacing for calculating distances
-        indexes = [i for i in range(len(self._coords)) if i not in caps]
-        if len(indexes) < NUM_ANCHORS:
-            # Cannot do trilateration without 4 non-cap atoms
-            return
-        triAtoms = np.round(np.linspace(0, len(indexes) - 1, NUM_ANCHORS)).astype(int)
-        for eg in self._endGroups:
-            eg.triAtoms = triAtoms
-            eg.triDistances = [
-                xyz_core.distance(self._coords[eg.fragmentCapIdx], self._coords[a])
-                for a in triAtoms
-            ]
-            # Check trilateration works for this set of atoms
-            check_pos = xyz_util.trilaterate3D(
-                eg.triDistances, [self._coords[p] for p in eg.triAtoms]
-            )
-
-            if not np.allclose(
-                check_pos, self._coords[eg.fragmentCapIdx], atol=1.0e-05
-            ):
-                raise RuntimeError(
-                    f"Incorrect trilateration check position: {check_pos} {self._coords[eg.fragmentCapIdx]}"
-                )
         return
 
     def setMaxBond(self, endGroupType, maxBond):
@@ -714,7 +667,7 @@ class Fragment(object):
         return self._symbols[self._ext2int[idxAtom]]
 
     def translate(self, tvector):
-        """translate the molecule by the given vector"""
+        """ translate the molecule by the given vector"""
         self._coords += tvector
         self._changed = True
         return
@@ -747,17 +700,6 @@ class Fragment(object):
                 % (self._charges, charges)
             )
         self._charges = np.array(charges)
-
-    def __reduce__(self):
-        """Required to allow dynamically created classes to be pickled.
-        See: https://docs.python.org/3/library/pickle.html#object.__reduce__
-        """
-        state = self.__dict__.copy()
-        return (
-            fragmentFactory,
-            (self.fragmentType,),
-            state,
-        )
 
     def __str__(self):
         """List the data attributes of this object"""

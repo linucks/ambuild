@@ -1,6 +1,6 @@
 class CellData(object):
-    def __init__(self, cell):
-        self.cell = cell
+    def __init__(self):
+        self.cell = []
         self.natoms = 0
         self.atomTypes = []
         self.bodies = []

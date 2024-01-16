@@ -7,7 +7,6 @@ import os
 
 logger = logging.getLogger(__name__)
 PARAM_SEP = ","
-ANGLE_SEP = "-"
 
 # Needs to be defined here to avoid circular import in util.py
 def read_bond_params(bond_file):
@@ -97,9 +96,6 @@ class FfieldParameters(object):
                     k = float(row[1])
                     t0 = math.radians(float(row[2]))
                     angles[angle] = {"k": k, "t0": t0}
-                    # Angles are symmetrical so we also need to add the opposite notation
-                    angle_reversed = ANGLE_SEP.join(angle.split(ANGLE_SEP)[::-1])
-                    angles[angle_reversed] = {"k": k, "t0": t0}
                 except Exception as e:
                     logger.critical(
                         "Error reading angle parameters from file: {0}".format(
@@ -268,7 +264,7 @@ class FfieldParameters(object):
         return improper in self.impropers.keys()
 
     def pairParameter(self, p1, p2):
-        """Return whichever pair is defined"""
+        """ Return whichever pair is defined """
         if (p1, p2) in self.pairs:
             return self.pairs[(p1, p2)]
         if (p2, p1) in self.pairs:
@@ -278,7 +274,7 @@ class FfieldParameters(object):
         return
 
     def hasPair(self, p1, p2):
-        """dummy atoms treated specially"""
+        """ dummy atoms treated specially """
         if p1.lower() == "x" or p2.lower() == "x":
             return True
         if (p1, p2) in self.pairs or (p2, p1) in self.pairs:

@@ -24,10 +24,10 @@ DUMMY_DIAMETER = 0.1
 
 class BondLength(object):
     """Class to hold calculate bond lengths.
-
+    
     This is required because we use data stored in the ATOM_TYPE_BOND_LENGTHS dict
     which is calculated from the parameter files, which is read at run time. Therefore
-    we initialise this object using a parameter file and set it as a module object for
+    we initialise this object using a parameter file and set it as a module object for 
     use by the bondLength function
     """
 
@@ -43,8 +43,8 @@ class BondLength(object):
                 self.ATOM_TYPE_BOND_LENGTHS[p.A][p.B] = float(p.r0)
 
     def bondLength(self, atomType1, atomType2):
-        """Get the characteristic lengths of single bonds as defined in:
-        Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
+        """ Get the characteristic lengths of single bonds as defined in:
+            Reference: CRC Handbook of Chemistry and Physics, 87th edition, (2006), Sec. 9 p. 46
         """
         # We first see if we can find the bond length in the ATOM_TYPE_BOND_LENGTHS table
         # If not we fall back to using the bonds calculated from element types
@@ -76,7 +76,7 @@ class BondLength(object):
             # print "ELEMENT TYPE"
             return xyz_core.ELEMENT_TYPE_BOND_LENGTHS[symbol2][symbol1]
         warnings.warn("No data for bond length for %s-%s" % (atomType1, atomType2))
-        return -1
+        return 1.0
 
 
 # This needs to be set to the bondLength function of the BondLength class
@@ -94,7 +94,8 @@ bondLength = __STOP
 def setModuleBondLength(paramFile):
     """Set the bondLength function of the util module"""
     global bondLength
-    bondLength = BondLength(paramFile).bondLength
+    BL = BondLength(paramFile)
+    bondLength = BL.bondLength
     return
 
 
@@ -126,6 +127,9 @@ def calcBonds(
 ):
     """Calculate the bonds for the fragments. This is done at the start when the only coordinates
     are those in the fragment.
+    symbols can be chemical elements or atomTypes
+    If supplied cell is a list/numpy array with the dimensions of the simulation cell, in which case
+    PBC will be applied
     """
     close = closeAtoms(coords, symbols, dim, maxAtomRadius, boxMargin)
     v1 = []
@@ -136,28 +140,24 @@ def calcBonds(
 
     distances = xyz_core.distance(np.array(v1), np.array(v2), dim=dim)
     bonds = []
+
     for i, (idxAtom1, idxAtom2) in enumerate(close):
-        symbol1 = symbols[idxAtom1]
-        symbol2 = symbols[idxAtom2]
-        bond_length = bondLength(symbol1, symbol2)
+        bond_length = bondLength(symbols[idxAtom1], symbols[idxAtom2])
         if bond_length < 0:
-            warnings.warn(
-                "calcBonds: no data for bond length for %s-%s - setting to 1.0"
-                % (symbol1, symbol2)
+            continue
+        logger.debug(
+            "Dist:length {1}({0})-{3}({2}) {4} {5}".format(
+                symbols[idxAtom1],
+                idxAtom1,
+                symbols[idxAtom2],
+                idxAtom2,
+                distances[i],
+                bond_length,
             )
-            bond_length = 1.0
-        # logger.debug(
-        #     "Dist:length {1}({0})-{3}({2}) {4} {5}".format(
-        #         symbol1,
-        #         idxAtom1,
-        #         symbol2,
-        #         idxAtom2,
-        #         distances[i],
-        #         bond_length,
-        #     )
-        # )
+        )
         if bond_length - bondMargin < distances[i] < bond_length + bondMargin:
             bonds.append((idxAtom1, idxAtom2))
+
     # We sort the bonds on return so that results are deterministic and can be tested
     return sorted(bonds)
 
@@ -273,21 +273,16 @@ def haloCells(key, boxNum=None, pbc=[True, True, True]):
                 # print "sKey ({},{},{})->({})".format(a,b,c,skey)
                 # cells.add(skey)
                 cells.add(skey)
+
     return list(cells)
 
 
 def label2symbol(name):
-    """Determine the element type of an atom from its name, e.g. Co_2b -> Co
-    Returns a capitalised element name
+    """ Determine the element type of an atom from its name, e.g. Co_2b -> Co
+        Returns a capitalised element name
     """
     origName = name
     name = name.strip().upper()
-    if not name[0].isalpha():
-        raise RuntimeError(
-            "label2symbol first character of name is not a character: {0}".format(
-                origName
-            )
-        )
     # Determine the element from the first 2 chars of the name
     if len(name) > 2:
         name = name[0:2]
@@ -301,6 +296,12 @@ def label2symbol(name):
             return name.capitalize()
     # If it was a valid 2 character symbol we should have picked it up so now only 1 symbol
     name = name[0]
+    if not name.isalpha():
+        raise RuntimeError(
+            "label2symbol first character of name is not a character: {0}".format(
+                origName
+            )
+        )
     # Hack - for x return x
     if name.lower() == "x":
         return "x"
@@ -314,126 +315,6 @@ def label2symbol(name):
         "label2symbol cannot convert name {0} to symbol!".format(origName)
     )
     return
-
-
-def trilaterate3D(distances, points):
-    """Taken from: https://github.com/akshayb6/trilateration-in-3d/blob/master/trilateration.py"""
-
-    r1 = distances[0]
-    r2 = distances[1]
-    r3 = distances[2]
-    r4 = distances[3]
-    p1 = points[0]
-    p2 = points[1]
-    p3 = points[2]
-    p4 = points[3]
-    e_x = (p2 - p1) / np.linalg.norm(p2 - p1)
-    i = np.dot(e_x, (p3 - p1))
-    e_y = (p3 - p1 - (i * e_x)) / (np.linalg.norm(p3 - p1 - (i * e_x)))
-    e_z = np.cross(e_x, e_y)
-    d = np.linalg.norm(p2 - p1)
-    j = np.dot(e_y, (p3 - p1))
-    x = ((r1 ** 2) - (r2 ** 2) + (d ** 2)) / (2 * d)
-    y = (((r1 ** 2) - (r3 ** 2) + (i ** 2) + (j ** 2)) / (2 * j)) - ((i / j) * (x))
-    with np.errstate(invalid="raise"):
-        z1 = np.sqrt(r1 ** 2 - x ** 2 - y ** 2)
-        z2 = np.sqrt(r1 ** 2 - x ** 2 - y ** 2) * (-1)
-    ans1 = p1 + (x * e_x) + (y * e_y) + (z1 * e_z)
-    ans2 = p1 + (x * e_x) + (y * e_y) + (z2 * e_z)
-    dist1 = np.linalg.norm(p4 - ans1)
-    dist2 = np.linalg.norm(p4 - ans2)
-    if np.abs(r4 - dist1) < np.abs(r4 - dist2):
-        return ans1
-    else:
-        return ans2
-
-
-def trilaterate3D_2(distances, points, tolerance=0.0001):
-    """Taken from: https://math.stackexchange.com/questions/2272223/getting-wrong-coordinate-with-3d-trilateration-in-different-cases-noisy-environ
-
-    See farmuaa6
-    """
-    r1 = distances[0]
-    r2 = distances[1]
-    r3 = distances[2]
-    r4 = distances[3]
-    p1 = points[0]
-    p2 = points[1]
-    p3 = points[2]
-    p4 = points[3]
-
-    p1x = p1[0]
-    p1y = p1[1]
-    p1z = p1[2]
-    p2x = p2[0]
-    p2y = p2[1]
-    p2z = p2[2]
-    p3x = p3[0]
-    p3y = p3[1]
-    p3z = p3[2]
-
-    x1 = p2x - p1x
-    y1 = p2y - p1y
-    z1 = p2z - p1z
-    n1 = np.sqrt(x1 ** 2 + y1 ** 2 + z1 ** 2)
-    if n1 <= 0.0:
-        raise RuntimeError(f"First and second anchor are at the same point: {p1} {p2}")
-
-    x1 = x1 / n1
-    y1 = y1 / n1
-    z1 = z1 / n1
-
-    i = (p3x - p1x) * x1 + (p3y - p1y) * y1 + (p3z - p1z) * z1
-
-    x2 = p3x - p1x - i * x1
-    y2 = p3y - p1y - i * y1
-    z2 = p3z - p1z - i * z1
-
-    with np.errstate(invalid="raise"):
-        n2 = np.sqrt(x2 ** 2 + y2 ** 2 + z2 ** 2)
-    if n2 <= 0.0:
-        raise RuntimeError(f"The three anchors are collinear: {p1} {p2} {p3}")
-    x2 = x2 / n2
-    y2 = y2 / n2
-    z2 = z2 / n2
-
-    x3 = y1 * z2 - z1 * y2
-    y3 = z1 * x2 - x1 * z2
-    z3 = x1 * y2 - y1 * x2
-    with np.errstate(invalid="raise"):
-        n3 = np.sqrt(x3 ** 2 + y3 ** 2 + z3 ** 2)
-    if n3 <= 0.0:
-        raise RuntimeError("Something is wrong with anchors")
-
-    x3 = x3 / n3
-    y3 = y3 / n3
-    z3 = z3 / n3
-
-    d = np.sqrt((p2x - p1x) ** 2 + (p2y - p1y) ** 2 + (p2z - p1z) ** 2)
-    j = x2 * (p3x - p1x) + y2 * (p3y - p1y) + z2 * (p3z - p1z)
-
-    xr = (r1 ** 2 - r2 ** 2 + d ** 2) / (2 * d)
-    yr = (r1 ** 2 - r3 ** 2 + i * i + j * j) / (2 * j) - i * xr / j
-    with np.errstate(invalid="raise"):
-        zr = np.sqrt(r1 ** 2 - xr ** 2 - yr ** 2)
-
-    pos1 = [
-        p1x + xr * x1 + yr * x2 + zr * x3,
-        p1y + xr * y1 + yr * y2 + zr * y3,
-        p1z + xr * z1 + yr * z2 + zr * z3,
-    ]
-    pos2 = [
-        p1x + xr * x1 + yr * x2 - zr * x3,
-        p1y + xr * y1 + yr * y2 - zr * y3,
-        p1z + xr * z1 + yr * z2 - zr * z3,
-    ]
-
-    dist1 = np.linalg.norm(p4 - pos1)
-    dist2 = np.linalg.norm(p4 - pos2)
-    if np.abs(r4 - dist1) < np.abs(r4 - dist2):
-        return pos1
-    else:
-        return pos2
 
 
 def writeCml(

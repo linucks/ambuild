@@ -2,11 +2,7 @@
 Ambuild is a python program for creating polymeric molecular structures.
 Please feel free to follow Ambuild on [twitter](https://twitter.com/Ambuild2).
 
-The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group at the [University of Lancaster](https://www.lancaster.ac.uk/sci-tech/about-us/people/abbie-trewin).
-
-Detailed instructions on how to run Ambuild can be found on our [wiki](https://github.com/linucks/ambuild/wiki/01_Introduction)
-
-### Visit our YouTube page to watch our [installation video](https://www.youtube.com/watch?v=cHBXM7fytNM), which talks you through how to install Ambuild on a Ubuntu or Debian machine. Alternatively, read on!
+The code is developed by [Abbie Trewin's](https://twitter.com/AbbieTrewin) group at the [University of Lancaster](https://www.lancaster.ac.uk/sci-tech/about-us/people/abbie-trewin). 
 
 Ambuild has previously been tested on Ubuntu/Debian machines, but should work for other Linux environments too. The instructions given below relate to installation on a Ubuntu/Debian Linux environment. We explain here how to install each component required to run Ambuild onto a new machine. Please feel free to skip any steps describing how to install any components which you have already installed.
 
@@ -25,7 +21,7 @@ With numpy installed Ambuild can be used to create molecular structures, but can
 
 #### 2. Install Docker
 
-These instructions are derived from the [Docker Website](https://docs.docker.com/engine/install/ubuntu/). If you already have Docker installed, please skip ahead to [section 4](#4-install-nvidia-drivers).
+Instructions from: https://docs.docker.com/engine/install/ubuntu/
 
 1. Firstly, remove any old versions with the command:
   ```
@@ -101,7 +97,7 @@ For more examples and ideas, visit: https://docs.docker.com/get-started/
 ```
 
 #### 4. Install NVIDIA Drivers
-In order for applications to take advantage of GPU acceleration, you will need to install the NVIDIA GPU drivers for your card - the drivers are the piece of software that allow different programmes to communicate with the GPU card. There are instructions for how to do this on the [NVIDIA website](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)
+In order for applications within the Docker container to take advantage of GPU acceleration, you will need to install the NVIDIA GPU drivers for your card - the drivers are the piece of software that allow different programmes to communicate with the GPU card. There are instructions for how to do this on the [NVIDIA website](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)
 
 On Ubuntu, the easiest way to do this seems to be with the command:
 ```
@@ -109,29 +105,31 @@ sudo ubuntu-drivers autoinstall
 ```
 
 #### 5. Install NVIDIA Docker Runtime
-This is the layer of software that enables the Docker container to talk to the GPU card via the NVIDIA Drivers.
-
-These instructions are derived from: https://github.com/NVIDIA/nvidia-docker
+Instructions from: https://github.com/NVIDIA/nvidia-docker
 
 1. Run the following commands to install the nvidia-container-toolkit:
 
-```
+  ```
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-```
-```
+  ```
+  ```
 curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
-```
-```
+  ```
+  ```
 curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
-```
-```
+  ```
+  ```
 sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-```
-```
+  ```
+  ```
 sudo systemctl restart docker
-```
+  ```
 
-2. Install the nvidia-container-runtime
+2. Test nvidia-smi with the latest official CUDA image
+
+  ```docker run --gpus all nvidia/cuda:10.0-base nvidia-smi```
+
+3. Install the nvidia-container-runtime
 ```
 sudo apt install nvidia-container-runtime
 ```
@@ -139,7 +137,7 @@ There is currently a bug with the nvidia docker container runtime as detailed he
 
 To work around the bug, carry out the following additional step:
 
-3. Create a file called /etc/docker/daemon.json with the following content by typing the following (cut and paste the following command from 'sudo' to the second 'EOF' into the terminal):
+4. Create a file called /etc/docker/daemon.json with the following content by typing the following (cut and paste the following command from 'sudo' to the second 'EOF' into the terminal):
 
 ```
 sudo tee -a /etc/docker/daemon.json << EOF
@@ -153,48 +151,10 @@ sudo tee -a /etc/docker/daemon.json << EOF
 }
 EOF
 ```
-4. Restart docker:
+5. Restart docker:
 ```
 sudo systemctl restart docker
 ```
-
-5. Test nvidia-smi with the latest official CUDA image
-
-  ```docker run --gpus all nvidia/cuda:10.0-base nvidia-smi```
-
-This should generate output similar to the following:
-```
-Tue Jul 21 08:54:21 2020       
-+-----------------------------------------------------------------------------+
-| NVIDIA-SMI 435.21       Driver Version: 435.21       CUDA Version: 10.1     |
-|-------------------------------+----------------------+----------------------+
-| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-|===============================+======================+======================|
-|   0  Quadro M4000        Off  | 00000000:01:00.0  On |                  N/A |
-| 46%   34C    P8    10W / 120W |     43MiB /  8123MiB |      0%   Prohibited |
-+-------------------------------+----------------------+----------------------+
-|   1  Tesla K20c          Off  | 00000000:02:00.0 Off |                    0 |
-| 30%   30C    P8    16W / 225W |      0MiB /  4743MiB |      0%      Default |
-+-------------------------------+----------------------+----------------------+
-```
-
-If you do not see an output like the one given above, then there may be an issue with the NVIDIA installation. This can often be caused by conflicts with an existing NVIDIA/CUDA installation. This can often be resolved by uninstalling all previous NVIDIA/CUDA installations and just installing the NVIDA drivers. This can be done with the following commands:
-
-```
-sudo apt-get --purge remove "*cublas*" "cuda" "nsight"
-```
-```
-sudo apt-get --purge remove $(dpkg-query -l | grep nvidia | awk '{print $2}')
-```
-```
-sudo apt-get autoremove
-```
-```
-sudo ubuntu-drivers autoinstall
-```
-
-If you still do not see an output as in the example given with step 5, we suggest contacting your local Linux specialist.
 
 #### 6. Disable secondary video GPU card
 If you have more than one GPU card (e.g. you have a card specifically for running jobs), then you may need to disable your video GPU card for running jobs so that any GPU jobs are placed on the specialised card rather than using the video card. This will not disable the video card for viewing your screen - it will just prevent it being used to run computational simulation jobs.
@@ -214,34 +174,41 @@ sudo nvidia-smi -c 2 -i GPU-4030396e-e7b4-aa4d-e035-22758536dba5
 ```
 E.g. in the example output above, the UUID string will be: ```GPU-66dc2593-494d-4b44-4574-2b92976db56b```, making the command in step 2 read:  ```sudo nvidia-smi -c 2 -i GPU-66dc2593-494d-4b44-4574-2b92976db56b```
 
+If you do not see an output like the one given as an example in step 1, we advise you to firstly try running the three commands immediately below. If you still do not see an output as in the example given with step 1, we suggest contacting your local Linux specialist.
+
+```
+sudo apt-get --purge remove "*cublas*" "cuda" "nsight"
+```
+```
+sudo apt-get --purge remove "*nvidia*"
+```
+```
+sudo apt-get autoremove
+```
+```
+sudo ubuntu-drivers autoinstall
+```
+
 #### 7. Get Ambuild
 
-A tar.gz file of the latest release of Ambuild can be downloaded from the [releases page](https://github.com/linucks/ambuild/releases).
-
-You can also download the ambuild-1.0.0.tar.gz file directly with the following command:
+1. Firstly, install git using:
 ```
-curl -OL https://github.com/linucks/ambuild/archive/1.0.0.tar.gz
+sudo apt-get install git
 ```
 
-Once downloaded, the file can be unpacked with the command:
+2. Checkout ambuild from the GitHub repository. We recommend that you cd into /opt, and then run this command.
 ```
-tar -xzf 1.0.0.tar.gz
+git clone https://github.com/linucks/ambuild.git
 ```
-
-This will create a directory called ```ambuild-1.0.0``` containing the Ambuild source code.
-
-Now you are ready to run Ambuild! Please see our [wiki](https://github.com/linucks/ambuild/wiki/08_Running_Ambuild) for how to get started.
 
 ## Installation of optional dependencies
 ### Poreblazer
 To install [poreblazer](https://github.com/richardjgowers/poreblazer) for use by Ambuild, the following steps are required.
 
 1. Checkout or download poreblazer from GitHub:
-```git clone https://github.com/SarkisovGroup/PoreBlazer```
+```git clone https://github.com/richardjgowers/poreblazer.git```
 
 2. Install the [gfortran](https://gcc.gnu.org/wiki/GFortran) compiler. On Ubuntu/Debian, this should just be a case of running:
 ```sudo apt-get install gfortran```
 
-3. Compile the poreblazer executable. This is done in the ```src``` directory of the poreblazer directory, so cd into this directory and open the ```Makefile```. Then, edit ```FORTRAN_COMPILER``` line so it reads: ```FORTRAN_COMPILER= gfortran```
-
-4. Run the command: ```make``` This should create the ```poreblazer.exe``` executable in this directory.
+3. Compile the poreblazer executable. This is done in the ```src``` directory of the poreblazer directory, so cd into this directory and then run the command: ```make``` This should create the ```poreblazer.exe``` executable in this directory.

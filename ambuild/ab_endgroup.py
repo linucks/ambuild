@@ -4,11 +4,7 @@ Created on Jan 15, 2013
 @author: abbietrewin
 """
 import logging
-import warnings
-
 import numpy as np
-
-from ambuild import xyz_util
 
 ENDGROUPBONDED = "*"
 logger = logging.getLogger()
@@ -32,13 +28,17 @@ class EndGroup(object):
         self.blockDihedralIdx = -1
         self.fragmentUwIdx = -1
         self.blockUwIdx = -1
-        self.triAtoms = None
-        self.triDistances = None
         return
 
     def block(self):
-        if self.fragment is None or self.fragment.block is None:
-            raise RuntimeError("endGroup without fragment or block")
+        f = True
+        b = True
+        if self.fragment.block is None:
+            b = False
+        if self.fragment is None:
+            f = False
+        if not b and f:
+            raise RuntimeError("None Block {0} Fragment {1}\n{2}".format(b, f, self))
         return self.fragment.block
 
     def capIdx(self):
@@ -75,15 +75,18 @@ class EndGroup(object):
         return
 
     def unBond(self, bondEndGroup):
-        """See:
-        https://github.com/akshayb6/trilateration-in-3d/blob/master/trilateration.py
-        """
-
-        def unBondSimple(bondEndGroup):
-            """Fallback code - to be avoided as it will calculate incorrect positions
-            if the bond vector had moved due to the blocks moving through MD"""
-            #
+        self.bonded = False
+        # HACK WE REMOVE ALL SUFFIXES
+        for eg in self.fragment.endGroups():
+            if eg._endGroupType.endswith(ENDGROUPBONDED):
+                logger.debug("unBond ENDGROUPBONDED")
+                eg._endGroupType = eg._endGroupType.rstrip(ENDGROUPBONDED)
+        self.fragment.delBond(self.type())
+        # Unmask cap and set the coordinate to the coordinate of the last block atom
+        # NOTE - NEED TO SCALE BY CORRECT LENGTH
+        if hasattr(bondEndGroup, "coord"):
             # Reposition the cap atom based on the bond vector
+            # self.fragment._coords[self.fragmentCapIdx] = bondEndGroup.coord()
             # Get vector from this endGroup to the other endGroup
             egPos = self.fragment._coords[self.fragmentEndGroupIdx]
             v1 = bondEndGroup.coord() - egPos
@@ -93,36 +96,6 @@ class EndGroup(object):
             self.fragment._coords[self.fragmentCapIdx] = egPos + (
                 uv * self.capBondLength
             )
-            return
-
-        self.bonded = False
-        # HACK WE REMOVE ALL SUFFIXES
-        for eg in self.fragment.endGroups():
-            if eg._endGroupType.endswith(ENDGROUPBONDED):
-                eg._endGroupType = eg._endGroupType.rstrip(ENDGROUPBONDED)
-        self.fragment.delBond(self.type())
-        if hasattr(bondEndGroup, "coord"):
-            # Reposition the cap atom
-            if self.triAtoms is not None:
-                # Get positions of triAtoms
-                triAtoms = [self.fragment._coords[i] for i in self.triAtoms]
-                # Calculate the new position
-                try:
-                    self.fragment._coords[self.fragmentCapIdx] = xyz_util.trilaterate3D(
-                        self.triDistances, triAtoms
-                    )
-                except Exception as err:
-                    logger.warning(
-                        "Failed to trilaterate position for:\n"
-                        + f"Distances: {self.triDistances}\n"
-                        + f"Positions: {triAtoms}\n"
-                        + f"Error was: {err}"
-                    )
-                    logger.warning("** Reverting to simple unbond **")
-                    unBondSimple(bondEndGroup)
-            else:
-                warnings.warn(f"Cannot properly unbond {bondEndGroup} as no triAtoms")
-                unBondSimple(bondEndGroup)
 
         # Unhide the cap atom
         self.fragment.masked[self.fragmentCapIdx] = False

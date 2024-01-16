@@ -39,7 +39,6 @@ class Hoomd2(object):
         self.system = None
         self.rigidBody = False
         self.exclusions = set()  # particle tags to be ignored in pair-pair interactions
-        self.idxStaticStart = 0
 
     def checkParameters(self, skipDihedrals=False):
         assert self.ffield
@@ -97,7 +96,6 @@ class Hoomd2(object):
         """
         # Reset exclusions here for time being
         self.exclusions = set()
-        self.idxStaticStart = 0
         # Create snapshot
         # snap attributes: angles, bonds, box, constraints, dihedrals, impropers, pairs, particles
         if self.rigidBody:
@@ -105,7 +103,7 @@ class Hoomd2(object):
             nRigidParticles = len(data.rigidParticles)
             nparticles = data.natoms + nRigidParticles
             rigidCenters = set([r.type for r in data.rigidParticles])
-            atomTypes = set(data.atomTypes) # include standard atomTypes in case any static atoms present
+            atomTypes = set()
             for r in data.rigidParticles:
                 atomTypes.update(r.b_atomTypes)
             overlap = atomTypes.intersection(rigidCenters)
@@ -208,19 +206,6 @@ class Hoomd2(object):
                         rp.b_atomTypes[j]
                     )
                     idx += 1
-            # Finally add in any static particles
-            self.idxStaticStart = idx
-            for i in range(len(data.coords)):
-                if doCharges:
-                    snapshot.particles.charge[idx] = data.charges[i]
-                snapshot.particles.diameter[idx] = data.diameters[i]
-                snapshot.particles.image[idx] = data.images[i]
-                snapshot.particles.mass[idx] = data.masses[i]
-                snapshot.particles.position[idx] = data.coords[i]
-                snapshot.particles.typeid[idx] = self.particleTypes.index(
-                    data.atomTypes[i]
-                )
-                idx += 1
         else:
             for i in range(nparticles):
                 if doCharges:
@@ -576,7 +561,7 @@ class Hoomd2(object):
         # All atoms that are part of static fragments
         if any(data.static):
             self.groupStatic = hoomd.group.tag_list(
-                name="static", tags=[self.idxStaticStart + i for i, s in enumerate(data.static) if s]
+                name="static", tags=[i for i, s in enumerate(data.static) if s]
             )
             if self.rigidBody:
                 self.groupActive = hoomd.group.difference(
@@ -683,28 +668,23 @@ class Hoomd2(object):
         box = np.array([self.system.box.Lx, self.system.box.Ly, self.system.box.Lz])
         snapshot = self.system.take_snapshot()
         if self.rigidBody:
-            idxFreeAtom = len(hoomd.group.rigid_center())
-            idxStaticAtom = self.idxStaticStart
+            atomIdx = len(hoomd.group.rigid_center())
         else:
-            idxFreeAtom = 0
+            atomIdx = 0
         for block in cell.blocks.values():
-            idxBlockAtom = 0
-            for frag in block.fragments:
-                for body in frag.bodies():
-                    for _ in range(len(body.coords)):
-                        idx = None
-                        if self.rigidBody and body.static:
-                            idx = idxStaticAtom
-                            idxStaticAtom += 1
-                        else:
-                            idx = idxFreeAtom
-                            idxFreeAtom += 1
-                        coord = snapshot.particles.position[idx]
-                        coord = xyz_core.unWrapCoord3(
-                            coord, snapshot.particles.image[idx], box, centered=True
-                        )
-                        block.coord(idxBlockAtom, coord)
-                        idxBlockAtom += 1
+            for i in range(block.numAtoms()):
+                coord = snapshot.particles.position[atomIdx]
+                coord = xyz_core.unWrapCoord3(
+                    coord, snapshot.particles.image[atomIdx], box, centered=True
+                )
+                block.coord(i, coord)
+                atomIdx += 1
+        if atomIdx != snapshot.particles.N:
+            raise RuntimeError(
+                "Read {0} positions but there were {1} particles!".format(
+                    atomIdx, len(self.system.particles)
+                )
+            )
 
         # If we are running (e.g.) an NPT simulation, the cell size may have changed. In this case we need to update
         # our cell parameters. Repopulate cells will then update the halo cells and add the new blocks

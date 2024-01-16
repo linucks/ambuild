@@ -29,7 +29,7 @@ class Test(unittest.TestCase):
         rigidParticleMgr = ab_rigidparticle.RigidParticleManager()
         ch4ca = os.path.join(BLOCKS_DIR, "ch4Ca2.car")
         ftype = "A"
-        f1 = ab_fragment.fragmentFactory(ftype, ch4ca)
+        f1 = ab_fragment.Fragment(filePath=ch4ca, fragmentType=ftype)
         rigidParticles = []
         for body in f1.bodies():
             rigidParticles.append(rigidParticleMgr.createParticle(body))

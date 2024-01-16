@@ -157,8 +157,110 @@ class Test(unittest.TestCase):
         mycell.blocks[mycell.blocks.keys()[0]]
         return
 
+    @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
+    def testCat1Paf2(self):
+        boxDim = [40, 40, 40]
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType="PAF")
+        mycell.libraryAddFragment(
+            filename=self.nh4Car, fragmentType="cat", catalyst=True
+        )
+        mycell.addBondType("PAF:a-cat:a")
+        mycell.addBondType("PAF:a-PAF:a")
+
+        # Add PAF and grow so that we have multi-PAF blocks
+        mycell.seed(2, fragmentType="PAF", point=[10.0, 10.0, 10.0], radius=5.0)
+        mycell.growBlocks(
+            toGrow=5, cellEndGroups="PAF:a", libraryEndGroups="PAF:a", maxTries=500
+        )
+
+        # Get the ids of the blocks
+        paf1id, paf2id = mycell.blocks.keys()
+        paf1 = mycell.blocks[paf1id]
+        paf2 = mycell.blocks[paf2id]
+        # Remove from the cell
+        mycell.delBlock(paf1id)
+        mycell.delBlock(paf2id)
+
+        # Add catalyst
+        mycell.seed(1, fragmentType="cat", center=True)
+        # Now join the pafs to the cat
+        cat = list(mycell.blocks.values())[0]
+        paf1eg = paf1.freeEndGroups()[0]
+        paf2eg = paf2.freeEndGroups()[0]
+        cat1eg = cat.freeEndGroups()[0]
+        cat.positionGrowBlock(cat1eg, paf1eg)
+        bond = Bond(cat1eg, paf1eg)
+        bond.engage()
+
+        cat2eg = cat.freeEndGroups()[0]
+        cat.positionGrowBlock(cat2eg, paf2eg)
+        bond = Bond(cat2eg, paf2eg)
+        bond.engage()
+        mycell.newBonds = [bond]  # Hack to set newBonds
+
+        self.assertEqual(len(mycell.blocks), 1)
+        mycell.cat1Paf2(["PAF"], dt=0.00001, optCycles=10000)
+        self.assertEqual(len(mycell.blocks), 2)
+        return
+
+    @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
+    def testCat2Paf2(self):
+        """Given two catalysts bonded to each other, each with PAF blocks bonded, break the bond
+        between the catalysts, move the PAFS from one catalysts to the other, and then join the PAFS
+        on that catalyst with all the PAFS"""
+        boxDim = [40, 40, 40]
+        mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
+        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType="PAF")
+        mycell.libraryAddFragment(
+            filename=self.nh4Car, fragmentType="cat", markBonded=True, catalyst=True
+        )
+        mycell.addBondType("PAF:a-PAF:a")
+        mycell.addBondType("PAF:a-cat:a")
+        mycell.addBondType("cat:a*-cat:a*")
+
+        # Add a cat block and bond it to a PAF block
+        mycell.seed(1, fragmentType="cat", center=True)
+        mycell.growBlocks(
+            toGrow=1, cellEndGroups="cat:a", libraryEndGroups="PAF:a", maxTries=500
+        )
+        # Add three PAF blocks to the PAF
+        mycell.growBlocks(
+            toGrow=3, cellEndGroups="PAF:a", libraryEndGroups="PAF:a", maxTries=500
+        )
+
+        # copy the block and get the two endGroups that we will use to position the two catalysts so they can bond
+        # newblock = self.getLibraryBlock(fragmentType=fragmentType) # Create new block
+        b1 = list(mycell.blocks.values())[0]
+
+        # Make copy of first block
+        b2 = b1.copy()
+
+        # Get the two cat* endGroups
+        endGroup1 = b1.freeEndGroups(endGroupTypes="cat:a*")[0]
+        endGroup2 = b2.freeEndGroups(endGroupTypes="cat:a*")[0]
+
+        # Position so they can bond
+        b1.positionGrowBlock(endGroup1, endGroup2)
+
+        # Put b2 in the cell and bond them together
+        mycell.addBlock(b2)
+        mycell.checkMove(b2.id)
+        mycell.processBonds()
+        # End setup
+
+        self.assertEqual(len(mycell.blocks), 1)
+
+        # Now see if we can split off the two cat blocks and join the two PAF blocks
+        mycell.cat2Paf2(["PAF"], dt=0.00001, optCycles=10000)
+        # mycell.dump()
+
+        self.assertEqual(len(mycell.blocks), 3)
+        return
+
     def testCellIO(self):
-        """Check we can write out and then read in a cell"""
+        """Check we can write out and then read in a cell
+        """
         # Remember a coordinate for checking
         mycell = self.createTestCell()
         test_coord = mycell.blocks[list(mycell.blocks.keys())[0]].coord(4)
@@ -475,9 +577,7 @@ class Test(unittest.TestCase):
 
         dc1 = mycell.distance(nv1, nv2)
         dn = np.linalg.norm(nv2 - nv1)
-        self.assertAlmostEqual(
-            dc1, dn, 11, "Distance within cell:{} | {}".format(dc1, dn)
-        )
+        self.assertEqual(dc1, dn, "Distance within cell:{} | {}".format(dc1, dn))
 
         x = v2[0] + 2 * CELLA
         y = v2[1] + 2 * CELLB
@@ -519,45 +619,23 @@ class Test(unittest.TestCase):
         self.assertEqual(ref, mycell.dihedral(p1, p2, p3, p4))
         return
 
+    @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testDump(self):
-        """Test we can dump a cell and read it back in correctly"""
+        """Test we can dump a cell"""
         boxDim = [30, 30, 30]
         mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         mycell.libraryAddFragment(filename=self.ch4Car, fragmentType="A")
-        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType="B")
-        mycell.addBondType("A:a-B:a")
+        mycell.addBondType("A:a-A:a")
 
-        toSeed = 1
+        toSeed = 2
+        added = mycell.seed(toSeed, center=True, random=False)
+        self.assertEqual(added, toSeed, "seed")
         nblocks = 2
-        ftype1 = "A"
-        ftype2 = "B"
-        ftypes = set([ftype1, ftype2])
-        mycell.seed(toSeed, fragmentType=ftype1)
-        mycell.seed(toSeed, fragmentType=ftype2)
-
-        # Run initial tests
-        self.assertEqual(len(mycell.blocks), nblocks)
-        cell_ftypes = set(mycell.fragmentTypes().keys())
-        self.assertEqual(ftypes, cell_ftypes)
-        for b in mycell.blocks.values():
-            self.assertEqual(len(b.fragments), 1)
-            f = b.fragments[0].fragmentType
-            self.assertIn(f, cell_ftypes)
-
-        # Dump and then read back in
-        dumpfile = mycell.dump()
-        mycell = ab_util.cellFromPickle(dumpfile)
-
-        # Run same tests again
-        self.assertEqual(len(mycell.blocks), nblocks)
-        cell_ftypes = set(mycell.fragmentTypes().keys())
-        self.assertEqual(ftypes, cell_ftypes)
-        for b in mycell.blocks.values():
-            self.assertEqual(len(b.fragments), 1)
-            f = b.fragments[0].fragmentType
-            self.assertIn(f, cell_ftypes)
-
-        os.unlink(dumpfile)
+        added = mycell.growBlocks(nblocks, endGroupType=None, maxTries=1, random=False)
+        self.assertEqual(added, nblocks, "growBlocks did not return ok")
+        mycell.optimiseGeometry(rigidBody=True, optCycles=10)
+        mycell.dump()
+        os.unlink("step_1" + ab_util.GZIP_PKL_SUFFIX)
         return
 
     def testEndGroupTypes(self):
@@ -705,7 +783,7 @@ class Test(unittest.TestCase):
         self.assertEqual(natoms2, (natoms * nblocks) - (nblocks - 1) * 2)
         block = list(mycell.blocks.values())[0]
         self.assertTrue(
-            np.allclose(block.centroid(), [12.98361984, 17.32539607, 11.75529531])
+            np.allclose(block.centroid(), [12.91963557, 17.39975016, 11.65120767])
         )
         self.assertFalse(self.clashes(mycell))
         return
@@ -795,7 +873,7 @@ class Test(unittest.TestCase):
         )
         self.assertFalse(self.clashes(mycell))
         self.assertTrue(
-            np.allclose(block1.centroid(), [12.76268068, 14.93950509, 14.96662624])
+            np.allclose(block1.centroid(), [12.69119085, 14.93774993, 14.96541503])
         )
         return
 
@@ -1059,7 +1137,8 @@ class Test(unittest.TestCase):
 
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testOptimiseGeometryDihedral(self):
-        """ """
+        """
+        """
         mycell = self.createTestCell()
         mycell.optimiseGeometry(doDihedral=True, quiet=True, optCycles=1000)
         self.assertFalse(self.clashes(mycell))
@@ -1079,30 +1158,15 @@ class Test(unittest.TestCase):
             toGrow=2, cellEndGroups=None, libraryEndGroups=["A:a"], maxTries=10
         )
         ok = mycell.optimiseGeometry(
-            rigidBody=False, doDihedral=True, optCycles=1000, dump=False, quiet=True
-        )
-        self.assertFalse(self.clashes(mycell))
-        return
-
-    @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
-    def testOptimiseGeometryStaticRigid(self):
-        """Test reading in a static structure defined in the cell"""
-        mycell = Cell(filePath=self.graphiteCar, paramsDir=PARAMS_DIR)
-        mycell.libraryAddFragment(filename=self.ch4Car, fragmentType="A")
-        mycell.addBondType("A:a-A:a")
-        mycell.seed(3, fragmentType="A", center=True)
-        mycell.growBlocks(
-            toGrow=2, cellEndGroups=None, libraryEndGroups=["A:a"], maxTries=10
-        )
-        ok = mycell.optimiseGeometry(
-            rigidBody=True, doDihedral=True, optCycles=1000, dump=False, quiet=True
+            rigidBody=False, doDihedral=True, optCycles=1000, dump=False, quiet=False
         )
         self.assertFalse(self.clashes(mycell))
         return
 
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testRunMD(self):
-        """ """
+        """
+        """
         mycell = self.createTestCell()
         mycell.runMD(
             doDihedral=True,
@@ -1121,7 +1185,8 @@ class Test(unittest.TestCase):
 
     @unittest.skipUnless(ab_util.HOOMDVERSION is not None, "Need HOOMD-BLUE to run")
     def testRunMdNpt(self):
-        """ """
+        """
+        """
         mycell = self.createTestCell()
         mycell.runMD(
             doDihedral=True,
@@ -1149,7 +1214,8 @@ class Test(unittest.TestCase):
         "Need HOOMD-BLUE 1 to run",
     )
     def testRunMDAndOptimise(self):
-        """ """
+        """
+        """
         mycell = self.createTestCell()
         mycell.runMDAndOptimise(doDihedral=True, quiet=True)
         self.assertFalse(self.clashes(mycell))
@@ -1409,11 +1475,12 @@ class Test(unittest.TestCase):
         sumall = sum(count)
         current = [float(c) / float(sumall) for c in count]
         wratio = [float(r) / float(sum(ratio)) for r in ratio]
-        self.assertTrue(np.allclose(np.array(wratio), np.array(current), rtol=0.1))
+        self.assertTrue(np.allclose(np.array(wratio), np.array(current), rtol=0.05))
         return
 
     def testSurroundBoxes(self):
-        """ """
+        """
+        """
         boxDim = [5, 5, 5]
         mycell = Cell(boxDim, paramsDir=PARAMS_DIR)
         # box size=1 - need to set manually as not reading in a block
@@ -1767,7 +1834,6 @@ class Test(unittest.TestCase):
         self.assertEqual(made, 1)
         return
 
-    @unittest.skip("Broken test")
     def testWriteCml(self):
         """
         write out cml

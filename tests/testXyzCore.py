@@ -110,7 +110,7 @@ class Test(unittest.TestCase):
         return
 
     def testRotMat2Quat(self):
-        M = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+        M = np.matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
         Q = xyz_core.quaternion_from_matrix(M)
         ref = np.array([1.0, 0.0, 0.0, 0.0])
         self.assertTrue(np.allclose(Q, ref, rtol=0.0001))
@@ -122,7 +122,7 @@ class Test(unittest.TestCase):
         center = True
         c1u, image = xyz_core.wrapCoord3(c1, dim, center=center)
         cref = np.array([-4.0, -8.0, -12.0])
-        iref = np.array([10, 10, 10], dtype=int)
+        iref = np.array([10, 10, 10], dtype=np.int)
         self.assertTrue(np.allclose(c1u, cref))
         self.assertTrue(np.array_equal(image, iref))
 
@@ -132,7 +132,7 @@ class Test(unittest.TestCase):
         center = True
         c1u, image = xyz_core.wrapCoord3(c1, dim, center=center)
         cref = np.array([4.0, 8.0, 12.0])
-        iref = np.array([-11, -11, -11], dtype=int)
+        iref = np.array([-11, -11, -11], dtype=np.int)
         self.assertTrue(np.allclose(c1u, cref))
         self.assertTrue(np.array_equal(image, iref))
 
@@ -142,23 +142,23 @@ class Test(unittest.TestCase):
         center = True
         c1u, image = xyz_core.wrapCoord3(c1, dim, center=center)
         cref = np.array([[-4.0, -8.0, -12.0], [4.0, 8.0, 12.0]])
-        iref = np.array([[10, 10, 10], [-11, -11, -11]], dtype=int)
+        iref = np.array([[10, 10, 10], [-11, -11, -11]], dtype=np.int)
         self.assertTrue(np.allclose(c1u, cref))
         self.assertTrue(np.array_equal(image, iref))
 
     def testUnWrapCoord3_1(self):
         cin = np.array([-4.0, -8.0, -12.0])
-        idxin = np.array([10, 10, 10], dtype=int)
+        idxin = np.array([10, 10, 10], dtype=np.int)
         dim = np.array([10, 20, 30])
         coord = xyz_core.unWrapCoord3(cin, idxin, dim, centered=True)
         self.assertTrue(np.allclose(coord, np.array([101.0, 202.0, 303.0])))
 
     def testVectorAngle(self):
         """Test we can measure angles"""
-        v1 = np.array([1, 1, 0])
-        v2 = np.array([0, 1, 1])
+        v1 = np.array([0, 0, 0])
+        v2 = np.array([1, 0, 0])
         theta = xyz_core.vectorAngle(v1, v2)
-        self.assertAlmostEqual(60, math.degrees(theta))
+        self.assertEqual(180, math.degrees(theta))
         return
 
     def testVecDiff(self):

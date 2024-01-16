@@ -92,6 +92,20 @@ def cellFromPickle(pickleFile, paramsDir=None):
             fragment._individualAttrs["configStr"] = fragment.configStr
         return
 
+    if not os.path.isfile(pickleFile):
+        raise RuntimeError("Cannot find file: {}".format(pickleFile))
+    if pickleFile.endswith(GZIP_PKL_SUFFIX):
+        compressed = True
+        popen = gzip.open
+    elif pickleFile.endswith(PKL_SUFFIX):
+        compressed = False
+        popen = open
+    else:
+        raise RuntimeError(
+            "Unrecognised pkl file suffix for file {}. Use {} or {}".format(
+                pickleFile, PKL_SUFFIX, GZIP_PKL_SUFFIX
+            )
+        )
     # This is another terrible hack for dealing with old pkl files that used the old class names
     from ambuild import ab_block
     from ambuild import ab_bond
@@ -106,8 +120,16 @@ def cellFromPickle(pickleFile, paramsDir=None):
     sys.modules["buildingBlock"] = ab_block
     sys.modules["cell"] = ab_cell
     sys.modules["fragment"] = ab_fragment
-
-    myCell = unpickleObj(pickleFile)
+    mode = "r"
+    if compressed or PYTHONFLAVOUR == 3:
+        mode += "b"
+    # Renamed cell class so need to alias here for old files
+    with popen(pickleFile, mode) as f:
+        try:
+            myCell = pickle.load(f)
+        except UnicodeDecodeError:
+            # This probably indicates we are trying to open a filed pickled with Python2 with Python3
+            myCell = pickle.load(f, encoding="latin1")
     del ab_block.Bond
     del sys.modules["buildingBlock"]
     del sys.modules["cell"]
@@ -163,16 +185,13 @@ def dumpPkl(pickleFile, split=None, nonPeriodic=False, paramsDir=None):
     if split == "fragments":
         for t in mycell.fragmentTypes().keys():
             data = mycell.cellData(fragmentType=t)
-            if data:
-                mycell.writeXyz(
-                    "{0}_{1}_P.xyz".format(prefix, t), data=data, periodic=True
-                )
-                mycell.writeCml(
-                    "{0}_{1}_PV.cml".format(prefix, t),
-                    data=data,
-                    periodic=True,
-                    pruneBonds=True,
-                )
+            mycell.writeXyz("{0}_{1}_P.xyz".format(prefix, t), data=data, periodic=True)
+            mycell.writeCml(
+                "{0}_{1}_PV.cml".format(prefix, t),
+                data=data,
+                periodic=True,
+                pruneBonds=True,
+            )
     elif split == "blocks":
         periodic = True
         for i, b in enumerate(mycell.blocks.values()):
@@ -186,25 +205,21 @@ def dumpPkl(pickleFile, split=None, nonPeriodic=False, paramsDir=None):
     else:
         if nonPeriodic:
             data = mycell.cellData(rigidBody=False, periodic=False)
-            if data:
-                mycell.writeCml(
-                    prefix + "_NP.cml", data, periodic=False, pruneBonds=False
-                )
-                mycell.writeXyz(prefix + "_NP.xyz", data=data, periodic=False)
-                mycell.writeXyz(
-                    prefix + "_NP_types.xyz", data=data, periodic=False, atomTypes=True
-                )
+            mycell.writeCml(prefix + "_NP.cml", data, periodic=False, pruneBonds=False)
+            mycell.writeXyz(prefix + "_NP.xyz", data=data, periodic=False)
+            mycell.writeXyz(
+                prefix + "_NP_types.xyz", data=data, periodic=False, atomTypes=True
+            )
         else:
             data = mycell.cellData(rigidBody=False)
-            if data:
-                mycell.writeXyz(prefix + "_P.xyz", data=data, periodic=True)
-                mycell.writeXyz(
-                    prefix + "_P_types.xyz", data=data, periodic=True, atomTypes=True
-                )
-                # self.writeCar(prefix+"_P.car",data=data,periodic=True)
-                mycell.writeCml(
-                    prefix + "_PV.cml", data=data, periodic=True, pruneBonds=True
-                )
+            mycell.writeXyz(prefix + "_P.xyz", data=data, periodic=True)
+            mycell.writeXyz(
+                prefix + "_P_types.xyz", data=data, periodic=True, atomTypes=True
+            )
+            # self.writeCar(prefix+"_P.car",data=data,periodic=True)
+            mycell.writeCml(
+                prefix + "_PV.cml", data=data, periodic=True, pruneBonds=True
+            )
     return
 
 
@@ -366,34 +381,6 @@ def is_exe(fpath):
 
     """
     return fpath and os.path.exists(fpath) and os.access(fpath, os.X_OK)
-
-
-def unpickleObj(pickleFile):
-    if not os.path.isfile(pickleFile):
-        raise RuntimeError("Cannot find file: {}".format(pickleFile))
-    if pickleFile.endswith(GZIP_PKL_SUFFIX):
-        compressed = True
-        popen = gzip.open
-    elif pickleFile.endswith(PKL_SUFFIX):
-        compressed = False
-        popen = open
-    else:
-        raise RuntimeError(
-            "Unrecognised pkl file suffix for file {}. Use {} or {}".format(
-                pickleFile, PKL_SUFFIX, GZIP_PKL_SUFFIX
-            )
-        )
-    mode = "r"
-    if compressed or PYTHONFLAVOUR == 3:
-        mode += "b"
-    # Renamed cell class so need to alias here for old files
-    with popen(pickleFile, mode) as f:
-        try:
-            myObj = pickle.load(f)
-        except UnicodeDecodeError:
-            # This probably indicates we are trying to open a filed pickled with Python2 with Python3
-            myObj = pickle.load(f, encoding="latin1")
-    return myObj
 
 
 if __name__ == "__main__":

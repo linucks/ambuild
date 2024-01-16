@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import logging
 import math
 import os
@@ -89,15 +88,7 @@ class Test(unittest.TestCase):
         self.assertEqual(
             [0, 0, 0, 0], [e.blockEndGroupIdx for e in cx4_1.freeEndGroups()]
         )
-        self.assertEqual(
-            [
-                1,
-                2,
-                3,
-                4,
-            ],
-            [e.blockCapIdx for e in cx4_1.freeEndGroups()],
-        )
+        self.assertEqual([1, 2, 3, 4,], [e.blockCapIdx for e in cx4_1.freeEndGroups()])
 
         cx4_2 = Block(filePath=self.cx4Car, fragmentType="A")
 
@@ -580,7 +571,7 @@ class Test(unittest.TestCase):
         self.assertEqual(idxs, ref_idxs)
 
     def testMaxBond(self):
-        f = ab_fragment.fragmentFactory("A", self.ch4_1Car)
+        f = ab_fragment.Fragment(filePath=self.ch4_1Car, fragmentType="A")
         f.setMaxBond("A:b", 1)
         block1 = Block(initFragment=f)
         block2 = Block(filePath=self.ch4Car, fragmentType="B")
@@ -600,7 +591,7 @@ class Test(unittest.TestCase):
 
     def testBondingFunction(self):
         carfile = os.path.join(BLOCKS_DIR, "benzene6.car")
-        f = ab_fragment.fragmentFactory("A", carfile)
+        f = ab_fragment.Fragment(filePath=carfile, fragmentType="A")
 
         def x(endGroup):
             fragment = endGroup.fragment
@@ -648,7 +639,7 @@ class Test(unittest.TestCase):
     def testMultiEndGroups(self):
         """Test we can move correctly"""
         # Try with no settings
-        f = ab_fragment.fragmentFactory("A", self.ch4_1Car)
+        f = ab_fragment.Fragment(filePath=self.ch4_1Car, fragmentType="A")
         m1 = Block(initFragment=f)
         m2 = m1.copy()
         eg1 = m1.freeEndGroups()[0]
@@ -659,7 +650,7 @@ class Test(unittest.TestCase):
         self.assertEqual(6, len(m1.freeEndGroups()))
 
         # Try with specifying bond
-        f = ab_fragment.fragmentFactory("A", self.ch4_1Car)
+        f = ab_fragment.Fragment(filePath=self.ch4_1Car, fragmentType="A")
         m1 = Block(initFragment=f)
         f.setMaxBond("A:a", 1)
         m2 = m1.copy()
@@ -698,7 +689,9 @@ class Test(unittest.TestCase):
         endGroup2 = growBlock.freeEndGroups()[1]
 
         # Get position to check
-        newPos = blockS.newBondPosition(endGroup1, endGroup2)
+        newPos = blockS.newBondPosition(
+            endGroup1, growBlock.symbol(endGroup2.blockEndGroupIdx)
+        )
 
         # Position the block
         blockS.positionGrowBlock(endGroup1, endGroup2)
@@ -726,7 +719,9 @@ class Test(unittest.TestCase):
         endGroup2 = growBlock.freeEndGroups()[0]
 
         # Get position to check
-        newPos = staticBlock.newBondPosition(endGroup1, endGroup2)
+        newPos = staticBlock.newBondPosition(
+            endGroup1, growBlock.symbol(endGroup2.blockEndGroupIdx)
+        )
 
         # staticBlock._symbols.append( 'N' )
         # staticBlock._coords.append( newPos )
@@ -747,10 +742,10 @@ class Test(unittest.TestCase):
 
         return
 
-    @unittest.skip("Broken as changed bond lengths so previous check no longer works")
     def testPositionDihedral(self):
 
         staticBlock = Block(filePath=self.benzeneCar, fragmentType="A")
+
         growBlock = staticBlock.copy()
 
         growBlock.translateCentroid([3, 4, 5])
@@ -761,7 +756,9 @@ class Test(unittest.TestCase):
         endGroup2 = growBlock.freeEndGroups()[0]
 
         # Get position to check
-        staticBlock.newBondPosition(endGroup1, endGroup2)
+        staticBlock.newBondPosition(
+            endGroup1, growBlock.symbol(endGroup2.blockEndGroupIdx)
+        )
         # Position the block
         staticBlock.positionGrowBlock(endGroup1, endGroup2, dihedral=math.pi / 2)
 
@@ -772,6 +769,8 @@ class Test(unittest.TestCase):
             np.allclose(hcheck, endGroupCoord, rtol=1e-9, atol=1e-7),
             msg="testCenterOfMass incorrect COM.",
         )
+
+        # self.catBlocks( [staticBlock, growBlock ], "both2.xyz")
         return
 
     def testRadius(self):
@@ -838,7 +837,6 @@ class Test(unittest.TestCase):
 
         return
 
-    @unittest.skip("Broken test - too senstive?")
     def testSplitFragment(self):
         """
         Test the rotation
@@ -879,7 +877,6 @@ class Test(unittest.TestCase):
 
         return
 
-    @unittest.skip("Broken test - too sensitive")
     def testWriteCml(self):
         """foo"""
         ch4_1 = Block(filePath=self.benzeneCar, fragmentType="A")

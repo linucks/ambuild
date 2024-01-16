@@ -28,7 +28,6 @@ import numpy as np
 from ambuild.ab_fragment import Fragment
 from ambuild import xyz_core
 from ambuild import xyz_util
-from ambuild import ab_fragment
 
 logger = logging.getLogger(__name__)
 
@@ -43,36 +42,17 @@ class Block(object):
     * bonds just point to two endGroups that are bonded to each other
     """
 
-    def __init__(
-        self,
-        filePath=None,
-        fragmentType=None,
-        initFragment=None,
-        solvent=None,
-        markBonded=None,
-        catalyst=None,
-    ):
+    def __init__(self, filePath=None, fragmentType=None, initFragment=None):
         """
         Constructor
         """
         # Need to change so cannot create block withough fragmentType
-        self.fragments = []
         if filePath:
-            if initFragment:
-                raise RuntimeError("Cannot include initFragment with filePath")
-            if not os.path.isfile(filePath):
-                raise RuntimeError(f"Missing fragment file: {filePath}")
-            if not fragmentType:
-                raise RuntimeError(
-                    f"Missing fragmentType definition for file:  {filePath}"
-                )
-            initFragment = ab_fragment.fragmentFactory(
-                fragmentType,
-                filePath,
-                solvent=solvent,
-                markBonded=markBonded,
-                catalyst=catalyst,
+            assert os.path.isfile(filePath) and fragmentType, "Missing file: {}".format(
+                filePath
             )
+            initFragment = Fragment(filePath, fragmentType)
+        self.fragments = []
         if initFragment:
             self.fragments.append(initFragment)
         self._blockBonds = []  # List of bond objects between blocks
@@ -85,7 +65,6 @@ class Block(object):
         self._bodies = (
             []
         )  # List of which body in the block each atom belongs too - frags can contain multiple bodies
-        self._fragmentTypeDict = {}
         # The list of atoms that are endGroups and their corresponding angleAtoms
         self._freeEndGroups = {}
         self._numFreeEndGroups = 0
@@ -286,7 +265,8 @@ class Block(object):
         ]
 
     def bondBlock(self, bond):
-        """Add newBlock to this one"""
+        """ Add newBlock to this one
+        """
         assert bond.endGroup1.block() == self
         # Tried optimising this by passing in the bond to update and only updating those fragments/
         # endGroups that had changed but it rapidly got rather complicated so we keep to a simple
@@ -366,13 +346,10 @@ class Block(object):
 
     def dataByFragment(self, fragmentType):
         """Return the data for a specific fragmentType within the block"""
-        if fragmentType not in self.fragmentTypes():
-            logger.debug(
-                f"Cannot find fragmentType '{fragmentType}' in block: {self.fragmentTypes()}"
-            )
-            return None
+
         coords = []
         symbols = []
+
         atomCount = 0
         fbondRen = {}
         for i in range(len(self._dataMap)):
@@ -381,15 +358,14 @@ class Block(object):
                 coords.append(self.coord(i))
                 symbols.append(self.symbol(i))
                 atomCount += 1
-        if atomCount > 0:
-            bonds = [
-                (fbondRen[b1], fbondRen[b2])
-                for ftype, (b1, b2) in self._bondsByFragmentType
-                if ftype == fragmentType
-            ]
-            return coords, symbols, bonds
-        else:
-            return None
+
+        bonds = [
+            (fbondRen[b1], fbondRen[b2])
+            for ftype, (b1, b2) in self._bondsByFragmentType
+            if ftype == fragmentType
+        ]
+
+        return coords, symbols, bonds
 
     def deleteBond(self, bond, root=None):
         """root is an optional fragment which we want to stay in this block"""
@@ -584,7 +560,8 @@ class Block(object):
         return dindices
 
     def flip(self, fvector):
-        """Rotate perpendicular to fvector so we  facing the opposite way along the fvector"""
+        """Rotate perpendicular to fvector so we  facing the opposite way along the fvector
+        """
 
         # Find vector perpendicular to the bond axis
         # Dot product needs to be 0
@@ -631,7 +608,7 @@ class Block(object):
         return self._fragmentTypeDict
 
     def fragmentTypes(self):
-        return list(self._fragmentTypeDict.keys())
+        return self._fragmentTypeDict.keys()
 
     def freeEndGroups(self, endGroupTypes=None, fragment=None):
         """Return the list of free endGroups.
@@ -667,7 +644,8 @@ class Block(object):
         return self._endGroupType2EndGroups.keys()
 
     def isEndGroup(self, idxAtom):
-        """Return True if this atom is a free endGroup"""
+        """Return True if this atom is a free endGroup
+        """
         # No need to do conversion as atomEndGroups is external interface
         if self.atomEndGroups(idxAtom):
             return True
@@ -683,33 +661,31 @@ class Block(object):
         assert self._maxAtomRadius > 0
         return self._maxAtomRadius
 
-    def newBondPosition(self, staticEndGroup, growEndGroup):
-        """Return the position where a bond to an atom of type growEndGroup
-        would be placed if bonding to the staticEndGroup
+    def newBondPosition(self, endGroup, symbol):
+        """Return the position where a bond to an atom of type 'symbol'
+        would be placed if bonding to the target endgroup
+         I'm sure this algorithm is clunky in the extreme...
         """
 
-        # Get the bond length between these two atoms
-        growBlock = growEndGroup.block()
-        growAtomType = growBlock.type(growEndGroup.blockEndGroupIdx)
-        staticAtomType = self.type(staticEndGroup.blockEndGroupIdx)
-        bondLength = xyz_util.bondLength(staticAtomType, growAtomType)
-        if bondLength < 0:
-            growAtomSymbol = growBlock.symbol(growEndGroup.blockEndGroupIdx)
-            staticSymbol = self.symbol(staticEndGroup.blockEndGroupIdx)
-            bondLength = xyz_util.bondLength(staticSymbol, growAtomSymbol)
+        targetEndGroup = self.coord(endGroup.blockEndGroupIdx)
+        targetSymbol = self.symbol(endGroup.blockEndGroupIdx)
+        targetCapAtom = self.coord(endGroup.blockCapIdx)
 
-        # Find unit vector pointing from targetAngleAtom to staticEndGroup
-        staticCoord = self.coord(staticEndGroup.blockEndGroupIdx)
-        staticCapAtomCoord = self.coord(staticEndGroup.blockCapIdx)
-        # vector from staticEndGroup to staticCapAtom
-        # v1 = staticEndGroup - staticCapAtom
-        v1 = staticCapAtomCoord - staticCoord
+        # Get the bond length between these two atoms
+        bondLength = xyz_util.bondLength(targetSymbol, symbol)
+
+        # Find unit vector pointing from targetAngleAtom to targetEndGroup
+
+        # vector from targetEndgroup to targetCapAtom
+        # v1 = targetEndGroup - targetCapAtom
+        v1 = targetCapAtom - targetEndGroup
 
         # Now get unit vector
         uv = v1 / np.linalg.norm(v1)
 
         # Multiply unit vector by bond length to get the component to add on
-        newPosition = staticCoord + (uv * bondLength)
+        newPosition = targetEndGroup + (uv * bondLength)
+
         return newPosition
 
     def numFreeEndGroups(self):
@@ -731,10 +707,15 @@ class Block(object):
         endGroupAtom = self.coord(endGroup.blockEndGroupIdx)
         capAtom = self.coord(endGroup.blockCapIdx)
         refVector = endGroupAtom - capAtom
+
         growBlock = growEndGroup.block()
 
         # get the coord where the next block should bond
-        bondPos = self.newBondPosition(endGroup, growEndGroup)
+        # symbol of endGroup tells us the sort of bond we are making which determines
+        # the bond length
+        symbol = growBlock.symbol(growEndGroup.blockEndGroupIdx)
+        bondPos = self.newBondPosition(endGroup, symbol)
+        # print "got bondPos for {0}: {1}".format( symbol, bondPos )
 
         # Align along the staticBlock bond
         growBlock.alignAtoms(
@@ -776,8 +757,8 @@ class Block(object):
     def randomRotate(self, origin=[0, 0, 0], atOrigin=False):
         """Randomly rotate a block.
 
-        Args:
-        atOrigin -- flag to indicate if the block is already positioned at the origin
+         Args:
+         atOrigin -- flag to indicate if the block is already positioned at the origin
         """
         if not atOrigin:
             position = self.centroid()
@@ -824,7 +805,7 @@ class Block(object):
 
     def selectEndGroup(self, endGroupTypes=None, random=True):
         """Return a random free endGroup in the block"""
-        if endGroupTypes is None:
+        if endGroupTypes == None:
             if random:
                 # We pick a random endGroup
                 endGroup = _random.choice(self.freeEndGroups())
@@ -863,7 +844,7 @@ class Block(object):
         return endGroup
 
     def translate(self, tvector):
-        """translate the molecule by the given vector"""
+        """ translate the molecule by the given vector"""
         # CHANGE SO WE CHECK IF IS A NUMPY ARRAY
         if isinstance(tvector, list):
             tvector = np.array(tvector)
@@ -881,7 +862,8 @@ class Block(object):
         return
 
     def _update(self):
-        """Set the list of _endGroups & update data for new block"""
+        """Set the list of _endGroups & update data for new block
+        """
         # Now build up the dataMap listing where each fragment starts in the block and linking the
         # overall block atom index to the fragment and fragment atom index
         self._dataMap = []
