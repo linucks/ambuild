@@ -191,15 +191,16 @@ sudo ubuntu-drivers autoinstall
 
 #### 7. Get Ambuild
 
-1. Firstly, install git using:
+1. Download Ambuild from the Releases section or enter the following into your terminal:
 ```
-sudo apt-get install git
+$ curl -OL https://github.com/linucks/ambuild/archive/2.0.0.tar.gz
 ```
 
-2. Checkout ambuild from the GitHub repository. We recommend that you cd into /opt, and then run this command.
+2. Extract files using:
 ```
-git clone https://github.com/linucks/ambuild.git
+$ tar -xzf 2.0.0.tar.gz
 ```
+Which will give a folder named ambuild-2.0.0 containing the Ambuild code.
 
 ## Installation of optional dependencies
 ### Poreblazer
